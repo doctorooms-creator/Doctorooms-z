@@ -1,0 +1,200 @@
+-- phpMyAdmin SQL Dump
+-- version 4.8.3
+-- https://www.phpmyadmin.net/
+--
+-- Host: 127.0.0.1
+-- Generation Time: Jul 12, 2022 at 05:13 PM
+-- Server version: 10.1.36-MariaDB
+-- PHP Version: 7.2.11
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+SET AUTOCOMMIT = 0;
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Database: `hospital_app_db`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `booking`
+--
+
+CREATE TABLE `booking` (
+  `id` int(11) NOT NULL,
+  `appointment_no` varchar(255) DEFAULT NULL,
+  `doctor_id` int(11) NOT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `state` varchar(255) DEFAULT NULL,
+  `city` varchar(255) DEFAULT NULL,
+  `booking_date` datetime NOT NULL,
+  `petient_name` varchar(255) NOT NULL,
+  `disease` varchar(255) NOT NULL,
+  `description` text,
+  `gender` varchar(50) DEFAULT NULL,
+  `date_of_birth` date DEFAULT NULL,
+  `age` int(11) DEFAULT NULL,
+  `relation_with_me` varchar(255) DEFAULT NULL,
+  `blood_group` varchar(50) DEFAULT NULL,
+  `weight` decimal(18,3) DEFAULT NULL,
+  `height` decimal(18,3) DEFAULT NULL,
+  `physical_handicape` varchar(50) NOT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  `status` varchar(50) NOT NULL,
+  `booking_type` varchar(255) DEFAULT NULL COMMENT 'booking type: by self or by receptionist',
+  `appointment_charge` decimal(18,2) DEFAULT NULL COMMENT 'admin charge'
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+
+--
+-- Dumping data for table `booking`
+--
+
+INSERT INTO `booking` (`id`, `appointment_no`, `doctor_id`, `user_id`, `state`, `city`, `booking_date`, `petient_name`, `disease`, `description`, `gender`, `date_of_birth`, `age`, `relation_with_me`, `blood_group`, `weight`, `height`, `physical_handicape`, `created_at`, `updated_at`, `status`, `booking_type`, `appointment_charge`) VALUES
+(2, 'APMT-1', 4, 17, NULL, NULL, '2019-02-28 00:00:00', 'Vivek', 'Fever', 'sdf', 'Male', NULL, 22, 'Self', 'O-', '60.000', '165.000', 'No', '2019-02-26 01:16:40', '2019-03-01 00:12:21', 'Visited', NULL, '1.00'),
+(3, 'APMT-2', 19, 17, NULL, NULL, '2019-03-01 00:00:00', 'Vivek', 'Fever', 'erfertre', 'Male', '0000-00-00', 22, 'Self', 'O-', '60.000', '165.000', 'No', '2019-02-26 23:52:36', '2019-10-30 21:23:20', 'Visited', NULL, '1.00'),
+(4, 'APMT-3', 4, 17, NULL, NULL, '2019-03-05 00:00:00', 'Vivek', 'Fever', 'sfsd', 'Male', '2019-03-01', 22, 'Self', 'O-', '60.000', '165.000', 'No', '2019-03-01 23:42:20', '2019-03-02 00:55:10', 'Canceled', NULL, '1.00'),
+(6, 'APMT-4', 4, 17, NULL, NULL, '2019-03-09 00:00:00', 'Himmat Rao', 'Fever', 'dfxgds', 'Male', '2017-04-06', 0, 'Self', 'O-', '60.000', '165.000', 'No', '2019-03-06 23:56:34', '2020-06-15 10:30:15', 'Visited', NULL, '1.00'),
+(7, 'APMT-5', 4, 17, NULL, NULL, '2019-03-18 00:00:00', 'Nandoliya', 'Fever', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-03-14 00:03:11', '2019-10-14 23:09:54', 'Canceled', 'By Receptionist', '1.00'),
+(8, 'APMT-6', 4, 17, NULL, NULL, '2019-03-16 00:00:00', 'Nandoliya', 'sd', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-03-14 00:04:04', '2019-10-14 23:14:43', 'Visited', 'By Receptionist', '1.00'),
+(9, 'APMT-7', 4, 17, NULL, NULL, '2019-03-18 00:00:00', 'Himmat Rao', 'Fever', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-03-14 00:06:01', '2019-10-14 23:10:55', 'Visited', 'By Receptionist', '1.00'),
+(10, 'APMT-8', 4, 17, NULL, NULL, '2019-04-02 00:00:00', 'Nandoliya', 'Fever', '', 'Male', '2017-06-01', 1, '', 'A+', '0.000', '0.000', 'No', '2019-03-28 00:06:12', '2019-10-14 23:11:09', 'Visited', 'By Receptionist', '1.00'),
+(11, 'APMT-9', 20, 17, 'Gujarat', 'Ahmedabad', '2019-04-06 00:00:00', 'Jignesh Parmar', 'Fever', '', 'Male', '2017-03-07', 2, 'Self', 'O+', '60.000', '165.000', 'No', '2019-04-03 00:06:45', '2020-10-01 10:41:34', 'Visited', 'By Self', '1.00'),
+(12, 'APMT-10', 4, 17, 'Rajasthan', 'jaipur', '2019-04-08 00:00:00', 'Manmohan', 'Fever', '', 'Male', '2019-04-02', 0, 'Self', 'O-', '60.000', '165.000', 'No', '2019-04-05 23:06:02', '2019-08-27 00:53:01', 'Visited', 'By Self', '1.00'),
+(13, 'APMT-11', 4, 17, 'Gujarat', 'palanpur', '2019-04-09 00:00:00', 'Jignesh Parmar', 'Fever', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-04-05 23:30:10', '2019-04-26 23:44:52', 'Visited', 'By Self', '1.00'),
+(14, 'APMT-12', 4, 17, 'Gujarat', 'palanpur', '2019-05-19 00:00:00', 'Nandoliya', 'Fever', '', 'Female', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-05-16 23:43:33', '2019-10-14 23:10:12', 'Visited', 'By Self', '1.00'),
+(15, 'APMT-13', 4, 17, 'Gujarat', 'Ahmedabad', '2019-05-19 00:00:00', 'Ranjeet Mali', 'Fever', '', 'Male', '0000-00-00', 0, '', 'A+', '0.000', '0.000', 'No', '2019-05-16 23:48:47', '2019-08-27 00:45:57', 'Visited', 'By Self', '1.00'),
+(16, 'APMT-14', 4, 17, 'Gujarat', '', '2019-05-19 00:00:00', 'Vikash', 'Fever', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-05-16 23:49:19', '2019-08-27 00:41:15', 'Visited', 'By Self', '1.00'),
+(20, 'APMT-15', 23, NULL, NULL, NULL, '0000-00-00 00:00:00', 'snehal vyas', 'heart', 'bkbkbkbk', 'Male', '0000-00-00', 0, '', 'AB-', '0.000', '0.000', 'No', '2019-06-24 00:49:36', '2020-09-28 22:33:32', 'Visited', 'By Hospital', '1.00'),
+(21, 'APMT-16', 23, NULL, NULL, NULL, '0000-00-00 00:00:00', 'dfdfdfdfd gfg', 'fkng', 'dfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnpdfdfognpgnpgnp', 'Male', '2019-05-06', 66, '', 'A+', '0.000', '0.000', 'No', '2019-06-24 00:52:03', '2020-09-28 22:33:02', 'Extend', 'By Hospital', '1.00'),
+(24, 'APMT-18', 23, NULL, NULL, NULL, '0000-00-00 00:00:00', 'iqbal ghasura', 'feaver', 'sdsdsmdlsmdlskmdlksmdlksmdkl', 'Male', '1992-05-26', 27, 'self', 'B-', '65.000', '5.600', 'No', '2019-06-25 00:10:29', '2019-06-25 00:10:29', 'Pending', 'By Hospital', '1.00'),
+(25, 'APMT-19', 23, NULL, NULL, NULL, '0000-00-00 00:00:00', 'nsehal', 'pain', '', 'Male', '0000-00-00', 0, '', 'B-', '0.000', '0.000', 'No', '2019-06-26 00:13:22', '2019-06-26 00:13:22', 'Pending', 'By Hospital', '1.00'),
+(27, 'APMT-21', 25, NULL, NULL, NULL, '0000-00-00 00:00:00', 'jitu ptel', 'pain', '', 'Male', '1995-01-30', 24, 'self', 'B-', '0.000', '0.000', 'No', '2019-08-04 23:46:30', '2019-08-15 21:21:30', 'Canceled', 'By Hospital', '1.00'),
+(28, 'APMT-22', 25, NULL, NULL, NULL, '0000-00-00 00:00:00', 'snehal kumar', 'viral feaver', 'ok', 'Male', '1992-05-26', 27, 'self', 'O+', '72.000', '5.500', 'No', '2019-08-11 20:20:52', '2019-08-15 21:21:23', 'Visited', 'By Hospital', '1.00'),
+(29, 'APMT-23', 25, NULL, NULL, NULL, '2019-08-13 00:00:00', 'ajay patel', 'feaver', 'ok', 'Male', '1992-05-26', 27, 'self', 'A+', '65.000', '5.600', 'No', '2019-08-13 23:22:39', '2019-08-15 21:18:42', 'Visited', 'By Hospital', '1.00'),
+(30, 'APMT-24', 27, NULL, NULL, NULL, '2019-08-15 00:00:00', 'vishal mehta', 'asthama', 'Why do we use it?\r\nIt is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using \'Content here, content here\'', 'Male', '1992-05-26', 27, 'no', 'A+', '55.000', '5.600', 'No', '2019-08-15 14:56:55', '2019-08-15 21:21:48', 'Canceled', 'By Hospital', '1.00'),
+(31, 'APMT-25', 27, NULL, NULL, NULL, '2019-08-15 00:00:00', 'alok varma', 'dfdfndfn', 'ok', 'Male', '1992-01-15', 27, 'self', 'O-', '72.000', '5.500', 'No', '2019-08-15 21:25:39', '2019-08-15 21:26:52', 'Canceled', 'By Hospital', '1.00'),
+(32, 'APMT-26', 25, NULL, NULL, NULL, '2019-08-15 00:00:00', 'om vysa', 'gkfbgkjfgb', 'dfdofdjf', 'Male', '1994-08-23', 24, 'no', 'A-', '66.000', '5.500', 'No', '2019-08-15 21:34:12', '2019-08-15 22:11:17', 'Canceled', 'By Hospital', '1.00'),
+(33, 'APMT-27', 27, NULL, NULL, NULL, '2019-08-15 00:00:00', 'ashish patel', 'fiver', 'ok', 'Male', '1998-08-07', 21, 'self', 'B+', '55.000', '5.500', 'No', '2019-08-15 22:20:53', '2019-08-15 22:21:19', 'Visited', 'By Hospital', '1.00'),
+(34, 'APMT-28', 25, NULL, NULL, NULL, '2019-09-02 00:00:00', 'hiren', 'cancer', 'ok', 'Male', '1996-02-26', 23, '', 'O-', '0.000', '0.000', 'No', '2019-08-23 23:44:09', '2019-08-23 23:58:19', 'Visited', 'By Hospital', '1.00'),
+(35, 'APMT-29', 4, 42, NULL, NULL, '2019-10-30 00:00:00', 'sanjay patel', 'back pain', 'ok', 'Male', '2000-12-12', 18, 'brother', 'O+', '70.000', '5.600', 'Yes', '2019-10-29 22:00:29', '2019-10-30 21:29:47', 'Visited', 'By Receptionist', '1.00'),
+(36, 'APMT-30', 23, 42, NULL, NULL, '2019-11-03 00:00:00', 'mrugesh modi', 'fiver', 'ok', 'Male', '1988-11-25', 30, '-', 'O-', '60.000', '5.500', 'No', '2019-11-02 16:57:41', '2019-11-02 21:47:20', 'Visited', 'By Hospital', '1.00'),
+(37, 'APMT-31', 23, 42, NULL, NULL, '2019-11-02 00:00:00', 'sanjay patel', 'fiver', 'ok', 'Male', '1999-11-22', 19, 'self', 'A-', '70.000', '5.500', 'No', '2019-11-02 22:08:04', '2019-11-02 22:08:04', 'Pending', 'By Hospital', '1.00'),
+(38, 'APMT-32', 23, 42, NULL, NULL, '2019-11-04 00:00:00', 'hardik M. patel', 'back pain', 'dsdsd', 'Male', '1999-10-12', 20, 'self', 'A-', '70.000', '5.600', 'No', '2019-11-02 22:09:47', '2019-11-02 22:09:47', 'Pending', 'By Hospital', '1.00'),
+(39, 'APMT-33', 23, 42, NULL, NULL, '2019-11-03 00:00:00', 'mrugesh modi', 'back pain', 'sdfa', 'Male', '1992-02-04', 27, 'self', 'A-', '55.000', '5.500', 'No', '2019-11-02 22:12:26', '2020-09-28 22:33:17', 'Extend', 'By Hospital', '1.00'),
+(40, 'APMT-34', 23, 42, NULL, NULL, '2019-11-02 00:00:00', 'hardik M. patel', 'back pain', 'lkuiuk', 'Male', '1987-06-09', 32, 'self', 'B-', '55.000', '5.500', 'No', '2019-11-02 22:14:47', '2019-11-02 22:20:52', 'Visited', 'By Hospital', '1.00'),
+(41, 'APMT-35', 47, NULL, NULL, NULL, '2019-11-03 00:00:00', 'JOSHI ADITYA', 'fever', '', 'Male', '2011-08-28', 8, '', '', '0.000', '0.000', 'No', '2019-11-03 18:02:36', '2019-11-03 19:01:38', 'Visited', 'By Receptionist', '1.00'),
+(42, 'APMT-36', 47, 50, NULL, NULL, '2019-11-03 00:00:00', 'raj mehta', 'fever', '', 'Male', '2011-10-28', 8, '', '', '0.000', '0.000', 'No', '2019-11-03 18:23:04', '2019-11-03 19:01:40', 'Visited', 'By Receptionist', '1.00'),
+(43, 'APMT-37', 47, 46, 'Gujarat', 'palanpur', '2019-11-03 00:00:00', 'Mihir', 'Fever', '', 'Male', '2006-11-03', 13, '', '', '0.000', '0.000', 'No', '2019-11-03 18:45:34', '2019-11-03 19:01:42', 'Visited', 'By Self', '1.00'),
+(44, 'APMT-38', 47, NULL, NULL, NULL, '2019-11-03 00:00:00', 'RAMESH BHAI', 'FEVER', '', 'Male', '2016-11-28', 2, '', '', '0.000', '0.000', 'No', '2019-11-03 18:49:30', '2019-11-03 19:01:40', 'Visited', 'By Receptionist', '1.00'),
+(45, 'APMT-39', 47, 46, 'Gujarat', '', '2019-11-03 00:00:00', 'Himal', 'Fever', '', 'Male', '2012-08-14', 7, '', '', '0.000', '0.000', 'No', '2019-11-03 18:52:04', '2019-11-03 19:04:34', 'Visited', 'By Self', '1.00'),
+(46, 'APMT-40', 47, 50, 'Gujarat', 'palanpur', '2019-11-04 00:00:00', 'Neel', 'Ulti', 'Kankan', 'Male', '1994-09-01', 25, 'Koina', 'AB+', '87.000', '5.900', 'No', '2019-11-03 19:20:38', '2019-11-03 19:29:16', 'Canceled', 'By Self', '1.00'),
+(47, 'APMT-41', 47, 50, 'Gujarat', 'palanpur', '2019-11-03 00:00:00', 'Neel Joshi', 'Jada', '????? ??????...\r\n????? ?????...\r\n????? ??????...\r\n??? ???? ?? ?? ?????????? ????? ???... \r\n????????? ???????? ????? ????... \r\n??? ??? ??? ?? ?? ????? ????? ??? ?????...????????', 'Male', '1994-09-01', 25, 'Koina', 'AB+', '87.000', '5.600', 'No', '2019-11-03 19:26:15', '2019-11-03 19:28:59', 'Canceled', 'By Self', '1.00'),
+(48, 'APMT-42', 47, 50, 'Gujarat', 'palanpur', '2019-11-03 00:00:00', 'Pin2', 'Mardo', '????? ??????...\r\n????? ?????...\r\n????? ??????...\r\n??? ???? ?? ?? ?????????? ????? ???... \r\n????????? ???????? ????? ????... \r\n??? ??? ??? ?? ?? ????? ????? ??? ?????...????????', 'Male', '1994-11-01', 25, 'Koina', 'AB+', '88.000', '6.100', 'No', '2019-11-03 19:34:12', '2019-11-03 19:42:18', 'Visited', 'By Self', '1.00'),
+(49, 'APMT-43', 47, 50, 'Gujarat', 'Ahmedabad', '2019-11-04 00:00:00', 'Neel', 'Jada', '????? ??????...\r\n????? ?????...\r\n????? ??????...\r\n??? ???? ?? ?? ?????????? ????? ???... \r\n????????? ???????? ????? ????... \r\n??? ??? ??? ?? ?? ????? ????? ??? ?????...????????', 'Male', '1999-11-03', 20, 'Bittu', 'AB+', '28.000', '3.600', 'No', '2019-11-03 19:48:03', '2019-11-04 13:24:48', 'Canceled', 'By Self', '1.00'),
+(50, 'APMT-44', 47, 50, 'Rajasthan', 'jaipur', '2019-11-04 00:00:00', 'Ankit', 'Ulti', 'Pantiopalsnnnvxgjanb', 'Other', '1993-11-22', 25, 'Bittu', 'O-', '28.000', '3.600', 'No', '2019-11-03 19:50:16', '2019-11-05 12:26:07', 'Canceled', 'By Self', '1.00'),
+(51, 'APMT-45', 19, NULL, NULL, NULL, '2019-11-03 00:00:00', 'snehal vyas', 'viralfiver', 'ffdf', 'Male', '1994-02-01', 25, 'self', 'A+', '55.000', '5.500', 'No', '2019-11-03 20:06:28', '2019-11-03 23:20:16', 'Visited', 'By Receptionist', '1.00'),
+(52, 'APMT-46', 19, 35, NULL, NULL, '2019-11-03 00:00:00', 'rony sharma', 'back pain', 'ssdsdsd', 'Male', '1997-01-29', 22, 'self', 'B+', '70.000', '5.600', 'No', '2019-11-03 20:22:23', '2020-06-15 13:13:56', 'Canceled', 'By Receptionist', '1.00'),
+(53, 'APMT-47', 19, NULL, NULL, NULL, '2019-11-03 00:00:00', 'Alpesh Gupta', 'fiver', 'ddfd', 'Male', '1996-01-29', 23, 'self', 'AB+', '70.000', '5.500', 'No', '2019-11-03 22:04:03', '2019-11-03 23:23:16', 'Visited', 'By Receptionist', '1.00'),
+(54, 'APMT-48', 53, 46, NULL, NULL, '2019-11-03 00:00:00', 'RAMESH BHAI', 'FEVER', '', 'Male', '2002-08-18', 17, '', '', '0.000', '0.000', 'No', '2019-11-03 23:20:52', '2019-11-05 11:37:32', 'Visited', 'By Hospital', '1.00'),
+(55, 'APMT-49', 53, NULL, NULL, NULL, '2019-11-04 00:00:00', 'RAMESH lal', 'fever', '', 'Male', '1998-11-28', 20, '', '', '0.000', '0.000', 'No', '2019-11-04 00:09:23', '2019-11-05 11:37:46', 'Visited', 'By Hospital', '1.00'),
+(56, 'APMT-50', 47, 50, '', '', '0000-00-00 00:00:00', 'Neel', 'Mardo', '', 'Male', '1998-01-19', 21, '', 'A+', '0.000', '0.000', 'No', '2019-11-04 13:27:57', '2019-11-05 12:26:17', 'Canceled', 'By Self', '1.00'),
+(57, 'APMT-51', 53, 46, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'ram', 'fever', '', 'Male', '2014-12-31', 4, '', '', '0.000', '0.000', 'No', '2019-11-05 09:25:30', '2019-11-05 11:36:28', 'Visited', 'By Self', '1.00'),
+(58, 'APMT-52', 53, 17, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'rahul', 'fever', '', 'Male', '2014-10-28', 5, '', '', '0.000', '0.000', 'No', '2019-11-05 09:29:26', '2019-11-05 11:38:01', 'Visited', 'By Self', '1.00'),
+(59, 'APMT-53', 53, 46, 'Gujarat', 'Ahmedabad', '2019-11-05 00:00:00', 'ena', 'fever', '', 'Male', '2017-08-21', 2, '', '', '0.000', '0.000', 'No', '2019-11-05 09:31:12', '2019-11-05 11:41:05', 'Canceled', 'By Self', '1.00'),
+(60, 'APMT-54', 53, 46, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'RAMESH BHAI', 'fever', '', 'Male', '1984-11-28', 34, '', '', '0.000', '0.000', 'No', '2019-11-05 09:32:17', '2019-11-05 11:41:18', 'Canceled', 'By Self', '1.00'),
+(61, 'APMT-55', 53, 46, 'Gujarat', NULL, '2019-11-05 00:00:00', 'rahul varma', 'fever', '', 'Male', '1984-11-28', 34, '', '', '0.000', '0.000', 'No', '2019-11-05 09:33:20', '2019-11-05 11:41:27', 'Canceled', 'By Self', '1.00'),
+(62, 'APMT-56', 53, 17, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'wan', 'fever', '', 'Male', '2016-10-28', 3, '', '', '0.000', '0.000', 'No', '2019-11-05 09:34:55', '2019-11-05 11:49:23', 'Canceled', 'By Self', '1.00'),
+(63, 'APMT-57', 53, 46, NULL, NULL, '2019-11-05 00:00:00', 'offlineetest', 'offilen', 'shahid khabb', 'Male', '2019-11-05', 0, 'BORTHER', 'O+', '0.000', '2.000', 'No', '2019-11-05 11:10:33', '2019-11-05 11:38:15', 'Visited', 'By Hospital', '1.00'),
+(64, 'APMT-58', 53, 46, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'first', 'fever', '', 'Male', '2016-08-28', 3, '', '', '0.000', '0.000', 'No', '2019-11-05 11:45:48', '2019-11-05 12:37:26', 'Visited', 'By Self', '1.00'),
+(65, 'APMT-59', 53, 46, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'second', 'fever', '', 'Male', '2017-10-30', 2, '', '', '0.000', '0.000', 'No', '2019-11-05 11:48:04', '2019-11-05 12:37:51', 'Visited', 'By Self', '1.00'),
+(66, 'APMT-60', 53, NULL, NULL, NULL, '2019-11-05 00:00:00', 'third', 'fever', '', 'Male', '2014-10-28', 5, '', '', '0.000', '0.000', 'No', '2019-11-05 11:50:47', '2019-11-05 12:38:27', 'Visited', 'By Hospital', '1.00'),
+(67, 'APMT-61', 53, 46, NULL, NULL, '2019-11-05 00:00:00', 'forth', 'dengue', '', 'Male', '2013-08-28', 6, '', '', '0.000', '0.000', 'No', '2019-11-05 11:52:18', '2019-11-05 12:38:06', 'Visited', 'By Hospital', '1.00'),
+(68, 'APMT-62', 53, 46, NULL, NULL, '2019-11-05 00:00:00', 'five', 'five', ',dshf,shdfk', 'Male', '0000-00-00', 0, 'noting', '', '23.000', '23.000', 'No', '2019-11-05 12:19:36', '2019-11-05 12:38:07', 'Visited', 'By Hospital', '1.00'),
+(69, 'APMT-63', 53, 50, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'sixth', 'fever', '', 'Male', '2017-08-28', 2, '', 'O-', '0.000', '0.000', 'No', '2019-11-05 12:24:46', '2019-11-05 12:38:08', 'Visited', 'By Self', '1.00'),
+(70, 'APMT-64', 53, 50, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'seventh', 'fever', '', 'Male', '2016-10-28', 3, '', '', '0.000', '0.000', 'No', '2019-11-05 12:25:53', '2019-11-05 12:38:09', 'Visited', 'By Self', '1.00'),
+(71, 'APMT-65', 54, 50, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'first', 'fever', '', 'Male', '2016-10-28', 3, '', 'O+', '0.000', '0.000', 'No', '2019-11-05 12:33:08', '2019-11-05 13:19:53', 'Visited', 'By Self', '1.00'),
+(72, 'APMT-66', 54, 50, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'second', 'fever', '', 'Male', '1962-10-28', 57, '', 'O+', '0.000', '0.000', 'No', '2019-11-05 12:34:13', '2019-11-05 13:20:07', 'Visited', 'By Self', '1.00'),
+(73, 'APMT-67', 47, 46, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'smit', 'fever', '', 'Male', '1997-04-04', 22, '', '', '0.000', '0.000', 'No', '2019-11-05 17:16:25', '2019-11-05 17:33:40', 'Visited', 'By Self', '1.00'),
+(74, 'APMT-68', 53, 46, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'PALAK', 'fever', '', 'Male', '2015-11-30', 3, '', '', '0.000', '0.000', 'No', '2019-11-05 17:40:19', '2019-11-05 18:32:56', 'Visited', 'By Self', '1.00'),
+(75, 'APMT-69', 53, 46, 'Gujarat', 'palanpur', '2019-11-05 00:00:00', 'kalpna', 'fever', '', 'Male', '1997-06-07', 22, '', '', '0.000', '0.000', 'No', '2019-11-05 18:38:46', '2019-11-05 18:49:26', 'Visited', 'By Self', '1.00'),
+(76, 'APMT-70', 47, 46, 'Gujarat', 'palanpur', '2019-11-06 00:00:00', 'shahid_pateint1', 'dengue', 'shahid have weaknes  still this date because working on hospital  project', 'Male', '1998-02-09', 21, 'shahid', 'O-', '23.000', '23.000', 'No', '2019-11-06 14:22:46', '2019-11-07 16:36:22', 'Visited', 'By Self', '1.00'),
+(77, 'APMT-71', 47, 46, 'Gujarat', 'palanpur', '2019-11-07 00:00:00', 'hjjj', 'fffffff', 'husffrhrtgtjjjjjjjjjjjjjjjj', 'Male', '1987-01-03', 32, '', '', '222.000', '22.000', 'No', '2019-11-07 11:56:06', '2019-11-19 10:16:36', 'Visited', 'By Self', '1.00'),
+(78, 'APMT-72', 47, 46, 'Rajasthan', '', '2019-11-07 00:00:00', 'ashish', 'bigoda', '', 'Male', '0000-00-00', 0, '', 'AB-', '0.000', '0.000', 'Yes', '2019-11-07 14:08:16', '2019-11-21 22:57:28', 'Visited', 'By Self', '1.00'),
+(79, 'APMT-73', 53, 46, 'Gujarat', '', '2019-11-07 00:00:00', 'ashish', 'sfsrhdtuj', 'sjjikk', 'Male', '1997-01-01', 22, 'j', 'O+', '357.000', '33.000', 'Yes', '2019-11-07 14:17:04', '2019-11-07 14:54:11', 'Visited', 'By Self', '1.00'),
+(80, 'APMT-74', 53, 46, 'Gujarat', '', '2019-11-07 00:00:00', 'ashish', 'sfsrhdtuj', 'sjjikk', 'Male', '1997-01-01', 22, 'j', 'O+', '357.000', '33.000', 'Yes', '2019-11-07 14:20:56', '2019-12-18 13:22:52', 'Visited', 'By Self', '1.00'),
+(81, 'APMT-75', 53, 46, 'Gujarat', '', '2019-11-07 00:00:00', 'himal', '3', '22ggggfsfgrtgvf', 'Male', '0000-00-00', 22, '222', '', '87.000', '22.000', 'Yes', '2019-11-07 14:23:41', '2019-11-07 15:01:54', 'Visited', 'By Self', '1.00'),
+(82, 'APMT-76', 36, 57, 'Gujarat', 'palanpur', '2019-11-17 00:00:00', 'Fatem', 'faver and other issue', 'data is done', 'Male', '2019-11-17', 0, 'shahid', 'A+', '12.000', '12.000', 'No', '2019-11-17 11:54:18', '2019-11-17 12:02:58', 'Visited', 'By Self', '1.00'),
+(83, 'APMT-77', 36, 57, 'Gujarat', 'palanpur', '2019-11-17 00:00:00', 'Shahid', 'data problem', 'done', 'Male', '0000-00-00', 0, '', 'O+', '0.000', '0.000', 'No', '2019-11-17 11:57:41', '2019-11-17 12:17:40', 'Visited', 'By Self', '1.00'),
+(84, 'APMT-78', 36, 57, 'Gujarat', 'palanpur', '2019-11-17 00:00:00', 'Munir', 'done', 'dfdf', 'Male', '0000-00-00', 0, '', 'O-', '0.000', '0.000', 'No', '2019-11-17 12:05:06', '2019-11-17 12:28:32', 'Visited', 'By Self', '1.00'),
+(85, 'APMT-79', 36, 59, NULL, NULL, '2019-11-17 00:00:00', 'jayeda', 'jishan', 'done is done', 'Male', '2019-11-10', 0, '', 'O-', '0.000', '0.000', 'No', '2019-11-17 12:15:34', '2019-11-17 12:30:30', 'Visited', 'By Receptionist', '1.00'),
+(86, 'APMT-80', 47, NULL, NULL, NULL, '2019-11-18 00:00:00', 'RAMESH BHAI', 'fever', '', 'Male', '1931-04-17', 88, '', 'AB-', '0.000', '0.000', 'No', '2019-11-18 19:47:19', '2019-11-21 22:57:53', 'Visited', 'By Receptionist', '1.00'),
+(87, 'APMT-81', 47, NULL, NULL, NULL, '2019-11-18 00:00:00', 'viar', 'fever', '', 'Male', '1937-10-12', 82, '', 'A+', '0.000', '0.000', 'No', '2019-11-18 19:48:14', '2019-11-21 22:57:55', 'Visited', 'By Receptionist', '1.00'),
+(88, 'APMT-82', 47, 46, 'Gujarat', 'palanpur', '2019-11-18 00:00:00', 'RAJESH PANDYAA', 'FEVER', '', 'Male', '1975-10-15', 44, '', 'O+', '0.000', '5.000', 'No', '2019-11-18 19:50:20', '2019-11-21 22:57:41', 'Visited', 'By Self', '1.00'),
+(89, 'APMT-83', 36, 60, NULL, NULL, '2019-11-18 00:00:00', 'shahida', 'dengue', 'dfgfdg', 'Male', '2019-11-18', 0, 'sef', 'O+', '243.000', '123.000', 'No', '2019-11-18 22:08:21', '2019-12-09 14:41:17', 'Visited', 'By Receptionist', '1.00'),
+(90, 'APMT-84', 36, NULL, NULL, NULL, '2019-11-18 00:00:00', 'jishan', 'dengue', 'shahid', 'Male', '0000-00-00', 0, 'BORTHER', 'O-', '23.000', '12.000', 'No', '2019-11-18 22:11:11', '2019-11-18 22:11:11', 'Approve', 'By Receptionist', '1.00'),
+(91, 'APMT-85', 36, NULL, NULL, NULL, '2019-11-18 00:00:00', 'jishan', 'dengue', 'sdfdskjf', 'Male', '0000-00-00', 0, 'sefe', 'O-', '23.000', '23.000', 'No', '2019-11-18 22:12:47', '2019-11-18 22:12:47', 'Approve', 'By Receptionist', '1.00'),
+(92, 'APMT-86', 47, NULL, NULL, NULL, '2019-11-18 00:00:00', 'ramesh bhai', 'fever', '', 'Male', '1991-04-16', 28, '', 'A+', '0.000', '0.000', 'No', '2019-11-18 22:38:47', '2019-11-21 22:57:59', 'Visited', 'By Receptionist', '1.00'),
+(93, 'APMT-87', 47, NULL, NULL, NULL, '2019-11-18 00:00:00', 'rahul bhai', 'fever', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-18 22:40:49', '2019-11-21 22:57:58', 'Visited', 'By Receptionist', '1.00'),
+(94, 'APMT-88', 47, 46, 'Gujarat', 'palanpur', '2019-11-18 00:00:00', 'third', 'fever', '', 'Male', '1981-02-23', 38, '', 'A+', '0.000', '0.000', 'No', '2019-11-18 22:43:18', '2019-11-21 22:57:57', 'Visited', 'By Self', '1.00'),
+(95, 'APMT-89', 36, 57, 'Gujarat', 'palanpur', '2019-11-18 00:00:00', 'sabir', 'dengue', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'Yes', '2019-11-18 22:49:06', '2019-11-18 22:53:06', 'Approve', 'By Self', '1.00'),
+(96, 'APMT-90', 36, NULL, NULL, NULL, '2019-11-18 00:00:00', 'shahid1', 'shahid', 'sdfdsf', 'Male', '0000-00-00', 0, '', 'O-', '12.000', '12.000', 'No', '2019-11-18 22:52:50', '2019-11-18 22:52:50', 'Approve', 'By Receptionist', '1.00'),
+(97, 'APMT-91', 36, NULL, NULL, NULL, '2019-11-18 00:00:00', 'testnewfine', 'jishan', 'dfgf', 'Male', '0000-00-00', 0, '', 'O+', '0.000', '0.000', 'No', '2019-11-18 22:55:36', '2019-11-18 22:55:36', 'Approve', 'By Receptionist', '1.00'),
+(98, 'APMT-92', 4, NULL, NULL, NULL, '2019-11-19 00:00:00', 'harsh m varma', 'back pain', 'dbdkfbd', 'Male', '2004-02-02', 15, 'self', 'B+', '55.000', '5.500', 'No', '2019-11-19 10:51:15', '2020-06-15 10:30:16', 'Visited', 'By Receptionist', '1.00'),
+(99, 'APMT-93', 4, 62, NULL, NULL, '2019-11-19 00:00:00', 'mehul prajapati', 'fiver', 'gfgfgfgfgfg', 'Male', '2012-02-14', 7, '-', 'B-', '70.000', '5.500', 'No', '2019-11-19 10:52:34', '2020-06-15 10:30:28', 'Visited', 'By Receptionist', '1.00'),
+(100, 'APMT-94', 4, 17, NULL, NULL, '2019-11-19 00:00:00', 'raju m soni', 'vomating', 'kjksdbdfjkbfsd', 'Male', '2000-01-02', 19, 'brother', 'A+', '55.000', '5.500', 'No', '2019-11-19 10:53:23', '2020-06-15 10:30:37', 'Visited', 'By Receptionist', '1.00'),
+(101, 'APMT-95', 4, 57, NULL, NULL, '2019-11-19 00:00:00', 'sabir khan', 'vomating', 'fdfdfdf', 'Male', '2003-01-15', 16, 'self', 'B-', '55.000', '5.500', 'No', '2019-11-19 11:24:53', '2020-06-15 10:30:49', 'Visited', 'By Receptionist', '1.00'),
+(102, 'APMT-96', 36, 57, 'Gujarat', '', '2019-11-19 00:00:00', 'Jishan', 'fever', '', 'Male', '0000-00-00', 0, '', 'O+', '0.000', '0.000', 'No', '2019-11-19 12:25:13', '2019-11-19 12:25:56', 'Approve', 'By Self', '1.00'),
+(103, 'APMT-97', 36, NULL, NULL, NULL, '2019-11-19 00:00:00', 'samira', 'dengue', 'asdsad', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-19 12:28:49', '2019-11-19 12:28:49', 'Approve', 'By Receptionist', '1.00'),
+(104, 'APMT-98', 36, NULL, NULL, NULL, '2019-11-19 00:00:00', 'smir3', 'fever', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-19 12:30:47', '2019-11-19 12:30:47', 'Approve', 'By Receptionist', '1.00'),
+(105, 'APMT-99', 36, NULL, NULL, NULL, '2019-11-19 00:00:00', 'new5', 'new5', '', 'Male', '0000-00-00', 12, '', 'O-', '0.000', '0.000', 'No', '2019-11-19 12:32:14', '2019-11-19 12:32:14', 'Approve', 'By Receptionist', '1.00'),
+(106, 'APMT-100', 36, NULL, NULL, NULL, '2019-11-19 00:00:00', 'newtest7', 'dengue', '', 'Male', '0000-00-00', 0, '', 'A+', '0.000', '0.000', 'No', '2019-11-19 12:33:22', '2019-11-19 12:33:22', 'Approve', 'By Receptionist', '1.00'),
+(107, 'APMT-101', 36, 57, 'Gujarat', '', '2019-11-19 00:00:00', 'newtest', 'dengue', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-19 12:39:31', '2019-11-19 12:40:18', 'Approve', 'By Self', '1.00'),
+(108, 'APMT-102', 36, 63, NULL, NULL, '2019-11-19 00:00:00', 'new for test', 'vomating', 'sdfdfdfd', 'Male', '2002-02-18', 17, 'self', 'B+', '70.000', '5.500', 'No', '2019-11-19 12:42:47', '2019-11-19 12:42:47', 'Approve', 'By Receptionist', '1.00'),
+(109, 'APMT-103', 36, NULL, NULL, NULL, '2019-11-19 00:00:00', 'mytest12', 'dengue', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-19 12:44:56', '2019-11-19 12:44:56', 'Approve', 'By Receptionist', '1.00'),
+(110, 'APMT-104', 36, NULL, NULL, NULL, '2019-11-19 00:00:00', 'newtwst21', 'dengue', 'fdfgd', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-19 12:50:00', '2019-11-19 12:50:00', 'Approve', 'By Receptionist', '1.00'),
+(111, 'APMT-105', 36, 64, NULL, NULL, '2019-11-19 00:00:00', 'reg 1', 'vomating', 'gjhpgjhp', 'Male', '1992-03-19', 27, 'brother', 'B+', '70.000', '5.500', 'No', '2019-11-19 12:53:07', '2019-11-19 12:53:07', 'Approve', 'By Receptionist', '1.00'),
+(112, 'APMT-106', 36, NULL, NULL, NULL, '2019-11-19 00:00:00', 'newtest34', 'very high fever', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-19 12:55:36', '2019-11-19 12:55:36', 'Approve', 'By Receptionist', '1.00'),
+(113, 'APMT-107', 36, 65, NULL, NULL, '2019-11-19 00:00:00', 'new user', 'fiver', 'fdfdfdf', 'Male', '2003-06-24', 16, 'self', 'AB+', '60.000', '5.500', 'No', '2019-11-19 13:07:43', '2019-11-19 13:07:43', 'Approve', 'By Receptionist', '1.00'),
+(114, 'APMT-108', 36, 66, NULL, NULL, '2019-11-19 00:00:00', '123456', 'vomating', 'fgfgfgfg', 'Male', '1999-01-12', 20, 'self', 'B-', '70.000', '5.500', 'No', '2019-11-19 13:18:50', '2019-11-19 13:18:50', 'Approve', 'By Receptionist', '1.00'),
+(115, 'APMT-109', 36, 67, NULL, NULL, '2019-11-19 00:00:00', 'mmmmmmm', 'fiver', 'bbj', 'Male', '2011-02-15', 8, '-', 'B-', '70.000', '5.500', 'No', '2019-11-19 13:27:52', '2019-11-19 13:27:52', 'Approve', 'By Receptionist', '1.00'),
+(116, 'APMT-110', 36, 57, '', '', '2019-11-19 00:00:00', 'testlivewithsnehal', 'fever', 'plese help', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-19 16:48:01', '2019-11-19 17:00:30', 'Approve', 'By Self', '1.00'),
+(117, 'APMT-111', 36, 68, NULL, NULL, '2019-11-19 00:00:00', 'hello7', 'dengue', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-19 16:59:49', '2019-11-19 16:59:49', 'Approve', 'By Receptionist', '1.00'),
+(118, 'APMT-112', 47, 46, 'Gujarat', 'palanpur', '2019-11-21 00:00:00', 'mit parekh', 'fever', '', 'Male', '1981-08-22', 38, '', '', '0.000', '0.000', 'No', '2019-11-21 22:50:47', '2019-11-21 23:03:29', 'Visited', 'By Self', '1.00'),
+(119, 'APMT-113', 47, NULL, NULL, NULL, '2019-11-22 00:00:00', 'RAMESH BHAI', 'fever', '', 'Male', '2002-10-22', 17, '', 'A+', '0.000', '0.000', 'No', '2019-11-22 23:33:29', '2019-11-22 23:38:18', 'Canceled', 'By Receptionist', '1.00'),
+(120, 'APMT-114', 47, 72, NULL, NULL, '2019-11-22 00:00:00', 'ram', 'fever', '', 'Male', '1997-03-17', 22, '', 'A+', '0.000', '0.000', 'No', '2019-11-22 23:35:22', '2019-11-22 23:40:53', 'Visited', 'By Receptionist', '1.00'),
+(121, 'APMT-115', 47, 46, '', '', '2019-11-22 00:00:00', 'saj', 'fever', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-22 23:36:21', '2019-11-22 23:41:17', 'Visited', 'By Self', '1.00'),
+(122, 'APMT-116', 47, 73, NULL, NULL, '2019-11-22 00:00:00', 'wddw', 'fever', '', 'Male', '1982-08-17', 37, '', 'A+', '0.000', '0.000', 'No', '2019-11-22 23:40:13', '2019-11-22 23:41:43', 'Visited', 'By Receptionist', '1.00'),
+(123, 'APMT-117', 36, 57, NULL, NULL, '2019-11-23 00:00:00', 'shahid_notone', 'Testfordesease', 'sdfdsfsdfdsfdsfs', 'Male', '2019-11-23', 0, '', 'A+', '0.000', '0.000', 'Yes', '2019-11-23 10:56:34', '2019-11-23 11:08:20', 'Visited', 'By Receptionist', '1.00'),
+(124, 'APMT-118', 36, 57, NULL, NULL, '2019-11-23 00:00:00', 'shahid_Problem', 'jishan', 'check with don', 'Male', '0000-00-00', 0, 'son', '', '0.000', '0.000', 'No', '2019-11-23 11:02:47', '2019-11-23 11:12:36', 'Visited', 'By Receptionist', '1.00'),
+(125, 'APMT-119', 47, 46, '', '', '2019-11-23 00:00:00', 'by shahid', 'by shahid', 'chk wuth', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-23 11:41:43', '2019-11-23 11:45:32', 'Visited', 'By Self', '1.00'),
+(126, 'APMT-120', 47, 57, '', '', '2019-11-23 00:00:00', 'sbbairbhaii', 'test for', 'test for  history', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-23 12:07:34', '2019-11-23 12:10:20', 'Visited', 'By Self', '1.00'),
+(127, 'APMT-121', 47, 57, '', '', '2019-11-23 00:00:00', 'Shahid Testnew', 'dengue', 'fsdfsd', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-23 12:19:32', '2019-11-23 12:20:54', 'Canceled', 'By Self', '1.00'),
+(128, 'APMT-122', 36, 74, 'Gujarat', 'palanpur', '2019-11-26 00:00:00', 'mahesh', 'Fever', 'helo', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-26 13:48:15', '2019-11-26 13:52:56', 'Approve', 'By Self', '1.00'),
+(129, 'APMT-123', 36, 74, 'Gujarat', 'palanpur', '2019-11-26 00:00:00', 'Name2', 'headche', 'heloo', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-26 13:51:39', '2019-11-26 13:53:23', 'Approve', 'By Self', '1.00'),
+(130, 'APMT-124', 36, 57, '', '', '2019-11-26 00:00:00', 'shahid', 'fever', 'hello', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-26 13:54:30', '2019-11-26 13:59:40', 'Visited', 'By Self', '1.00'),
+(131, 'APMT-125', 47, 46, 'Gujarat', 'palanpur', '2019-11-26 00:00:00', 'naj', 'fvdnlk', '', 'Male', '1991-11-26', 28, '', 'A+', '0.000', '0.000', 'No', '2019-11-26 15:59:33', '2019-11-26 16:34:39', 'Visited', 'By Self', '1.00'),
+(132, 'APMT-126', 47, 75, NULL, NULL, '2019-11-26 00:00:00', 'bhavesh', 'fever', '', 'Male', '1982-06-28', 37, '', 'A+', '0.000', '0.000', 'No', '2019-11-26 16:05:57', '2019-12-09 11:15:01', 'Visited', 'By Receptionist', '1.00'),
+(133, 'APMT-127', 47, 76, NULL, NULL, '2019-11-26 00:00:00', 'rahul', 'djs', '', 'Male', '2002-10-28', 17, '', 'A+', '0.000', '0.000', 'No', '2019-11-26 16:06:58', '2019-12-10 21:02:30', 'Visited', 'By Receptionist', '1.00'),
+(134, 'APMT-128', 47, 46, 'Gujarat', 'palanpur', '2019-11-26 00:00:00', 'faw', 'dhjb', '', 'Male', '1977-08-28', 42, '', 'A+', '0.000', '0.000', 'No', '2019-11-26 16:12:54', '2019-12-12 09:59:24', 'Visited', 'By Self', '1.00'),
+(135, 'APMT-129', 77, NULL, NULL, NULL, '2019-11-27 00:00:00', 'digvijay', 'sssssssssssssj', '', 'Male', '1984-10-18', 35, '', 'A+', '0.000', '0.000', 'No', '2019-11-27 23:31:18', '2019-11-27 23:50:35', 'Visited', 'By Receptionist', '1.00'),
+(136, 'APMT-130', 77, 81, NULL, NULL, '2019-11-27 00:00:00', 'SAJ', 'DDDDDDD', '', 'Male', '1977-07-11', 42, '', 'B+', '0.000', '0.000', 'No', '2019-11-27 23:37:06', '2019-11-27 23:51:27', 'Visited', 'By Receptionist', '1.00'),
+(137, 'APMT-131', 77, 82, NULL, NULL, '2019-11-27 00:00:00', 'DAJ', 'DDDDDDDDDDDD', '', 'Male', '2011-11-11', 8, '', 'A+', '0.000', '0.000', 'No', '2019-11-27 23:38:17', '2019-11-27 23:52:37', 'Visited', 'By Receptionist', '1.00'),
+(138, 'APMT-132', 77, 46, 'Gujarat', 'palanpur', '2019-11-27 00:00:00', 'DHJ', 'DJ', '', 'Male', '1986-11-13', 33, '', 'A+', '0.000', '0.000', 'No', '2019-11-27 23:40:13', '2019-11-27 23:52:54', 'Visited', 'By Self', '1.00'),
+(139, 'APMT-133', 77, NULL, NULL, NULL, '2019-11-28 00:00:00', 'RAG', 'SIJI', '', 'Male', '2002-02-20', 17, '', 'A+', '0.000', '0.000', 'No', '2019-11-27 23:59:51', '2019-11-28 00:07:26', 'Visited', 'By Receptionist', '1.00'),
+(140, 'APMT-134', 77, NULL, NULL, NULL, '2019-11-28 00:00:00', 'RAS', 'GKMDKF', '', 'Male', '2011-06-22', 8, '', 'A+', '0.000', '0.000', 'No', '2019-11-28 00:01:50', '2019-11-28 00:08:14', 'Visited', 'By Receptionist', '1.00'),
+(141, 'APMT-135', 77, 46, 'Gujarat', 'palanpur', '2019-11-28 00:00:00', 'EFSR', 'RGDRG', '', 'Male', '2002-11-20', 17, '', 'A+', '0.000', '0.000', 'No', '2019-11-28 00:03:06', '2019-11-28 00:09:07', 'Visited', 'By Self', '1.00'),
+(142, 'APMT-136', 36, 57, '', '', '2019-11-28 00:00:00', 'papa1', 'dengue', 'sdfdf', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-28 08:42:10', '2019-11-28 08:50:18', 'Approve', 'By Self', '1.00'),
+(143, 'APMT-137', 36, 57, '', '', '2019-11-28 00:00:00', 'papa2', 'fever', 'dfd', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-28 08:43:22', '2019-11-28 08:50:42', 'Approve', 'By Self', '1.00'),
+(144, 'APMT-138', 36, 83, NULL, NULL, '2019-11-28 00:00:00', 'samira', 'asds', 'asdsada', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-28 08:48:23', '2019-11-28 08:48:23', 'Approve', 'By Receptionist', '1.00'),
+(145, 'APMT-139', 36, NULL, NULL, NULL, '2019-11-28 00:00:00', 'jishan', 'fever', 'done is done', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-28 08:49:58', '2019-11-28 08:49:58', 'Approve', 'By Receptionist', '1.00'),
+(146, 'APMT-140', 36, NULL, NULL, NULL, '2019-11-28 00:00:00', 'shahid tst', 'dsfs', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-28 08:56:42', '2019-11-28 08:56:42', 'Approve', 'By Receptionist', '1.00'),
+(147, 'APMT-141', 36, 85, NULL, NULL, '2019-11-28 00:00:00', 'sssg', 'sdfsd', 'fdsfsd', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-11-28 08:58:31', '2019-11-28 08:58:31', 'Approve', 'By Receptionist', '1.00'),
