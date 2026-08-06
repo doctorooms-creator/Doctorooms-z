@@ -1,0 +1,821 @@
+     1→<?php
+     2→defined('BASEPATH') OR exit('No direct script access allowed');
+     3→
+     4→class Auth extends Guest_controller
+     5→{
+     6→
+     7→        public function __construct()
+     8→        {
+     9→                parent::__construct();
+    10→                $this->load->model("Users_model", "user");
+    11→                $this->load->model("Reset_password_model", "reset_password");
+    12→        }
+    13→
+    14→        public function register()
+    15→        {
+    16→                //check if already Login
+    17→                if ($this->session->userdata('user_login')) {
+    18→                        $role = $this->session->userdata('user_login');
+    19→
+    20→                        switch ($role['role']) {
+    21→                                case DOCTOR:
+    22→                                        return redirect('doctor/dashboard');
+    23→                                        break;
+    24→                                case PATIENT:
+    25→                                        return redirect('home');
+    26→                                        break;
+    27→                                case RECEPTIONIST:
+    28→                                        return redirect('receptionist/dashboard');
+    29→                                        break;
+    30→                                case HOSPITAL:
+    31→                                        return redirect('hospital/dashboard');
+    32→                                        break;
+    33→                                case PHARMACIST:
+    34→                                        return redirect('pharmacist/dashboard');
+    35→                                        break;
+    36→                                case ADMIN:
+    37→                                        return redirect('admin/dashboard');
+    38→                                        break;
+    39→                                default:
+    40→                                        show_404();
+    41→                        }
+    42→                }
+    43→
+    44→                if ($this->input->get("type") == "dr" || $this->input->get("type") == "patient") {
+    45→                        $this->view_data['_title'] = "Register";
+    46→                        $this->load->view("front/register", $this->view_data);
+    47→                } else {
+    48→                        redirect("auth/login");
+    49→                }
+    50→        }
+    51→
+    52→        public function signup()
+    53→        {
+    54→
+    55→                //check registration type
+    56→                if ($this->input->get("type") == "dr" || $this->input->get("type") == "patient") {
+    57→                } else {
+    58→                        redirect("auth/login");
+    59→                }
+    60→
+    61→                if ($this->input->server('REQUEST_METHOD') == 'POST') {
+    62→                        $this->form_validation->set_error_delimiters("<div class='text-danger' style='font-size:10px;'>", "</div>");
+    63→                        if ($this->form_validation->run("register")) {
+    64→                                $input_data = $this->input->post();
+    65→                                unset($input_data['c_pass']);
+    66→                                unset($input_data['terms']);
+    67→                                $input_data['role'] = ($this->input->get("type") == "dr") ? DOCTOR : PATIENT;
+    68→                                $input_data['status'] = PENDING;
+    69→                                $password = $input_data['password'];
+    70→                                $input_data['password'] = hash("sha256", $input_data['password']);
+    71→                                $created_user = $this->user->create($input_data);
+    72→                                if ($created_user) {
+    73→                                        /*$verification_data = [
+    74→                                                "id" => $created_user,
+    75→                                                "email" => $input_data['email'],
+    76→                                                "date_time" => date("Y-m-d H:i:s")
+    77→                                        ];
+    78→                                        $link_data = $this->encrypted_text(json_encode($verification_data));
+    79→                                        $verification_template = $this->get_verify_email_template($link_data);
+    80→
+    81→                                        $this->send_mail($input_data['email'], SITE_TITLE . " - Email Verification", $verification_template);*/
+    82→
+    83→                                        //Send Welcome message
+    84→                                        $mobile = $input_data['mobile_no'];
+    85→                                        $message = "Welcome, " . $input_data['name'] . ". You are successfully registered to " . SITE_TITLE . ". Your account id is your mobile number and your password is:" . $password;
+    86→                                        $this->sendMobileMessage($mobile, $message);
+    87→                                        // end
+    88→
+    89→                                        $this->session->set_flashdata("alert_msg", "Signup successful. Login your account and verify your mobile.");
+    90→                                        $this->session->set_flashdata("alert_class", "alert-info");
+    91→                                }
+    92→                                redirect("auth/login", "refresh");
+    93→                        } else {
+    94→                                $this->view_data['_title'] = "Register";
+    95→                                $this->load->view("front/register", $this->view_data);
+    96→                        }
+    97→                }
+    98→        }
+    99→
+   100→        public function verify_mobile()
+   101→        {
+   102→                $user = $this->session->userdata('verify_data');
+   103→                if (!$user) {
+   104→                        redirect('auth/login');
+   105→                }
+   106→
+   107→                $this->load->view('front/register_mobile_verify');
+   108→        }
+   109→
+   110→        public function sendotp_mobile_verify()
+   111→        {
+   112→                $user = $this->session->userdata('verify_data');
+   113→                if (!$user) {
+   114→                        redirect('auth/login');
+   115→                }
+   116→
+   117→                $otp = rand(100000, 999999);
+   118→                $mobile = $user['mobile_no'];
+   119→                $message = "Dear User, $otp is your " . SITE_TITLE . " OTP code for verification.";
+   120→                $this->sendMobileMessage($mobile, $message);
+   121→
+   122→                $data = [
+   123→                        "mobile_no" => $mobile,
+   124→                        "opt" => $otp,
+   125→                        "date" => date('Y-m-d H:i:s'),
+   126→                ];
+   127→
+   128→                $this->session->set_userdata('mobile_verification_data', $data);
+   129→                $this->session->set_flashdata('alert_msg', "Otp has been send to $mobile");
+   130→                $this->session->set_flashdata('alert_class', "info");
+   131→                redirect('auth/verify_mobile');
+   132→        }
+   133→
+   134→        public function verify_mobile_submit()
+   135→        {
+   136→                $user = $this->session->userdata('verify_data');
+   137→                if (!$user) {
+   138→                        redirect('auth/login');
+   139→                }
+   140→
+   141→                $mobile_verification_data = $this->session->userdata('mobile_verification_data');
+   142→                if (!$mobile_verification_data) {
+   143→                        redirect('auth/login');
+   144→                }
+   145→
+   146→                $date1 = $mobile_verification_data['date'];
+   147→                $date2 = date('Y-m-d H:i:s');
+   148→
+   149→                $seconds = strtotime($date2) - strtotime($date1);
+   150→
+   151→                if ($seconds >= 180) {
+   152→                        $this->session->unset_userdata('verify_data');
+   153→                        $this->session->unset_userdata('mobile_verification_data');
+   154→
+   155→                        $this->session->set_flashdata('alert_msg', "Otp expired. Please login and try again later.");
+   156→                        $this->session->set_flashdata('alert_class', "danger");
+   157→                        redirect('auth/login');
+   158→                }
+   159→
+   160→                $otp = $this->input->post('otp');
+   161→                if ($otp == $mobile_verification_data['opt']) {
+   162→
+   163→                        $user_data = $this->user->check_auth_after_login($mobile_verification_data);
+   164→
+   165→                        $update_data['status'] = ACTIVE;
+   166→                        $update_data['mobile_verified_at'] = date('Y-m-d H:i:s');
+   167→                        $this->user->update($user_data->id, $update_data);
+   168→
+   169→                        $latest_user_data = $this->user->check_auth_after_login($mobile_verification_data);
+   170→                        $uDataSession = array(
+   171→                                "id" => $latest_user_data->id,
+   172→                                "name" => $latest_user_data->name,
+   173→                                "email" => $latest_user_data->email,
+   174→                                "role" => $latest_user_data->role,
+   175→                                "status" => $latest_user_data->status,
+   176→                                "mobile_no" => $latest_user_data->mobile_no,
+   177→                                "profile_img" => $latest_user_data->profile_img
+   178→                        );
+   179→
+   180→                        $this->session->unset_userdata('verify_data');
+   181→                        $this->session->unset_userdata('mobile_verification_data');
+   182→
+   183→                        $this->session->set_userdata('user_login', $uDataSession);
+   184→                        redirect('auth/login');
+   185→                } else {
+   186→                        $this->session->set_flashdata('alert_msg', "OTP does not match.");
+   187→                        $this->session->set_flashdata('alert_class', "danger");
+   188→                        redirect('auth/verify_mobile');
+   189→                }
+   190→        }
+   191→
+   192→        public function verify_email()
+   193→        {
+   194→                $token = $this->input->get('token');
+   195→                if ($token) {
+   196→                        $plain_data = $this->decrypted_text($token);
+   197→                        $plain_array = json_decode($plain_data, true);
+   198→                        if (isset($plain_array['id']) && isset($plain_array['email']) && isset($plain_array['date_time'])) {
+   199→
+   200→                                $is_pending = $this->user->check_status_is_pending($plain_array['id']);
+   201→                                if ($is_pending) {
+   202→                                        $up = $this->user->update($plain_array['id'], ['status' => ACTIVE]);
+   203→                                        if ($up) {
+   204→                                                $this->session->set_flashdata("alert_msg", "Email Verification Successful login now.");
+   205→                                                $this->session->set_flashdata("alert_class", "alert-success");
+   206→                                                redirect('auth/login');
+   207→                                        } else {
+   208→                                                redirect('/');
+   209→                                        }
+   210→                                } else {
+   211→                                        redirect('/');
+   212→                                }
+   213→                        } else {
+   214→                                redirect('/');
+   215→                        }
+   216→                } else {
+   217→                        redirect('/');
+   218→                }
+   219→        }
+   220→
+   221→        public function login()
+   222→        {
+   223→                //check if already Login
+   224→                if ($this->session->userdata('user_login')) {
+   225→                        $role = $this->session->userdata('user_login');
+   226→
+   227→                        switch ($role['role']) {
+   228→                                case DOCTOR:
+   229→                                        return redirect('doctor/dashboard');
+   230→                                        break;
+   231→                                case PATIENT:
+   232→                                        return redirect('appointment');
+   233→                                        break;
+   234→                                case RECEPTIONIST:
+   235→                                        return redirect('receptionist/dashboard');
+   236→                                        break;
+   237→                                case HOSPITAL:
+   238→                                        return redirect('hospital/dashboard');
+   239→                                        break;
+   240→                                case ADMIN:
+   241→                                        return redirect('admin/dashboard');
+   242→                                        break;
+   243→                                case DOCTOR_ASSISTANT:
+   244→                                        return redirect('assistant/dashboard');
+   245→                                        break;
+   246→                                default:
+   247→                                        show_404();
+   248→                        }
+   249→                }
+   250→                $this->view_data['_title'] = "Login";
+   251→                $this->load->view("front/login", $this->view_data);
+   252→        }
+   253→
+   254→        /**
+   255→         *
+   256→         */
+   257→        public function auth_login()
+   258→        {
+   259→                $this->form_validation->set_error_delimiters('<div class="text-danger" style="font-size:10px;">', '</div>');
+   260→                if ($this->form_validation->run("login")) {
+   261→                        $logData = $this->input->post();
+   262→                        $logData['password'] = hash("sha256", $logData['password']);
+   263→                        //for  Remember login userdata in cookies
+   264→                        $remember = $logData['remember'];
+   265→                        if ($remember) {
+   266→                                $this->session->set_userdata('remember', 1);
+   267→                                $this->load->helper('cookie');
+   268→                                $cookie = $this->input->cookie('ci_sess'); // we get the cookie
+   269→                                $this->input->set_cookie('ci_sess', $cookie, '604800'); // and add one week to it's expiration
+   270→                        }
+   271→                        // End Remember login
+   272→                        if ($ud = $this->user->check_auth($logData)) {
+   273→
+   274→                                if ($ud['status'] == ACTIVE) {
+   275→                                        $this->session->set_userdata("user_login", $ud);
+   276→                                        if ($ud['role'] == DOCTOR) {
+   277→                                                redirect("doctor/dashboard", "refresh");
+   278→                                        } elseif ($ud['role'] == PATIENT) {
+   279→                                                redirect("home", "refresh");
+   280→                                        } elseif ($ud['role'] == RECEPTIONIST) {
+   281→                                                redirect("receptionist/dashboard", "refresh");
+   282→                                        } elseif ($ud['role'] == HOSPITAL) {
+   283→                                                redirect("hospital/dashboard", "refresh");
+   284→                                        } elseif ($ud['role'] == ADMIN) {
+   285→                                                redirect("admin/dashboard", "refresh");
+   286→                                        } elseif ($ud['role'] == DOCTOR_ASSISTANT) {
+   287→                                                redirect("assistant/dashboard", "refresh");
+   288→                                        } elseif ($ud['role'] == PHARMACIST) {
+   289→                                                redirect("pharmacist/pharmacist/listPrescriptions", "refresh");
+   290→                                        }
+   291→                                }
+   292→
+   293→                                if ($ud['status'] == PENDING) {
+   294→                                        $this->session->set_userdata('verify_data', $ud);
+   295→                                        redirect('auth/verify_mobile');
+   296→                                }
+   297→
+   298→                                if ($ud['status'] == BLOCK) {
+   299→                                        $this->session->set_flashdata('log_error', "You are Blocked.");
+   300→                                        redirect('auth/login');
+   301→                                }
+   302→
+   303→
+   304→                        } else {
+   305→                                $this->session->set_flashdata('log_error', "Email or Password is invalid");
+   306→                                redirect($_SERVER['HTTP_REFERER']);
+   307→                        }
+   308→                } else {
+   309→                        $this->view_data['_title'] = "Login";
+   310→                        $this->load->view("front/login", $this->view_data);
+   311→                }
+   312→        }
+   313→
+   314→
+   315→        public function forgot_password()
+   316→        {
+   317→                $this->view_data['_title'] = "Forgot password";
+   318→                $this->load->view('front/forgot_password/forgot_password', $this->view_data);
+   319→        }
+   320→
+   321→        public function forgot_submit()
+   322→        {
+   323→                if ($this->input->server('REQUEST_METHOD') == 'POST') {
+   324→                        $this->form_validation->set_rules('mobile', 'Mobile', 'trim|required|callback_valid_mobile_exits');
+   325→                        $this->form_validation->set_error_delimiters("<div class='text-danger' style='font-size:10px;'>", "</div>");
+   326→                        if ($this->form_validation->run()) {
+   327→                                $mobile = $this->input->post('mobile');
+   328→                                $forgot_data = [
+   329→                                        "mobile" => $mobile,
+   330→                                        "created_at" => date('Y-m-d H:i:s')
+   331→                                ];
+   332→                                $this->session->set_userdata('forgot_data', $forgot_data);
+   333→                                redirect('auth/forgot_password_mobile_verification');
+   334→                        } else {
+   335→                                $this->view_data['_title'] = "Forgot password";
+   336→                                $this->load->view('front/forgot_password/forgot_password', $this->view_data);
+   337→                        }
+   338→                } else {
+   339→                        redirect('auth/login');
+   340→                }
+   341→        }
+   342→
+   343→        public function forgot_password_mobile_verification()
+   344→        {
+   345→                $forgot_data = $this->session->userdata('forgot_data');
+   346→                if (!$forgot_data) {
+   347→                        redirect('auth/login');
+   348→                }
+   349→
+   350→                $this->load->view('front/forgot_password/otp_verify_form');
+   351→        }
+   352→
+   353→        public function forgot_password_mobile_verification_submit()
+   354→        {
+   355→                $forgot_password_verification_data = $this->session->userdata('forgot_password_verification_data');
+   356→                if (!$forgot_password_verification_data) {
+   357→                        redirect('auth/login');
+   358→                }
+   359→
+   360→                $date1 = $forgot_password_verification_data['date'];
+   361→                $date2 = date('Y-m-d H:i:s');
+   362→
+   363→                $seconds = strtotime($date2) - strtotime($date1);
+   364→
+   365→                if ($seconds >= 180) {
+   366→                        $this->session->unset_userdata('forgot_data');
+   367→                        $this->session->unset_userdata('forgot_password_verification_data');
+   368→
+   369→                        $this->session->set_flashdata('alert_msg', "Otp expired. Please login and try again later.");
+   370→                        $this->session->set_flashdata('alert_class', "danger");
+   371→                        redirect('auth/login');
+   372→                }
+   373→
+   374→                $otp = $this->input->post('otp');
+   375→                if ($otp == $forgot_password_verification_data['opt']) {
+   376→                        $data = [
+   377→                                "mobile" => $forgot_password_verification_data['mobile_no'],
+   378→                                "date" => date('Y-m-d H:i:s'),
+   379→                        ];
+   380→
+   381→                        $this->session->set_userdata('generate_password_data', $data);
+   382→                        $this->session->unset_userdata('forgot_data');
+   383→                        $this->session->unset_userdata('forgot_password_verification_data');
+   384→
+   385→                        redirect('auth/generate_new_password');
+   386→                } else {
+   387→                        $this->session->set_flashdata('alert_msg', "OTP does not match.");
+   388→                        $this->session->set_flashdata('alert_class', "danger");
+   389→                        redirect('auth/forgot_password_mobile_verification');
+   390→                }
+   391→        }
+   392→
+   393→        public function forgot_password_send_otp()
+   394→        {
+   395→                $forgot_data = $this->session->userdata('forgot_data');
+   396→                if (!$forgot_data) {
+   397→                        redirect('auth/login');
+   398→                }
+   399→
+   400→                $otp = rand(100000, 999999);
+   401→                $mobile = $forgot_data['mobile'];
+   402→                $message = "Dear User, $otp is your " . SITE_TITLE . " OTP code for forgot password.";
+   403→                $this->sendMobileMessage($mobile, $message);
+   404→
+   405→                $data = [
+   406→                        "mobile_no" => $mobile,
+   407→                        "opt" => $otp,
+   408→                        "date" => date('Y-m-d H:i:s'),
+   409→                ];
+   410→
+   411→                $this->session->set_userdata('forgot_password_verification_data', $data);
+   412→                $this->session->set_flashdata('alert_msg', "Otp has been send to your mobile");
+   413→                $this->session->set_flashdata('alert_class', "info");
+   414→                redirect('auth/forgot_password_mobile_verification');
+   415→        }
+   416→
+   417→        public function generate_new_password()
+   418→        {
+   419→                $generate_password_data = $this->session->userdata('generate_password_data');
+   420→                if (!$generate_password_data) {
+   421→                        redirect('auth/login');
+   422→                }
+   423→
+   424→                $date1 = $generate_password_data['date'];
+   425→                $date2 = date('Y-m-d H:i:s');
+   426→
+   427→                $seconds = strtotime($date2) - strtotime($date1);
+   428→
+   429→                if ($seconds >= 300) {
+   430→                        $this->session->unset_userdata('forgot_data');
+   431→                        $this->session->unset_userdata('forgot_password_verification_data');
+   432→
+   433→                        $this->session->set_flashdata('alert_msg', "Otp expired. Please login and try again later.");
+   434→                        $this->session->set_flashdata('alert_class', "danger");
+   435→                        redirect('auth/login');
+   436→                }
+   437→
+   438→                $this->view_data['_title'] = "Generate new password";
+   439→                $this->load->view('front/forgot_password/generate_password', $this->view_data);
+   440→        }
+   441→
+   442→        public function generate_new_password_submit()
+   443→        {
+   444→                $generate_password_data = $this->session->userdata('generate_password_data');
+   445→                if (!$generate_password_data) {
+   446→                        redirect('auth/login');
+   447→                }
+   448→
+   449→                $date1 = $generate_password_data['date'];
+   450→                $date2 = date('Y-m-d H:i:s');
+   451→
+   452→                $seconds = strtotime($date2) - strtotime($date1);
+   453→
+   454→                if ($seconds >= 300) {
+   455→                        $this->session->unset_userdata('forgot_data');
+   456→                        $this->session->unset_userdata('forgot_password_verification_data');
+   457→
+   458→                        $this->session->set_flashdata('alert_msg', "Otp expired. Please login and try again later.");
+   459→                        $this->session->set_flashdata('alert_class', "danger");
+   460→                        redirect('auth/login');
+   461→                }
+   462→
+   463→                $user_data = $this->user->get_by_mobile_for_forgot_password($generate_password_data['mobile']);
+   464→
+   465→                if ($this->input->server('REQUEST_METHOD') == 'POST') {
+   466→                        $this->form_validation->set_rules('new_password', 'new password', 'required|min_length[6]');
+   467→                        $this->form_validation->set_rules('conform_password', 'conform password', 'required|matches[new_password]');
+   468→                        $this->form_validation->set_error_delimiters("<div class='text-danger' style='font-size:10px;'>", "</div>");
+   469→                        if ($this->form_validation->run()) {
+   470→                                $new_password = $this->input->post('new_password');
+   471→                                $new_password = hash("sha256", $new_password);
+   472→                                $this->user->update($user_data->id, ["password" => $new_password]);
+   473→
+   474→                                $this->session->unset_userdata('generate_password_data');
+   475→                                $this->session->set_flashdata("alert_msg", "Your password is successfully reset.");
+   476→                                $this->session->set_flashdata("alert_class", "success");
+   477→                                redirect("auth/login", "refresh");
+   478→                        } else {
+   479→                                $this->view_data['_title'] = "Generate new password";
+   480→                                $this->load->view('front/forgot_password/generate_password', $this->view_data);
+   481→                        }
+   482→                }
+   483→        }
+   484→
+   485→        /**
+   486→         * This function is use for custom validation of check email exits or not
+   487→         * @param $str
+   488→         * @return bool
+   489→         */
+   490→        public function valid_email_exits($str)
+   491→        {
+   492→                if (empty($str)) {
+   493→                        return TRUE;
+   494→                } else {
+   495→                        if ($this->user->forgot_email_exits($str)) {
+   496→                                return TRUE;
+   497→
+   498→                        } else {
+   499→                                $this->form_validation->set_message('valid_email_exits', 'The {field} can not be exits');
+   500→                                return FALSE;
+   501→                        }
+   502→                }
+   503→        }
+   504→
+   505→        /**
+   506→         * This function is use for custom validation of check email exits or not
+   507→         * @param $str
+   508→         * @return bool
+   509→         */
+   510→        public function valid_mobile_exits($str)
+   511→        {
+   512→                if (empty($str)) {
+   513→                        return TRUE;
+   514→                } else {
+   515→                        if ($this->user->forgot_mobile_exits($str)) {
+   516→                                return TRUE;
+   517→                        } else {
+   518→                                $this->form_validation->set_message('valid_mobile_exits', 'The {field} can not be exits');
+   519→                                return FALSE;
+   520→                        }
+   521→                }
+   522→        }
+   523→
+   524→        public function register_for()
+   525→        {
+   526→                $this->view_data['_title'] = "Register";
+   527→                $this->view_data['_view'] = "front/reg_for";
+   528→                $this->load->view('layouts/master_page_front', $this->view_data);
+   529→        }
+   530→
+   531→        protected function get_verify_email_template($link)
+   532→        {
+   533→                $str = "
+   534→<!DOCTYPE html><head>
+   535→    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>
+   536→    <title>" . SITE_TITLE . " </title >
+   537→</head ><body leftmargin = '0' marginwidth = '0' topmargin = '0' marginheight = '0' offset = '0'
+   538→      style = 'margin: 0pt auto; padding: 10px; background:#F4F7FA;' >
+   539→      <h1 align = 'center' > " . SITE_TITLE . "</h1 >
+   540→<table id = 'main' width = '100%' height = '100%' cellpadding = '0' cellspacing = '0' border = '0'
+   541→       bgcolor = '#F4F7FA' >
+   542→    <tbody >
+   543→    <tr >
+   544→        <td valign = 'top' >
+   545→            <table class='innermain' cellpadding = '0' width = '580' cellspacing = '0' border = '0'
+   546→                   bgcolor = '#F4F7FA' align = 'center' style = 'margin:0 auto; table-layout: fixed;' >
+   547→                <tbody >
+   548→                <!--START of MAIL Content-->
+   549→                <tr >
+   550→                    <td colspan = '4' >
+   551→                        <table width = '100%' cellpadding = '0' cellspacing = '0' border = '0' bgcolor = '#ffffff'
+   552→                               style = 'border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);' >
+   553→                            <tbody >
+   554→                            <tr >
+   555→                                <td height = '40' ></td >
+   556→                            </tr >
+   557→                            <tr style = 'font-family: -apple-system,BlinkMacSystemFont,&#39;Segoe UI&#39;,&#39;Roboto&#39;,&#39;Oxygen&#39;,&#39;Ubuntu&#39;,&#39;Cantarell&#39;,&#39;Fira Sans&#39;,&#39;Droid Sans&#39;,&#39;Helvetica Neue&#39;,sans-serif; color:#4E5C6E; font-size:14px; line-height:20px; margin-top:20px;' >
+   558→                                <td class='content' colspan = '2' valign = 'top' align = 'center'
+   559→                                    style = 'padding-left:90px; padding-right:90px;' >
+   560→                                    <table width = '100%' cellpadding = '0' cellspacing = '0' border = '0' bgcolor = '#ffffff' >
+   561→                                        <tbody >
+   562→
+   563→                                        <tr >
+   564→                                            <td height = '30' & nbsp;='' ></td >
+   565→                                        </tr >
+   566→                                        <tr >
+   567→                                            <td align = 'center' > <span
+   568→                                                        style = 'color:#48545d;font-size:22px;line-height: 24px;' >
+   569→                                                           Verify Your Email
+   570→    </span >
+   571→
+   572→                                            </td >
+   573→                                        </tr >
+   574→                                        <tr >
+   575→                                            <td height = '24' & nbsp;='' ></td >
+   576→                                        </tr >
+   577→                                        <tr >
+   578→                                            <td height = '1' bgcolor = '#DAE1E9' ></td >
+   579→                                        </tr >
+   580→                                        <tr >
+   581→                                            <td height = '24' & nbsp;='' ></td >
+   582→                                        </tr >
+   583→                                        <tr >
+   584→                                            <td align = 'center' > <span
+   585→                                                        style = 'color:#48545d;font-size:14px;line-height:24px;' >
+   586→                                                            In order to start using your " . SITE_TITLE . " account, verify your email .
+   587→        </span >
+   588→
+   589→                                            </td >
+   590→                                        </tr >
+   591→                                        <tr >
+   592→                                            <td height = '20' & nbsp;='' ></td >
+   593→                                        </tr >
+   594→                                        <tr >
+   595→                                            <td valign = 'top' width = '48%' align = 'center' > <span >
+   596→          <a href = '" . base_url('auth/verify_email?token=') . "$link'
+   597→        style = 'display:block; padding:15px 25px; background-color:#0087D1; color:#ffffff; border-radius:3px; text-decoration:none;' > Click to verify email </a >
+   598→        </span >
+   599→
+   600→                                            </td >
+   601→                                        </tr >
+   602→                                        <tr >
+   603→                                            <td height = '20' & nbsp;='' ></td >
+   604→                                        </tr >
+   605→                                        <tr >
+   606→                                            <td height = '1' bgcolor = '#DAE1E9' ></td >
+   607→                                        </tr >
+   608→                                        <tr >
+   609→                                            <td height = '20' & nbsp;='' ></td >
+   610→                                        </tr >
+   611→                                        <tr >
+   612→                                            <td align = 'center' >
+   613→                                                <p style = 'color:#a2a2a2; font-size:12px; line-height:17px; font-style:italic;' >
+   614→                                                    If you did not sign up for this account you can ignore this email
+   615→    and the account
+   616→                                                    will be deleted .</p >
+   617→                                            </td >
+   618→                                        </tr >
+   619→                                        </tbody >
+   620→                                    </table >
+   621→                                </td >
+   622→                            </tr >
+   623→                            <tr >
+   624→                                <td height = '60' ></td >
+   625→                            </tr >
+   626→                            </tbody >
+   627→                        </table >
+   628→
+   629→                        <table id = 'promo' width = '100%' cellpadding = '0' cellspacing = '0' border = '0'
+   630→                               style = 'margin-top:20px;' >
+   631→                            <tbody >
+   632→                            <tr >
+   633→                                <td colspan = '2' height = '20' ></td >
+   634→                            </tr >
+   635→
+   636→                            <tr >
+   637→                                <td colspan = '2' height = '20' ></td >
+   638→                            </tr >
+   639→
+   640→                            </tbody >
+   641→                        </table >
+   642→
+   643→                        <table width = '100%' cellpadding = '0' cellspacing = '0' border = '0' >
+   644→                            <tbody >
+   645→                            <tr >
+   646→                                <td height = '10' >&nbsp;</td >
+   647→                            </tr >
+   648→                            <tr >
+   649→                                <td align = 'center' > <span
+   650→                                            style = 'font-family: -apple-system,BlinkMacSystemFont,&#39;Segoe UI&#39;,&#39;Roboto&#39;,&#39;Oxygen&#39;,&#39;Ubuntu&#39;,&#39;Cantarell&#39;,&#39;Fira Sans&#39;,&#39;Droid Sans&#39;,&#39;Helvetica Neue&#39;,sans-serif; color:#9EB0C9; font-size:10px;' >&copy;
+   651→                            <a href = '' target = '_blank'
+   652→                               style = 'color:#9EB0C9 !important; text-decoration:none;' > " . SITE_TITLE . "</a > " . date('Y') . "
+   653→                          </span >
+   654→
+   655→                                </td >
+   656→                            </tr >
+   657→                            <tr >
+   658→                                <td height = '50' >&nbsp;</td >
+   659→                            </tr >
+   660→                            </tbody >
+   661→                        </table >
+   662→
+   663→                    </td >
+   664→                </tr >
+   665→                </tbody >
+   666→            </table >
+   667→        </td >
+   668→    </tr >
+   669→    </tbody >
+   670→</table >
+   671→</body ></html > ";
+   672→
+   673→                return $str;
+   674→        }
+   675→
+   676→        protected function get_forgot_password_email_template($link)
+   677→        {
+   678→                $str = "
+   679→<!DOCTYPE html><head>
+   680→    <meta http-equiv='Content-Type' content='text/html; charset=UTF-8'>
+   681→    <title>" . SITE_TITLE . " </title >
+   682→</head ><body leftmargin = '0' marginwidth = '0' topmargin = '0' marginheight = '0' offset = '0'
+   683→      style = 'margin: 0pt auto; padding: 10px; background:#F4F7FA;' >
+   684→      <h1 align = 'center' > " . SITE_TITLE . "</h1 >
+   685→<table id = 'main' width = '100%' height = '100%' cellpadding = '0' cellspacing = '0' border = '0'
+   686→       bgcolor = '#F4F7FA' >
+   687→    <tbody >
+   688→    <tr >
+   689→        <td valign = 'top' >
+   690→            <table class='innermain' cellpadding = '0' width = '580' cellspacing = '0' border = '0'
+   691→                   bgcolor = '#F4F7FA' align = 'center' style = 'margin:0 auto; table-layout: fixed;' >
+   692→                <tbody >
+   693→                <!--START of MAIL Content-->
+   694→                <tr >
+   695→                    <td colspan = '4' >
+   696→                        <table width = '100%' cellpadding = '0' cellspacing = '0' border = '0' bgcolor = '#ffffff'
+   697→                               style = 'border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);' >
+   698→                            <tbody >
+   699→                            <tr >
+   700→                                <td height = '40' ></td >
+   701→                            </tr >
+   702→                            <tr style = 'font-family: -apple-system,BlinkMacSystemFont,&#39;Segoe UI&#39;,&#39;Roboto&#39;,&#39;Oxygen&#39;,&#39;Ubuntu&#39;,&#39;Cantarell&#39;,&#39;Fira Sans&#39;,&#39;Droid Sans&#39;,&#39;Helvetica Neue&#39;,sans-serif; color:#4E5C6E; font-size:14px; line-height:20px; margin-top:20px;' >
+   703→                                <td class='content' colspan = '2' valign = 'top' align = 'center'
+   704→                                    style = 'padding-left:90px; padding-right:90px;' >
+   705→                                    <table width = '100%' cellpadding = '0' cellspacing = '0' border = '0' bgcolor = '#ffffff' >
+   706→                                        <tbody >
+   707→
+   708→                                        <tr >
+   709→                                            <td height = '30' & nbsp;='' ></td >
+   710→                                        </tr >
+   711→                                        <tr >
+   712→                                            <td align = 'center' > <span
+   713→                                                        style = 'color:#48545d;font-size:22px;line-height: 24px;' >
+   714→                                                            Reset your Password
+   715→    </span >
+   716→
+   717→                                            </td >
+   718→                                        </tr >
+   719→                                        <tr >
+   720→                                            <td height = '24' & nbsp;='' ></td >
+   721→                                        </tr >
+   722→                                        <tr >
+   723→                                            <td height = '1' bgcolor = '#DAE1E9' ></td >
+   724→                                        </tr >
+   725→                                        <tr >
+   726→                                            <td height = '24' & nbsp;='' ></td >
+   727→                                        </tr >
+   728→                                        <tr >
+   729→                                            <td align = 'center' > <span
+   730→                                                        style = 'color:#48545d;font-size:14px;line-height:24px;' >
+   731→                                                            In order to start using your " . SITE_TITLE . " account, you reset your password .
+   732→        </span >
+   733→
+   734→                                            </td >
+   735→                                        </tr >
+   736→                                        <tr >
+   737→                                            <td height = '20' & nbsp;='' ></td >
+   738→                                        </tr >
+   739→                                        <tr >
+   740→                                            <td valign = 'top' width = '48%' align = 'center' > <span >
+   741→          <a href = '" . base_url('auth/generate_new_password?token=') . "$link'
+   742→        style = 'display:block; padding:15px 25px; background-color:#0087D1; color:#ffffff; border-radius:3px; text-decoration:none;' > Click to reset password </a >
+   743→        </span >
+   744→
+   745→                                            </td >
+   746→                                        </tr >
+   747→                                        <tr >
+   748→                                            <td height = '20' & nbsp;='' ></td >
+   749→                                        </tr >
+   750→                                        <tr >
+   751→                                            <td height = '1' bgcolor = '#DAE1E9' ></td >
+   752→                                        </tr >
+   753→                                        <tr >
+   754→                                            <td height = '20' & nbsp;='' ></td >
+   755→                                        </tr >
+   756→                                        <tr >
+   757→                                            <td align = 'center' >
+   758→                                                <p style = 'color:#a2a2a2; font-size:12px; line-height:17px; font-style:italic;' >
+   759→                                                    If you did not sign up for this account you can ignore this email
+   760→    and the account
+   761→                                                    will be deleted .</p >
+   762→                                            </td >
+   763→                                        </tr >
+   764→                                        </tbody >
+   765→                                    </table >
+   766→                                </td >
+   767→                            </tr >
+   768→                            <tr >
+   769→                                <td height = '60' ></td >
+   770→                            </tr >
+   771→                            </tbody >
+   772→                        </table >
+   773→
+   774→                        <table id = 'promo' width = '100%' cellpadding = '0' cellspacing = '0' border = '0'
+   775→                               style = 'margin-top:20px;' >
+   776→                            <tbody >
+   777→                            <tr >
+   778→                                <td colspan = '2' height = '20' ></td >
+   779→                            </tr >
+   780→
+   781→                            <tr >
+   782→                                <td colspan = '2' height = '20' ></td >
+   783→                            </tr >
+   784→
+   785→                            </tbody >
+   786→                        </table >
+   787→
+   788→                        <table width = '100%' cellpadding = '0' cellspacing = '0' border = '0' >
+   789→                            <tbody >
+   790→                            <tr >
+   791→                                <td height = '10' >&nbsp;</td >
+   792→                            </tr >
+   793→                            <tr >
+   794→                                <td align = 'center' > <span
+   795→                                            style = 'font-family: -apple-system,BlinkMacSystemFont,&#39;Segoe UI&#39;,&#39;Roboto&#39;,&#39;Oxygen&#39;,&#39;Ubuntu&#39;,&#39;Cantarell&#39;,&#39;Fira Sans&#39;,&#39;Droid Sans&#39;,&#39;Helvetica Neue&#39;,sans-serif; color:#9EB0C9; font-size:10px;' >&copy;
+   796→                            <a href = '' target = '_blank'
+   797→                               style = 'color:#9EB0C9 !important; text-decoration:none;' > " . SITE_TITLE . "</a > " . date('Y') . "
+   798→                          </span >
+   799→
+   800→                                </td >
+   801→                            </tr >
+   802→                            <tr >
+   803→                                <td height = '50' >&nbsp;</td >
+   804→                            </tr >
+   805→                            </tbody >
+   806→                        </table >
+   807→
+   808→                    </td >
+   809→                </tr >
+   810→                </tbody >
+   811→            </table >
+   812→        </td >
+   813→    </tr >
+   814→    </tbody >
+   815→</table >
+   816→</body ></html > ";
+   817→
+   818→                return $str;
+   819→        }
+   820→}
+   821→
