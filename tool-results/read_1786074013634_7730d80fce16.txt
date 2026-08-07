@@ -1,0 +1,402 @@
+   350→                                                </a>
+   351→                                        </li>
+   352→
+   353→                                        <li role="presentation" class="disabled">
+   354→                                                <a href="#complete3" data-toggle="tab" aria-controls="complete3" role="tab" title="Finish">
+   355→                            <span class="round-tab">
+   356→                                <i class="glyphicon glyphicon-ok"></i>
+   357→                            </span>
+   358→                                                </a>
+   359→                                        </li>
+   360→
+   361→                                </ul>
+   362→                        </div>
+   363→
+   364→                        <form role="form">
+   365→                                <div class="tab-content">
+   366→
+   367→
+   368→                                        <div class="tab-pane active" role="tabpanel" id="step1">
+   369→                                                <div class="step1">
+   370→                                                        <div class="step_21 content-header">
+   371→                                                                <h1>Category Details</h1>
+   372→                                                                <hr>
+   373→                                                                <div class="row">
+   374→                                                                        <?php foreach ($cos as $key => $co) { ?>
+   375→                                                                                <div class="col-md-6">
+   376→                                                                                        <div class="box box-info" style="margin-bottom: -5px">
+   377→                                                                                                <div class="box-body">
+   378→                                                                                                        <h4 class="text-aqua"><?= $co['co_code'] ?></h4>
+   379→                                                                                        <!--                                                                            <input type="hidden" name="co[]" value="-->
+   380→                                                                                        <? //= $co['co_code']?><!--">-->
+   381→                                                                                        <?php foreach ($co['questions'] as $qus) {
+   382→                                                                                                $checked = "";
+   383→                                                                                                foreach ($old_cos as $old) {
+   384→                                                                                                        if ($qus['question'] == $old->question) {
+   385→                                                                                                                $checked = "checked='checked'";
+   386→                                                                                                        }
+   387→                                                                                                }
+   388→
+   389→                                                                                                ?>
+   390→                                                                                                <ul class="todo-list ui-sortable" style="margin-bottom: 7px">
+   391→                                                                                                        <li style="display:flex;">
+   392→
+   393→                                                                                                                <!-- checkbox -->
+   394→                                                                                                                <input type="checkbox" class="form-check-inline checkbox "
+   395→                                                                                                                           name="co_question" value="<?= $qus['question'] ?>"
+   396→                                                                                                                           id="<?= $qus['id'] ?>"
+   397→                                                                                                                           data-co="<?= $co['co_code']; ?>"  data-code="<?= $qus['question_code']; ?>" <?= $checked ?>">
+   398→                                                                                                                <span class="text" for="<?= $qus['id'] ?>"><?= $qus['question'] ?></span>
+   399→                                                                                                                <!-- Emphasis label -->
+   400→                                                                                                        </li>
+   401→                                                                                                </ul>
+   402→
+   403→
+   404→
+   405→                                                                                        <?php } ?>
+   406→                                                                                                </div>
+   407→                                                                                        </div>
+   408→                                                                                </div>
+   409→                                                                        <?php } ?>
+   410→
+   411→                                                                </div>
+   412→                                                        </div>
+   413→
+   414→
+   415→                                                </div>
+   416→                                                <br>
+   417→                                                <ul class="list-inline pull-right">
+   418→                                                        <li>
+   419→                                                                <button type="button" onclick="return add_co()" class="btn btn-primary next-step">Save
+   420→                                                                        and continue
+   421→                                                                </button>
+   422→                                                        </li>
+   423→                                                </ul>
+   424→                                        </div>
+   425→                                        <div class="tab-pane" role="tabpanel" id="step2">
+   426→                                                <div class="step2">
+   427→                                                        <div class="step_21 content-header">
+   428→                                                                <h1>labels Details</h1>
+   429→                                                                <hr>
+   430→                                                                <div class="row">
+   431→                                                                        <?php foreach ($labels as $label) {
+   432→                                                                                $value = "";
+   433→                                                                                foreach ($old_labels as $row) {
+   434→
+   435→                                                                                        if ($label['label_title'] == $row->label) {
+   436→                                                                                                $value = $row->l_value;
+   437→                                                                                        }
+   438→                                                                                }
+   439→                                                                                ?>
+   440→                                                                                <div class="col-md-6">
+   441→                                                                                        <div class="form-group">
+   442→                                                                                                <label><?= $label['label_title'] ?> <?php if ($label['label_unit'] !="") {?> (<?= $label['label_unit'] ?>)<?php }?></label>
+   443→                                                                                                <input type="text" data-label="<?= $label['label_title'] ?>" data-unit="<?= $label['label_unit'] ?>"
+   444→                                                                                                           name="p_label" value="<?= $value ?>"
+   445→                                                                                                           class="form-control p_label">
+   446→                                                                                        </div>
+   447→                                                                                </div>
+   448→                                                                                <?php
+   449→                                                                        } ?>
+   450→                                                                </div>
+   451→                                                        </div>
+   452→                                                        <div class="step-22">
+   453→
+   454→                                                        </div>
+   455→                                                </div>
+   456→                                                <br>
+   457→                                                <ul class="list-inline pull-right">
+   458→                                                        <li>
+   459→                                                                <button type="button" class="btn btn-default prev-step">Previous</button>
+   460→                                                        </li>
+   461→                                                        <li>
+   462→                                                                <button type="button" onclick="add_label()" class="btn btn-primary next-step">Save and
+   463→                                                                        continue
+   464→                                                                </button>
+   465→                                                        </li>
+   466→                                                </ul>
+   467→                                        </div>
+   468→                                        <div class="tab-pane" role="tabpanel" id="step3">
+   469→                                                <div class="step_21 content-header">
+   470→                                                        <h1>Table Details</h1>
+   471→                                                        <hr>
+   472→                                                        <div class="row">
+   473→                                                                <div class="col-md-12 table-responsive">
+   474→                                                                        <?php
+   475→
+   476→                                                                        if (count($check_table) > 0) {
+   477→
+   478→                                                                                $rows = $check_table[0]->rows; // define number of rows
+   479→                                                                                $cols = $check_table[0]->cols;// define number of columns
+   480→                                                                                $th = $check_table[0]->cols;
+   481→                                                                                $lableth = json_decode($check_table[0]->header_label);
+   482→
+   483→                                                                                $inserted = array( '#' );
+   484→                                                                                array_splice( $lableth, 0, 0, $inserted );
+   485→
+   486→                                                                                $labletd = json_decode($check_table[0]->cols_label);
+   487→                                                                                $lablefoot = json_decode($check_table[0]->footer_label);
+   488→                                                                                ?>
+   489→                                                                                <table class="table table-responsive table-bordered border-1" >
+   490→                                                                                        <thead>
+   491→                                                                                        <tr>
+   492→                                                                                                <?php
+   493→                                                                                                for ($th=0; $th <= $cols; $th++) {
+   494→                                                                                                        echo "<th>".$lableth[$th]."</th>";
+   495→                                                                                                }
+   496→                                                                                                ?>
+   497→                                                                                        </tr>
+   498→
+   499→                                                                                        </thead>
+   500→                                                                                        <tbody>
+   501→                                                                                        <?php
+   502→                                                                                        for($tr=1;$tr<=$rows;$tr++){
+   503→                                                                                                echo "<tr>";
+   504→
+   505→                                                                                                echo "<td><b>".$labletd[$tr-1]."</b></td>";
+   506→                                                                                                for($td=1;$td<=$cols;$td++){
+   507→
+   508→                                                                                                        echo "<td></td>";
+   509→
+   510→                                                                                                }
+   511→                                                                                                echo "</tr>";
+   512→                                                                                        }
+   513→                                                                                        echo "<tr>";
+   514→                                                                                        echo "<th></th>";
+   515→                                                                                        for ($th=0; $th < $cols; $th++) {
+   516→                                                                                                echo "<th>".$lablefoot[$th]."</th>";
+   517→                                                                                        }
+   518→                                                                                        echo "</tr>";
+   519→                                                                                        ?>
+   520→
+   521→                                                                                        </tbody>
+   522→
+   523→
+   524→
+   525→                                                                                </table>
+   526→
+   527→                                                                        <?php } ?>
+   528→                                                                </div>
+   529→                                                        </div>
+   530→
+   531→                                                </div>
+   532→                                                <div class="step-22">
+   533→
+   534→                                                </div>
+   535→                                                <br>
+   536→                                                <ul class="list-inline pull-right">
+   537→                                                        <li>
+   538→                                                                <button type="button" class="btn btn-default prev-step">Previous</button>
+   539→                                                        </li>
+   540→                                                        <li>
+   541→                                                                <button type="button" onclick="get_saggestion()" class="btn btn-primary btn-info-full next-step">Save and
+   542→                                                                        continue
+   543→                                                                </button>
+   544→                                                        </li>
+   545→                                                </ul>
+   546→                                        </div>
+   547→                                        <div class="tab-pane" role="tabpanel" id="complete">
+   548→                                                <div class="step44 content-header">
+   549→                                                        <h1>Medicine Details</h1><img src="<?= base_url('assets/v_.gif')?>" height="100px" id="v_on"><img src="<?= base_url('assets/voice_off.gif')?>" height="80px" id="v_of">
+   550→<!--                                                    <button id="start-record-btn" type="button" class="btn-info" title="Start Recording">Start Recognition</button>-->
+   551→                                                        <hr>
+   552→                                                        <div class="col-sm-12">
+   553→
+   554→                                                                                <div class="row">
+   555→                                                                                        <div class="col-sm-12 table-responsive">
+   556→                                                                                                <table id="mytbl" class="table table-bordered table-responsive">
+   557→                                                                                                        <thead>
+   558→                                                                                                        <tr>
+   559→                                                                                                                <th>Medicine Name</th>
+   560→                                                                                                                <th>Doz</th>
+   561→                                                                                                                <th>Morning</th>
+   562→                                                                                                                <th>Afternoon</th>
+   563→                                                                                                                <th>Evening</th>
+   564→                                                                                                                <th>Tab</th>
+   565→
+   566→                                                                                                                <th>Description</th>
+   567→                                                                                                                <th>Action</th>
+   568→                                                                                                        </tr>
+   569→                                                                                                        </thead>
+   570→                                                                                                        <tbody>
+   571→                                                                                                        <?php if (count($old_medicines)>0){
+   572→
+   573→                                                                                                                foreach ($old_medicines as $row){
+   574→                                                                                                        ?>
+   575→                                                                                                                        <tr class="medi">
+   576→                                                                                                                                <td>
+   577→                                                                                                                                        <div class="form-group">
+   578→                                                 <span style="position: relative;">
+   579→                                                    <input type="text" class="form-control basicAutoComplete medil"
+   580→                                                                                                                   placeholder="Enter medicine name"
+   581→                                                                                                                   name="details[0][medicine_name]"   value="<?= $row->medicine?>" autocomplete="off" required>
+   582→                                                 </span>
+   583→                                                                                                                                        </div>
+   584→                                                                                                                                </td>
+   585→                                                                                                                                <td>
+   586→                                                                                                                                        <div class="form-group">
+   587→                                                                                                                                                <?php
+   588→                                                                                                                                                $allLists=json_decode($medicineAll->get_by_doctor_id_detail($user->id,$row->medicine)[0]->doz);
+   589→
+   590→                                                                                                                                                ?>
+   591→                                                                                                                                                <select style="width: 100px;" class="form-control" name="details[0][doz]"
+   592→                                                                                                                                                                 placeholder="Enter Doz" required>
+   593→                                                                                                                                                        <?php foreach ($allLists as $me){
+   594→                                                                                                                                                                ?>
+   595→                                                                                                                                                                <option <?php if ($row->doz == $me  ){ echo 'selected'; } ?> value="<?= $me?>"><?= $me?></option>
+   596→                                                                                                                                                                <?php
+   597→                                                                                                                                                        }?>
+   598→
+   599→                                                                                                                                                </select>
+   600→                                                                                                                                        </div>
+   601→                                                                                                                                </td>
+   602→                                                                                                                                <td>
+   603→                                                                                                                                        <div class="form-group">
+   604→                                                                                                                                                <input type="text" class="form-control" name="details[0][morning]"
+   605→                                                                                                                                                           placeholder="morning" value="<?= $row->morning?>" required>
+   606→                                                                                                                                        </div>
+   607→                                                                                                                                </td>
+   608→                                                                                                                                <td>
+   609→                                                                                                                                        <div class="form-group">
+   610→                                                                                                                                                <input type="text" class="form-control" name="details[0][afternoon]"
+   611→                                                                                                                                                           placeholder="afternoon" value="<?= $row->after_noon?>" required>
+   612→                                                                                                                                        </div>
+   613→                                                                                                                                </td>
+   614→                                                                                                                                <td>
+   615→                                                                                                                                        <div class="form-group">
+   616→                                                                                                                                                <input type="text" class="form-control" name="details[0][evening]"
+   617→                                                                                                                                                           placeholder="evening" value="<?= $row->evning?>" required>
+   618→                                                                                                                                        </div>
+   619→                                                                                                                                </td>
+   620→                                                                                                                                <td>
+   621→                                                                                                                                        <div class="form-group">
+   622→                                                                                                                                                <input type="text" class="form-control" name="details[0][tab]"
+   623→                                                                                                                                                           placeholder="Enter Medicine quantity" value="<?= $row->tab?>" required>
+   624→                                                                                                                                        </div>
+   625→                                                                                                                                </td>
+   626→
+   627→                                                                                                                                <td>
+   628→                                                                                                                                        <div class="form-group">
+   629→                                                                                                                                                <input type="text" class="form-control" name="details[0][description]"
+   630→                                                                                                                                                           placeholder="Enter description" value="<?= $row->description?>">
+   631→                                                                                                                                        </div>
+   632→                                                                                                                                </td>
+   633→                                                                                                                                <td>
+   634→                                                                                                                                <button type="button" onclick="removeItem(this)" class="btn btn-danger btn-sm"><span
+   635→                                                                                                                                                         class="fa fa-trash-o"></span>
+   636→                                                                                                                                         </button>
+   637→                                                                                                                                </td>
+   638→                                                                                                                        </tr>
+   639→                                                                                                <?php   } }else{?>
+   640→                                                                                                        <tr class="medi">
+   641→                                                                                                                <td>
+   642→                                                                                                                        <div class="form-group">
+   643→                                                 <span style="position: relative;">
+   644→                                                    <input type="text" class="form-control basicAutoComplete medil"
+   645→                                                                                                                   placeholder="Enter medicine name"
+   646→                                                                                                                        name="details[0][medicine_name]"  id="note-textarea" autocomplete="off" required>
+   647→                                                 </span>
+   648→                                                                                                                        </div>
+   649→                                                                                                                </td>
+   650→                                                                                                                <td>
+   651→                                                                                                                        <div class="form-group">
+   652→                                                                                                                                <select style="width: 100px;"  class="form-control" name="details[0][doz]"
+   653→                                                                                                                                                placeholder="Select Doz" required></select>
+   654→
+   655→                                                                                                                        </div>
+   656→                                                                                                                </td>
+   657→                                                                                                                <td>
+   658→                                                                                                                        <div class="form-group">
+   659→                                                                                                                                <input type="text" class="form-control" name="details[0][morning]"
+   660→                                                                                                                                           placeholder="morning" required>
+   661→                                                                                                                        </div>
+   662→                                                                                                                </td>
+   663→                                                                                                                <td>
+   664→                                                                                                                        <div class="form-group">
+   665→                                                                                                                                <input type="text" class="form-control" name="details[0][afternoon]"
+   666→                                                                                                                                           placeholder="afternoon" required>
+   667→                                                                                                                        </div>
+   668→                                                                                                                </td>
+   669→                                                                                                                <td>
+   670→                                                                                                                        <div class="form-group">
+   671→                                                                                                                                <input type="text" class="form-control" name="details[0][evening]"
+   672→                                                                                                                                           placeholder="evening" required>
+   673→                                                                                                                        </div>
+   674→                                                                                                                </td>
+   675→                                                                                                                <td>
+   676→                                                                                                                        <div class="form-group">
+   677→                                                                                                                                <input type="text" class="form-control" name="details[0][tab]"
+   678→                                                                                                                                           placeholder="Enter Medicine quantity" required>
+   679→                                                                                                                        </div>
+   680→                                                                                                                </td>
+   681→
+   682→                                                                                                                <td>
+   683→                                                                                                                        <div class="form-group">
+   684→                                                                                                                                <input type="text" class="form-control" name="details[0][description]"
+   685→                                                                                                                                           placeholder="Enter description">
+   686→                                                                                                                        </div>
+   687→                                                                                                                </td>
+   688→                                                                                                                <td>
+   689→                                                                                                                        <!-- <button onclick="removeItem(this)" class="btn btn-danger btn-sm"><span
+   690→                                                                                                                                         class="fa fa-trash-o"></span>
+   691→                                                                                                                         </button>-->
+   692→                                                                                                                </td>
+   693→                                                                                                        </tr>
+   694→                                                                                                        <?php } ?>
+   695→                                                                                                        </tbody>
+   696→                                                                                                        <tfoot>
+   697→                                                                                                        <tr>
+   698→                                                                                                                <td>
+   699→                                                                                                                        <button id="addMore" type="button" class="btn btn-info btn-xs"><span
+   700→                                                                                                                                        class="fa fa-plus"> Add More</span>
+   701→                                                                                                                        </button>
+   702→                                                                                                                </td>
+   703→                                                                                                        </tr>
+   704→                                                                                                        </tfoot>
+   705→                                                                                                </table>
+   706→                                                                                        </div>
+   707→<!--                                                                                    <div class="col-sm-12">-->
+   708→<!--                                                                                            <div class="form-group">-->
+   709→<!--                                                                                                    <label for="exampleInputDescription">Remark</label>-->
+   710→<!--                                                                                                    <textarea class="form-control" rows="5"-->
+   711→<!--                                                                                                                      name="remark">--><?php //echo set_value("remark"); ?><!--</textarea>-->
+   712→<!--                                                                                                    --><?php //echo form_error('remark'); ?>
+   713→<!--                                                                                            </div>-->
+   714→<!--                                                                                    </div>-->
+   715→                                                                                </div>
+   716→
+   717→                                                        </div>
+   718→                                                        <ul class="list-inline pull-right">
+   719→                                                                <li>
+   720→                                                                        <button type="button" class="btn btn-default prev-step">Previous</button>
+   721→                                                                </li>
+   722→                                                                <li>
+   723→                                                                        <button type="button" onclick="add_medilist()" class="btn btn-primary btn-info-full next-step">Save and
+   724→                                                                                continue
+   725→                                                                        </button>
+   726→                                                                </li>
+   727→                                                        </ul>
+   728→                                                </div>
+   729→
+   730→                                        </div>
+   731→
+   732→                                        <div class="tab-pane " role="tabpanel" id="complete2">
+   733→                                                <div class="complete2">
+   734→                                                        <div class="step_21 content-header">
+   735→                                                                <h1>Suggestion Details</h1><img src="<?= base_url('assets/v_.gif')?>" height="100px" id="v_on1"><img src="<?= base_url('assets/voice_off.gif')?>" height="80px" id="v_of1">
+   736→                                                                <hr>
+   737→                                                                <div class="row" id="loading">
+   738→                                                                </div>
+   739→                                                </div>
+   740→                                                        <br>
+   741→                                                        <ul class="list-inline pull-right">
+   742→                                                                <li>
+   743→                                                                        <button type="button" class="btn btn-default prev-step">Previous</button>
+   744→                                                                </li>
+   745→                                                                <li>
+   746→                                                                        <button type="button" onclick="add_suggestion()" class="btn btn-primary btn-info-full next-step">Save and
+   747→                                                                                continue
+   748→                                                                        </button>
+   749→                                                                </li>
+
+[showing lines 350-749 of 1284; use offset=750 with limit to continue reading]

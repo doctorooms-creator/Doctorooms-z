@@ -1,0 +1,471 @@
+     1→<!DOCTYPE html>
+     2→<html>
+     3→<head>
+     4→        <meta charset="utf-8">
+     5→        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+     6→        <title><?= (isset($_title)) ? $_title . " | " : "" ?><?= SITE_TITLE ?></title>
+     7→        <meta content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" name="viewport">
+     8→        <link rel="stylesheet" href="<?= base_url() ?>assets/lte/bower_components/bootstrap/dist/css/bootstrap.min.css">
+     9→        <link rel="stylesheet" href="<?= base_url() ?>assets/lte/bower_components/font-awesome/css/font-awesome.min.css">
+    10→        <link rel="stylesheet" href="<?= base_url() ?>assets/lte/bower_components/Ionicons/css/ionicons.min.css">
+    11→        <link rel="stylesheet" href="<?= base_url() ?>assets/lte/bower_components/morris.js/morris.css">
+    12→        <link rel="stylesheet" href="<?= base_url() ?>assets/lte/plugins/timepicker/bootstrap-timepicker.min.css">
+    13→        <link rel="stylesheet"
+    14→                  href="<?= base_url() ?>assets/lte/bower_components/bootstrap-datepicker/dist/css/bootstrap-datepicker.min.css">
+    15→        <link rel="stylesheet"
+    16→                  href="<?= base_url() ?>assets/lte/bower_components/bootstrap-daterangepicker/daterangepicker.css">
+    17→        <link rel="stylesheet" href="<?= base_url() ?>assets/lte/plugins/bootstrap-wysihtml5/bootstrap3-wysihtml5.min.css">
+    18→
+    19→        <link href="<?= base_url() ?>assets/lte/bower_components/datatables.net-bs/css/dataTables.bootstrap.min.css"
+    20→                  rel="stylesheet" type="text/css"/>
+    21→        <link href="https://cdn.datatables.net/1.10.20/css/jquery.dataTables.min.css" rel="stylesheet" type="text/css"/>
+    22→        <link href="https://cdn.datatables.net/buttons/1.6.0/css/buttons.dataTables.min.css" rel="stylesheet"
+    23→                  type="text/css"/>
+    24→        <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet">
+    25→        <!--[if lt IE 9]>
+    26→        <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+    27→        <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    28→        <![endif]-->
+    29→        <link rel="stylesheet"
+    30→                  href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,600,700,300italic,400italic,600italic">
+    31→        <link href="<?= base_url() ?>assets/lte/bower_components/pnotify/pnotify.custom.min.css" rel="stylesheet"
+    32→                  type="text/css"/>
+    33→        <link href="<?= base_url() ?>assets/lte/plugins/bootstrap-wysihtml5/bootstrap3-wysihtml5.min.css" rel="stylesheet"
+    34→                  type="text/css"/>
+    35→        <link rel="stylesheet" href="<?= base_url() ?>assets/lte/dist/css/AdminLTE.min.css">
+    36→        <link rel="stylesheet" href="<?= base_url() ?>assets/lte/dist/css/skins/_all-skins.min.css">
+    37→        <link href="https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.css" rel="stylesheet">
+    38→        <script src="<?= base_url() ?>assets/lte/bower_components/jquery/dist/jquery.min.js"></script>
+    39→        <style>
+    40→                @media print {
+    41→                        .d-n {
+    42→                                display: none;
+    43→                        }
+    44→
+    45→                        .box {
+    46→                                border-top: 0px solid #d2d6de;
+    47→                        }
+    48→
+    49→                        a[href]:after {
+    50→                                display: none;
+    51→                                visibility: hidden;
+    52→                        }
+    53→
+    54→                        span.fa {
+    55→                                display: none;
+    56→                                visibility: hidden;
+    57→                        }
+    58→
+    59→                }
+    60→
+    61→                ul.bootstrap-autocomplete {
+    62→                        left: 0.1rem !important;
+    63→                        top: 3.3rem !important;
+    64→                        position: absolute;
+    65→                        z-index: 1000;
+    66→                        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, .1), 0 1px 2px 0 rgba(0, 0, 0, .06) !important;
+    67→                        border: 1px solid #e2e8f0 !important;
+    68→                        -webkit-border-radius: 0;
+    69→                        -moz-border-radius: 0;
+    70→                        border-radius: 0;
+    71→                        background: #f7fafc !important;
+    72→                        max-height: 300px;
+    73→                        overflow-y: auto;
+    74→                }
+    75→        </style>
+    76→        <?php
+    77→        if (isset($_css) && $_css)
+    78→                $this->load->view($_css);
+    79→        ?>
+    80→
+    81→</head>
+    82→<body class="sidebar-mini skin-black-light">
+    83→<div class="wrapper">
+    84→
+    85→        <header class="main-header">
+    86→                <a href="<?= base_url('doctor/dashboard') ?>" class="logo">
+    87→                        <span class="logo-mini"><b>C</b>H</span>
+    88→                        <span class="logo-lg"><b><?= SITE_TITLE ?></b></span>
+    89→                </a>
+    90→                <nav class="navbar navbar-static-top">
+    91→                        <a href="#" class="sidebar-toggle" data-toggle="push-menu" role="button">
+    92→                                <span class="sr-only">Toggle navigation</span>
+    93→                        </a>
+    94→
+    95→                        <div class="navbar-custom-menu">
+    96→
+    97→                                <ul class="nav navbar-nav">
+    98→                                        <li class="dropdown notifications-menu">
+    99→                                                <a href="<?= base_url("doctor/notifications") ?>" >
+   100→                                                        <i class="fa fa-bell-o"></i>
+   101→                                                        <?php if ($notificationsCount) { ?>
+   102→                                                                <span class="label label-warning"><?= $notificationsCount ?></span>
+   103→                                                        <?php } ?>
+   104→                                                </a>
+   105→                                                <ul class="dropdown-menu">
+   106→                                                        <li class="header">You have <?= $notificationsCount ?> new notifications</li>
+   107→                                                        <li>
+   108→                                                                <!-- inner menu: contains the actual data -->
+   109→                                                                <ul class="menu">
+   110→                                                                        <?php foreach ($notifications as $noti) { ?>
+   111→                                                                                <li>
+   112→                                                                                        <a href="<?= base_url("doctor/notifications") ?>">
+   113→                                                                                                <i class="fa fa-flag-o text-warning"></i> <?= $noti->title ?>
+   114→                                                                                        </a>
+   115→                                                                                </li>
+   116→                                                                        <?php } ?>
+   117→                                                                </ul>
+   118→                                                        </li>
+   119→                                                        <li class="footer"><a href="<?= base_url("doctor/notifications") ?>">View all</a></li>
+   120→                                                </ul>
+   121→                                        </li>
+   122→
+   123→                                        <li class="dropdown user user-menu">
+   124→                                                <a href="#" class="dropdown-toggle" data-toggle="dropdown">
+   125→                                                        <img src="<?= base_url() ?>upload/profile/<?= $user->profile_img ?>" class="user-image"
+   126→                                                                 alt="User Image">
+   127→                                                        <span class="hidden-xs"><?= $user->name ?></span>
+   128→                                                </a>
+   129→                                                <ul class="dropdown-menu">
+   130→                                                        <!-- User image -->
+   131→                                                        <li class="user-header">
+   132→                                                                <img src="<?= base_url() ?>upload/profile/<?= $user->profile_img ?>" class="img-circle"
+   133→                                                                         alt="User Image">
+   134→
+   135→                                                                <p>
+   136→                                                                        <?= $user->name ?><br>
+   137→                                                                        <small><?= strtoupper($user->role) ?></small>
+   138→                                                                </p>
+   139→                                                        </li>
+   140→                                                        <li class="user-footer">
+   141→                                                                <div class="pull-left">
+   142→                                                                        <a href="<?= base_url("doctor/profile") ?>" class="btn btn-default btn-flat">Profile
+   143→                                                                                Settings</a>
+   144→                                                                </div>
+   145→                                                                <div class="pull-right">
+   146→                                                                        <a href="<?= base_url("auth/logout") ?>" class="btn btn-default btn-flat">Sign
+   147→                                                                                out</a>
+   148→                                                                </div>
+   149→                                                        </li>
+   150→                                                </ul>
+   151→                                        </li>
+   152→                                </ul>
+   153→                        </div>
+   154→                </nav>
+   155→        </header>
+   156→        <aside class="main-sidebar">
+   157→                <!-- sidebar: style can be found in sidebar.less -->
+   158→                <section class="sidebar">
+   159→                        <!-- Sidebar user panel -->
+   160→                        <div class="user-panel">
+   161→                                <div class="pull-left image">
+   162→                                        <img src="<?= base_url() ?>upload/profile/<?= $user->profile_img ?>" class="img-circle"
+   163→                                                 alt="User Image" style="width: 38px; height: 38px;">
+   164→                                </div>
+   165→                                <div class="pull-left info">
+   166→                                        <p><?= $user->name ?></p>
+   167→                                        <a href="#">
+   168→                                                <i class="fa fa-circle text-success"></i>
+   169→                                                Active
+   170→                                        </a>
+   171→                                </div>
+   172→                        </div>
+   173→
+   174→                        <!-- sidebar menu: : style can be found in sidebar.less -->
+   175→                        <ul class="sidebar-menu" data-widget="tree">
+   176→                                <li class="header">MAIN NAVIGATION</li>
+   177→                                <li>
+   178→                                        <a href="<?= base_url("doctor/dashboard") ?>">
+   179→                                                <i class="fa fa-dashboard"></i> <span>Dashboard</span>
+   180→                                        </a>
+   181→                                </li>
+   182→                                <li>
+   183→                                        <a href="<?= base_url("doctor/appointment") ?>">
+   184→                                                <i class="fa fa-check-circle"></i> <span>Appointments</span>
+   185→                                        </a>
+   186→                                </li>
+   187→
+   188→                                <li>
+   189→                                        <a href="<?= base_url("doctor/appointment/history") ?>">
+   190→                                                <i class="fa fa-file-text"></i> <span>Appointment History</span>
+   191→                                        </a>
+   192→                                </li>
+   193→
+   194→                                <li>
+   195→                                        <a href="<?= base_url("doctor/profile") ?>">
+   196→                                                <i class="fa fa-user-md"></i> <span>My Profile</span>
+   197→                                        </a>
+   198→                                </li>
+   199→                                <li>
+   200→                                        <a href="<?= base_url("doctor/schedule") ?>">
+   201→                                                <i class="fa fa-clock-o"></i> <span>Manage Schedule</span>
+   202→                                        </a>
+   203→                                </li>
+   204→                                <li>
+   205→                                        <a href="<?= base_url("doctor/gallery") ?>">
+   206→                                                <i class="fa fa-photo"></i> <span>Gallery</span>
+   207→                                        </a>
+   208→                                </li>
+   209→                                <li>
+   210→                                        <a href="<?= base_url("doctor/post") ?>">
+   211→                                                <i class="fa fa-rss"></i> <span>Blog</span>
+   212→                                        </a>
+   213→                                </li>
+   214→                                <li>
+   215→                                        <a href="<?= base_url("doctor/receptionist") ?>">
+   216→                                                <i class="fa fa-user-o"></i> <span>Receptionist</span>
+   217→                                        </a>
+   218→                                </li>
+   219→                                <li>
+   220→                                        <a href="<?= base_url("doctor/assistant") ?>">
+   221→                                                <i class="fa fa-user-o"></i> <span>Assistant</span>
+   222→                                        </a>
+   223→                                </li>
+   224→                                <li>
+   225→                                        <a href="<?= base_url("doctor/pharmacist/") ?>">
+   226→                                                <i class="fa fa-user-o"></i> <span>Pharmacist</span>
+   227→                                        </a>
+   228→                                </li>
+   229→                                <li>
+   230→                                        <a href="<?= base_url("doctor/report") ?>">
+   231→                                                <i class="fa fa-file"></i> <span>Reports</span>
+   232→                                        </a>
+   233→                                </li>
+   234→
+   235→                                <li class="treeview <?php if ($this->uri->segment(2) == "co" || $this->uri->segment(2) == "questions" || $this->uri->segment(2) == "suggestions" || $this->uri->segment(2) == "label" || $this->uri->segment(2) == "table_master" ||  $this->uri->segment(2) == "p_other_setting") {
+   236→                                        echo " menu-open";
+   237→                                } ?>" style="height: auto;">
+   238→                                        <a href="#">
+   239→                                                <i class="fa fa-file-text-o"></i> <span>Prescription Settings</span>
+   240→                                                <span class="pull-right-container">
+   241→              <i class="fa fa-angle-left pull-right"></i>
+   242→            </span>
+   243→                                        </a>
+   244→                                        <ul class="treeview-menu" <?php if ($this->uri->segment(2) == "co" || $this->uri->segment(2) == "questions" || $this->uri->segment(2) == "suggestions" || $this->uri->segment(2) == "label" || $this->uri->segment(2) == "table_master" || $this->uri->segment(2) == "p_other_setting") {
+   245→                                                echo 'style="display: block;"';
+   246→                                        } else {
+   247→                                                echo 'style="display: none;"';
+   248→                                        } ?> >
+   249→                                                <li class="<?php if ($this->uri->segment(2) == "co") {
+   250→                                                        echo "active";
+   251→                                                } ?>">
+   252→                                                        <a href="<?= base_url("doctor/co") ?>">
+   253→                                                                <i class="fa  fa-plus-square"></i> <span>C/O - Category </span>
+   254→                                                        </a>
+   255→                                                </li>
+   256→
+   257→                                                <li class="<?php if ($this->uri->segment(2) == "questions") {
+   258→                                                        echo "active";
+   259→                                                } ?>">
+   260→                                                        <a href="<?= base_url("doctor/questions") ?>">
+   261→                                                                <i class="fa fa-question-circle"></i> <span>Complains</span>
+   262→                                                        </a>
+   263→                                                </li>
+   264→                                                <li class="<?php if ($this->uri->segment(2) == "suggestions") {
+   265→                                                        echo "active";
+   266→                                                } ?>">
+   267→                                                        <a href="<?= base_url("doctor/suggestions") ?>">
+   268→                                                                <i class="fa fa-check-circle"></i> <span>Suggestions</span>
+   269→                                                        </a>
+   270→                                                </li>
+   271→                                                <li class="<?php if ($this->uri->segment(2) == "label") {
+   272→                                                        echo "active";
+   273→                                                } ?>">
+   274→                                                        <a href="<?= base_url("doctor/label") ?>">
+   275→                                                                <i class="fa fa-tag"></i> <span>Labels</span>
+   276→                                                        </a>
+   277→                                                </li>
+   278→                                                <li class="<?php if ($this->uri->segment(2) == "table_master") {
+   279→                                                        echo "active";
+   280→                                                } ?>">
+   281→                                                        <a href="<?= base_url("doctor/table_master") ?>">
+   282→                                                                <i class="fa fa-table"></i> <span>Table</span>
+   283→                                                        </a>
+   284→                                                </li>
+   285→                                                <li class="<?php if ($this->uri->segment(2) == "p_other_setting") {
+   286→                                                        echo "active";
+   287→                                                } ?>">
+   288→                                                        <a href="<?= base_url("doctor/p_other_setting") ?>">
+   289→                                                                <i class="fa fa-cog"></i> <span>Other Settings</span>
+   290→                                                        </a>
+   291→                                                </li>
+   292→                                        </ul>
+   293→                                </li>
+   294→                        </ul>
+   295→                </section>
+   296→        </aside>
+   297→        <?php
+   298→        if (isset($_view) && $_view)
+   299→                $this->load->view($_view);
+   300→        ?>
+   301→        <footer class="main-footer d-n">
+   302→                <div class="pull-right hidden-xs">
+   303→                        <b>Version</b> 2.4.0
+   304→                </div>
+   305→                <strong>Copyright © 2019 <a href="#">Bracesoft Solution</a>.</strong> All rights
+   306→                reserved.
+   307→        </footer>
+   308→</div>
+   309→<script src="<?= base_url() ?>assets/lte/bower_components/jquery-ui/jquery-ui.min.js"></script>
+   310→<script>
+   311→        $.widget.bridge('uibutton', $.ui.button);
+   312→</script>
+   313→<script src="<?= base_url() ?>assets/lte/bower_components/bootstrap/dist/js/bootstrap.min.js"></script>
+   314→<script src="<?= base_url() ?>assets/lte/bower_components/raphael/raphael.min.js"></script>
+   315→<script src="<?= base_url() ?>assets/lte/bower_components/morris.js/morris.min.js"></script>
+   316→<script src="<?= base_url() ?>assets/lte/bower_components/jquery-sparkline/dist/jquery.sparkline.min.js"></script>
+   317→<script src="<?= base_url() ?>assets/lte/bower_components/jquery-knob/dist/jquery.knob.min.js"></script>
+   318→<script src="<?= base_url() ?>assets/lte/bower_components/moment/min/moment.min.js"></script>
+   319→<script src="<?= base_url() ?>assets/lte/bower_components/bootstrap-daterangepicker/daterangepicker.js"></script>
+   320→<script
+   321→        src="<?= base_url() ?>assets/lte/bower_components/bootstrap-datepicker/dist/js/bootstrap-datepicker.min.js"></script>
+   322→<script src="<?= base_url() ?>assets/lte/plugins/bootstrap-wysihtml5/bootstrap3-wysihtml5.all.min.js"></script>
+   323→<script src="<?= base_url() ?>assets/lte/bower_components/jquery-slimscroll/jquery.slimscroll.min.js"></script>
+   324→<script src="<?= base_url() ?>assets/lte/plugins/timepicker/bootstrap-timepicker.min.js"></script>
+   325→<script src="<?= base_url() ?>assets/lte/bower_components/fastclick/lib/fastclick.js"></script>
+   326→<script src="<?= base_url() ?>assets/lte/dist/js/adminlte.min.js"></script>
+   327→<script src="<?= base_url() ?>assets/lte/dist/js/pages/dashboard.js"></script>
+   328→<script src="<?= base_url() ?>assets/lte/bower_components/datatables.net/js/jquery.dataTables.min.js"
+   329→                type="text/javascript"></script>
+   330→<script src="<?= base_url() ?>assets/lte/bower_components/datatables.net-bs/js/dataTables.bootstrap.min.js"
+   331→                type="text/javascript"></script>
+   332→<script src="<?= base_url() ?>assets/lte/bower_components/pnotify/pnotify.custom.min.js"
+   333→                type="text/javascript"></script>
+   334→<script src="<?= base_url() ?>assets/lte/bower_components/image-preview/jquery.uploadPreview.js"
+   335→                type="text/javascript"></script>
+   336→<script src="<?= base_url() ?>assets/lte/plugins/bootstrap-wysihtml5/bootstrap3-wysihtml5.all.min.js"
+   337→                type="text/javascript"></script>
+   338→<script src="https://cdnjs.cloudflare.com/ajax/libs/ekko-lightbox/5.3.0/ekko-lightbox.min.js"></script>
+   339→<script src="https://unpkg.com/sweetalert/dist/sweetalert.min.js"></script>
+   340→
+   341→<script src="https://cdn.datatables.net/buttons/1.5.6/js/dataTables.buttons.min.js"></script>
+   342→<script src="https://cdn.datatables.net/buttons/1.5.6/js/buttons.flash.min.js"></script>
+   343→<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+   344→<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
+   345→<script src="https://cdn.datatables.net/buttons/1.5.6/js/buttons.print.min.js"></script>
+   346→<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
+   347→<script src="https://cdn.datatables.net/buttons/1.5.6/js/buttons.html5.min.js"></script>
+   348→<script src="https://cdn.datatables.net/buttons/1.5.6/js/buttons.print.min.js"></script>
+   349→<script async src="https://www.googletagmanager.com/gtag/js?id=UA-171698773-1"></script>
+   350→<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/css/select2.min.css" rel="stylesheet"/>
+   351→<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-beta.1/dist/js/select2.min.js"></script>
+   352→
+   353→<script>
+   354→        window.dataLayer = window.dataLayer || [];
+   355→
+   356→        function gtag() {
+   357→                dataLayer.push(arguments);
+   358→        }
+   359→
+   360→        gtag('js', new Date());
+   361→
+   362→        gtag('config', 'UA-171698773-1');
+   363→</script>
+   364→<?php
+   365→if (isset($_javascript) && $_javascript)
+   366→        $this->load->view($_javascript);
+   367→?>
+   368→<script>
+   369→    $("body").on("submit", "form", function() {
+   370→        $(this).submit(function() {
+   371→            return false;
+   372→        });
+   373→        return true;
+   374→    });
+   375→
+   376→        $(document).ready(function () {
+   377→                $('[data-toggle="tooltip"]').tooltip();
+   378→                $('.select2').select2();
+   379→
+   380→
+   381→        });
+   382→
+   383→        $(function () {
+   384→                $('.dttable').DataTable();
+   385→        });
+   386→
+   387→
+   388→        $('#example').DataTable({
+   389→                dom: 'Bfrtip',
+   390→                buttons: [
+   391→                        'copyHtml5',
+   392→                        'excelHtml5',
+   393→                        'csvHtml5',
+   394→                        'pdfHtml5'
+   395→                ]
+   396→        });
+   397→
+   398→
+   399→        function conformDel(aa, event) {
+   400→                event.preventDefault();
+   401→                swal({
+   402→                        title: "Are you sure?",
+   403→                        text: "Once deleted, you will not be able to recover this file!",
+   404→                        icon: "error",
+   405→                        buttons: true,
+   406→                        dangerMode: true,
+   407→                })
+   408→                        .then((willDelete) => {
+   409→                                if (willDelete) {
+   410→                                        window.location = $(aa).attr('href');
+   411→                                } else {
+   412→                                        //swal("Your imaginary file is safe!");
+   413→                                }
+   414→                        });
+   415→                return false;
+   416→        }
+   417→
+   418→        function conformFormDel(aa, event) {
+   419→                event.preventDefault();
+   420→                swal({
+   421→                        title: "Are you sure?",
+   422→                        text: "Once deleted, you will not be able to recover this file!",
+   423→                        icon: "error",
+   424→                        buttons: true,
+   425→                        dangerMode: true,
+   426→                }).then((willDelete) => {
+   427→                        if (willDelete) {
+   428→                                //window.location = $(aa).attr('href');
+   429→                                aa.form.submit();
+   430→                        } else {
+   431→                                //swal("Your imaginary file is safe!");
+   432→                        }
+   433→                });
+   434→                return false;
+   435→        }
+   436→
+   437→        function conformCancel(aa, event) {
+   438→                event.preventDefault();
+   439→                swal({
+   440→                        title: "Are you sure?",
+   441→                        text: "Once Cancelled, you will not be able to recover this!",
+   442→                        icon: "warning",
+   443→                        buttons: true,
+   444→                        dangerMode: true,
+   445→                })
+   446→                        .then((willDelete) => {
+   447→                                if (willDelete) {
+   448→                                        window.location = $(aa).attr('href');
+   449→                                } else {
+   450→                                        //swal("Your imaginary file is safe!");
+   451→                                }
+   452→                        });
+   453→                return false;
+   454→        }
+   455→</script>
+   456→<?php
+   457→if ($feedback = $this->session->flashdata('feedback')) {
+   458→        $class = $this->session->flashdata('feedback_class');
+   459→        ?>
+   460→        <script>
+   461→                new PNotify({
+   462→                        title: '<?= strtoupper($class) ?>',
+   463→                        text: '<?= $feedback ?>',
+   464→                        type: '<?= $class ?>',
+   465→                        styling: 'bootstrap3'
+   466→                });
+   467→        </script>
+   468→<?php } ?>
+   469→</body>
+   470→</html>
+   471→

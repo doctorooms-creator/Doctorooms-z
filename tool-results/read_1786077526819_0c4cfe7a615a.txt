@@ -1,0 +1,546 @@
+     1→CREATE TABLE `booking` (
+     2→  `id` int(11) NOT NULL,
+     3→  `appointment_no` varchar(255) DEFAULT NULL,
+     4→  `doctor_id` int(11) NOT NULL,
+     5→  `user_id` int(11) DEFAULT NULL,
+     6→  `state` varchar(255) DEFAULT NULL,
+     7→  `city` varchar(255) DEFAULT NULL,
+     8→  `booking_date` datetime NOT NULL,
+     9→  `petient_name` varchar(255) NOT NULL,
+    10→  `disease` varchar(255) NOT NULL,
+    11→  `description` text,
+    12→  `gender` varchar(50) DEFAULT NULL,
+    13→  `date_of_birth` date DEFAULT NULL,
+    14→  `age` int(11) DEFAULT NULL,
+    15→  `relation_with_me` varchar(255) DEFAULT NULL,
+    16→  `blood_group` varchar(50) DEFAULT NULL,
+    17→  `weight` decimal(18,3) DEFAULT NULL,
+    18→  `height` decimal(18,3) DEFAULT NULL,
+    19→  `physical_handicape` varchar(50) NOT NULL,
+    20→  `created_at` datetime NOT NULL,
+    21→  `updated_at` datetime NOT NULL,
+    22→  `status` varchar(50) NOT NULL,
+    23→  `booking_type` varchar(255) DEFAULT NULL COMMENT 'booking type: by self or by receptionist',
+    24→  `appointment_charge` decimal(18,2) DEFAULT NULL COMMENT 'admin charge'
+    25→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+    26→
+    27→--
+    28→-- Dumping data for table `booking`
+    29→--
+    30→
+    31→INSERT INTO `booking` (`id`, `appointment_no`, `doctor_id`, `user_id`, `state`, `city`, `booking_date`, `petient_name`, `disease`, `description`, `gender`, `date_of_birth`, `age`, `relation_with_me`, `blood_group`, `weight`, `height`, `physical_handicape`, `created_at`, `updated_at`, `status`, `booking_type`, `appointment_charge`) VALUES
+    32→(2, 'APMT-1', 4, 17, NULL, NULL, '2019-02-28 00:00:00', 'Vivek', 'Fever', 'sdf', 'Male', NULL, 22, 'Self', 'O-', '60.000', '165.000', 'No', '2019-02-26 01:16:40', '2019-03-01 00:12:21', 'Visited', NULL, '1.00'),
+    33→(3, 'APMT-2', 19, 17, NULL, NULL, '2019-03-01 00:00:00', 'Vivek', 'Fever', 'erfertre', 'Male', '0000-00-00', 22, 'Self', 'O-', '60.000', '165.000', 'No', '2019-02-26 23:52:36', '2019-10-30 21:23:20', 'Visited', NULL, '1.00'),
+    34→(4, 'APMT-3', 4, 17, NULL, NULL, '2019-03-05 00:00:00', 'Vivek', 'Fever', 'sfsd', 'Male', '2019-03-01', 22, 'Self', 'O-', '60.000', '165.000', 'No', '2019-03-01 23:42:20', '2019-03-02 00:55:10', 'Canceled', NULL, '1.00'),
+    35→(6, 'APMT-4', 4, 17, NULL, NULL, '2019-03-09 00:00:00', 'Himmat Rao', 'Fever', 'dfxgds', 'Male', '2017-04-06', 0, 'Self', 'O-', '60.000', '165.000', 'No', '2019-03-06 23:56:34', '2020-06-15 10:30:15', 'Visited', NULL, '1.00'),
+    36→(7, 'APMT-5', 4, 17, NULL, NULL, '2019-03-18 00:00:00', 'Nandoliya', 'Fever', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-03-14 00:03:11', '2019-10-14 23:09:54', 'Canceled', 'By Receptionist', '1.00'),
+    37→(8, 'APMT-6', 4, 17, NULL, NULL, '2019-03-16 00:00:00', 'Nandoliya', 'sd', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-03-14 00:04:04', '2019-10-14 23:14:43', 'Visited', 'By Receptionist', '1.00'),
+    38→(9, 'APMT-7', 4, 17, NULL, NULL, '2019-03-18 00:00:00', 'Himmat Rao', 'Fever', '', 'Male', '0000-00-00', 0, '', '', '0.000', '0.000', 'No', '2019-03-14 00:06:01', '2019-10-14 23:10:55', 'Visited', 'By Receptionist', '1.00'),
+    39→(10, 'APMT-8', 4, 17, NULL, NULL, '2019-04-02 00:00:00', 'Nandoliya', 'Fever', '', 'Male', '2017-06-01', 1, '', 'A+', '0.000', '0.000', 'No', '2019-03-28 00:06:12', '2019-10-14 23:11:09', 'Visited', 'By Receptionist', '1.00'),
+    40→(11, 'APMT-9', 20, 17, 'Gujarat', 'Ahmedabad', '2019-04-06 00:00:00', 'Jignesh Parmar', 'Fever', '', 'Male', '2017-03-07', 2, 'Self', 'O+', '60.000', '165.000', 'No', '2019-04-03 00:06:45', '2020-10-01 10:41:34', 'Visited', 'By Self', '1.00'),
+    41→(12, 'APMT-10', 4, 17, 'Rajasthan', 'jaipur', '2019-04-08 00:00:00', 'Manmohan', 'Fever', '', 'Male', '2019-04-02', 0, 'Self', 'O-', '60.000', '165.000', 'No', '2019-04-05 23:06:02', '2019-08-27 00:53:01', 'Visited', 'By Self', '1.00'),
+    42→===BOOKING_CHAT===
+    43→CREATE TABLE `booking_chat` (
+    44→  `id` int(11) NOT NULL,
+    45→  `booking_id` int(11) NOT NULL,
+    46→  `from_id` int(11) NOT NULL COMMENT 'from user id',
+    47→  `to_id` int(11) NOT NULL COMMENT 'to user id',
+    48→  `message` text NOT NULL,
+    49→  `status` varchar(50) NOT NULL,
+    50→  `created_at` datetime NOT NULL
+    51→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+    52→
+    53→--
+    54→-- Dumping data for table `booking_chat`
+    55→--
+    56→
+    57→INSERT INTO `booking_chat` (`id`, `booking_id`, `from_id`, `to_id`, `message`, `status`, `created_at`) VALUES
+    58→(1, 16, 17, 18, 'hello', 'UNREAD', '2019-05-19 21:47:06'),
+    59→(2, 16, 18, 17, 'hii', 'UNREAD', '2019-05-19 21:47:16'),
+    60→(3, 16, 18, 17, 'hrll', 'UNREAD', '2019-05-19 21:49:05'),
+    61→(4, 16, 17, 18, 'nai', 'UNREAD', '2019-05-19 21:49:16'),
+    62→(5, 16, 18, 17, 'ok', 'UNREAD', '2019-05-19 21:49:29'),
+    63→(6, 16, 18, 17, 'hello', 'UNREAD', '2019-05-19 22:13:41'),
+    64→(7, 16, 18, 17, 'hello', 'UNREAD', '2019-05-19 22:17:42'),
+    65→(8, 16, 17, 18, 'sometime', 'UNREAD', '2019-05-19 22:17:53'),
+    66→(9, 16, 18, 17, 'ok', 'UNREAD', '2019-05-19 22:18:04'),
+    67→(10, 16, 18, 17, 'hey_mine', 'UNREAD', '2019-05-19 22:43:45'),
+    68→(11, 14, 7, 17, 'hi', 'UNREAD', '2019-09-10 09:24:12'),
+    69→===DOCTORS===
+    70→CREATE TABLE `doctors` (
+    71→  `id` int(11) NOT NULL,
+    72→  `user_id` int(11) NOT NULL,
+    73→  `booking_days` int(11) DEFAULT NULL COMMENT 'booking before this days',
+    74→  `daily_limit` int(11) DEFAULT NULL,
+    75→  `doctor_type` varchar(255) DEFAULT NULL,
+    76→  `description` text,
+    77→  `photos` text,
+    78→  `address` varchar(300) DEFAULT NULL,
+    79→  `state` varchar(255) DEFAULT NULL,
+    80→  `city` varchar(255) NOT NULL,
+    81→  `hospital_address` varchar(300) DEFAULT NULL,
+    82→  `fees` decimal(18,2) DEFAULT NULL,
+    83→  `emergency_charge` decimal(18,2) DEFAULT NULL,
+    84→  `specialization` text,
+    85→  `award_and_recognition` text,
+    86→  `eduction` text,
+    87→  `lat` decimal(18,9) DEFAULT NULL,
+    88→  `longi` decimal(18,9) DEFAULT NULL,
+    89→  `hospital_id` int(11) DEFAULT NULL COMMENT 'user table hospital id',
+    90→  `experience` text,
+    91→  `registration_detail` text,
+    92→  `contact_no` varchar(100) NOT NULL,
+    93→  `phone_no` varchar(100) DEFAULT NULL,
+    94→  `is_emergency` int(11) NOT NULL DEFAULT '0' COMMENT '0=''no_emergency'',1=''emergency'''
+    95→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+    96→
+    97→--
+    98→-- Dumping data for table `doctors`
+    99→--
+   100→
+   101→===PRESCRIPTION===
+   102→CREATE TABLE `prescription` (
+   103→  `id` int(11) NOT NULL,
+   104→  `doc_id` int(11) NOT NULL,
+   105→  `patient_id` int(11) NOT NULL,
+   106→  `booking_id` int(11) NOT NULL,
+   107→  `next_visit` date DEFAULT NULL,
+   108→  `status` varchar(255) NOT NULL,
+   109→  `created_by` int(11) NOT NULL,
+   110→  `created_at` datetime NOT NULL,
+   111→  `updated_at` datetime NOT NULL
+   112→) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+   113→
+   114→--
+   115→-- Dumping data for table `prescription`
+   116→--
+   117→
+   118→INSERT INTO `prescription` (`id`, `doc_id`, `patient_id`, `booking_id`, `next_visit`, `status`, `created_by`, `created_at`, `updated_at`) VALUES
+   119→(1, 20, 272, 433, NULL, 'Pending', 20, '2020-10-12 22:56:05', '2020-10-12 22:56:05'),
+   120→(2, 20, 273, 434, NULL, 'Pending', 20, '2020-10-19 10:56:22', '2020-10-19 10:56:22'),
+   121→(3, 20, 274, 435, NULL, 'Pending', 20, '2020-10-19 11:06:39', '2020-10-19 11:06:39'),
+   122→(4, 20, 275, 436, NULL, 'Pending', 20, '2020-10-19 11:10:11', '2020-10-19 11:10:11'),
+   123→(5, 20, 276, 437, NULL, 'Pending', 20, '2020-10-19 11:10:55', '2020-10-19 11:10:55'),
+   124→(6, 20, 277, 438, NULL, 'Pending', 20, '2020-10-19 11:13:06', '2020-10-19 11:13:06'),
+   125→(7, 20, 278, 439, NULL, 'Pending', 20, '2020-10-19 11:14:55', '2020-10-19 11:14:55'),
+   126→(8, 20, 282, 443, NULL, 'Pending', 20, '2020-10-19 11:21:07', '2020-10-19 11:21:07'),
+   127→(9, 20, 281, 442, NULL, 'Pending', 20, '2020-10-19 11:22:55', '2020-10-19 11:22:55'),
+   128→(10, 20, 279, 440, NULL, 'Pending', 20, '2020-10-19 11:29:38', '2020-10-19 11:29:38'),
+   129→(11, 20, 283, 445, NULL, 'Pending', 20, '2020-10-19 11:34:36', '2020-10-19 11:34:36'),
+   130→(12, 20, 284, 446, NULL, 'Pending', 20, '2020-10-19 11:35:47', '2020-10-19 11:35:47'),
+   131→(13, 20, 285, 447, NULL, 'Pending', 20, '2020-10-19 11:44:10', '2020-10-19 11:44:10'),
+   132→(14, 20, 286, 448, NULL, 'Pending', 20, '2020-10-19 11:45:30', '2020-10-19 11:45:30'),
+   133→===PRESCRIPTIONS===
+   134→CREATE TABLE `prescriptions` (
+   135→  `id` int(11) NOT NULL,
+   136→  `booking_id` int(11) NOT NULL,
+   137→  `disease_description` text NOT NULL,
+   138→  `medicine_details` text COMMENT '{ Name: Description: Tab: }',
+   139→  `remark` text,
+   140→  `created_by` int(11) NOT NULL,
+   141→  `user_id` int(11) NOT NULL
+   142→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+   143→
+   144→--
+   145→-- Dumping data for table `prescriptions`
+   146→--
+   147→
+   148→INSERT INTO `prescriptions` (`id`, `booking_id`, `disease_description`, `medicine_details`, `remark`, `created_by`, `user_id`) VALUES
+   149→(4, 9, '<p>\r\n\r\n<strong>Lorem Ipsum</strong>&nbsp;is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry\'s standard dummy text ever since the 1500s, when an unknown printer took a galley of type and scrambled it to make a type specimen book. It has survived not only five centuries.<br></p>', '[{\"medicine_name\":\"Paracetamol 585\",\"tab\":\"5\",\"description\":\"This is description of this\"},{\"medicine_name\":\"Acetaminophen code\",\"tab\":\"60\",\"description\":\"Daily 2 time in a day for 30 days\"},{\"medicine_name\":\"Acetaminophen grow\",\"tab\":\"50\",\"description\":\"Daily 2 time in a day for 30 days\"}]', 'This is remark of this', 4, 4),
+   150→(5, 3, '<p>\r\n\r\nand whether the migration will be creating a new table. These options pre-fill the generated migration stub file with the specified table:\r\n\r\n<br></p><p></p><ul><li>fdhfold;ofd</li><li>dfkndpfdn\'f</li><li>df[pdm;flmdf</li><li>dklfmn;df</li></ul><p></p>', '[{\"medicine_name\":\"Hydrochlorothiazide\",\"tab\":\"20\",\"description\":\"at night\"},{\"medicine_name\":\"Acetaminophen\",\"tab\":\"20\",\"description\":\"morning\"}]', 'ok', 19, 19),
+   151→(6, 35, '<p>\r\n\r\nThe <code>$config</code>&nbsp;array contains your configuration variables. It is passed to the <code>$this-&gt;pagination-&gt;initialize()</code>&nbsp;method as shown above. Although there are some twenty items you can configure, at minimum you need the three shown. Here is a description of what those items represent:\r\n\r\n<br></p>', '[{\"medicine_name\":\"Acetaminophen can\",\"tab\":\"10\",\"description\":\"ok\"},{\"medicine_name\":\"Paracetamol nos\",\"tab\":\"30\",\"description\":\"ok\"}]', 'odondf', 4, 4),
+   152→(7, 40, '<p>fdfdfhgfhghgfhf</p>', '[{\"medicine_name\":\"fruensx\",\"tab\":\"30\",\"description\":\"1 tab at night\"}]', 'ok', 23, 23),
+   153→(8, 48, '<p>you have a fever i</p>', '[{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"10\",\"description\":\"night\"},{\"medicine_name\":\"Adderall.\",\"tab\":\"22\",\"description\":\"fsf\"},{\"medicine_name\":\"gasoline\",\"tab\":\"11\",\"description\":\"w,dl,\"},{\"medicine_name\":\"Ativan\",\"tab\":\"11\",\"description\":\"\"}]', 'you take a medicine before lunch ', 47, 47),
+   154→(9, 54, '<p>headache</p>', '[{\"medicine_name\":\"gasoline\",\"tab\":\"12\",\"description\":\"night 1 time\"}]', '', 53, 53),
+   155→(10, 73, '<p>duwegudiusd</p>', '[{\"medicine_name\":\"Acetaminophen. \",\"tab\":\"12\",\"description\":\"night\"}]', 'pani sthe pvani ', 47, 47),
+   156→(11, 74, '<p>GDIUGSUIDH</p>', '[{\"medicine_name\":\"ACESDSH\",\"tab\":\"12\",\"description\":\"night 1 time\"}]', 'UERTH', 53, 53),
+   157→(12, 75, '<p>heduewhdig</p>', '[{\"medicine_name\":\"acesch\",\"tab\":\"12\",\"description\":\"night\"}]', 'dihsdbbk', 53, 53),
+   158→(13, 76, '<p>hestjshz</p><p><br></p>', '[{\"medicine_name\":\"diclocine\",\"tab\":\"20\",\"description\":\"dudh sathe levani\"}]', 'dhjcvhs', 47, 47),
+   159→(14, 77, '<p>sssdedcddadssdfwrwscsefsjjkdc.mdjdddjdddd<br></p>', '[{\"medicine_name\":\"peracitamol 300mgj\",\"tab\":\"23\",\"description\":\"night\"},{\"medicine_name\":\"sss4\",\"tab\":\"3r\",\"description\":\"35\"}]', 'dayjjjjjjjjj 24', 47, 47),
+   160→(15, 84, '<p>Deaseas of the&nbsp; main os done fpor related work</p>', '[{\"medicine_name\":\"vixaction\",\"tab\":\"2\",\"description\":\"done\"},{\"medicine_name\":\"paracitamol\",\"tab\":\"2\",\"description\":\"done\"}]', 'very hard that done', 36, 36),
+   161→(16, 85, '<p>done is done</p>', NULL, NULL, 36, 36),
+   162→(17, 52, '<p>hghgc?</p><p><br></p>', NULL, NULL, 37, 19),
+   163→(18, 118, '<p>mit has a viral fever&nbsp;</p>', '[{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"12\",\"description\":\"night\"}]', '\'jfljajfiserf', 47, 47),
+   164→(19, 123, '<p>self done test</p>', '[{\"medicine_name\":\"paracitamol\",\"tab\":\"12\",\"description\":\"desc\"},{\"medicine_name\":\"vixaction\",\"tab\":\"7\",\"description\":\"descption\"}]', 'done by dine', 36, 36),
+   165→(20, 124, '<p>my header is done</p>', '[{\"medicine_name\":\"vixaction\",\"tab\":\"12\",\"description\":\"datatype\"}]', 'dfd', 36, 36),
+   166→(21, 125, '<p>dhosahfo&nbsp;</p>', '[{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"12\",\"description\":\"night\"}]', 'hdhsdk', 47, 47),
+   167→(22, 126, '<p>shahid history come or nor</p>', '[{\"medicine_name\":\"vixvaporab\",\"tab\":\"11\",\"description\":\"tesrt\"}]', 'done tod one', 47, 47),
+   168→(23, 130, '<p>dfhsjkhfsdjhfdksfjkdsfjk<br></p>', '[{\"medicine_name\":\"vixvaporab\",\"tab\":\"20\",\"description\":\"hghg\"},{\"medicine_name\":\"paracita\",\"tab\":\"10\",\"description\":\"bnbnm\"}]', '', 36, 36),
+   169→(24, 131, '<p>he has a headache</p>', '[{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"12\",\"description\":\"night\"},{\"medicine_name\":\"ralson\",\"tab\":\"22\",\"description\":\"fsf\"},{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"11\",\"description\":\"w,dl,\"},{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"11\",\"description\":\"sgha\"}]', 'hdsjfsdhfgdgig', 49, 47),
+   170→(25, 135, '<p>jfjj</p>', '[{\"medicine_name\":\"jds\",\"tab\":\"jj\",\"description\":\"jjjj\"}]', 'jjjjj', 77, 77),
+   171→(26, 136, '<p>jfj</p>', '[{\"medicine_name\":\"nsnf\",\"tab\":\"jjjj\",\"description\":\"jjjj\"}]', 'jjjj', 77, 77),
+   172→(27, 137, '<p>fdke</p>', '[{\"medicine_name\":\"zkzk\",\"tab\":\"JJJJ\",\"description\":\"JJJJ\"}]', 'JJJJ', 77, 77),
+   173→(28, 139, '<p>KMKK</p>', '[{\"medicine_name\":\"MLLJ\",\"tab\":\"ML\",\"description\":\"JM,\"}]', 'MN', 77, 77),
+   174→(29, 140, '<p>KMKM</p>', '[{\"medicine_name\":\" MKNK\",\"tab\":\"NKK\",\"description\":\"M\"}]', 'MKMK', 77, 77),
+   175→(30, 141, '<p>KMKN</p>', '[{\"medicine_name\":\"KNKK\",\"tab\":\"MKNK\",\"description\":\"NNKK\"}]', 'MLMK', 77, 77),
+   176→(31, 152, '<p>scasn cknakndlk cdwhad uawydan</p>', '[{\"medicine_name\":\"acehasb\",\"tab\":\"12\",\"description\":\"\"}]', 'skmdhd', 78, 77),
+   177→(32, 89, '<p>He have [roblem of numiniasd</p>', '[{\"medicine_name\":\"par\",\"tab\":\"45\",\"description\":\"sdfds\"},{\"medicine_name\":\"vix\",\"tab\":\"4\",\"description\":\"\"},{\"medicine_name\":\"vbv\",\"tab\":\"2\",\"description\":\"fgfd\"}]', 'dfgdf', 36, 36),
+   178→(33, 132, '<p>uyhghuy</p><p><br></p>', '[{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"23\",\"description\":\"ji\"}]', 'i00i9o0', 47, 47),
+   179→(34, 133, '<p>sdguhgsadih</p>', '[{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"20\",\"description\":\"swjj\"}]', 'dsauygdyug', 47, 47),
+   180→(35, 169, '<p>head ache</p>', '[{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"10\",\"description\":\"night\"}]', 'gdjhwgd', 47, 47),
+   181→(36, 167, '<p>He required&nbsp; 2 month mediucime to recover</p>', '[{\"medicine_name\":\"vixvaporab\",\"tab\":\"12\",\"description\":\"noght\"},{\"medicine_name\":\"paracitamole\",\"tab\":\"20\",\"description\":\"morning\"}]', 'take regular', 36, 36),
+   182→(37, 170, '<p>achgcqsvjbq</p>', '[{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"11\",\"description\":\"night\"}]', 'dswqguteiudg', 47, 47),
+   183→(38, 171, '<p>lkndwfklf</p>', '[{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"11\",\"description\":\"night\"}]', 's wqdwe', 47, 47),
+   184→(39, 173, '<p>utriuruiqhi</p>', '[{\"medicine_name\":\"Acetaminophen.\",\"tab\":\"11\",\"description\":\"hwsd\"}]', 'ffxwyjzh', 47, 47),
+   185→===NOTIFICATIONS===
+   186→CREATE TABLE `notifications` (
+   187→  `id` int(11) NOT NULL,
+   188→  `user_id` int(11) DEFAULT NULL,
+   189→  `title` varchar(255) DEFAULT NULL,
+   190→  `body` text,
+   191→  `status` varchar(50) DEFAULT 'UNREAD',
+   192→  `created_at` datetime DEFAULT NULL,
+   193→  `updated_at` datetime DEFAULT NULL
+   194→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+   195→
+   196→--
+   197→-- Dumping data for table `notifications`
+   198→--
+   199→
+   200→INSERT INTO `notifications` (`id`, `user_id`, `title`, `body`, `status`, `created_at`, `updated_at`) VALUES
+   201→(1, 4, 'This is titm', 'the notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notifications', 'READ', '2019-04-13 00:00:00', '2021-03-14 20:52:27'),
+   202→(2, 4, 'This is titm', 'the notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notifications', 'READ', '2019-04-13 00:00:00', '2021-03-14 20:52:27'),
+   203→(3, 17, 'This is titm', 'the notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notifications', 'READ', '2019-04-13 00:00:00', '2019-11-05 11:32:04'),
+   204→(4, 17, 'This is titm', 'the notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notificationsthe notifications', 'READ', '2019-04-13 00:00:00', '2019-11-05 11:32:04'),
+   205→(5, 17, 'Appointment updated', 'Appointment <b>APMT-11</b> has been approved.', 'READ', '2019-04-26 23:38:47', '2019-11-05 11:32:04'),
+   206→(6, 17, 'Appointment updated', 'Appointment <b>APMT-11</b> has been approved.', 'READ', '2019-04-26 23:39:47', '2019-11-05 11:32:04'),
+   207→===DOCTOR_RATING===
+   208→CREATE TABLE `doctor_rating` (
+   209→  `id` bigint(20) NOT NULL,
+   210→  `patient_id` int(11) NOT NULL,
+   211→  `doctor_id` int(11) NOT NULL,
+   212→  `star` int(11) NOT NULL
+   213→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+   214→
+   215→--
+   216→-- Dumping data for table `doctor_rating`
+   217→--
+   218→
+   219→INSERT INTO `doctor_rating` (`id`, `patient_id`, `doctor_id`, `star`) VALUES
+   220→(2, 14, 4, 4),
+   221→(4, 17, 4, 4),
+   222→(5, 17, 19, 5),
+   223→(6, 26, 25, 5),
+   224→(7, 50, 47, 2),
+   225→(8, 50, 55, 1),
+   226→(9, 46, 47, 5),
+   227→(10, 46, 53, 5);
+   228→
+   229→===RECEPTIONIST===
+   230→CREATE TABLE `receptionist` (
+   231→  `id` int(11) NOT NULL,
+   232→  `doctor_id` int(11) NOT NULL,
+   233→  `user_id` int(11) NOT NULL,
+   234→  `address` varchar(255) DEFAULT NULL
+   235→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+   236→
+   237→--
+   238→-- Dumping data for table `receptionist`
+   239→--
+   240→
+   241→INSERT INTO `receptionist` (`id`, `doctor_id`, `user_id`, `address`) VALUES
+   242→(1, 4, 18, 'Gabbar Road, Near Mahadev templess'),
+   243→(2, 20, 21, 'Gabbar Road, Near Mahadev temple'),
+   244→(3, 27, 28, 'palanpur'),
+   245→(4, 19, 38, 'palanpur'),
+   246→(5, 23, 43, 'palanpur'),
+   247→(6, 47, 48, 'whuyyw'),
+   248→(7, 36, 58, 'hello'),
+   249→(8, 77, 79, 'jhrigfuhiu'),
+   250→(9, 113, 114, 'palanpur'),
+   251→===HOSPITAL===
+   252→CREATE TABLE `hospital` (
+   253→  `id` int(11) NOT NULL,
+   254→  `hospital_name` varchar(255) DEFAULT NULL,
+   255→  `address` varchar(300) DEFAULT NULL,
+   256→  `state` varchar(255) DEFAULT NULL,
+   257→  `city` varchar(255) DEFAULT NULL,
+   258→  `contact_no` varchar(100) NOT NULL,
+   259→  `gallary` text,
+   260→  `lat` decimal(18,9) DEFAULT NULL,
+   261→  `longi` decimal(18,9) DEFAULT NULL,
+   262→  `user_id` int(11) NOT NULL
+   263→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+   264→
+   265→--
+   266→-- Dumping data for table `hospital`
+   267→--
+   268→
+   269→INSERT INTO `hospital` (`id`, `hospital_name`, `address`, `state`, `city`, `contact_no`, `gallary`, `lat`, `longi`, `user_id`) VALUES
+   270→(1, 'Mavajat Hospital', 'Mansarovar Road,palanpur', 'Gujarat', 'palanpur', '027123456789', NULL, '892893.989000000', '649384.890000000', 7),
+   271→(2, 'KD HOSPITAL ', 'Ahmeadabd', 'Rajasthan', '', '9429420049', NULL, '23.562365000', '72.456600000', 24),
+   272→(3, 'SHREEJI HOSPITAL', 'PALANPUR', 'Gujarat', 'palanpur', '02742321320', NULL, '0.000000000', '0.000000000', 39),
+   273→===RESET_PASSWORD===
+   274→CREATE TABLE `reset_password` (
+   275→  `id` int(11) NOT NULL,
+   276→  `email` varchar(255) NOT NULL,
+   277→  `token` text NOT NULL,
+   278→  `created_at` datetime NOT NULL
+   279→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+   280→
+   281→--
+   282→-- Dumping data for table `reset_password`
+   283→--
+   284→
+   285→INSERT INTO `reset_password` (`id`, `email`, `token`, `created_at`) VALUES
+   286→(1, 'ran@gmail.com', 'c08fd9d89a16c514e7fae787bcd2180c', '2019-08-24 23:18:37'),
+   287→(2, 'ran@gmail.com', 'e9a6d8b15a458404ae62d73a3d426bcd', '2019-08-24 23:19:54'),
+   288→(3, 'ran@gmail.com', 'a4e2985483294d21f982cfec0044b026', '2019-08-24 23:22:47');
+   289→
+   290→===DOCTOR_ASSISTANTS===
+   291→CREATE TABLE `doctor_assistants` (
+   292→  `id` int(11) NOT NULL,
+   293→  `user_id` int(11) NOT NULL,
+   294→  `doctor_id` int(11) NOT NULL COMMENT 'user table id',
+   295→  `description` text NOT NULL,
+   296→  `address` varchar(1000) NOT NULL
+   297→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+   298→
+   299→--
+   300→-- Dumping data for table `doctor_assistants`
+   301→--
+   302→
+   303→INSERT INTO `doctor_assistants` (`id`, `user_id`, `doctor_id`, `description`, `address`) VALUES
+   304→(3, 34, 4, 'This is description of assistant ', 'Near mahadev temple, Ambaji'),
+   305→(4, 37, 19, 'doiodnifdf', 'palanpur'),
+   306→(5, 49, 47, 'hewgjgh', 'yguwygyuw'),
+   307→(6, 78, 77, 'fhsufhvui', 'fhvjdg'),
+   308→(7, 115, 113, '', 'palanpur'),
+   309→(8, 120, 111, 'hii', 'palanpur'),
+   310→(9, 153, 151, 'pqrs', 'pqrs'),
+   311→(10, 194, 135, 'Hshjs', 'Ggsha'),
+   312→===P_COS===
+   313→CREATE TABLE `p_cos` (
+   314→  `id` int(11) NOT NULL,
+   315→  `p_id` int(11) NOT NULL,
+   316→  `co` varchar(255) NOT NULL,
+   317→  `question` text NOT NULL,
+   318→  `question_code` varchar(255) DEFAULT NULL,
+   319→  `created_by` int(11) NOT NULL,
+   320→  `created_at` datetime NOT NULL,
+   321→  `updated_at` datetime NOT NULL
+   322→) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+   323→
+   324→--
+   325→-- Dumping data for table `p_cos`
+   326→--
+   327→
+   328→INSERT INTO `p_cos` (`id`, `p_id`, `co`, `question`, `question_code`, `created_by`, `created_at`, `updated_at`) VALUES
+   329→(307, 1, 'fever', 'dsf', NULL, 20, '2020-10-17 17:21:02', '2020-10-17 17:21:02'),
+   330→(308, 1, 'headache', 'Can I Trust My Tap Water', NULL, 20, '2020-10-17 17:21:02', '2020-10-17 17:21:02'),
+   331→(309, 1, 'headache', 'Will vitamin D Save My Life', NULL, 20, '2020-10-17 17:21:02', '2020-10-17 17:21:02'),
+   332→(320, 2, 'fever', 'dsf', NULL, 20, '2020-10-19 11:04:46', '2020-10-19 11:04:46'),
+   333→(321, 2, 'headache', 'Can I Trust My Tap Water', NULL, 20, '2020-10-19 11:04:46', '2020-10-19 11:04:46'),
+   334→(326, 0, 'headache', 'Can I Trust My Tap Water', NULL, 20, '2020-10-19 11:28:21', '2020-10-19 11:28:21'),
+   335→(327, 0, 'headache', 'Will vitamin D Save My Life', NULL, 20, '2020-10-19 11:28:21', '2020-10-19 11:28:21'),
+   336→(328, 9, 'headache', 'Can I Trust My Tap Water', NULL, 20, '2020-10-19 11:29:13', '2020-10-19 11:29:13'),
+   337→(329, 9, 'headache', 'Will vitamin D Save My Life', NULL, 20, '2020-10-19 11:29:13', '2020-10-19 11:29:13'),
+   338→(330, 10, 'headache', 'Can I Trust My Tap Water', NULL, 20, '2020-10-19 11:31:45', '2020-10-19 11:31:45'),
+   339→===P_MEDICINE===
+   340→CREATE TABLE `p_medicine` (
+   341→  `id` int(11) NOT NULL,
+   342→  `p_id` int(11) NOT NULL,
+   343→  `medicine` varchar(255) NOT NULL,
+   344→  `morning` int(11) NOT NULL,
+   345→  `after_noon` int(11) NOT NULL,
+   346→  `evning` int(11) NOT NULL,
+   347→  `tab` int(11) NOT NULL,
+   348→  `doz` varchar(255) DEFAULT NULL,
+   349→  `description` text NOT NULL,
+   350→  `created_by` int(11) NOT NULL,
+   351→  `created_at` datetime NOT NULL,
+   352→  `updated_at` datetime NOT NULL
+   353→) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+   354→
+   355→--
+   356→-- Dumping data for table `p_medicine`
+   357→--
+   358→
+   359→INSERT INTO `p_medicine` (`id`, `p_id`, `medicine`, `morning`, `after_noon`, `evning`, `tab`, `doz`, `description`, `created_by`, `created_at`, `updated_at`) VALUES
+   360→(31, 18, 'Paracetamol 5', 1, 1, 1, 10, NULL, 'lorum ipsum', 4, '2020-10-21 19:02:38', '2020-10-21 19:02:38'),
+   361→===P_LABELS===
+   362→CREATE TABLE `p_labels` (
+   363→  `id` int(11) NOT NULL,
+   364→  `p_id` int(11) NOT NULL,
+   365→  `label` varchar(255) NOT NULL,
+   366→  `l_value` varchar(255) NOT NULL,
+   367→  `label_unit` varchar(255) DEFAULT NULL,
+   368→  `created_by` int(11) NOT NULL,
+   369→  `created_at` datetime NOT NULL,
+   370→  `updated_at` datetime NOT NULL
+   371→) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+   372→
+   373→--
+   374→-- Dumping data for table `p_labels`
+   375→--
+   376→
+   377→INSERT INTO `p_labels` (`id`, `p_id`, `label`, `l_value`, `label_unit`, `created_by`, `created_at`, `updated_at`) VALUES
+   378→(83, 1, 'new one', 'sddsd', NULL, 20, '2020-10-17 17:21:03', '2020-10-17 17:21:03'),
+   379→(88, 2, 'new one', 'sdds', NULL, 20, '2020-10-19 11:04:35', '2020-10-19 11:04:35'),
+   380→(90, 15, 'new one', 'sadasdd', NULL, 20, '2020-10-19 11:49:37', '2020-10-19 11:49:37'),
+   381→(92, 7, 'new one', 'Dfghj', NULL, 20, '2020-10-19 11:54:21', '2020-10-19 11:54:21'),
+   382→(112, 16, 'new one', 'asdasd', NULL, 20, '2020-10-19 12:29:00', '2020-10-19 12:29:00'),
+   383→(126, 17, 'new one', 'sdsd', NULL, 20, '2020-10-19 17:36:33', '2020-10-19 17:36:33'),
+   384→(217, 18, 'RS', 'lorem', NULL, 4, '2020-10-21 17:06:49', '2020-10-21 17:06:49'),
+   385→(218, 18, 'weeks', '5', NULL, 4, '2020-10-21 17:06:49', '2020-10-21 17:06:49'),
+   386→(219, 18, 'GD', 'lorem', NULL, 4, '2020-10-21 17:06:49', '2020-10-21 17:06:49'),
+   387→(220, 18, 'LMP', '10', NULL, 4, '2020-10-21 17:06:49', '2020-10-21 17:06:49'),
+   388→===P_SUGGESTIONS===
+   389→CREATE TABLE `p_suggestions` (
+   390→  `id` int(11) NOT NULL,
+   391→  `p_id` int(11) NOT NULL,
+   392→  `question` varchar(255) NOT NULL,
+   393→  `suggestions` varchar(255) NOT NULL,
+   394→  `created_by` int(11) NOT NULL,
+   395→  `created_at` datetime NOT NULL,
+   396→  `updated_at` datetime NOT NULL
+   397→) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+   398→
+   399→--
+   400→-- Dumping data for table `p_suggestions`
+   401→--
+   402→
+   403→INSERT INTO `p_suggestions` (`id`, `p_id`, `question`, `suggestions`, `created_by`, `created_at`, `updated_at`) VALUES
+   404→(1, 16, 'Can I Trust My Tap Water', 'asdfasf', 20, '2020-10-19 12:15:51', '2020-10-19 12:15:51'),
+   405→(2, 16, 'Can I Trust My Tap Water', 'afs', 20, '2020-10-19 12:15:51', '2020-10-19 12:15:51'),
+   406→(3, 16, 'extra', '', 20, '2020-10-19 12:15:51', '2020-10-19 12:15:51'),
+   407→(5, 18, 'Can a vegan diet cause lupus patient to go into remission?', 'It is good that you are concerned because many people who start eating a vegetarian diet simply eliminate the meat from their diet and compromise their protein needs', 4, '2020-10-20 17:34:38', '2020-10-20 17:34:38'),
+   408→(6, 18, 'What medications are best for the treatment of asthma? What are their side effects?', 'Morbi dignissim ligula libero, non aliquam augue cursus vel. Donec non lorem vel dolor pellentesque auctor. Donec blandit pellentesque porttitor', 4, '2020-10-20 17:34:38', '2020-10-20 17:34:38'),
+   409→(7, 18, 'What causes Hashimoto\'s thyroiditis, and what is the best method of treatment? Can iodine help this condition?', 'Aenean semper erat at ipsum tincidunt aliquet. Curabitur nec eleifend mi. Interdum et malesuada fames ac ante ipsum primis in faucibus. Maecenas condimentum risus a sem ullamcorper, vel sagittis eros suscipit. Donec efficitur pellentesque ante. Donec susc', 4, '2020-10-20 17:34:38', '2020-10-20 17:34:38'),
+   410→===P_DIGNO_TABLE===
+   411→CREATE TABLE `p_digno_table` (
+   412→  `id` int(11) NOT NULL,
+   413→  `p_id` int(11) NOT NULL,
+   414→  `rows` int(11) NOT NULL,
+   415→  `cols` int(11) NOT NULL,
+   416→  `header_label` varchar(255) NOT NULL,
+   417→  `cols_label` varchar(255) NOT NULL,
+   418→  `footer_label` varchar(255) NOT NULL,
+   419→  `extra_label` varchar(255) NOT NULL,
+   420→  `created_by` int(11) NOT NULL,
+   421→  `created_at` datetime NOT NULL,
+   422→  `updated_at` datetime NOT NULL
+   423→) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+   424→
+   425→--
+   426→-- Dumping data for table `p_digno_table`
+   427→--
+   428→
+   429→INSERT INTO `p_digno_table` (`id`, `p_id`, `rows`, `cols`, `header_label`, `cols_label`, `footer_label`, `extra_label`, `created_by`, `created_at`, `updated_at`) VALUES
+   430→(1, 1, 4, 4, '[\"Rt\",\"Lt\",\"Rt1\",\"Lt1\"]', '[\"AFC\",\"Week\",\"Afi\",\"UTPI\"]', '[\"Uterus\",\"AV\\/RV\",\"Cx:length\",\"ET:_____mm trip line\"]', '', 20, '2020-10-17 12:04:54', '2020-10-17 12:04:54'),
+   431→(2, 6, 4, 4, '[\"Rt\",\"Lt\",\"Rt1\",\"Lt1\"]', '[\"AFC\",\"Week\",\"Afi\",\"UTPI\"]', '[\"Uterus\",\"AV\\/RV\",\"Cx:length\",\"ET:_____mm trip line\"]', '', 20, '2020-10-19 11:13:06', '2020-10-19 11:13:06'),
+   432→===P_OTHER_SETTINGS===
+   433→CREATE TABLE `p_other_settings` (
+   434→  `id` int(11) NOT NULL,
+   435→  `doctor_id` int(11) NOT NULL,
+   436→  `logo` varchar(255) NOT NULL,
+   437→  `time` text NOT NULL,
+   438→  `header` varchar(255) NOT NULL,
+   439→  `full_header` text,
+   440→  `is_full_header` int(11) NOT NULL DEFAULT '0' COMMENT 'full_header=1,other=0',
+   441→  `created_by` int(11) NOT NULL,
+   442→  `created_at` datetime NOT NULL,
+   443→  `updated_at` datetime NOT NULL
+   444→) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+   445→
+   446→--
+   447→-- Dumping data for table `p_other_settings`
+   448→--
+   449→===DOCTOR_PHARMACIST===
+   450→CREATE TABLE `doctor_pharmacist` (
+   451→  `id` int(11) NOT NULL,
+   452→  `user_id` int(11) NOT NULL,
+   453→  `doctor_id` int(11) NOT NULL,
+   454→  `description` text NOT NULL,
+   455→  `address` varchar(500) NOT NULL,
+   456→  `dlno` varchar(500) NOT NULL,
+   457→  `created_by` int(11) NOT NULL,
+   458→  `created_at` datetime NOT NULL,
+   459→  `updated_at` datetime NOT NULL
+   460→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+   461→
+   462→--
+   463→-- Dumping data for table `doctor_pharmacist`
+   464→--
+   465→
+   466→===DOCTOR_MEDICINE_LIST===
+   467→CREATE TABLE `doctor_medicine_list` (
+   468→  `id` int(11) NOT NULL,
+   469→  `name` varchar(2000) CHARACTER SET latin1 NOT NULL,
+   470→  `morning` varchar(255) CHARACTER SET latin1 NOT NULL,
+   471→  `afternoon` varchar(255) CHARACTER SET latin1 NOT NULL,
+   472→  `evening` varchar(255) CHARACTER SET latin1 NOT NULL,
+   473→  `doz` varchar(255) CHARACTER SET latin1 DEFAULT NULL,
+   474→  `tab` int(255) DEFAULT NULL,
+   475→  `description` text NOT NULL,
+   476→  `status` varchar(255) CHARACTER SET latin1 NOT NULL,
+   477→  `created_at` datetime NOT NULL,
+   478→  `updated_at` datetime NOT NULL,
+   479→  `created_by` int(11) NOT NULL,
+   480→  `user_id` int(11) NOT NULL COMMENT 'doctor''s user id'
+   481→) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+   482→
+   483→--
+   484→-- Dumping data for table `doctor_medicine_list`
+   485→--
+   486→
+   487→INSERT INTO `doctor_medicine_list` (`id`, `name`, `morning`, `afternoon`, `evening`, `doz`, `tab`, `description`, `status`, `created_at`, `updated_at`, `created_by`, `user_id`) VALUES
+   488→(1, 'Paracetamol', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-04 23:14:05', '2019-10-04 23:14:05', 18, 4),
+   489→(2, 'Acetaminophen', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:47:53', '2019-10-11 23:47:53', 18, 4),
+   490→(3, 'Crestor (rosuvastatin)', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:19', '2019-10-11 23:48:19', 18, 4),
+   491→(4, 'Ventolin HFA (albuterol)', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:28', '2019-10-11 23:48:28', 18, 4),
+   492→(5, 'Nexium (esomeprazole)', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:41', '2019-10-11 23:48:41', 18, 4),
+   493→(6, 'Advair Diskus (fluticasone)', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:55', '2019-10-11 23:48:55', 18, 4),
+   494→(7, 'Paracetamol 5', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-04 23:14:05', '2019-10-04 23:14:05', 18, 4),
+   495→(8, 'Acetaminophen code', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:47:53', '2019-10-11 23:47:53', 18, 4),
+   496→(9, 'Crestor (rosuvastatin) new', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:19', '2019-10-11 23:48:19', 18, 4),
+   497→(10, 'Ventolin HFA (albuterol) hold', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:28', '2019-10-11 23:48:28', 18, 4),
+   498→(11, 'Paracetamol nos', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-04 23:14:05', '2019-10-04 23:14:05', 18, 4),
+   499→(12, 'Acetaminophen can', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:47:53', '2019-10-11 23:47:53', 18, 4),
+   500→(13, 'Crestor (rosuvastatin) week', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:19', '2019-10-11 23:48:19', 18, 4),
+   501→(14, 'Ventolin HFA (albuterol) how', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:28', '2019-10-11 23:48:28', 18, 4),
+   502→(15, 'Nexium (esomeprazole) lon', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:41', '2019-10-11 23:48:41', 18, 4),
+   503→(16, 'Advair Diskus (fluticasone) haha', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:55', '2019-10-11 23:48:55', 18, 4),
+   504→(17, 'Paracetamol 585', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-04 23:14:05', '2019-10-04 23:14:05', 18, 4),
+   505→(18, 'Acetaminophen grow', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:47:53', '2019-10-11 23:47:53', 18, 4),
+   506→(19, 'Crestor (rosuvastatin) man', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:19', '2019-10-11 23:48:19', 18, 4),
+   507→(20, 'Ventolin HFA (albuterol) 250', '1', '1', '1', NULL, NULL, '', 'Active', '2019-10-11 23:48:28', '2019-10-11 23:48:28', 18, 4),
+   508→===CONFIG===
+   509→CREATE TABLE `config` (
+   510→  `id` int(11) NOT NULL,
+   511→  `admin_charge` decimal(18,2) DEFAULT NULL
+   512→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+   513→
+   514→--
+   515→-- Dumping data for table `config`
+   516→--
+   517→
+   518→INSERT INTO `config` (`id`, `admin_charge`) VALUES
+   519→(1, '1.00');
+   520→
+   521→-- --------------------------------------------------------
+   522→
+   523→--
+   524→-- Table structure for table `country_mstr`
+   525→===HOSPITAL_INQUIRY===
+   526→CREATE TABLE `hospital_inquiry` (
+   527→  `id` int(11) NOT NULL,
+   528→  `hospital_name` varchar(255) NOT NULL,
+   529→  `hospital_cotanct_no` varchar(50) NOT NULL,
+   530→  `email` varchar(50) NOT NULL,
+   531→  `contact_person_name` varchar(255) NOT NULL,
+   532→  `contact_person_mobile` varchar(255) NOT NULL,
+   533→  `address` varchar(255) NOT NULL,
+   534→  `city` varchar(255) NOT NULL,
+   535→  `state` varchar(255) NOT NULL,
+   536→  `description` text,
+   537→  `created_at` datetime DEFAULT NULL,
+   538→  `updated_at` datetime DEFAULT NULL
+   539→) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+   540→
+   541→--
+   542→-- Dumping data for table `hospital_inquiry`
+   543→--
+   544→
+   545→INSERT INTO `hospital_inquiry` (`id`, `hospital_name`, `hospital_cotanct_no`, `email`, `contact_person_name`, `contact_person_mobile`, `address`, `city`, `state`, `description`, `created_at`, `updated_at`) VALUES
+   546→(2, 'Some One', '5454545646', 'sadasd@sdfnsd.com', 'Nandoliya', '9898209403', 'Gabbar Road, Near Mahadev temple', 'Ambaji', 'Gujarat', 'cvbgvc', '2019-03-13 01:04:35', '2019-03-13 01:04:35'),

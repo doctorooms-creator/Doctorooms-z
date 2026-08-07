@@ -1,0 +1,663 @@
+     1→<?php
+     2→
+     3→/**
+     4→ * Class MY_Controller
+     5→ * @property Posts_model post
+     6→ * @property Slider_model slider
+     7→ * @property Users_model user
+     8→ * @property Doctors_model doctor
+     9→ * @property Hospital_model hospital
+    10→ * @property Patient_model patient
+    11→ * @property Reset_password_model reset_password
+    12→ * @property Receptionist_model receptionist
+    13→ * @property Booking_model book
+    14→ * @property Booking_model booking
+    15→ * @property Doctor_assistants_model assistants
+    16→ * @property Prescriptions_model prescription
+    17→ */
+    18→class MY_Controller extends CI_Controller
+    19→{
+    20→        public function __construct()
+    21→        {
+    22→                parent::__construct();
+    23→        }
+    24→
+    25→        public function dump($var)
+    26→        {
+    27→                echo "<pre>";
+    28→                var_dump($var);
+    29→                echo "</pre>";
+    30→        }
+    31→
+    32→        protected function _alertSuccessResponce($success, $success_msg, $fail_msg, $re_url)
+    33→        {
+    34→                if ($success) {
+    35→                        $this->session->set_flashdata('feedback', $success_msg);
+    36→                        $this->session->set_flashdata('feedback_class', 'success');
+    37→                } else {
+    38→                        $this->session->set_flashdata('feedback', $fail_msg);
+    39→                        $this->session->set_flashdata('feedback_class', 'error');
+    40→                }
+    41→                return redirect($re_url);
+    42→        }
+    43→
+    44→        protected function _alertInfoResponce($success, $success_msg, $fail_msg, $re_url)
+    45→        {
+    46→                if ($success) {
+    47→                        $this->session->set_flashdata('feedback', $success_msg);
+    48→                        $this->session->set_flashdata('feedback_class', 'info');
+    49→                } else {
+    50→                        $this->session->set_flashdata('feedback', $fail_msg);
+    51→                        $this->session->set_flashdata('feedback_class', 'error');
+    52→                }
+    53→                return redirect($re_url);
+    54→        }
+    55→
+    56→        protected function _alertWarningResponce($success, $success_msg, $fail_msg, $re_url)
+    57→        {
+    58→                if ($success) {
+    59→                        $this->session->set_flashdata('feedback', $success_msg);
+    60→                        $this->session->set_flashdata('feedback_class', 'alert');
+    61→                } else {
+    62→                        $this->session->set_flashdata('feedback', $fail_msg);
+    63→                        $this->session->set_flashdata('feedback_class', 'error');
+    64→                }
+    65→                return redirect($re_url);
+    66→        }
+    67→
+    68→        /**
+    69→         * This function generate encryption of your plain text
+    70→         * @param $plain_text
+    71→         * @return string
+    72→         */
+    73→        protected function encrypted_text($plain_text)
+    74→        {
+    75→
+    76→                $this->load->library("encryption");
+    77→                $e_key = ENCPT_KEY;
+    78→                $this->encryption->initialize(
+    79→                        array(
+    80→                                'cipher' => 'AES-128',
+    81→                                'mode' => 'CBC',
+    82→                                'key' => $e_key
+    83→                        )
+    84→                );
+    85→                $en = $this->encryption->encrypt($plain_text);
+    86→                $en = strtr($en, array('+' => '.', '=' => '-', '/' => '~'));
+    87→                return $en;
+    88→        }
+    89→
+    90→        protected function decrypted_text($encrypted_text)
+    91→        {
+    92→                $this->load->library("encryption");
+    93→                $e_key = ENCPT_KEY;
+    94→                $this->encryption->initialize(
+    95→                        array(
+    96→                                'cipher' => 'AES-128',
+    97→                                'mode' => 'CBC',
+    98→                                'key' => $e_key
+    99→                        )
+   100→                );
+   101→                $encrypted_text = strtr($encrypted_text, array('.' => '+', '-' => '=', '~' => '/'));
+   102→                $de = $this->encryption->decrypt($encrypted_text);
+   103→
+   104→                return $de;
+   105→        }
+   106→
+   107→        protected function send_mail($to, $subject, $msg)
+   108→        {
+   109→                /*$config = Array(
+   110→                        'protocol' => 'smtp',
+   111→                        'smtp_host' => 'ssl://smtp.googlemail.com',
+   112→                        'smtp_port' => 465,
+   113→                        'smtp_user' => '', // change it to yours
+   114→                        'smtp_pass' => '', // change it to yours
+   115→                        'charset' => 'iso-8859-1',
+   116→                        'wordwrap' => TRUE
+   117→                );
+   118→                $this->load->library('email',$config);*/
+   119→
+   120→                $this->load->library('email');
+   121→                $this->email->set_newline("\r\n")
+   122→                        ->from(EMAIL_FROM, EMAIL_NAME)
+   123→                        ->to($to)
+   124→                        ->subject($subject)
+   125→                        ->message($msg)
+   126→                        ->set_mailtype('html');
+   127→                if ($this->email->send()) {
+   128→                        return true;
+   129→                } else {
+   130→                        log_message('error', $this->email->print_debugger());
+   131→                        return false;
+   132→                }
+   133→
+   134→        }
+   135→
+   136→        protected function _upload_files($path, $title, $img_control_name)
+   137→        {
+   138→                $files = $_FILES[$img_control_name];
+   139→                $config = array(
+   140→                        'upload_path' => $path,
+   141→                        'allowed_types' => 'jpg|jpeg|gif|png|JPEG|JPG|PNG|GIF',
+   142→                        'overwrite' => true,
+   143→                );
+   144→
+   145→                $this->load->library('upload', $config);
+   146→
+   147→                $images = array();
+   148→                $img_ctrl_nm = $img_control_name . '[]';
+   149→                foreach ($files['name'] as $key => $image) {
+   150→                        $_FILES[$img_ctrl_nm]['name'] = $files['name'][$key];
+   151→                        $_FILES[$img_ctrl_nm]['type'] = $files['type'][$key];
+   152→                        $_FILES[$img_ctrl_nm]['tmp_name'] = $files['tmp_name'][$key];
+   153→                        $_FILES[$img_ctrl_nm]['error'] = $files['error'][$key];
+   154→                        $_FILES[$img_ctrl_nm]['size'] = $files['size'][$key];
+   155→
+   156→                        $imgExt = explode('.', $image);
+   157→                        $fileName = $title . '_' . time() . uniqid(rand()) . "." . end($imgExt);
+   158→
+   159→                        $images[] = $fileName;
+   160→
+   161→                        $config['file_name'] = $fileName;
+   162→
+   163→                        $this->upload->initialize($config);
+   164→
+   165→                        if ($this->upload->do_upload($img_ctrl_nm)) {
+   166→                                $this->upload->data();
+   167→                        } else {
+   168→                                return false;
+   169→                        }
+   170→                }
+   171→
+   172→                return json_encode($images);
+   173→        }
+   174→
+   175→        public function _upload_file($path, $title, $img_control_name)
+   176→        {
+   177→
+   178→                if ($_FILES[$img_control_name]['name']) {
+   179→                        $config = array(
+   180→                                'upload_path' => $path,
+   181→                                'allowed_types' => 'jpg|jpeg|gif|png|JPEG|JPG|PNG|GIF',
+   182→                                'overwrite' => true,
+   183→                                'max_size' => 2000,
+   184→                        );
+   185→                        $this->load->library('upload', $config);
+   186→                        $config['file_name'] = $title . '_' . time() . uniqid(rand());
+   187→                        $this->upload->initialize($config);
+   188→
+   189→                        if ($this->upload->do_upload($img_control_name)) {
+   190→                                return array(
+   191→                                        "status" => "true",
+   192→                                        "file_name" => $this->upload->data('file_name')
+   193→                                );
+   194→                        } else {
+   195→                                return array(
+   196→                                        "status" => "false",
+   197→                                        "upload_error" => $this->upload->display_errors()
+   198→                                );
+   199→                        }
+   200→                } else {
+   201→                        return array(
+   202→                                "status" => "false",
+   203→                                "upload_error" => $this->upload->display_errors()
+   204→                        );
+   205→                }
+   206→        }
+   207→
+   208→        public function _upload_pdf($path, $title, $file_control_name)
+   209→        {
+   210→
+   211→                if ($_FILES[$file_control_name]['name']) {
+   212→                        $config = array(
+   213→                                'upload_path' => $path,
+   214→                                'allowed_types' => 'pdf|PDF|xlsx|XLSX|xls|XLS',
+   215→                                'overwrite' => true,
+   216→                                'max_size' => 2000,
+   217→                        );
+   218→                        $this->load->library('upload', $config);
+   219→                        $config['file_name'] = $title . '_' . time() . uniqid(rand());
+   220→                        $this->upload->initialize($config);
+   221→
+   222→                        if ($this->upload->do_upload($file_control_name)) {
+   223→                                return array(
+   224→                                        "status" => "true",
+   225→                                        "file_name" => $this->upload->data('file_name')
+   226→                                );
+   227→                        } else {
+   228→                                return array(
+   229→                                        "status" => "false",
+   230→                                        "upload_error" => $this->upload->display_errors()
+   231→                                );
+   232→                        }
+   233→                } else {
+   234→                        return array(
+   235→                                "status" => "false",
+   236→                                "upload_error" => $this->upload->display_errors()
+   237→                        );
+   238→                }
+   239→        }
+   240→
+   241→        /**
+   242→         * This function will generate the thumb of given image of size 150
+   243→         * @param string $source_path The source image path
+   244→         * @param type $target_path where to save thumb image
+   245→         * @param type $source_file source image name without path
+   246→         * @return type false or return thumb image name
+   247→         */
+   248→        protected function _generate_thumb($source_path, $target_path, $source_file)
+   249→        {
+   250→                $source_path = $source_path . $source_file;
+   251→                $config_manip = array(
+   252→                        'image_library' => 'gd2',
+   253→                        'source_image' => $source_path,
+   254→                        'new_image' => $target_path,
+   255→                        'maintain_ratio' => TRUE,
+   256→                        'create_thumb' => TRUE,
+   257→                        'thumb_marker' => '_thumb',
+   258→                        'width' => 300,
+   259→                        'height' => 300
+   260→                );
+   261→
+   262→                $this->load->library('image_lib', $config_manip);
+   263→                $this->image_lib->initialize($config_manip);
+   264→                if (!$this->image_lib->resize()) {
+   265→//            echo $this->image_lib->display_errors();
+   266→//            var_dump($config_manip);
+   267→//            exit();
+   268→                        return false;
+   269→                }
+   270→
+   271→                // clear //
+   272→                $this->image_lib->clear();
+   273→                $only_name = explode('.', $source_file)[0];
+   274→                $only_name = $only_name . '_thumb';
+   275→                $extension = explode('.', $source_file)[1];
+   276→
+   277→                return $only_name . '.' . $extension;
+   278→        }
+   279→
+   280→        /**
+   281→         * This function will generate multiple image thumb
+   282→         * @param string $source_path The source image path
+   283→         * @param type $target_path where to save thumb image
+   284→         * @param type $source_file_array source image array
+   285→         * @return type return array of thumb image name
+   286→         */
+   287→        protected function _generate_multiple_thumb($source_path, $target_path, $source_file_array)
+   288→        {
+   289→                $new_array = array();
+   290→                for ($i = 0; $i < count($source_file_array); $i++) {
+   291→                        $new_array[$i] = $this->_generate_thumb($source_path, $target_path, $source_file_array[$i]);
+   292→                }
+   293→                return $new_array;
+   294→        }
+   295→
+   296→        protected function _generateSeoURL($string, $wordLimit = 0)
+   297→        {
+   298→                $separator = '-';
+   299→
+   300→                if ($wordLimit != 0) {
+   301→                        $wordArr = explode(' ', $string);
+   302→                        $string = implode(' ', array_slice($wordArr, 0, $wordLimit));
+   303→                }
+   304→
+   305→                $quoteSeparator = preg_quote($separator, '#');
+   306→
+   307→                $trans = array(
+   308→                        '&.+?;' => '',
+   309→                        '[^\w\d _-]' => '',
+   310→                        '\s+' => $separator,
+   311→                        '(' . $quoteSeparator . ')+' => $separator
+   312→                );
+   313→
+   314→                $string = strip_tags($string);
+   315→                foreach ($trans as $key => $val) {
+   316→                        $string = preg_replace('#' . $key . '#i' . (UTF8_ENABLED ? 'u' : ''), $val, $string);
+   317→                }
+   318→
+   319→                $string = strtolower($string);
+   320→
+   321→                return trim(trim($string, $separator));
+   322→        }
+   323→
+   324→        public function logout()
+   325→        {
+   326→                $this->session->unset_userdata('user_login');
+   327→                return redirect('auth/login');
+   328→        }
+   329→
+   330→        public function next_available_booking_days($days, $holidays)
+   331→        {
+   332→                $date = date('Y-m-d'); //today date
+   333→                $nextDays = array();
+   334→                for ($i = 1; $i <= $days; $i++) {
+   335→                        $date = date('Y-m-d', strtotime('+1 day', strtotime($date)));
+   336→                        $nextDays[] = date('Y-m-d', strtotime($date));
+   337→                }
+   338→
+   339→                $newHolydays = array();
+   340→                foreach ($holidays as $holiday) {
+   341→                        array_push($newHolydays, $holiday['date']);
+   342→                }
+   343→
+   344→                $final_array = (array)array_diff($nextDays, $newHolydays);
+   345→
+   346→                return $final_array;
+   347→        }
+   348→
+   349→        protected function sendMobileMessage($mobile, $message)
+   350→        {
+   351→                $url = "http://sms.soft-techsolutions.com/submitsms.jsp?user=DRROOM&key=d44b9e34dbXX&mobile=+91" . $mobile . "&message=" . $message . "&senderid=NTFSMS&accusage=1";
+   352→
+   353→                $url = str_replace(" ", '%20', $url);
+   354→                $ch = curl_init($url);
+   355→                curl_setopt($ch, CURLOPT_URL, $url);
+   356→                curl_setopt($ch, CURLOPT_HEADER, 0);
+   357→                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+   358→                $x = curl_exec($ch);
+   359→                curl_close($ch);
+   360→                return $x;
+   361→
+   362→                //return '{"ErrorCode":"000"}';
+   363→        }
+   364→
+   365→
+   366→}
+   367→
+   368→class Doctor_controller extends MY_Controller
+   369→{
+   370→        protected $view_data;
+   371→        protected $user_data;
+   372→
+   373→        public function __construct()
+   374→        {
+   375→                parent::__construct();
+   376→
+   377→                //$this->output->enable_profiler(TRUE);
+   378→
+   379→                //echo "hi";
+   380→                // check Session Section
+   381→                $session_data = $this->session->userdata('user_login');
+   382→                if (!$session_data)
+   383→                        return redirect('auth/login');
+   384→
+   385→                if ($session_data['role'] != DOCTOR)
+   386→                        return redirect('auth/login');
+   387→
+   388→                //check user not block
+   389→                $this->load->model("Users_model", "user");
+   390→                $this->load->model("Notifications_model", "notification");
+   391→                $log_data = $this->user->check_auth_after_login($session_data);
+   392→                if ($log_data == false) {
+   393→                        $this->session->set_flashdata("alert_class", "alert-info");
+   394→                        $this->session->set_flashdata("alert_msg", "You are blocked");
+   395→                        $this->logout();
+   396→                }
+   397→                $this->view_data['user'] = $log_data;
+   398→                $this->user_data = $log_data;
+   399→                $this->view_data['notifications'] = $this->notification->get_all_by_user_by_status($this->user_data->id, 7);
+   400→                $this->view_data['notificationsCount'] = $this->notification->get_count_by_user($this->user_data->id, 7);
+   401→
+   402→        }
+   403→
+   404→
+   405→        public function _change_status($table = NULL, $id = NULL, $status = NULL)
+   406→        {
+   407→
+   408→                if (is_null($table) || is_null($id) || is_null($status)) redirect(base_url('doctor/dashboard'));
+   409→
+   410→                if ($status == BLOCK) {
+   411→                        $data = array('status' => ACTIVE);
+   412→                        $t = $this->db->where('id', $id);
+   413→                        $this->db->where('doctor_id', $this->user_data->id);
+   414→                        $this->db->update($table, $data);
+   415→                        if ($t) {
+   416→                                redirect($_SERVER['HTTP_REFERER']);
+   417→
+   418→                        }
+   419→                }
+   420→                if ($status == ACTIVE) {
+   421→                        $data = array('status' => BLOCK);
+   422→                        $t = $this->db->where('id', $id);
+   423→                        $this->db->where('doctor_id', $this->user_data->id);
+   424→                        $this->db->update($table, $data);
+   425→                        if ($t) {
+   426→                                redirect($_SERVER['HTTP_REFERER']);
+   427→                        }
+   428→
+   429→                }
+   430→        }
+   431→
+   432→}
+   433→
+   434→class Guest_controller extends MY_Controller
+   435→{
+   436→        protected $view_data;
+   437→        protected $user_data;
+   438→
+   439→        public function __construct()
+   440→        {
+   441→                parent::__construct();
+   442→
+   443→                // check Session Section
+   444→                $session_data = $this->session->userdata('user_login');
+   445→                $this->load->model("Notifications_model", "notification");
+   446→
+   447→                //check user not block
+   448→                if ($session_data) {
+   449→                        $this->load->model("Users_model", "user");
+   450→                        $log_data = $this->user->check_auth_after_login($session_data);
+   451→                        if ($log_data == false) {
+   452→                                $this->session->set_flashdata("alert_class", "alert-info");
+   453→                                $this->session->set_flashdata("alert_msg", "You are blocked");
+   454→                                $this->logout();
+   455→                        }
+   456→
+   457→                        $this->user_data = $log_data;
+   458→                        $this->view_data['user'] = $this->user_data;
+   459→                        $this->view_data['notifications'] = $this->notification->get_all_by_user_by_status($this->user_data->id, 7);
+   460→                        $this->view_data['notificationsCount'] = $this->notification->get_count_by_user($this->user_data->id);
+   461→                } else {
+   462→                        $this->view_data['user'] = array();
+   463→                }
+   464→        }
+   465→}
+   466→
+   467→class Patient_contoller extends MY_Controller
+   468→{
+   469→        protected $view_data;
+   470→        protected $user_data;
+   471→
+   472→        public function __construct()
+   473→        {
+   474→                parent::__construct();
+   475→
+   476→                // check Session Section
+   477→                $session_data = $this->session->userdata('user_login');
+   478→                if (!$session_data)
+   479→                        return redirect('auth/login');
+   480→
+   481→                if ($session_data['role'] != PATIENT)
+   482→                        return redirect('auth/login');
+   483→
+   484→                //check user not block
+   485→                $this->load->model("Users_model", "user");
+   486→                $this->load->model("Notifications_model", "notification");
+   487→                $log_data = $this->user->check_auth_after_login($session_data);
+   488→                if ($log_data == false) {
+   489→                        $this->session->set_flashdata("alert_class", "alert-info");
+   490→                        $this->session->set_flashdata("alert_msg", "You are blocked");
+   491→                        $this->logout();
+   492→                }
+   493→
+   494→                $this->user_data = $log_data;
+   495→                $this->view_data['user'] = $this->user_data;
+   496→                $this->view_data['notifications'] = $this->notification->get_all_by_user_by_status($this->user_data->id, 7);
+   497→                $this->view_data['notificationsCount'] = $this->notification->get_count_by_user($this->user_data->id);
+   498→        }
+   499→}
+   500→
+   501→class Reception_contoller extends MY_Controller
+   502→{
+   503→        protected $view_data;
+   504→        protected $user_data;
+   505→
+   506→        public function __construct()
+   507→        {
+   508→                parent::__construct();
+   509→
+   510→                // check Session Section
+   511→                $session_data = $this->session->userdata('user_login');
+   512→                if (!$session_data)
+   513→                        return redirect('auth/login');
+   514→
+   515→                if ($session_data['role'] != RECEPTIONIST)
+   516→                        return redirect('auth/login');
+   517→
+   518→                //check user not block
+   519→                $this->load->model("Users_model", "user");
+   520→                $this->load->model("Notifications_model", "notification");
+   521→                $this->load->model("Receptionist_model", "receptionist");
+   522→                $this->load->model("Doctors_model", "doctor");
+   523→
+   524→                $log_data = $this->user->check_auth_after_login($session_data);
+   525→                if ($log_data == false) {
+   526→                        $this->session->set_flashdata("alert_class", "alert-info");
+   527→                        $this->session->set_flashdata("alert_msg", "You are blocked");
+   528→                        $this->logout();
+   529→                }
+   530→                $this->user_data = $log_data;
+   531→                $this->view_data['user'] = $this->user_data;
+   532→                $this->view_data['notifications'] = $this->notification->get_all_by_user_by_status($this->user_data->id, 7);
+   533→                $this->view_data['notificationsCount'] = $this->notification->get_count_by_user($this->user_data->id);
+   534→                $this->user_data->doctor_id = $this->receptionist->get_by_user_id($this->user_data->id)->doctor_id;
+   535→
+   536→                $this->doctor_data=$this->doctor->get_one_by_user($this->user_data->doctor_id);
+   537→                $this->view_data['doctor_data']=$this->doctor_data;
+   538→        }
+   539→}
+   540→
+   541→class Assistant_controller extends MY_Controller
+   542→{
+   543→        protected $view_data;
+   544→        protected $user_data;
+   545→
+   546→        public function __construct()
+   547→        {
+   548→                parent::__construct();
+   549→
+   550→                // check Session Section
+   551→                $session_data = $this->session->userdata('user_login');
+   552→                if (!$session_data)
+   553→                        return redirect('auth/login');
+   554→
+   555→                if ($session_data['role'] != DOCTOR_ASSISTANT)
+   556→                        return redirect('auth/login');
+   557→
+   558→                //check user not block
+   559→                $this->load->model("Users_model", "user");
+   560→                $this->load->model("Notifications_model", "notification");
+   561→                $log_data = $this->user->check_auth_after_login($session_data);
+   562→                if ($log_data == false) {
+   563→                        $this->session->set_flashdata("alert_class", "alert-info");
+   564→                        $this->session->set_flashdata("alert_msg", "You are blocked");
+   565→                        $this->logout();
+   566→                }
+   567→                $this->user_data = $log_data;
+   568→                $this->view_data['user'] = $this->user_data;
+   569→                $this->view_data['notifications'] = $this->notification->get_all_by_user_by_status($this->user_data->id, 7);
+   570→                $this->view_data['notificationsCount'] = $this->notification->get_count_by_user($this->user_data->id);
+   571→        }
+   572→}
+   573→
+   574→class Hospital_contoller extends MY_Controller
+   575→{
+   576→        protected $view_data;
+   577→        protected $user_data;
+   578→
+   579→        public function __construct()
+   580→        {
+   581→                parent::__construct();
+   582→
+   583→                // check Session Section
+   584→                $session_data = $this->session->userdata('user_login');
+   585→                if (!$session_data)
+   586→                        return redirect('auth/login');
+   587→
+   588→                if ($session_data['role'] != HOSPITAL)
+   589→                        return redirect('auth/login');
+   590→
+   591→                //check user not block
+   592→                $this->load->model("Users_model", "user");
+   593→                $log_data = $this->user->check_auth_after_login($session_data);
+   594→                if ($log_data == false) {
+   595→                        $this->session->set_flashdata("alert_class", "alert-info");
+   596→                        $this->session->set_flashdata("alert_msg", "You are blocked");
+   597→                        $this->logout();
+   598→                }
+   599→                $this->user_data = $log_data;
+   600→                $this->user_data = (object)$session_data;
+   601→                $this->view_data['user'] = $this->user_data;
+   602→        }
+   603→}
+   604→
+   605→class Admin_contoller extends MY_Controller
+   606→{
+   607→        protected $view_data;
+   608→        protected $user_data;
+   609→
+   610→        public function __construct()
+   611→        {
+   612→                parent::__construct();
+   613→
+   614→                // check Session Section
+   615→                $session_data = $this->session->userdata('user_login');
+   616→                //var_dump($session_data['role'] != ADMIN);
+   617→                if (!$session_data)
+   618→                        return redirect('auth/login');
+   619→
+   620→                if ($session_data['role'] != ADMIN)
+   621→                        return redirect('auth/login');
+   622→
+   623→                //check user not block
+   624→                $this->load->model("Users_model", "user");
+   625→                $log_data = $this->user->check_auth_after_login($session_data);
+   626→
+   627→                $this->user_data = $log_data;
+   628→
+   629→                $this->user_data = (object)$session_data;
+   630→                $this->view_data['user'] = $this->user_data;
+   631→        }
+   632→}
+   633→
+   634→class Pharmacist_contoller extends MY_Controller
+   635→{
+   636→        protected $view_data;
+   637→        protected $user_data;
+   638→
+   639→        public function __construct()
+   640→        {
+   641→                parent::__construct();
+   642→
+   643→                // check Session Section
+   644→                $session_data = $this->session->userdata('user_login');
+   645→                //var_dump($session_data['role'] != ADMIN);
+   646→                if (!$session_data)
+   647→                        return redirect('auth/login');
+   648→
+   649→                if ($session_data['role'] != PHARMACIST)
+   650→                        return redirect('auth/login');
+   651→
+   652→                //check user not block
+   653→                $this->load->model("Users_model", "user");
+   654→                $log_data = $this->user->check_auth_after_login($session_data);
+   655→
+   656→                $this->user_data = $log_data;
+   657→
+   658→                $this->user_data = (object)$session_data;
+   659→                $this->view_data['user'] = $this->user_data;
+   660→        }
+   661→
+   662→}
+   663→

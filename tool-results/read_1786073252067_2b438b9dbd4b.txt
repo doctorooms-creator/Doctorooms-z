@@ -1,0 +1,383 @@
+     1→     1→<style>
+     2→     2→        .datepicker-days table .disabled-date.day {
+     3→     3→                background-color: red !important;
+     4→     4→                color: #fff;
+     5→     5→        }
+     6→     6→</style>
+     7→     7→<div class="my-3 my-md-5">
+     8→     8→        <div class="container">
+     9→     9→                <?php
+    10→    10→
+    11→    11→                if ($feedback = $this->session->flashdata('feedback')) {
+    12→    12→                        $class = $this->session->flashdata('feedback_class');
+    13→    13→                        ?>
+    14→    14→                        <div class="alert alert-warning" role="alert">
+    15→    15→                                <?= $feedback ?>
+    16→    16→                        </div>
+    17→    17→                <?php } ?>
+    18→    18→                <div class="row">
+    19→    19→                        <div class="col-lg-4">
+    20→    20→                                <div class="card">
+    21→    21→                                        <div class="card-body">
+    22→    22→                                                <div class="media">
+    23→    23→                            <span class="avatar avatar-xxl mr-5"
+    24→    24→                                                                  style="background-image: url(<?= base_url() ?>upload/profile/<?= $doctor->profile_img ?>)"></span>
+    25→    25→                                                        <div class="media-body">
+    26→    26→                                                                <h4 class="m-0">Dr. <?= $doctor->name ?></h4>
+    27→    27→
+    28→    28→                                                                <p class="text-muted mb-0"><?= $doctor->doctor_type ?></p>
+    29→    29→
+    30→    30→                                                                <ul class="social-links list-inline mb-0 mt-2">
+    31→    31→                                                                        <li class="list-inline-item"><h2><span
+    32→    32→                                                                                                class="fa fa-star"></span> <?= $doctor_average_rating ?>/5</h2>
+    33→    33→                                                                        </li>
+    34→    34→                                                                </ul>
+    35→    35→                                                                <ul class="social-links list-inline mb-0 mt-0">
+    36→    36→                                                                        <li class="list-inline-item"><span class="fa fa-users"></span></li>
+    37→    37→                                                                        <li class="list-inline-item"><?= $doctor_total_rate_user ?> Total</li>
+    38→    38→                                                                </ul>
+    39→    39→                                                        </div>
+    40→    40→                                                </div>
+    41→    41→                                        </div>
+    42→    42→                                </div>
+    43→    43→                                <div class="card">
+    44→    44→                                        <div class="card-header">
+    45→    45→                                                <h3 class="card-title">Navigation</h3>
+    46→    46→                                        </div>
+    47→    47→                                        <div class="card-body">
+    48→    48→                                                <?php if ($hospital) { ?>
+    49→    49→                                                        <iframe
+    50→    50→                                                                src="https://maps.google.com/maps?q=<?= $hospital->lat ?>,<?= $hospital->longi ?>&hl=es;z=13&output=embed"
+    51→    51→                                                                frameborder="0" style="border:0; width: 100%; height: 200px;"
+    52→    52→                                                                allowfullscreen></iframe>
+    53→    53→
+    54→    54→                                                <?php } else { ?>
+    55→    55→                                                        <iframe
+    56→    56→                                                                src="https://maps.google.com/maps?q=<?= $doctor->lat ?>,<?= $doctor->longi ?>&hl=es;z=13&output=embed"
+    57→    57→                                                                frameborder="0" style="border:0; width: 100%; height: 200px;"
+    58→    58→                                                                allowfullscreen></iframe>
+    59→    59→                                                <?php } ?>
+    60→    60→                                        </div>
+    61→    61→
+    62→    62→                                        <?php if ($hospital) { ?>
+    63→    63→                                                <div class="card-body">
+    64→    64→                                                        <div class="media mb-5">
+    65→    65→                                                                <div class="media-body">
+    66→    66→                                                                        <h5><?= $hospital->hospital_name ?></h5>
+    67→    67→                                                                        <address class="text-muted small">
+    68→    68→                                                                                <?= $hospital->address ?>,<br>
+    69→    69→                                                                                <?= $hospital->city ?>,
+    70→    70→                                                                                <?= $hospital->state ?>
+    71→    71→                                                                        </address>
+    72→    72→                                                                </div>
+    73→    73→                                                        </div>
+    74→    74→                                                </div>
+    75→    75→                                        <?php } ?>
+    76→    76→                                        <div class="card-body">
+    77→    77→                                                <div class="row">
+    78→    78→                                                        <div class="col-6">
+    79→    79→                                                                <div class="h6">Fees</div>
+    80→    80→                                                                <p>Rs. <?= $doctor->fees ?></p>
+    81→    81→                                                        </div>
+    82→    82→                                                        <div class="col-6">
+    83→    83→                                                                <div class="h6">Time</div>
+    84→    84→                                                                <p>10:00 AM to 7:00 PM</p>
+    85→    85→                                                        </div>
+    86→    86→                                                        <div class="col-6">
+    87→    87→                                                                <div class="h6">Email</div>
+    88→    88→                                                                <p><a href="mailto:xyz@gmail.com"><?= $doctor->email ?></a></p>
+    89→    89→                                                        </div>
+    90→    90→                                                        <div class="col-6">
+    91→    91→                                                                <div class="h6">Hospital Phone</div>
+    92→    92→                                                                <p><?= $doctor->phone_no ?></p>
+    93→    93→                                                        </div>
+    94→    94→                                                </div>
+    95→    95→                                                <div class="h6">Description</div>
+    96→    96→                                                <p><?= $doctor->description ?></p>
+    97→    97→                                        </div>
+    98→    98→                                </div>
+    99→    99→                        </div>
+   100→   100→                        <div class="col-lg-8">
+   101→   101→                                <div class="card">
+   102→   102→                                        <div class="card-header">
+   103→   103→                                                <h4>Appoint My Doctor</h4>
+   104→   104→                                                <div class="float-right ml-auto">
+   105→   105→                                                </div>
+   106→   106→                                        </div>
+   107→   107→                                        <div class="card-body">
+   108→   108→
+   109→   109→
+   110→   110→                                                <?= form_open("book/doctor_book/" . $doctor->user_id) ?>
+   111→   111→                                                <div class="row">
+   112→   112→                                                        <div class="col-sm-6">
+   113→   113→                                                                <div class="form-group">
+   114→   114→                                                                        <label class="form-label">Name <span class="text-red">*</span></label>
+   115→   115→                                                                        <input type="text" value="<?= set_value("petient_name"); ?>"
+   116→   116→                                                                                   class="form-control  <?= (form_error("petient_name")) ? "is-invalid" : "" ?>"
+   117→   117→                                                                                   name="petient_name"
+   118→   118→                                                                                   placeholder="Patient name">
+   119→   119→                                                                        <?php echo form_error('petient_name'); ?>
+   120→   120→                                                                </div>
+   121→   121→                                                        </div>
+   122→   122→                                                        <div class="col-sm-3">
+   123→   123→                                                                <div class="form-group">
+   124→   124→                                                                        <label class="form-label">Appointment Date <span class="text-red">*</span></label>
+   125→   125→                                                                        <input class="form-control <?= (form_error("booking_date")) ? "is-invalid" : "" ?>"
+   126→   126→                                                                                   type="text" autocomplete="off" name="booking_date" id="booking_date"
+   127→   127→                                                                                   onkeydown="return false" placeholder="Select booking date">
+   128→   128→                                                                        <?php echo form_error('booking_date'); ?>
+   129→   129→                                                                        <span class="text-info" id="booked"
+   130→   130→                                                                                  style="font-size: 11px;"></span>
+   131→   131→                                                                </div>
+   132→   132→                                                        </div>
+   133→   133→                                                        <div class="col-sm-3">
+   134→   134→                                                                <div class="form-group">
+   135→   135→                                                                        <label class="form-label">Physical Handicape</label>
+   136→   136→                                                                        <select class="form-control" name="physical_handicape">
+   137→   137→                                                                                <option value="No"
+   138→   138→                                                                                                <?= (set_value("physical_handicape") == "No") ? "selected" : "" ?>>
+   139→   139→                                                                                        No
+   140→   140→                                                                                </option>
+   141→   141→                                                                                <option value="Yes"
+   142→   142→                                                                                                <?= (set_value("physical_handicape") == "Yes") ? "selected" : "" ?>>
+   143→   143→                                                                                        Yes
+   144→   144→                                                                                </option>
+   145→   145→                                                                        </select>
+   146→   146→                                                                </div>
+   147→   147→                                                        </div>
+   148→   148→                                                        <div class="col-sm-6">
+   149→   149→                                                                <div class="form-group">
+   150→   150→                                                                        <label class="form-label">Symptoms </label>
+   151→   151→                                                                        <input type="text"
+   152→   152→                                                                                   class="form-control <?= (form_error("disease")) ? "is-invalid" : "" ?>"
+   153→   153→                                                                                   value="<?= set_value("disease"); ?>"
+   154→   154→                                                                                   name="disease" placeholder="Enter disease">
+   155→   155→                                                                        <?php echo form_error('disease'); ?>
+   156→   156→                                                                </div>
+   157→   157→                                                        </div>
+   158→   158→                                                        <div class="col-sm-3">
+   159→   159→                                                                <div class="form-group">
+   160→   160→                                                                        <label class="form-label">State</label>
+   161→   161→                                                                        <select name="state" id="state"
+   162→   162→                                                                                        class="form-control <?= (form_error("state")) ? "is-invalid" : "" ?>">
+   163→   163→                                                                                <option value="">--Select State--</option>
+   164→   164→                                                                                <?php foreach ($state as $sta) { ?>
+   165→   165→                                                                                        <option value="<?= $sta->state_name ?>"><?= $sta->state_name ?></option>
+   166→   166→                                                                                <?php } ?>
+   167→   167→                                                                        </select>
+   168→   168→                                                                        <?php echo form_error('state'); ?>
+   169→   169→                                                                </div>
+   170→   170→                                                        </div>
+   171→   171→                                                        <div class="col-sm-3">
+   172→   172→                                                                <div class="form-group">
+   173→   173→                                                                        <label class="form-label">City </label>
+   174→   174→                                                                        <select name="city" id="city"
+   175→   175→                                                                                        class="form-control <?= (form_error("city")) ? "is-invalid" : "" ?>">
+   176→   176→                                                                                <option value="">--Select City--</option>
+   177→   177→                                                                        </select>
+   178→   178→                                                                        <?php echo form_error('city'); ?>
+   179→   179→                                                                </div>
+   180→   180→                                                        </div>
+   181→   181→                                                        <div class="col-sm-3">
+   182→   182→                                                                <div class="form-group">
+   183→   183→                                                                        <label class="form-label">Gender</label>
+   184→   184→                                                                        <select class="form-control" name="gender">
+   185→   185→                                                                                <option value="Male" <?= (set_value("gender") == "Male") ? "selected" : "" ?>>
+   186→   186→                                                                                        Male
+   187→   187→                                                                                </option>
+   188→   188→                                                                                <option value="Female"
+   189→   189→                                                                                                <?= (set_value("gender") == "Female") ? "selected" : "" ?>>
+   190→   190→                                                                                        Female
+   191→   191→                                                                                </option>
+   192→   192→                                                                                <option value="Other" <?= (set_value("gender") == "Other") ? "selected" : "" ?>>
+   193→   193→                                                                                        Other
+   194→   194→                                                                                </option>
+   195→   195→                                                                        </select>
+   196→   196→                                                                </div>
+   197→   197→                                                        </div>
+   198→   198→                                                        <div class="col-sm-3">
+   199→   199→                                                                <div class="form-group">
+   200→   200→                                                                        <label class="form-label">Blood Group</label>
+   201→   201→                                                                        <select class="form-control" name="blood_group">
+   202→   202→                                                                                <option value="">-- Select Group --</option>
+   203→   203→                                                                                <option value="O+" <?= (set_value("blood_group") == "O+") ? "selected" : "" ?>>
+   204→   204→                                                                                        O+
+   205→   205→                                                                                </option>
+   206→   206→                                                                                <option value="O-" <?= (set_value("blood_group") == "O-") ? "selected" : "" ?>>
+   207→   207→                                                                                        O-
+   208→   208→                                                                                </option>
+   209→   209→                                                                                <option value="A+" <?= (set_value("blood_group") == "A+") ? "selected" : "" ?>>
+   210→   210→                                                                                        A+
+   211→   211→                                                                                </option>
+   212→   212→                                                                                <option value="A-" <?= (set_value("blood_group") == "A-") ? "selected" : "" ?>>
+   213→   213→                                                                                        A-
+   214→   214→                                                                                </option>
+   215→   215→                                                                                <option value="B+" <?= (set_value("blood_group") == "B+") ? "selected" : "" ?>>
+   216→   216→                                                                                        B+
+   217→   217→                                                                                </option>
+   218→   218→                                                                                <option value="B-" <?= (set_value("blood_group") == "B-") ? "selected" : "" ?>>
+   219→   219→                                                                                        B-
+   220→   220→                                                                                </option>
+   221→   221→                                                                                <option value="AB+"
+   222→   222→                                                                                                <?= (set_value("blood_group") == "AB+") ? "selected" : "" ?>>
+   223→   223→                                                                                        AB+
+   224→   224→                                                                                </option>
+   225→   225→                                                                                <option value="AB-"
+   226→   226→                                                                                                <?= (set_value("blood_group") == "AB-") ? "selected" : "" ?>>
+   227→   227→                                                                                        AB-
+   228→   228→                                                                                </option>
+   229→   229→                                                                        </select>
+   230→   230→                                                                </div>
+   231→   231→                                                        </div>
+   232→   232→
+   233→   233→                                                        <div class="col-sm-3">
+   234→   234→                                                                <div class="form-group">
+   235→   235→                                                                        <label class="form-label">Date Of Birth</label>
+   236→   236→                                                                        <input type="date" class="form-control" value="<?= set_value('date_of_birth') ?>"
+   237→   237→                                                                                   name="date_of_birth" id="date_of_birth" readonly="readonly"
+   238→   238→                                                                                   onchange="">
+   239→   239→                                                                </div>
+   240→   240→                                                        </div>
+   241→   241→
+   242→   242→                                                        <div class="col-sm-3">
+   243→   243→                                                                <div class="form-group">
+   244→   244→                                                                        <label class="form-label">Age</label>
+   245→   245→                                                                        <input type="text"
+   246→   246→                                                                                   class="form-control <?= (form_error("age")) ? "is-invalid" : "" ?>"
+   247→   247→                                                                                   value="<?= set_value('age') ?>"
+   248→   248→                                                                                   name="age" id="age" placeholder="Enter age">
+   249→   249→                                                                        <?php echo form_error('age'); ?>
+   250→   250→                                                                </div>
+   251→   251→                                                        </div>
+   252→   252→
+   253→   253→                                                        <div class="col-sm-3">
+   254→   254→                                                                <div class="form-group">
+   255→   255→                                                                        <label class="form-label">Height (cm)</label>
+   256→   256→                                                                        <input type="text" class="form-control" name="height"
+   257→   257→                                                                                   value="<?= set_value('height') ?>" placeholder="Enter height in cm">
+   258→   258→                                                                </div>
+   259→   259→                                                        </div>
+   260→   260→                                                        <div class="col-sm-3">
+   261→   261→                                                                <div class="form-group">
+   262→   262→                                                                        <label class="form-label">Weight (KG)</label>
+   263→   263→                                                                        <input type="text" class="form-control"
+   264→   264→                                                                                   value="<?= set_value('weight') ?>"
+   265→   265→                                                                                   name="weight" placeholder="Enter weight in KG">
+   266→   266→                                                                </div>
+   267→   267→                                                        </div>
+   268→   268→                                                        <div class="col-sm-6">
+   269→   269→                                                                <div class="form-group">
+   270→   270→                                                                        <label class="form-label">Relation With Me</label>
+   271→   271→                                                                        <input type="text" class="form-control" value="<?= set_value('relation_with_me') ?>"
+   272→   272→                                                                                   name="relation_with_me" placeholder="Relation With me">
+   273→   273→                                                                </div>
+   274→   274→                                                        </div>
+   275→   275→
+   276→   276→                                                        <div class="col-sm-12">
+   277→   277→                                                                <div class="form-group">
+   278→   278→                                                                        <label class="form-label">Description</label>
+   279→   279→                                                                        <textarea
+   280→   280→                                                                                class="form-control <?= (form_error("description")) ? "is-invalid" : "" ?>"
+   281→   281→                                                                                name="description" rows="5"
+   282→   282→                                                                                placeholder="Enter description here"><?= set_value('description') ?></textarea>
+   283→   283→                                                                        <?php echo form_error('description'); ?>
+   284→   284→                                                                </div>
+   285→   285→                                                        </div>
+   286→   286→
+   287→   287→                                                        <div class="col-sm-12">
+   288→   288→                                                                <button type="submit" onclick="this.form.submit();this.disabled = true;"
+   289→   289→                                                                                class="btn btn-primary float-right">Appoint
+   290→   290→                                                                </button>
+   291→   291→                                                        </div>
+   292→   292→                                                </div>
+   293→   293→                                                <?= form_close() ?>
+   294→   294→                                        </div>
+   295→   295→                                </div>
+   296→   296→                        </div>
+   297→   297→                </div>
+   298→   298→        </div>
+   299→   299→</div>
+   300→   300→<script>
+   301→   301→        requirejs(['jquery', 'datepicker'], function ($) {
+   302→   302→
+   303→   303→                $("#state").change(function () {
+   304→   304→                        var state = $("#state").val();
+   305→   305→                        //console.log(result);
+   306→   306→                        $('#city').find('option:not(:first)').remove();
+   307→   307→                        $.post("<?=base_url('book/city_by_state')?>", {state_name: state}, function (result) {
+   308→   308→
+   309→   309→                                result.forEach(function (city) {
+   310→   310→                                        var elem = $("<option value='" + city.city_name + "'>" + city.city_name + "</option>");
+   311→   311→                                        $("#city").append(elem);
+   312→   312→                                });
+   313→   313→                        });
+   314→   314→                });
+   315→   315→
+   316→   316→                $("#date_of_birth").change(function () {
+   317→   317→                        var date_of_birth = $("#date_of_birth").val();
+   318→   318→                        date_of_birth = new Date(date_of_birth);
+   319→   319→                        var today = new Date();
+   320→   320→                        if (date_of_birth >= today) {
+   321→   321→                                $('#date_of_birth').val("");
+   322→   322→                                $('#age').val("");
+   323→   323→                        } else {
+   324→   324→                                var age = Math.floor((today - date_of_birth) / (365.25 * 24 * 60 * 60 * 1000));
+   325→   325→                                $('#age').val(age);
+   326→   326→                        }
+   327→   327→                });
+   328→   328→
+   329→   329→                var datesForDisable = <?=$getHolidays?>;
+   330→   330→                $("#booking_date").datepicker({
+   331→   331→                        format: 'yyyy-mm-dd',
+   332→   332→                        autoclose: false,
+   333→   333→                        weekStart: 1,
+   334→   334→                        calendarWeeks: true,
+   335→   335→                        todayHighlight: true,
+   336→   336→                        datesDisabled: datesForDisable,
+   337→   337→                        startDate: new Date(Date.parse('<?=date('Y-m-d', strtotime(date('Y-m-d') . "+ 0 day"))?>')),
+   338→   338→                        endDate: new Date(Date.parse('<?=date('Y-m-d', strtotime(date('Y-m-d') . " + " . (int)$doctor->booking_days . " day"))?>')),
+   339→   339→
+   340→   340→                }).on('changeDate', function(e){
+   341→   341→                        var date = e.format();
+   342→   342→                        var doctor = <?=$doctor->user_id?>;
+   343→   343→                        $.post("<?=base_url('book/date_booked')?>", {doctor: doctor, date: date}, function (result) {
+   344→   344→                                console.log(result);
+   345→   345→                                var limit = '<?= $doctor->daily_limit?>';
+   346→   346→
+   347→   347→                                if (limit != "") {
+   348→   348→                                        if (limit <= result.booked) {
+   349→   349→
+   350→   350→                                                $("#booking_date").val("");
+   351→   351→                                                datesForDisable.push(date);
+   352→   352→                                                $('#booking_date').datepicker('setDatesDisabled', datesForDisable);
+   353→   353→                                        }
+   354→   354→                                }
+   355→   355→
+   356→   356→                                // $('#booked').text(result.booked + " Appointment booked.");
+   357→   357→                        });
+   358→   358→
+   359→   359→                });
+   360→   360→
+   361→   361→                //$("#booking_date").change(function (event) {
+   362→   362→                //
+   363→   363→                //      var booking_date = $("#booking_date").val();
+   364→   364→                //      console.log(booking_date);
+   365→   365→                //      var doctor = <?//=$doctor->user_id?>//;
+   366→   366→                //      //$('#city').find('option:not(:first)').remove();
+   367→   367→                //      $.post("<?//=base_url('book/date_booked')?>//", {doctor: doctor, date: booking_date}, function (result) {
+   368→   368→                //              console.log(result);
+   369→   369→                //              var limit = '<?//= $doctor->daily_limit?>//';
+   370→   370→                //              if (limit != "") {
+   371→   371→                //                      if (limit <= result.booked) {
+   372→   372→                //
+   373→   373→                //                              $("#booking_date").val("");
+   374→   374→                //                      }
+   375→   375→                //              }
+   376→   376→                //
+   377→   377→                //              $('#booked').text(result.booked + " Appointment booked.");
+   378→   378→                //      });
+   379→   379→                //});
+   380→   380→        });
+   381→   381→</script>
+   382→   382→
+   383→   383→
