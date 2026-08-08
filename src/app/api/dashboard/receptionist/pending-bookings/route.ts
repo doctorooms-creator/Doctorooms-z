@@ -1,0 +1,87 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { requireAuth, RECEPTION_ROLES } from '@/lib/api-auth'
+
+export async function GET(req: NextRequest) {
+  try {
+    const user = await requireAuth(req)
+    if (!user || !RECEPTION_ROLES.includes(user.role)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const pendingBookings = await db.booking.findMany({
+      where: {
+        status: 'Pending',
+        bookingType: 'By Self',
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        user: { select: { id: true, name: true, email: true, profileImg: true, mobileNo: true } },
+        doctor: {
+          include: { user: { select: { name: true, profileImg: true } } },
+        },
+      },
+    })
+
+    // Calculate hypothetical queue position for each booking if it were approved
+    const bookingsWithQueue = await Promise.all(
+      pendingBookings.map(async (b) => {
+        const bookingDate = new Date(b.bookingDate)
+        const dateOnly = new Date(bookingDate.getFullYear(), bookingDate.getMonth(), bookingDate.getDate())
+        const nextDay = new Date(dateOnly)
+        nextDay.setDate(nextDay.getDate() + 1)
+
+        // Count existing approved bookings for that doctor on that date
+        const existingApproved = await db.booking.count({
+          where: {
+            doctorId: b.doctorId,
+            bookingDate: { gte: dateOnly, lt: nextDay },
+            status: { in: ['Approve', 'Visited', 'Finish'] },
+          },
+        })
+
+        const hypotheticalQueuePosition = existingApproved + 1
+
+        return {
+          id: b.id,
+          appointmentNo: b.appointmentNo,
+          bookingDate: b.bookingDate,
+          timeSlot: b.timeSlot,
+          bookingMode: b.bookingMode,
+          disease: b.disease,
+          description: b.description,
+          gender: b.gender,
+          age: b.age,
+          bloodGroup: b.bloodGroup,
+          weight: b.weight,
+          relationWithMe: b.relationWithMe,
+          appointmentCharge: b.appointmentCharge,
+          createdAt: b.createdAt,
+          patient: b.user
+            ? {
+                id: b.user.id,
+                name: b.user.name,
+                email: b.user.email,
+                profileImg: b.user.profileImg,
+                mobileNo: b.user.mobileNo,
+              }
+            : null,
+          doctor: {
+            id: b.doctor.id,
+            name: b.doctor.user?.name || 'Unknown',
+            profileImg: b.doctor.user?.profileImg || '',
+            specialization: b.doctor.specialization,
+            dailyLimit: b.doctor.dailyLimit,
+          },
+          queuePositionIfApproved: hypotheticalQueuePosition,
+          opdCount: existingApproved,
+        }
+      })
+    )
+
+    return NextResponse.json({ bookings: bookingsWithQueue })
+  } catch (error) {
+    console.error('Pending bookings list error:', error)
+    return NextResponse.json({ error: 'Failed to load pending bookings' }, { status: 500 })
+  }
+}

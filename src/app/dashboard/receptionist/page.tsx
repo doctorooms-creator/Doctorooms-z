@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CalendarDays, Users, Clock, ArrowRight, Plus, Stethoscope } from 'lucide-react'
+import { CalendarDays, Users, Clock, ArrowRight, Plus, Stethoscope, ClipboardCheck } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -132,6 +132,19 @@ export default function ReceptionistDashboardPage() {
         >
           <CalendarDays className="h-4 w-4" />
           Manage Appointments
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => router.push('/dashboard/receptionist/pending-bookings')}
+          className="flex items-center gap-2"
+        >
+          <ClipboardCheck className="h-4 w-4" />
+          Pending Bookings
+          {stats?.pendingApprovals !== undefined && stats.pendingApprovals > 0 && (
+            <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-teal-600 px-1 text-[10px] font-bold text-white">
+              {stats.pendingApprovals}
+            </span>
+          )}
         </Button>
         <Button
           variant="outline"

@@ -50,12 +50,14 @@ const routeTitles: Record<string, string> = {
   '/dashboard/patient/appointments': 'My Appointments',
   '/dashboard/patient/health-records': 'Health Records',
   '/dashboard/patient/feedback': 'Feedback',
+  '/dashboard/patient/notifications': 'Notifications',
   '/dashboard/patient/profile': 'Profile',
   '/dashboard/hospital': 'Hospital Dashboard',
   '/dashboard/hospital/doctors': 'Doctors',
   '/dashboard/hospital/appointments': 'Appointments',
   '/dashboard/receptionist': 'Receptionist Dashboard',
   '/dashboard/receptionist/appointments': 'Appointments',
+  '/dashboard/receptionist/pending-bookings': 'Pending Bookings',
   '/dashboard/receptionist/patients': 'Patients',
   '/dashboard/assistant': 'Assistant Dashboard',
   '/dashboard/assistant/appointments': 'Appointments',
@@ -83,13 +85,21 @@ export function DashboardHeader({ onMenuClick, onLogout }: DashboardHeaderProps)
   const router = useRouter()
   const { user } = useAuthStore()
   const [searchOpen, setSearchOpen] = useState(false)
-  const [unreadCount] = useState(3)
+  const [unreadCount, setUnreadCount] = useState(0)
 
-  const pageTitle = getPageTitle(pathname)
   const role = user?.role || 'patient'
+  const pageTitle = getPageTitle(pathname)
   const userName = user?.name || 'User'
   const userEmail = user?.email || ''
   const userImg = user?.profileImg || ''
+
+  useEffect(() => {
+    if (role !== 'patient') return
+    fetch('/api/patient/notifications')
+      .then((r) => r.json())
+      .then((data) => setUnreadCount(data?.unreadCount || 0))
+      .catch(() => {})
+  }, [role])
 
   const handleSearch = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
@@ -129,11 +139,11 @@ export function DashboardHeader({ onMenuClick, onLogout }: DashboardHeaderProps)
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative" onClick={() => router.push(`/dashboard/${role}/notifications`)}>
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-              {unreadCount}
+              {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
           <span className="sr-only">Notifications</span>

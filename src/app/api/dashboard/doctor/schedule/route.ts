@@ -54,25 +54,20 @@ export async function POST(req: NextRequest) {
 
     // Upsert each day's schedule
     await Promise.all(
-      newSchedules.map((s) =>
-        db.doctorSchedule.upsert({
-          where: {
-            doctorId_day: { doctorId: doctor.id, day: s.day },
-          },
-          update: {
-            startTime: s.startTime,
-            endTime: s.endTime,
-            slotDuration: s.slotDuration,
-          },
-          create: {
-            doctorId: doctor.id,
-            day: s.day,
-            startTime: s.startTime,
-            endTime: s.endTime,
-            slotDuration: s.slotDuration,
-          },
+      newSchedules.map(async (s) => {
+        const existing = await db.doctorSchedule.findFirst({
+          where: { doctorId: doctor.id, day: s.day },
         })
-      )
+        if (existing) {
+          return db.doctorSchedule.update({
+            where: { id: existing.id },
+            data: { startTime: s.startTime, endTime: s.endTime, slotDuration: s.slotDuration },
+          })
+        }
+        return db.doctorSchedule.create({
+          data: { doctorId: doctor.id, day: s.day, startTime: s.startTime, endTime: s.endTime, slotDuration: s.slotDuration },
+        })
+      })
     )
 
     return NextResponse.json({ success: true })

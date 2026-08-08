@@ -1,13 +1,24 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import {
   Table,
   TableBody,
@@ -16,9 +27,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { FileText, Eye, CalendarX, CalendarDays } from 'lucide-react'
+import { FileText, Eye, CalendarX, CalendarDays, X, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 const tabs = ['All', 'Pending', 'Approved', 'Visited', 'Canceled', 'Finished']
 
@@ -56,6 +68,8 @@ interface Appointment {
 
 export default function PatientAppointmentsPage() {
   const [activeTab, setActiveTab] = useState('All')
+  const [cancelId, setCancelId] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['patient-appointments', activeTab],
@@ -68,6 +82,51 @@ export default function PatientAppointmentsPage() {
 
   const appointments: Appointment[] = data?.appointments || []
   const counts: Record<string, number> = data?.counts || {}
+
+  // Queue positions for approved appointments
+  const approvedIds = appointments.filter((a) => a.status === 'Approve').map((a) => a.id)
+
+  const { data: queueData } = useQuery<Record<string, number>>({
+    queryKey: ['queue-positions', approvedIds],
+    queryFn: async () => {
+      const results: Record<string, number> = {}
+      await Promise.all(
+        approvedIds.map(async (id) => {
+          try {
+            const res = await fetch(`/api/patient/bookings/queue?bookingId=${id}`)
+            if (res.ok) {
+              const data = await res.json()
+              if (typeof data.position === 'number') {
+                results[id] = data.position
+              }
+            }
+          } catch {
+            // ignore individual fetch errors
+          }
+        })
+      )
+      return results
+    },
+    enabled: approvedIds.length > 0,
+  })
+
+  // Cancel mutation
+  const cancelMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const res = await fetch(`/api/patient/bookings/${id}/cancel`, { method: 'PATCH' })
+      if (!res.ok) throw new Error('Failed to cancel')
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patient-appointments'] })
+      queryClient.invalidateQueries({ queryKey: ['queue-positions'] })
+      toast.success('Appointment canceled successfully')
+      setCancelId(null)
+    },
+    onError: () => {
+      toast.error('Failed to cancel appointment. Please try again.')
+    },
+  })
 
   return (
     <motion.div
@@ -170,17 +229,35 @@ export default function PatientAppointmentsPage() {
                       {appt.disease || '—'}
                     </TableCell>
                     <TableCell>
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-                          statusColors[appt.status] || 'bg-gray-100 text-gray-700'
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={cn(
+                            'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+                            statusColors[appt.status] || 'bg-gray-100 text-gray-700'
+                          )}
+                        >
+                          {appt.status}
+                        </span>
+                        {appt.status === 'Approve' && queueData?.[appt.id] != null && (
+                          <Badge className="bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-900/50 dark:text-teal-400 dark:hover:bg-teal-900/50">
+                            Queue #{queueData[appt.id]}
+                          </Badge>
                         )}
-                      >
-                        {appt.status}
-                      </span>
+                      </div>
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {(appt.status === 'Pending' || appt.status === 'Approve') && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30"
+                            onClick={() => setCancelId(appt.id)}
+                          >
+                            <X className="h-4 w-4" />
+                            <span className="sr-only">Cancel appointment</span>
+                          </Button>
+                        )}
                         {appt.hasPrescription && (
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-teal-600 hover:text-teal-700 dark:text-teal-400" asChild>
                             <Link href={`/dashboard/patient/appointments/${appt.id}`}>
@@ -202,6 +279,29 @@ export default function PatientAppointmentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Cancel Confirmation Dialog */}
+      <AlertDialog open={!!cancelId} onOpenChange={(open) => !open && setCancelId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel Appointment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to cancel this appointment? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={cancelMutation.isPending}>Keep it</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => cancelId && cancelMutation.mutate(cancelId)}
+              disabled={cancelMutation.isPending}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              {cancelMutation.isPending && <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />}
+              Cancel Appointment
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </motion.div>
   )
 }

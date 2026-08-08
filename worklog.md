@@ -1,5 +1,84 @@
 # Doctorooms v2 — Complete Rebuild Worklog
 
+## 🏥 Patient Booking Module — Phase A+B+C Development (2026-08-08)
+
+### Architect Decisions
+- 3 booking types: Direct (no slot), Time Slot (date+time), Video Call
+- Queue system: First Come First Serve, per-doctor per-date
+- Online bookings go to Reception for approval (Pending → Approve → Queue)
+- Walk-in patients go directly to Queue (Reception creates → Approve)
+- OPD daily limit per doctor (doctor.dailyLimit field, default 40)
+- Time slot conflict: one Approved booking per slot
+- Queue calculation: count Approve status bookings ahead of you
+- Rejection creates notification for patient
+- Video calls: Jitsi Meet (free, open source)
+
+### Schema Changes (A1)
+- Booking model: +timeSlot, +bookingMode (InPerson|VideoCall), +videoRoomId
+- DoctorSchedule model: +timeSlots (JSON array of manual slots)
+- Seeded time slots for all 3 doctors (09:00-17:00, 30min intervals)
+- Set dailyLimit=40 for all doctors
+
+### Auth System Fix
+- Created `/src/lib/api-auth.ts` — unified auth helper reading `doctorooms_session` cookie
+- All new APIs use `requireRole(req, 'role')` instead of broken `getServerSession`
+- Fixed `/api/dashboard/doctor/schedule` crash (removed invalid `doctorId_day` upsert)
+
+### API Routes Built (A2-A7) — 10 routes
+1. `POST /api/patient/bookings` — Create booking with OPD/slot/holiday validation
+2. `GET /api/patient/bookings/check-slot` — Real-time slot availability check
+3. `GET /api/patient/bookings/queue` — Queue position + estimated wait time
+4. `PATCH /api/patient/bookings/[id]/cancel` — Patient cancels Pending/Approve booking
+5. `GET /api/dashboard/receptionist/pending-bookings` — List pending online bookings
+6. `PATCH /api/dashboard/receptionist/bookings/[id]/approve` — Accept + dual notification
+7. `PATCH /api/dashboard/receptionist/bookings/[id]/reject` — Reject + patient notification
+8. `GET /api/patient/notifications` — Notification list + unread count
+9. `PATCH /api/patient/notifications/[id]/read` — Mark single as read
+10. `PATCH /api/patient/notifications/read-all` — Mark all as read
+11. `GET /api/doctors/[id]/schedule` — Public doctor schedule + time slots (no auth)
+
+### Frontend Pages Built (B1-B5, C1)
+1. `/dashboard/patient/book/[doctorId]` — SUPER SIMPLE 1-2 click booking flow
+   - Doctor info card, Calendar date picker, Mode toggle (InPerson/VideoCall)
+   - Time slot grid with real-time availability check per slot
+   - Booking summary + disease/reason input + Confirm button
+2. `/dashboard/patient/notifications` — Notification list with mark-as-read
+3. `/dashboard/receptionist/pending-bookings` — Accept/Reject online booking requests
+4. Updated: Dashboard header (notification bell with real count)
+5. Updated: Patient appointments (queue # badge, cancel button)
+6. Updated: Doctor detail page (Book button wired → login check → redirect to booking)
+7. Updated: Sidebar config (Notifications for patient, Pending Bookings for receptionist)
+
+### API Verification (curl E2E)
+```
+✅ Patient Login          → 200 {success: true, user: {role: "patient"}}
+✅ Check Slot            → {available: true, queuePosition: 1, opdCount: 0, opdLimit: 40}
+✅ Create Booking        → 201 {booking: {status: "Pending", bookingMode: "InPerson"}}
+✅ Notifications         → [{title: "Booking Request Sent", status: "UNREAD"}]
+✅ Receptionist Login    → 200 {success: true, user: {role: "receptionist"}}
+✅ Pending Bookings      → [{patientName: "Rahul Verma", disease: "Fever", timeSlot: "10:00 AM"}]
+✅ Approve Booking       → {success: true, status: "Approve", queuePosition: 1}
+✅ Queue Position        → {inQueue: true, queuePosition: 1, patientsAhead: 0}
+```
+
+### Files Created/Modified
+- NEW: 11 API route files
+- NEW: 3 page files (booking, notifications, pending-bookings)
+- NEW: 1 auth helper (api-auth.ts)
+- NEW: 1 public schedule API
+- MODIFIED: 6 existing files (sidebar config, header, appointments, doctor detail, schedule API, schema)
+
+### Remaining Work (Next Phase)
+- C2: Doctor schedule time slots management UI (manual slot add/remove)
+- C3: Doctor queue view on appointments page
+- D1: Jitsi Meet video call component + room creation/joining
+- Prescription print/download
+- Real-time chat (WebSocket)
+- File upload for medical documents
+- Password change for patient
+
+---
+
 ## 🔧 Architecture Fix Session (2026-08-08 — Round 2)
 
 ### Problem Statement
@@ -525,3 +604,139 @@ Stage Summary:
 - Login flow: fetch /api/auth/login → Zustand store → router.push(/dashboard/{role})
 - Dashboard auth: Zustand check → /api/auth/me fallback → redirect to login
 - This works in iframes, mobile browsers, and restricted environments
+---
+## Task A2-A7 — Patient Booking System API Routes
+
+### Agent: API Routes Developer
+### Date: 2026-08-09
+
+#### Work Log
+
+Created 10 new API route files for the patient booking system:
+
+**Patient Booking Routes (4 files):**
+1. `POST /api/patient/bookings/route.ts` — Patient creates a booking. Validates doctor exists, checks holiday, OPD limit, time slot conflict. Generates `APT-{timestamp}` appointmentNo. Creates with status `Pending` + `bookingType: 'By Self'`. Sends notification to patient.
+
+2. `GET /api/patient/bookings/check-slot/route.ts` — Checks slot availability for a doctor+date+optional timeSlot. Returns `{ available, reason?, queuePosition?, opdCount, opdLimit }`. Checks holiday, OPD limit, and time slot conflicts.
+
+3. `GET /api/patient/bookings/queue/route.ts` — Returns queue position for a booking. Ownership check (patient owner OR reception/doctor/admin roles). If not Approve status, returns `{ inQueue: false }`. Otherwise calculates position by counting Approve bookings ahead. Estimated wait = patientsAhead * 15 min.
+
+4. `PATCH /api/patient/bookings/[id]/cancel/route.ts` — Patient cancels their booking. Only allows cancel if status is Pending or Approve. Updates to Canceled, creates notification.
+
+**Receptionist Booking Management Routes (3 files):**
+5. `GET /api/dashboard/receptionist/pending-bookings/route.ts` — Lists all Pending + 'By Self' bookings with patient user info, doctor info, and hypothetical queue position if approved. Sorted by createdAt desc.
+
+6. `PATCH /api/dashboard/receptionist/bookings/[id]/approve/route.ts` — Approves a pending booking. Re-checks OPD limit (race condition guard). If full, auto-rejects with explanatory notification. If OK, approves, calculates queue position, notifies patient and doctor.
+
+7. `PATCH /api/dashboard/receptionist/bookings/[id]/reject/route.ts` — Rejects a pending booking. Updates to Rejected, notifies patient.
+
+**Patient Notification Routes (3 files):**
+8. `GET /api/patient/notifications/route.ts` — Lists notifications with pagination (page/limit query params) and unread count.
+
+9. `PATCH /api/patient/notifications/[id]/read/route.ts` — Marks a single notification as READ. Verifies ownership.
+
+10. `PATCH /api/patient/notifications/read-all/route.ts` — Marks all UNREAD notifications for the patient as READ using `updateMany`.
+
+#### Key Design Decisions
+- All routes use `import { getAuthUser, requireRole, requireAuth, RECEPTION_ROLES } from '@/lib/api-auth'` — NO `getServerSession`
+- Next.js 16 dynamic params pattern: `{ params }: { params: Promise<{ id: string }> }` with `await params`
+- Date comparison uses date-only boundaries (gte dateOnly, lt nextDay) to avoid time-of-day issues
+- Queue position counts only `Approve` status (Visited/Finish/Canceled exit the queue)
+- OPD limit check counts `Approve + Visited + Finish` statuses
+- All routes have try/catch with proper error logging and NextResponse.json responses
+- ESLint passes with 0 errors (only 1 pre-existing warning in unrelated file)
+
+#### Stage Summary
+- All 10 API routes created and linting clean
+- Patient self-service booking flow: check-slot → create booking → wait for approval → get queue → cancel if needed
+- Receptionist flow: list pending → approve/reject with notifications
+- Notification system: list paginated, mark single/all as read
+
+## 📅 Patient Booking Page Session (2026-08-08)
+
+### What was built
+
+#### 1. Public Doctor Schedule API (`/api/doctors/[id]/schedule`)
+- **NO AUTH required** — public endpoint for the booking flow
+- Accepts a doctor user ID or doctor ID (checks both)
+- Returns: schedules with pre-computed time slots (AM/PM formatted), holiday list (next N booking days), fees, daily limit, booking days
+- Time slot generation respects `slotDuration` from the `DoctorSchedule` model
+- Holiday dates formatted as `yyyy-MM-dd` strings for easy comparison
+
+#### 2. Patient Booking Page (`/dashboard/patient/book/[doctorId]`)
+- **Super simple 1-2 click booking flow** inside the dashboard layout
+- **Step 1: Select Date** — shadcn Calendar component, past dates disabled, non-schedule days disabled, holiday dates shown with amber warning
+- **Step 2: Select Slot & Mode** — Mode toggle (In Person / Video Call), time slots displayed as clickable grid, parallel slot availability checks via `/api/patient/bookings/check-slot`
+- **Booking Summary sidebar** — Sticky card showing selected doctor, date, time, mode, fee; expands to show reason/disease input + confirm button when slot selected
+- **Uses TanStack Query** for doctor info and schedule fetching, `useMutation` for booking submission
+- **After booking**: toast success notification, invalidates patient appointments + stats queries, redirects to appointments page
+- **Responsive**: Mobile-first grid layout, max-h with scroll for slots, Framer Motion animations throughout
+- **Teal theme** consistent with the rest of the Doctorooms platform
+
+### Files created
+- `src/app/api/doctors/[id]/schedule/route.ts` — Public schedule API
+- `src/app/dashboard/patient/book/[doctorId]/page.tsx` — Booking page
+
+### Design decisions
+- Schedule API is public (no auth) because the booking page needs it and it only returns schedule metadata, not sensitive data
+- Slot availability checks use the existing authenticated `/api/patient/bookings/check-slot` endpoint (requires patient auth via dashboard layout)
+- Time slots use AM/PM format (e.g. "09:00 AM") to match user expectations
+- The `doctorId` param in the booking page URL refers to the User ID (matching the public doctor detail page convention)
+
+---
+
+## Task ID: B3-B5 | Agent: frontend-wiring
+
+### Summary
+Implemented 6 frontend wiring tasks for the Doctorooms patient experience:
+
+1. **Sidebar Config** — Added `Notifications` item (Bell icon) to patient sidebar before Profile, importing `Bell` from lucide-react.
+
+2. **Patient Notifications Page** (`/dashboard/patient/notifications`) — Full-featured notifications list page with:
+   - Fetches from `/api/patient/notifications`, displays unread count in page title badge
+   - Each notification shows Bell icon, bold title (UNREAD), message, `formatDistanceToNow` time, blue dot for unread
+   - Click unread notification → PATCH `/api/patient/notifications/{id}/read` (optimistic UI via `setQueryData`)
+   - "Mark All as Read" button → PATCH `/api/patient/notifications/read-all`
+   - Empty state with BellOff icon, loading skeletons, Framer Motion stagger animations
+   - Teal accent styling matching appointments page patterns
+
+3. **Dashboard Header Notification Bell** — Replaced hardcoded `useState(3)` with real fetch from `/api/patient/notifications` (patient role only via `useEffect`). Bell button now navigates to `/dashboard/${role}/notifications`. Added `Notifications` to `routeTitles` map. Shows `99+` for large counts.
+
+4. **Queue # on Appointments** — For appointments with `Approve` status, fetches queue position from `/api/patient/bookings/queue?bookingId={id}` using parallel `Promise.all` in a `useQuery`. Displays teal `Queue #N` badge next to the status badge.
+
+5. **Cancel Button on Appointments** — Added X icon ghost button (red) for `Pending`/`Approve` appointments. Click triggers `AlertDialog` confirmation → PATCH `/api/patient/bookings/{id}/cancel`. On success: invalidates queries, shows success toast. Loading spinner on cancel button.
+
+6. **Book Button on Doctor Detail** — Wired the disabled Book button with `onClick` handler. Checks `useAuthStore`: not logged in → redirect to `/login`; non-patient role → toast error "Only patients can book appointments"; patient → navigate to `/dashboard/patient/book/${doctor.id}` (User ID).
+
+---
+
+## Task ID: C1 | Agent: reception-frontend
+
+### Summary
+Created the Receptionist Pending Bookings page and wired it into the navigation system:
+
+1. **Pending Bookings Page** (`/dashboard/receptionist/pending-bookings`) — Full-featured card-based review page for online booking requests:
+   - Fetches from `GET /api/dashboard/receptionist/pending-bookings` with TanStack Query (30s auto-refetch)
+   - Header with "Pending Booking Requests" title and teal count badge
+   - Each booking rendered as a Card with 3-column layout (responsive, stacks on mobile):
+     - **Left**: Patient avatar + name + phone + relative booking time (`formatDistanceToNow`)
+     - **Center**: Booking mode badge (InPerson=teal, VideoCall=purple), disease, description (line-clamped), time slot, formatted date
+     - **Right**: Doctor name + specialization, OPD count/limit display (turns red when full)
+   - **Approve button** (teal, CheckCircle icon): PATCH `/api/dashboard/receptionist/bookings/{id}/approve` — optimistic green border/bg flash, on success toast with queue number, removes card via `setQueryData`, on error reverts and shows error toast
+   - **Reject button** (red outline, XCircle icon): AlertDialog confirmation with patient name → PATCH `/api/dashboard/receptionist/bookings/{id}/reject` — on success toast and card removal
+   - Loading skeleton cards with staggered animation
+   - Empty state with CalendarCheck icon and descriptive text
+   - Framer Motion staggered card entrance + AnimatePresence exit animations with spring layout
+   - Invalidation of `receptionist-stats` and `receptionist-appointments` queries on approve/reject
+
+2. **Sidebar Config** — Added `{ label: 'Pending Bookings', href: '/dashboard/receptionist/pending-bookings', icon: Clock }` after 'Appointments' in the receptionist array (Clock already imported).
+
+3. **Dashboard Header Route Title** — Added `'/dashboard/receptionist/pending-bookings': 'Pending Bookings'` to the `routeTitles` map.
+
+4. **Receptionist Dashboard Quick Action** — Added "Pending Bookings" button with ClipboardCheck icon in the quick actions grid, linking to the new page. Shows a teal badge with `pendingApprovals` count from stats.
+
+### Files created/modified
+- `src/app/dashboard/receptionist/pending-bookings/page.tsx` — New page
+- `src/lib/sidebar-config.ts` — Added Pending Bookings entry
+- `src/components/dashboard/dashboard-header.tsx` — Added route title
+- `src/app/dashboard/receptionist/page.tsx` — Added quick action button

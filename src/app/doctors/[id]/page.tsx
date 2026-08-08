@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import {
@@ -28,6 +28,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/lib/auth-store'
 import { PublicLayout } from '@/components/layout/public-layout'
 
 interface Schedule {
@@ -114,6 +115,8 @@ const staggerContainer = {
 
 export default function DoctorDetailPage() {
   const params = useParams()
+  const router = useRouter()
+  const { user, isAuthenticated } = useAuthStore()
   const id = params.id as string
   const [doctor, setDoctor] = useState<DoctorData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -516,6 +519,17 @@ export default function DoctorDetailPage() {
                   <Button
                     className="w-full bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white h-12 text-base font-semibold"
                     disabled={!selectedSlot}
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        router.push('/login')
+                        return
+                      }
+                      if (user?.role !== 'patient') {
+                        toast.error('Only patients can book appointments')
+                        return
+                      }
+                      router.push(`/dashboard/patient/book/${doctor.id}`)
+                    }}
                   >
                     {selectedSlot ? (
                       <>

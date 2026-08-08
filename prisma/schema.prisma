@@ -125,6 +125,9 @@ model Booking {
   height           Float    @default(0)
   physicallyChallenged String @default("No")
   status           String   @default("Pending") // Pending, Approve, Visited, Canceled, Extend, Finish
+  timeSlot         String   @default("") // e.g. "10:00 AM"
+  bookingMode      String   @default("InPerson") // InPerson, VideoCall
+  videoRoomId      String   @default("") // Jitsi room ID for video calls
   bookingType      String   @default("By Self") // By Self, By Receptionist, By Hospital
   appointmentCharge Float   @default(0)
   createdAt        DateTime @default(now())
@@ -290,6 +293,7 @@ model DoctorSchedule {
   startTime String   @default("09:00")
   endTime   String   @default("17:00")
   slotDuration Int   @default(30) // minutes
+  timeSlots String   @default("[]") // JSON array of manual slots e.g. ["09:00","09:30","10:00"]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
