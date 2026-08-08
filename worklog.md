@@ -473,3 +473,24 @@ Stage Summary:
 - The blank page was NOT a code bug - it was an infrastructure issue (server crash loop)
 - PM2 + npx = bad combination (parent-child process mismatch)
 - Server now running stably via nohup, login works for all roles
+
+---
+Task ID: sign-in-deep-debug
+Agent: Main Agent
+Task: Debug why user sees blank page after clicking Sign In
+
+Work Log:
+- Analyzed user's screenshot with VLM: Z.ai Preview Panel showing sad document icon after Sign In click
+- Initially suspected server crash loop (PM2 had 2717+ restarts with EADDRINUSE)
+- Fixed server: killed PM2, started with nohup directly
+- Tested login via agent-browser on port 3000 → works perfectly
+- Tested login via Caddy proxy port 81 (Preview Panel path) → works perfectly
+- Network trace shows: POST /api/auth/callback/credentials → 200, session cookie set, dashboard loads
+- All 7 demo credentials verified working through both direct and proxy paths
+- Root cause of user's issue: Server was in PM2 crash loop (EADDRINUSE), so Preview Panel couldn't connect
+
+Stage Summary:
+- Login is 100% functional — tested on port 3000 (direct) AND port 81 (Caddy/Preview Panel)
+- User's screenshot was from during the server crash loop period
+- Server now stable via nohup, all endpoints returning 200
+- No code changes needed for login — the infrastructure fix resolved it
