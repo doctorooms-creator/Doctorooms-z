@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { signIn } from 'next-auth/react';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 import {
@@ -67,21 +68,23 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const result = await signIn('credentials', {
+        email: email.toLowerCase(),
+        password,
+        redirect: false,
       });
-      const data = await res.json();
-      if (!data.success) {
-        toast.error(data.message);
+
+      if (result?.error) {
+        toast.error('Invalid email or password');
+        setLoading(false);
         return;
       }
-      toast.success(`Welcome back, ${data.user.name}!`);
-      router.push(`/dashboard/${data.user.role}`);
+
+      toast.success('Welcome back!');
+      router.push('/dashboard');
+      router.refresh();
     } catch {
       toast.error('Something went wrong. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
