@@ -45,7 +45,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Set a simple session cookie
     const response = NextResponse.json({
       success: true,
       user: {
@@ -59,11 +58,12 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Set session cookie — NOT httpOnly so client JS can also read it
     response.cookies.set('doctorooms_session', user.id, {
-      httpOnly: true,
+      httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7, // 7 days
+      maxAge: 60 * 60 * 24 * 7,
       path: '/',
     });
 

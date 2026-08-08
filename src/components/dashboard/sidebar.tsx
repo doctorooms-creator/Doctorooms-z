@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { useSession, signOut } from 'next-auth/react'
+import { useAuthStore } from '@/lib/auth-store'
 import { motion, AnimatePresence } from 'framer-motion'
 import { cn } from '@/lib/utils'
 import { getSidebarItems } from '@/lib/sidebar-config'
@@ -36,8 +36,8 @@ export function DashboardSidebar({
   onMobileClose,
 }: DashboardSidebarProps) {
   const pathname = usePathname()
-  const { data: session } = useSession()
-  const role = session?.user?.role || 'patient'
+  const { user } = useAuthStore()
+  const role = user?.role || 'patient'
   const items = getSidebarItems(role)
 
   const sidebarContent = (
@@ -149,9 +149,9 @@ export function DashboardSidebar({
           )}
         >
           <Avatar className="h-9 w-9 shrink-0">
-            <AvatarImage src={session?.user?.image || ''} alt={session?.user?.name || ''} />
+            <AvatarImage src={user?.profileImg || ''} alt={user?.name || ''} />
             <AvatarFallback className="bg-teal-100 text-sm font-semibold text-teal-700 dark:bg-teal-900 dark:text-teal-300">
-              {getInitials(session?.user?.name || 'U')}
+              {getInitials(user?.name || 'U')}
             </AvatarFallback>
           </Avatar>
           <AnimatePresence>
@@ -163,7 +163,7 @@ export function DashboardSidebar({
                 transition={{ duration: 0.2 }}
                 className="flex flex-1 flex-col overflow-hidden"
               >
-                <span className="truncate text-sm font-medium">{session?.user?.name || 'User'}</span>
+                <span className="truncate text-sm font-medium">{user?.name || 'User'}</span>
                 <span className="truncate text-xs capitalize text-muted-foreground">{role}</span>
               </motion.div>
             )}
@@ -174,7 +174,7 @@ export function DashboardSidebar({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 shrink-0 text-muted-foreground hover:text-red-500"
-                onClick={() => signOut({ callbackUrl: '/login' })}
+                onClick={() => { window.location.href = '/login' }}
               >
                 <LogOut className="h-4 w-4" />
                 <span className="sr-only">Logout</span>

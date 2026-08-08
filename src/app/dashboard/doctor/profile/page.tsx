@@ -22,7 +22,7 @@ import {
   Phone,
   Stethoscope,
 } from 'lucide-react'
-import { useSession } from 'next-auth/react'
+import { useAuthStore } from '@/lib/auth-store'
 import { toast } from 'sonner'
 
 interface DoctorProfile {
@@ -50,7 +50,7 @@ interface DoctorProfile {
 }
 
 export default function DoctorProfilePage() {
-  const { data: session, update: updateSession } = useSession()
+  const { user: _user } = useAuthStore()
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [form, setForm] = useState<Partial<DoctorProfile> | null>(null)

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { useSession } from 'next-auth/react'
+import { useAuthStore } from '@/lib/auth-store'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,7 +32,7 @@ interface Profile {
 }
 
 export default function PatientProfilePage() {
-  const { data: session, update: updateSession } = useSession()
+  const { user } = useAuthStore()
   const queryClient = useQueryClient()
   const [isEditing, setIsEditing] = useState(false)
   const [form, setForm] = useState({
@@ -76,7 +76,7 @@ export default function PatientProfilePage() {
     onSuccess: () => {
       toast.success('Profile updated successfully')
       queryClient.invalidateQueries({ queryKey: ['patient-profile'] })
-      updateSession({ name: form.name })
+      // Name updated in store would happen via re-fetch
       setIsEditing(false)
     },
     onError: () => {
@@ -84,7 +84,7 @@ export default function PatientProfilePage() {
     },
   })
 
-  const displayName = isEditing ? form.name : (profile?.name || session?.user?.name || '—')
+  const displayName = isEditing ? form.name : (profile?.name || user?.name || '—')
   const displayMobile = isEditing ? form.mobileNo : (profile?.mobileNo || 'Not provided')
   const displayGender = isEditing ? form.gender : (profile?.gender || 'Male')
 
@@ -122,7 +122,7 @@ export default function PatientProfilePage() {
                 <Avatar className="h-24 w-24">
                   <AvatarImage src={profile?.profileImg} />
                   <AvatarFallback className="bg-teal-100 text-2xl font-bold text-teal-700 dark:bg-teal-900 dark:text-teal-300">
-                    {(profile?.name || session?.user?.name || 'P')
+                    {(profile?.name || user?.name || 'P')
                       .split(' ')
                       .map((w) => w[0])
                       .join('')
@@ -137,7 +137,7 @@ export default function PatientProfilePage() {
                   <Camera className="h-4 w-4" />
                 </button>
               </div>
-              <h3 className="mt-4 text-lg font-semibold">{profile?.name || session?.user?.name}</h3>
+              <h3 className="mt-4 text-lg font-semibold">{profile?.name || user?.name}</h3>
               <p className="text-sm text-muted-foreground">Patient</p>
               <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                 <Calendar className="h-3.5 w-3.5" />
@@ -197,7 +197,7 @@ export default function PatientProfilePage() {
                   Email Address
                 </Label>
                 <div className="flex h-10 items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 text-sm">
-                  <span>{profile?.email || session?.user?.email}</span>
+                  <span>{profile?.email || user?.email}</span>
                   <Shield className="ml-auto h-3.5 w-3.5 text-muted-foreground" />
                 </div>
                 <p className="text-[10px] text-muted-foreground">Email cannot be changed</p>

@@ -1,23 +1,20 @@
 'use client'
 
-import { useSession } from 'next-auth/react'
+import { useAuthStore } from '@/lib/auth-store'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession()
+  const { user, isAuthenticated } = useAuthStore()
   const router = useRouter()
-  const role = session?.user?.role || 'patient'
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (!isAuthenticated || !user) {
       router.push('/login')
       return
     }
-    if (status === 'authenticated') {
-      router.push(`/dashboard/${role}`)
-    }
-  }, [status, role, router])
+    router.push(`/dashboard/${user.role}`)
+  }, [isAuthenticated, user, router])
 
   return null
 }
