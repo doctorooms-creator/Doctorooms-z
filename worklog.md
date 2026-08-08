@@ -454,3 +454,22 @@ Stage Summary:
 - Fix: Unified auth through NextAuth's `signIn()` function
 - All 7 demo credentials now work (Admin, Doctor x3, Patient x2, Hospital, Receptionist, Assistant, Pharmacist)
 - Dashboard redirects correctly per role via `/dashboard` → `/dashboard/{role}`
+
+---
+Task ID: preview-panel-fix
+Agent: Main Agent
+Task: Fix blank page in Preview Panel after login
+
+Work Log:
+- Analyzed uploaded screenshot using VLM - identified Chrome's sad document icon in Z.ai Preview Panel
+- Checked dev logs - homepage returning 200 fine
+- Tested mobile viewport login in agent-browser - works perfectly
+- Checked PM2 status: **2717 restarts**, constant crash loop with `EADDRINUSE: address already in use :::3000`
+- Root cause: PM2 was running `npx next dev --port 3000` as a bash command. `npx` forks a child process for Next.js. PM2 tracks the parent bash which exits immediately, then PM2 restarts it, but the child still holds port 3000 → infinite EADDRINUSE loop
+- Fix: Killed PM2 process, freed port 3000, started server with `nohup npx next dev --port 3000` directly
+- Verified: 5 consecutive checks over 25 seconds all return 200, login + dashboard load verified via agent-browser
+
+Stage Summary:
+- The blank page was NOT a code bug - it was an infrastructure issue (server crash loop)
+- PM2 + npx = bad combination (parent-child process mismatch)
+- Server now running stably via nohup, login works for all roles
