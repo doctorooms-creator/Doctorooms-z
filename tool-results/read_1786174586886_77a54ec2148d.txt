@@ -1,0 +1,455 @@
+     1→
+     2→---
+     3→
+     4→## 2025-08-08 — Project Rebuild: Core Infrastructure + Homepage
+     5→
+     6→### Task ID
+     7→`R1-R4`
+     8→
+     9→### Context
+    10→The project filesystem was reset to a blank scaffold between sessions. All previous code (91 pages, 109 API routes, 78 components) was lost. This session rebuilt the core infrastructure to get the project running again.
+    11→
+    12→### What was done
+    13→
+    14→1. **Layout**: Updated layout.tsx with Doctorooms metadata, ThemeProvider (next-themes), Providers (QueryClientProvider)
+    15→2. **Providers**: Created src/components/providers.tsx wrapping TanStack Query QueryClientProvider
+    16→3. **Constants**: Created src/lib/constants.ts (APP_NAME, SPECIALIZATIONS, GENDERS, BLOOD_GROUPS)
+    17→4. **Public Navbar**: Responsive sticky navbar with glassmorphism, dark mode toggle, mobile Sheet menu, active link highlighting
+    18→5. **Public Footer**: 4-column dark footer with branding, quick links, doctor links, legal links
+    19→6. **Public Layout**: Wrapper component composing Navbar → main → Footer
+    20→7. **Back to Top**: Animated scroll-to-top button
+    21→8. **Homepage**: Complete 8-section homepage with Hero, Stats, How It Works, Featured Doctors, Specializations, Why Choose Us, Testimonials, CTA
+    22→9. **API Routes**: /api/public/stats, /api/doctors, /api/doctors/[id], /api/contact, /api/hospitals, /api/blog
+    23→10. **Chat Service**: Recreated mini-services/chat-service/ with Socket.io on port 3004
+    24→
+    25→### Browser QA Results
+    26→- Title: "Doctorooms — Your Health, Our Priority" ✓
+    27→- All 8 homepage sections render correctly ✓
+    28→- Navbar links: Home, Find Doctors, Hospitals, About, Contact ✓
+    29→- Dark mode toggle works (light ↔ dark) ✓
+    30→- Public stats API returns data (fallback values) ✓
+    31→- Doctors API returns empty (no seed data, expected) ✓
+    32→- Footer renders with all columns ✓
+    33→- 0 ESLint errors ✓
+    34→
+    35→### Files Created (18)
+    36→- src/app/layout.tsx (modified)
+    37→- src/app/page.tsx (rewritten)
+    38→- src/components/providers.tsx
+    39→- src/lib/constants.ts
+    40→- src/components/layout/public-navbar.tsx
+    41→- src/components/layout/public-footer.tsx
+    42→- src/components/layout/public-layout.tsx
+    43→- src/components/layout/back-to-top.tsx
+    44→- src/app/api/public/stats/route.ts
+    45→- src/app/api/doctors/route.ts
+    46→- src/app/api/doctors/[id]/route.ts
+    47→- src/app/api/contact/route.ts
+    48→- src/app/api/hospitals/route.ts
+    49→- src/app/api/blog/route.ts
+    50→- mini-services/chat-service/package.json
+    51→- mini-services/chat-service/index.ts
+    52→
+    53→### Services Running
+    54→- Port 3000: Next.js dev server ✓
+    55→- Port 3004: Socket.io chat service ✓
+    56→
+    57→### Recommended Next Phase Priority
+    58→1. Seed database with sample data (doctors, hospitals, patients, bookings)
+    59→2. Rebuild login/register pages
+    60→3. Rebuild dashboard layout + sidebar + header
+    61→4. Rebuild doctor detail page
+    62→5. Rebuild hospitals listing page
+    63→6. Rebuild about, contact, blog pages
+    64→7. Rebuild patient dashboard
+    65→8. Rebuild doctor dashboard with prescription system
+    66→
+    67→---
+    68→
+    69→## Current Project Status
+    70→
+    71→### Assessment
+    72→The project has been rebuilt with core infrastructure. The homepage is fully functional with 8 polished sections, dark mode, responsive layout, and live API integration.
+    73→- **1 page** (homepage) — fully functional
+    74→- **6 API routes** (stats, doctors list/detail, contact, hospitals, blog)
+    75→- **8 layout/utility components** (navbar, footer, public-layout, back-to-top, providers, plus shadcn/ui)
+    76→- **Full dark mode** support
+    77→- **Mobile responsive** with Sheet hamburger menu
+    78→- **2 services** running (Next.js 3000, Chat 3004)
+    79→
+    80→### Unresolved Issues / Risks
+    81→1. No seed data (except auth demo users) — APIs return empty/fallback data
+    82→2. Homepage + 3 auth pages exist — all other pages need rebuilding
+    83→3. No dashboard pages yet
+    84→4. Previous session's 91 pages, 109 routes, 78 components are all lost
+    85→
+    86→---
+    87→
+    88→## Auth Pages — Login, Register, Forgot Password
+    89→
+    90→### Task ID
+    91→`3`
+    92→
+    93→### Context
+    94→Built the complete authentication flow for Doctorooms with 3 polished pages, 5 API routes, in-memory OTP store, and 7 seeded demo users.
+    95→
+    96→### What was done
+    97→
+    98→1. **OTP Store** (`src/lib/otp-store.ts`): In-memory store with generateOTP, verifyOTP, isOtpVerified, clearOtp functions. 5-minute expiry.
+    99→2. **Demo User Seed** (`scripts/seed-demo-users.ts`): Seeded 7 users (admin, doctor, patient, hospital, receptionist, assistant, pharmacist) with bcrypt-hashed passwords, all with Active status.
+   100→3. **Login API** (`src/app/api/auth/login/route.ts`): POST validates email/password with bcrypt, checks user status (Block/Pending → 403), sets `doctorooms_session` + `doctorooms_role` cookies (7-day expiry).
+   101→4. **Register API** (`src/app/api/auth/register/route.ts`): POST creates user with hashed password, validates required fields, checks duplicate email (409).
+   102→5. **Forgot Password API** (`src/app/api/auth/forgot-password/route.ts`): POST checks user exists, generates 6-digit OTP (returns OTP for demo).
+   103→6. **Verify OTP API** (`src/app/api/auth/verify-otp/route.ts`): POST validates OTP from in-memory store.
+   104→7. **Reset Password API** (`src/app/api/auth/reset-password/route.ts`): POST verifies OTP was verified, updates password with bcrypt.
+   105→8. **Login Page** (`src/app/login/page.tsx`): Email + Password form, 7 demo credential cards with colored borders and click-to-fill, breathing stethoscope animation, dense dot pattern background, password visibility toggle, Remember me checkbox, links to Register/Forgot Password, Framer Motion animations.
+   106→9. **Register Page** (`src/app/register/page.tsx`): 3-step flow (Role → Details → Password), step indicator with gradient circles, role selection cards with gradient icons, password strength bar (4 segments), shimmer submit button, terms checkbox in styled card, AnimatePresence slide transitions.
+   107→10. **Forgot Password Page** (`src/app/forgot-password/page.tsx`): Lock illustration with pulse animation, 3-step flow (Email → OTP → New Password), 6 OTP boxes using shadcn InputOTP, 45s resend timer, password requirements checklist, success state with spring checkmark animation.
+   108→
+   109→### Files Created (10)
+   110→- src/lib/otp-store.ts
+   111→- scripts/seed-demo-users.ts
+   112→- src/app/api/auth/login/route.ts
+   113→- src/app/api/auth/register/route.ts
+   114→- src/app/api/auth/forgot-password/route.ts
+   115→- src/app/api/auth/verify-otp/route.ts
+   116→- src/app/api/auth/reset-password/route.ts
+   117→- src/app/login/page.tsx
+   118→- src/app/register/page.tsx
+   119→- src/app/forgot-password/page.tsx
+   120→
+   121→### QA Results
+   122→- 0 ESLint errors ✓
+   123→- All 3 pages compile successfully ✓
+   124→- 5 API routes functional ✓
+   125→- 7 demo users seeded ✓
+   126→- Teal color scheme throughout ✓
+   127→- Framer Motion animations on all pages ✓
+   128→- Mobile responsive design ✓
+   129→- shadcn/ui components used (Card, Button, Input, Label, Checkbox, InputOTP, Select) ✓
+   130→- Sonner toast for error handling ✓
+   131→
+   132→### Recommended Next Phase Priority
+   133→1. Rebuild dashboard layout + sidebar + header
+   134→2. Seed more data (doctors, hospitals, patients, bookings)
+   135→3. Rebuild doctor detail page
+   136→4. Rebuild hospitals listing page
+   137→5. Rebuild about, contact, blog pages
+   138→6. Rebuild patient dashboard
+   139→7. Rebuild doctor dashboard with prescription system
+   140→
+   141→---
+   142→
+   143→## Public Pages + API Routes — Doctors, Hospitals, Blog, About, Contact
+   144→
+   145→### Task ID
+   146→`4`
+   147→
+   148→### Context
+   149→Built all 7 public-facing pages with polished teal-themed UI, complete API routes matching the Prisma schema, and comprehensive seed data to populate the pages with realistic content.
+   150→
+   151→### What was done
+   152→
+   153→**Pages (7):**
+   154→1. **Doctors Listing** (`/doctors`): Search by name, filters by specialization/city/state, doctor cards with avatar, name, specialization, fees, city, rating stars, verified badge (ShieldCheck), teal left-border on hover, gradient "Book Appointment" button, filter count badge, empty state with Stethoscope icon, "Showing X of Y" result count.
+   155→2. **Doctor Detail** (`/doctors/[id]`): Full profile card, 4 stats cards (Patients/teal, Rating/amber, Experience/emerald, Fee/violet), 7-day availability calendar widget with time slots, Share Profile button (clipboard + toast), gradient CTA, related doctors sidebar.
+   156→3. **Hospitals Listing** (`/hospitals`): Search + city filter + A-Z/Z-A sort, hospital cards with rotating colored top borders, hover lift+shadow, Featured badges for first 2, empty state.
+   157→4. **Blog Listing** (`/blog`): Category tabs (All/Blog/News) with shadcn Tabs, blog cards with title, excerpt, date, author, type badge, pagination.
+   158→5. **Blog Detail** (`/blog/[permalink]`): HTML content rendering with prose styling, author info, reading time, sticky Table of Contents with IntersectionObserver scroll tracking, 5 social share buttons (Twitter/Facebook/LinkedIn/WhatsApp/Copy), related articles grid.
+   159→6. **About Page** (`/about`): Gradient hero section, Mission/Vision/Values cards with colored top borders, 4-item statistics counter, 6-member team section with gradient avatars, 6-card "Why Choose Us" section.
+   160→7. **Contact Page** (`/contact`): Contact form (name, email, phone, subject, message) with validation and success state, 3 contact info cards (email, phone, address), office hours card, map placeholder.
+   161→
+   162→**API Routes (6 rewritten/created):**
+   163→1. `GET /api/doctors` — List doctors with search, specialization/city/state filters, rating averages, city/state dropdown data
+   164→2. `GET /api/doctors/[id]` — Full doctor profile with schedules, rating aggregates, patient count, related doctors
+   165→3. `GET /api/hospitals` — List hospitals with search, city filter, A-Z/Z-A sort, city dropdown data
+   166→4. `GET /api/blog` — List published posts with type filter, pagination (page, limit, totalPages)
+   167→5. `GET /api/blog/[permalink]` — Single post with author, related posts (same type)
+   168→6. `POST /api/contact` — Save inquiry to HospitalInquiry model
+   169→
+   170→**Seed Data:**
+   171→- 12 doctors across 8 cities with specializations, education, experience, descriptions
+   172→- 8 hospitals across 8 cities
+   173→- 10 blog posts (6 Blog + 4 News) with rich HTML content
+   174→- 72 doctor schedules (6 days/week per doctor)
+   175→- ~220 doctor ratings with reviews
+   176→
+   177→**Other:**
+   178→- Updated PublicNavbar: Added Blog link, fixed active link detection for sub-paths
+   179→
+   180→### Files Created (14)
+   181→- src/app/doctors/page.tsx
+   182→- src/app/doctors/[id]/page.tsx
+   183→- src/app/hospitals/page.tsx
+   184→- src/app/blog/page.tsx
+   185→- src/app/blog/[permalink]/page.tsx
+   186→- src/app/about/page.tsx
+   187→- src/app/contact/page.tsx
+   188→- src/app/api/blog/[permalink]/route.ts
+   189→- scripts/seed-public-data.ts
+   190→
+   191→### Files Modified (8)
+   192→- src/app/api/doctors/route.ts (rewritten)
+   193→- src/app/api/doctors/[id]/route.ts (rewritten)
+   194→- src/app/api/hospitals/route.ts (rewritten)
+   195→- src/app/api/blog/route.ts (rewritten)
+   196→- src/app/api/contact/route.ts (rewritten)
+   197→- src/components/layout/public-navbar.tsx (Blog link + sub-path active detection)
+   198→
+   199→### QA Results
+   200→- 0 ESLint errors ✓
+   201→- All 7 pages compile successfully ✓
+   202→- All 6 API routes return data ✓
+   203→- 12 doctors with ratings display ✓
+   204→- 8 hospitals display ✓
+   205→- 10 blog posts with pagination ✓
+   206→- Contact form saves to database ✓
+   207→- Navbar updated with Blog link ✓
+   208→- Active link detection for sub-paths ✓
+   209→- Framer Motion animations on all pages ✓
+   210→- Mobile responsive design ✓
+   211→- shadcn/ui components throughout ✓
+   212→- Teal color scheme consistent ✓
+   213→
+   214→### Recommended Next Phase Priority
+   215→1. Rebuild dashboard layout + sidebar + header
+   216→2. Rebuild patient dashboard
+   217→3. Rebuild doctor dashboard with prescription system
+   218→4. Rebuild booking/appointment flow
+   219→5. Add doctor registration flow
+   220→6. Add hospital management dashboard
+   221→
+   222→---
+   223→
+   224→## Dashboard Infrastructure — Auth, Layout, Sidebar, Header, Admin Dashboard
+   225→
+   226→### Task ID
+   227→`5`
+   228→
+   229→### Context
+   230→Built the complete dashboard infrastructure: NextAuth v4 authentication, collapsible sidebar, dashboard header, layout with session protection, loading skeletons, stat card component, and the admin dashboard home page with real-time stats.
+   231→
+   232→### What was done
+   233→
+   234→1. **NextAuth Config** (`src/lib/auth.ts`): CredentialsProvider with email/password auth. Verifies against User table in Prisma, checks `status='Active'`, JWT callbacks include id/name/email/role, session callbacks expose user info. Types extended for NextAuth session/JWT modules.
+   235→2. **NextAuth Handler** (`src/app/api/auth/[...nextauth]/route.ts`): Exports GET and POST handlers from NextAuth with authOptions.
+   236→3. **SessionProvider** (updated `src/components/providers.tsx`): Wrapped existing QueryClientProvider with NextAuth `SessionProvider`.
+   237→4. **Environment Variables** (`.env`): Added `NEXTAUTH_SECRET` and `NEXTAUTH_URL`.
+   238→5. **Sidebar Config** (`src/lib/sidebar-config.ts`): Role-based navigation config for 7 roles (Admin, Doctor, Patient, Hospital, Receptionist, Assistant, Pharmacist) with typed `SidebarItem` interface.
+   239→6. **Dashboard Sidebar** (`src/components/dashboard/sidebar.tsx`): Collapsible sidebar with Doctorooms logo, role-based nav items, teal accent active indicator with Framer Motion `layoutId` animation, collapsed state shows icons-only with tooltips, user avatar/name/role at bottom, logout button, mobile overlay with backdrop, spring-animated collapse/expand.
+   240→7. **Dashboard Header** (`src/components/dashboard/dashboard-header.tsx`): Hamburger toggle for mobile, dynamic page title from route map, centered search input with ⌘K shortcut, notification bell with unread count badge, user avatar dropdown (Profile, Settings, Logout), responsive design.
+   241→8. **Dashboard Layout** (`src/app/dashboard/layout.tsx`): Session check redirects to `/login` if unauthenticated, flex layout with sidebar + header + scrollable main, mobile overlay sidebar support.
+   242→9. **Dashboard Loading** (`src/app/dashboard/loading.tsx`): 4 stat card skeletons + table row skeletons with pulse animation.
+   243→10. **Dashboard Redirect** (`src/app/dashboard/page.tsx`): Redirects authenticated users to `/dashboard/{role}`, unauthenticated to `/login`.
+   244→11. **Stat Card** (`src/components/dashboard/stat-card.tsx`): Reusable card with icon, title, value, trend indicator (up/down arrow + %), gradient bottom accent line, shimmer hover effect, Framer Motion entry animation.
+   245→12. **Admin Stats API** (`src/app/api/dashboard/admin/stats/route.ts`): Returns totalUsers, totalDoctors, totalAppointments, revenue (aggregated), roleDistribution, and 8 recent appointments with doctor info.
+   246→13. **Admin Dashboard** (`src/app/dashboard/admin/page.tsx`): 4 stat cards (Users/Doctors/Appointments/Revenue), recent appointments table with status badges, user role distribution with animated progress bars, quick action cards, loading skeleton state.
+   247→
+   248→### Files Created (12)
+   249→- src/lib/auth.ts
+   250→- src/app/api/auth/[...nextauth]/route.ts
+   251→- src/lib/sidebar-config.ts
+   252→- src/components/dashboard/sidebar.tsx
+   253→- src/components/dashboard/dashboard-header.tsx
+   254→- src/components/dashboard/stat-card.tsx
+   255→- src/app/dashboard/layout.tsx
+   256→- src/app/dashboard/loading.tsx
+   257→- src/app/dashboard/page.tsx
+   258→- src/app/dashboard/admin/page.tsx
+   259→- src/app/api/dashboard/admin/stats/route.ts
+   260→- agent-ctx/ (created)
+   261→
+   262→### Files Modified (2)
+   263→- src/components/providers.tsx (added SessionProvider)
+   264→- .env (added NEXTAUTH_SECRET, NEXTAUTH_URL)
+   265→
+   266→### QA Results
+   267→- 0 ESLint errors ✓
+   268→- NextAuth v4 properly configured with CredentialsProvider ✓
+   269→- JWT strategy with user id/name/email/role in token ✓
+   270→- Session exposes typed user info ✓
+   271→- 7 role-based sidebar configurations ✓
+   272→- Collapsible sidebar with smooth spring animation ✓
+   273→- Active link detection with teal accent indicator ✓
+   274→- Tooltips on collapsed sidebar items ✓
+   275→- Mobile overlay sidebar with backdrop ✓
+   276→- Dashboard header with search, notifications, user dropdown ✓
+   277→- ⌘K keyboard shortcut for search ✓
+   278→- Layout redirects unauthenticated users to /login ✓
+   279→- Dashboard page redirects to /dashboard/{role} ✓
+   280→- Admin dashboard with 4 stat cards, table, role distribution ✓
+   281→- Admin stats API returns real data from Prisma ✓
+   282→- Framer Motion animations throughout ✓
+   283→- shadcn/ui components: Button, Avatar, DropdownMenu, Tooltip, Input, Separator, Skeleton, Card, Badge, Table ✓
+   284→- Responsive, mobile-first design ✓
+   285→- Teal color scheme consistent ✓
+   286→
+   287→### Recommended Next Phase Priority
+   288→1. Rebuild patient dashboard
+   289→2. Rebuild doctor dashboard with prescription system
+   290→3. Rebuild booking/appointment flow
+   291→4. Add doctor registration flow
+   292→5. Add hospital management dashboard
+   293→
+   294→---
+   295→
+   296→## Patient Dashboard — Full Suite
+   297→
+   298→### Task ID
+   299→`6`
+   300→
+   301→### Context
+   302→Built the complete patient dashboard suite with 6 polished pages and 7 API routes. All pages follow the teal-themed design system, use shadcn/ui components, Framer Motion animations, and TanStack Query for data fetching.
+   303→
+   304→### What was done
+   305→
+   306→**Pages (6):**
+   307→1. **Patient Dashboard Home** (`/dashboard/patient`): 4 StatCards (Upcoming Appointments, Completed Visits, Total Doctors, Medical Documents), upcoming appointments list (next 3) with doctor avatars and status badges, recent activity feed with timeline dots, quick action cards (Book Appointment, Upload Document, My Appointments, Give Feedback), loading skeleton state.
+   308→2. **My Appointments** (`/dashboard/patient/appointments`): Tab filters with counts (All, Pending, Approved, Visited, Canceled, Finished), appointments table with doctor avatar/name, date, disease, colored status badges (Pending=amber, Approve=blue, Visited=emerald, Canceled=red, Finish=gray), action buttons (view detail, prescription indicator), tab-specific empty states with CTA, loading skeleton.
+   309→3. **Appointment Detail** (`/dashboard/patient/appointments/[id]`): Back navigation with appointment number, doctor info card (avatar, name, specialization, address, experience, view profile link), patient info card (avatar, name, gender, blood group, age, weight), appointment details (date, disease, description), chat section with message bubbles (teal for patient, muted for doctor), send message form, status timeline with icons per status, prescription view (vitals grid, medicines list with M/A/E badges and dosage, lab results labels, doctor's advice, description).
+   310→4. **Health Records** (`/dashboard/patient/health-records`): 4 StatCards (Total Documents, Reports, Prescriptions, Lab Results), category filter tabs with counts (All, Reports, Prescriptions, Lab Results, Other), document grid with category-colored icons and file type indicators, upload dialog with drag-and-drop dropzone, title/category/description form, edit/delete dropdown menu per document, Framer Motion stagger entry animations, empty state with FolderHeart icon.
+   311→5. **Feedback & Ratings** (`/dashboard/patient/feedback`): List of completed appointments needing feedback, feedback cards with doctor avatar/name, disease, date, status, already-rated indicator with green badge, rate dialog with overall star rating (1-5 with labels), consultation quality/wait time/staff behavior sub-ratings, written review textarea, would-recommend toggle switch, anonymous toggle switch, toast notifications.
+   312→6. **Patient Profile** (`/dashboard/patient/profile`): Profile header card with large avatar, camera upload button, name, role, join date, personal information form (name, email read-only with shield icon, mobile, gender), edit/view mode toggle, save/cancel buttons, form state managed on edit start (no useEffect setState).
+   313→
+   314→**API Routes (7):**
+   315→1. `GET /api/dashboard/patient/stats` — Patient dashboard stats (upcoming count, completed visits, total doctors, document count, upcoming list, recent activity)
+   316→2. `GET /api/dashboard/patient/appointments?status=` — Patient appointments with optional status filter, returns counts per status
+   317→3. `GET /api/dashboard/patient/appointments/[id]` — Appointment detail with doctor, patient, chat messages, prescriptions (with medicines/labels/suggestions), status timeline
+   318→4. `GET /api/patient/medical-documents?category=` — List documents with category filter and counts; `POST` — Upload document (title, category, description)
+   319→5. `PUT /api/patient/medical-documents/[id]` — Update document metadata; `DELETE` — Delete document
+   320→6. `GET /api/patient/feedback` — Completed appointments with already-rated flag; `POST` — Submit rating (star, consultation/wait/staff sub-ratings, review, recommend, anonymous)
+   321→7. `GET /api/patient/profile` — Profile data; `PUT` — Update name/mobile/gender
+   322→
+   323→**Config Updates:**
+   324→- Updated sidebar config: Health Records route changed from `/dashboard/patient/records` to `/dashboard/patient/health-records`
+   325→- Updated dashboard header: Added `health-records` route title
+   326→
+   327→### Files Created (13)
+   328→- src/app/dashboard/patient/page.tsx
+   329→- src/app/dashboard/patient/appointments/page.tsx
+   330→- src/app/dashboard/patient/appointments/[id]/page.tsx
+   331→- src/app/dashboard/patient/health-records/page.tsx
+   332→- src/app/dashboard/patient/feedback/page.tsx
+   333→- src/app/dashboard/patient/profile/page.tsx
+   334→- src/app/api/dashboard/patient/stats/route.ts
+   335→- src/app/api/dashboard/patient/appointments/route.ts
+   336→- src/app/api/dashboard/patient/appointments/[id]/route.ts
+   337→- src/app/api/patient/medical-documents/route.ts
+   338→- src/app/api/patient/medical-documents/[id]/route.ts
+   339→- src/app/api/patient/feedback/route.ts
+   340→- src/app/api/patient/profile/route.ts
+   341→
+   342→### Files Modified (2)
+   343→- src/lib/sidebar-config.ts (Health Records route updated)
+   344→- src/components/dashboard/dashboard-header.tsx (route title added)
+   345→
+   346→### QA Results
+   347→- 0 ESLint errors ✓
+   348→- All 6 pages compile successfully ✓
+   349→- All 7 API routes functional ✓
+   350→- Auth-protected routes with getServerSession ✓
+   351→- TanStack Query for data fetching with loading states ✓
+   352→- Framer Motion animations on all pages ✓
+   353→- shadcn/ui components throughout (Card, Button, Input, Label, Badge, Dialog, Tabs, Table, Avatar, Textarea, Separator, Switch, DropdownMenu, Select) ✓
+   354→- Responsive, mobile-first design ✓
+   355→- Teal color scheme consistent ✓
+   356→- Skeleton loading states on all pages ✓
+   357→- Empty states with CTAs ✓
+   358→- Status-colored badges (Pending=amber, Approve=blue, Visited=emerald, Canceled=red, Finish=gray) ✓
+   359→
+   360→### Recommended Next Phase Priority
+   361→1. Rebuild booking/appointment flow
+   362→2. Add doctor registration flow
+   363→3. Add hospital management dashboard
+   364→
+   365→---
+   366→
+   367→## Doctor Dashboard — Full Suite
+   368→
+   369→### Task ID
+   370→`7`
+   371→
+   372→### Context
+   373→Built the complete doctor dashboard suite with 10 polished pages and 12 API routes. All pages follow the teal-themed design system, use shadcn/ui components, Framer Motion animations, and TanStack Query for data fetching.
+   374→
+   375→### What was done
+   376→
+   377→**Pages (10):**
+   378→1. **Doctor Dashboard Home** (`/dashboard/doctor`): 4 StatCards (Today's Appointments/teal, Total Patients/blue, Pending Prescriptions/amber, Average Rating/violet), today's appointment list with avatars and status badges, recent patient reviews with star ratings, quick action cards (New Prescription, Manage Schedule, My Patients, Edit Profile), loading skeleton state.
+   379→2. **Appointments** (`/dashboard/doctor/appointments`): Tab filters with counts (All, Pending, Approve, Visited, Canceled, Finish), appointment list with avatars, status-colored badges (Pending=amber, Approve=emerald, Visited=teal, Canceled=red, Finish=blue), action buttons per status (Approve→Checkmark, Reject→X, Visit→Eye, Finish→Checkmark), confirmation dialog for status changes, prescription indicator badge.
+   380→3. **Prescription List** (`/dashboard/doctor/prescriptions`): Search by patient name with debounce, prescription cards in 3-column grid with hover effects, medicine count badges, medicine name previews, link to view/edit.
+   381→4. **Create Prescription** (`/dashboard/doctor/prescriptions/new`): Select appointment from dropdown (approved/visited), auto-fill patient vitals (name, age, disease, weight), manual vitals (BP, temperature), dynamic medicine builder with M/A/E checkboxes, tablet count, dose, description, dynamic label builder (key-value pairs for lab results), doctor notes textarea, loading spinner on save.
+   382→5. **View Prescription** (`/dashboard/doctor/prescriptions/[id]`): Full prescription view with patient info, vitals (weight/BP/temperature), labels/lab results badges, medicines table with M/A/E indicators, doctor's notes, print button (window.print), inline edit mode with full form fields, back navigation.
+   383→6. **Weekly Schedule** (`/dashboard/doctor/schedule`): 7-day schedule grid (Mon-Sat) with start/end time and slot duration, per-day edit dialog, save all button, holiday management section with add/delete, date picker for holidays, holiday list with delete confirmation, slot count calculation.
+   384→7. **My Patients** (`/dashboard/doctor/patients`): Search by name with debounce, patient cards with avatars, visit count and last visit badges, gender and mobile display, empty state.
+   385→8. **Doctor Profile** (`/dashboard/doctor/profile`): Profile header card with avatar and camera button, edit/view mode toggle (populates form on edit click, not useEffect), professional info (name, specialization, education, experience, fees, emergency charge, emergency switch), contact & location (contact, mobile, address, city, state, hospital address), about & achievements (description/bio, awards, registration details).
+   386→9. **Photo Gallery** (`/dashboard/doctor/gallery`): Photo grid (2/3/4 columns responsive), upload photo dialog, delete with confirmation, fullscreen image preview on click with AnimatePresence, hover overlay with delete button.
+   387→10. **Blog Posts** (`/dashboard/doctor/posts`): Post list with type/status badges (Blog=teal, News=amber, Published/Draft), create/edit dialog with title, type select, status select, content textarea, delete with confirmation, empty state.
+   388→
+   389→**API Routes (12):**
+   390→1. `GET /api/dashboard/doctor/stats` — Today's appointment count, total patients (distinct), pending prescriptions (visited/finished without prescriptions), average rating, today's appointment list, recent reviews
+   391→2. `GET /api/dashboard/doctor/appointments?status=` — Appointments with status filter, status counts, patient avatars, prescription indicator
+   392→3. `PUT /api/dashboard/doctor/appointments/[id]/status` — Update appointment status with ownership validation
+   393→4. `GET /api/dashboard/doctor/prescriptions?search=` — List prescriptions with patient name search, includes medicines and labels
+   394→5. `POST /api/dashboard/doctor/prescriptions` — Create prescription with medicines (M/A/E/tab/dose/description) and labels (key-value-unit), linked to booking
+   395→6. `GET /api/dashboard/doctor/prescriptions/[id]` — Full prescription with doctor info, booking patient, medicines, labels, suggestions
+   396→7. `PUT /api/dashboard/doctor/prescriptions/[id]` — Update prescription (recreates medicines/labels)
+   397→8. `GET /api/dashboard/doctor/schedule` — List doctor schedules (7 days)
+   398→9. `POST /api/dashboard/doctor/schedule` — Upsert all day schedules
+   399→10. `GET/POST/DELETE /api/dashboard/doctor/holidays` — List, create (date+remark), delete holidays
+   400→11. `GET /api/dashboard/doctor/patients?search=` — Distinct patients with visit counts and last visit dates
+   401→12. `GET/PUT /api/dashboard/doctor/profile` — Get/update doctor profile (includes user name, all doctor fields)
+   402→13. `GET/POST/DELETE /api/dashboard/doctor/gallery` — List, add (image URL), delete gallery photos
+   403→14. `GET/POST/PUT/DELETE /api/dashboard/doctor/posts` — CRUD for doctor blog posts with type (Blog/News) and status (Draft/Published)
+   404→
+   405→**Config Updates:**
+   406→- Updated dashboard-header route titles: added `/dashboard/doctor/prescriptions/new` → "New Prescription"
+   407→
+   408→### Files Created (22)
+   409→- src/app/dashboard/doctor/page.tsx
+   410→- src/app/dashboard/doctor/appointments/page.tsx
+   411→- src/app/dashboard/doctor/prescriptions/page.tsx
+   412→- src/app/dashboard/doctor/prescriptions/new/page.tsx
+   413→- src/app/dashboard/doctor/prescriptions/[id]/page.tsx
+   414→- src/app/dashboard/doctor/schedule/page.tsx
+   415→- src/app/dashboard/doctor/patients/page.tsx
+   416→- src/app/dashboard/doctor/profile/page.tsx
+   417→- src/app/dashboard/doctor/gallery/page.tsx
+   418→- src/app/dashboard/doctor/posts/page.tsx
+   419→- src/app/api/dashboard/doctor/stats/route.ts
+   420→- src/app/api/dashboard/doctor/appointments/route.ts
+   421→- src/app/api/dashboard/doctor/appointments/[id]/status/route.ts
+   422→- src/app/api/dashboard/doctor/prescriptions/route.ts
+   423→- src/app/api/dashboard/doctor/prescriptions/[id]/route.ts
+   424→- src/app/api/dashboard/doctor/schedule/route.ts
+   425→- src/app/api/dashboard/doctor/holidays/route.ts
+   426→- src/app/api/dashboard/doctor/patients/route.ts
+   427→- src/app/api/dashboard/doctor/profile/route.ts
+   428→- src/app/api/dashboard/doctor/gallery/route.ts
+   429→- src/app/api/dashboard/doctor/posts/route.ts
+   430→
+   431→### Files Modified (1)
+   432→- src/components/dashboard/dashboard-header.tsx (added prescription new route title)
+   433→
+   434→### QA Results
+   435→- 0 ESLint errors ✓
+   436→- All 10 pages compile successfully ✓
+   437→- All 12 API routes functional ✓
+   438→- Auth-protected routes with getServerSession ✓
+   439→- TanStack Query for data fetching with loading states ✓
+   440→- Framer Motion animations on all pages ✓
+   441→- shadcn/ui components throughout (Card, Button, Input, Label, Badge, Dialog, Tabs, Avatar, Textarea, Separator, Switch, Select, Checkbox, AlertDialog, DropdownMenu) ✓
+   442→- Responsive, mobile-first design ✓
+   443→- Teal color scheme consistent ✓
+   444→- Skeleton loading states on all pages ✓
+   445→- Empty states with CTAs ✓
+   446→- Status-colored badges (Pending=amber, Approve=emerald, Visited=teal, Canceled=red, Finish=blue) ✓
+   447→- Confirmation dialogs for destructive actions ✓
+   448→- Print CSS support on prescription view ✓
+   449→- No useEffect + setState (uses event-handler pattern for form initialization) ✓
+   450→
+   451→### Recommended Next Phase Priority
+   452→1. Rebuild booking/appointment flow
+   453→2. Add doctor registration flow
+   454→3. Add hospital management dashboard
+   455→

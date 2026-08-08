@@ -120,3 +120,223 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ============ ANIMATIONS ============ */
+
+@keyframes section-fade-in {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(20, 184, 166, 0.2); }
+  50% { box-shadow: 0 0 20px rgba(20, 184, 166, 0.4); }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+@keyframes gradient-x {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.section-fade-in {
+  animation: section-fade-in 0.6s ease-out forwards;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.1) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-breathe {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+.animate-gradient-x {
+  background-size: 200% 200%;
+  animation: gradient-x 3s ease infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+/* ============ CARD EFFECTS ============ */
+
+.card-press {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.card-press:active {
+  transform: scale(0.98);
+}
+
+.card-hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.card-hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px -12px rgba(0, 0, 0, 0.15);
+}
+
+.card-teal-border {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.card-teal-border:hover {
+  border-left: 4px solid rgb(20, 184, 166);
+  box-shadow: 0 4px 12px rgba(20, 184, 166, 0.1);
+}
+
+/* ============ GRADIENT TEXT ============ */
+
+.gradient-text-teal {
+  background: linear-gradient(135deg, #14b8a6, #0d9488, #0f766e);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-emerald {
+  background: linear-gradient(135deg, #10b981, #059669);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-text-amber {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ============ BUTTON EFFECTS ============ */
+
+.btn-gradient-teal {
+  background: linear-gradient(135deg, #14b8a6, #0d9488);
+  transition: all 0.2s ease;
+}
+.btn-gradient-teal:hover {
+  background: linear-gradient(135deg, #0d9488, #0f766e);
+  box-shadow: 0 4px 14px rgba(20, 184, 166, 0.4);
+}
+
+/* ============ INPUT FOCUS ============ */
+
+.input-teal-focus:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.2);
+  border-color: rgb(20, 184, 166);
+}
+
+/* ============ SCROLLBAR ============ */
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgb(20, 184, 166);
+  border-radius: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgb(13, 148, 136);
+}
+
+/* ============ SCROLL MARGIN ============ */
+
+.scroll-mt-20 {
+  scroll-margin-top: 5rem;
+}
+
+/* ============ DOT PATTERN ============ */
+
+.dot-pattern {
+  background-image: radial-gradient(circle, rgb(20 184 166 / 0.1) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ============ GLASSMORPHISM ============ */
+
+.glass {
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.dark .glass {
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* ============ SKELETON ============ */
+
+.skeleton-shimmer {
+  background: linear-gradient(90deg, hsl(var(--muted)) 25%, hsl(var(--muted) / 0.5) 50%, hsl(var(--muted)) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius);
+}
+
+/* ============ DISABLED ============ */
+
+.btn-disabled-effect:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* ============ LINK TRANSITIONS ============ */
+
+a {
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+/* ============ TOOLTIP ARROW ============ */
+
+.tooltip-arrow::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 4px solid hsl(var(--popover-foreground));
+}

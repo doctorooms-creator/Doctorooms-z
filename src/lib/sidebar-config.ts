@@ -1,0 +1,64 @@
+import { type LucideIcon, LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart } from 'lucide-react'
+
+export interface SidebarItem {
+  label: string
+  href: string
+  icon: LucideIcon
+  badge?: string | number
+}
+
+type RoleSidebarMap = Record<string, SidebarItem[]>
+
+export const sidebarConfig: RoleSidebarMap = {
+  admin: [
+    { label: 'Dashboard', href: '/dashboard/admin', icon: LayoutDashboard },
+    { label: 'Users', href: '/dashboard/admin/users', icon: Users },
+    { label: 'Doctors', href: '/dashboard/admin/doctors', icon: Stethoscope },
+    { label: 'Hospitals', href: '/dashboard/admin/hospitals', icon: Building2 },
+    { label: 'Appointments', href: '/dashboard/admin/appointments', icon: CalendarDays },
+    { label: 'Blog', href: '/dashboard/admin/blog', icon: FileText },
+    { label: 'Inquiries', href: '/dashboard/admin/inquiries', icon: MessageSquare },
+    { label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
+  ],
+  doctor: [
+    { label: 'Dashboard', href: '/dashboard/doctor', icon: LayoutDashboard },
+    { label: 'Appointments', href: '/dashboard/doctor/appointments', icon: CalendarDays },
+    { label: 'Prescriptions', href: '/dashboard/doctor/prescriptions', icon: FileText },
+    { label: 'Schedule', href: '/dashboard/doctor/schedule', icon: Clock },
+    { label: 'Patients', href: '/dashboard/doctor/patients', icon: Users },
+    { label: 'Profile', href: '/dashboard/doctor/profile', icon: UserCircle },
+    { label: 'Gallery', href: '/dashboard/doctor/gallery', icon: Images },
+    { label: 'Posts', href: '/dashboard/doctor/posts', icon: PenSquare },
+  ],
+  patient: [
+    { label: 'Dashboard', href: '/dashboard/patient', icon: LayoutDashboard },
+    { label: 'Appointments', href: '/dashboard/patient/appointments', icon: CalendarDays },
+    { label: 'Health Records', href: '/dashboard/patient/health-records', icon: Heart },
+    { label: 'Feedback', href: '/dashboard/patient/feedback', icon: MessageSquare },
+    { label: 'Profile', href: '/dashboard/patient/profile', icon: UserCircle },
+  ],
+  hospital: [
+    { label: 'Dashboard', href: '/dashboard/hospital', icon: LayoutDashboard },
+    { label: 'Doctors', href: '/dashboard/hospital/doctors', icon: Stethoscope },
+    { label: 'Appointments', href: '/dashboard/hospital/appointments', icon: CalendarDays },
+  ],
+  receptionist: [
+    { label: 'Dashboard', href: '/dashboard/receptionist', icon: LayoutDashboard },
+    { label: 'Appointments', href: '/dashboard/receptionist/appointments', icon: CalendarDays },
+    { label: 'Patients', href: '/dashboard/receptionist/patients', icon: Users },
+  ],
+  assistant: [
+    { label: 'Dashboard', href: '/dashboard/assistant', icon: LayoutDashboard },
+    { label: 'Appointments', href: '/dashboard/assistant/appointments', icon: CalendarDays },
+    { label: 'Patients', href: '/dashboard/assistant/patients', icon: Users },
+  ],
+  pharmacist: [
+    { label: 'Dashboard', href: '/dashboard/pharmacist', icon: LayoutDashboard },
+    { label: 'Prescriptions', href: '/dashboard/pharmacist/prescriptions', icon: FileText },
+    { label: 'Medicine List', href: '/dashboard/pharmacist/medicines', icon: Pill },
+  ],
+}
+
+export function getSidebarItems(role: string): SidebarItem[] {
+  return sidebarConfig[role] || sidebarConfig.patient
+}
