@@ -1405,3 +1405,24 @@ Stage Summary:
 - All empty states have consistent design: icon-in-circle, title, descriptive subtitle, and CTA where appropriate
 - ESLint: 0 errors, 0 warnings
 - Dev server: Compiles without errors
+---
+Task ID: 10
+Agent: Main Agent
+Task: Disable auth, create role-selector login page, seed missing roles
+
+Work Log:
+- Analyzed login flow: DB was seeded but demo credentials on login page didn't match DB emails, and admin/assistant/pharmacist users were missing
+- Rewrote `/src/app/login/page.tsx` as a role-selector page with 7 role cards (Patient, Doctor, Receptionist, Hospital, Assistant, Pharmacist, Admin)
+- Created `/src/app/api/auth/dev-login/route.ts` — POST endpoint that accepts a role, finds a real DB user, sets httpOnly cookies, returns user
+- Updated `/src/lib/api-auth.ts` — added dev mode fallback in `getAuthUser()`: if DB lookup fails, falls back to mock user from `doctorooms_role` cookie
+- Updated `/src/app/api/auth/me/route.ts` — same dev mode fallback logic
+- Updated `/src/app/dashboard/layout.tsx` — simplified auth check, removed double-retry, added cookie clearing on logout
+- Added admin (1), assistant (2), pharmacist (2) users to `prisma/seed.ts` and re-seeded DB
+- Verified all 7 dashboards load with real data via agent-browser testing
+
+Stage Summary:
+- Auth is now disabled for development — clicking a role card on /login calls /api/auth/dev-login which finds a real DB user and sets proper httpOnly cookies
+- DB now has 33 users across all 7 roles (1 admin, 2 assistants, 8 doctors, 2 hospitals, 15 patients, 2 pharmacists, 3 receptionists)
+- All 40 bookings, 10 prescriptions, 25 notifications, 7 blog posts, 20 chat messages, 5 medical documents seeded
+- All API routes still work because `getAuthUser()` falls back to mock user if DB lookup fails
+- Login page has loading state, Framer Motion animations, and Dev Mode badge

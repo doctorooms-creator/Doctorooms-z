@@ -20,7 +20,7 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false)
   const [checking, setChecking] = useState(true)
 
-  // On mount, check if we have auth from Zustand (just logged in) OR from cookie/API (page refresh)
+  // On mount, check if we have auth from Zustand (just came from login) OR from cookie/API (page refresh)
   useEffect(() => {
     async function checkAuth() {
       // 1. If Zustand has user, we're good (just came from login)
@@ -29,7 +29,7 @@ export default function DashboardLayout({
         return
       }
 
-      // 2. Check cookie or /api/auth/me (page refresh scenario)
+      // 2. Try /api/auth/me (handles both real DB auth and dev mode fallback)
       try {
         const res = await fetch('/api/auth/me')
         const data = await res.json()
@@ -39,32 +39,10 @@ export default function DashboardLayout({
           return
         }
       } catch {
-        // API failed, check cookie directly
+        // API failed
       }
 
-      // 3. Check if role cookie exists (minimal check)
-      const roleCookie = document.cookie
-        .split('; ')
-        .find((row) => row.startsWith('doctorooms_role='))
-        ?.split('=')[1]
-
-      if (roleCookie) {
-        // Cookie exists but API failed — try once more after a brief delay
-        try {
-          await new Promise((r) => setTimeout(r, 500))
-          const res2 = await fetch('/api/auth/me')
-          const data2 = await res2.json()
-          if (data2.success && data2.user) {
-            setUser(data2.user as AuthUser)
-            setChecking(false)
-            return
-          }
-        } catch {
-          // give up
-        }
-      }
-
-      // No auth found → redirect to login
+      // 3. No auth found → redirect to login (role selector in dev mode)
       setChecking(false)
       router.push('/login')
     }
@@ -82,6 +60,9 @@ export default function DashboardLayout({
   }, [user, pathname, checking, router])
 
   const handleLogout = async () => {
+    // Clear cookies
+    document.cookie = 'doctorooms_session=;path=/;max-age=0'
+    document.cookie = 'doctorooms_role=;path=/;max-age=0'
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
     } catch {

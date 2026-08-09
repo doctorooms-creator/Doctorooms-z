@@ -398,6 +398,74 @@ async function main() {
   console.log('✅ 3 Receptionists created and linked to doctors');
 
   // ============================================================
+  // 5b. ADMIN (1)
+  // ============================================================
+  const adminUser = await db.user.create({
+    data: {
+      name: 'Admin User',
+      email: 'admin@doctorooms.com',
+      password,
+      role: 'admin',
+      status: 'Active',
+      gender: 'Male',
+      mobileNo: '9999999901',
+      profileImg: 'default.png',
+    },
+  });
+  console.log('✅ 1 Admin created');
+
+  // ============================================================
+  // 5c. ASSISTANTS (2) - linked to first 2 doctors
+  // ============================================================
+  const assistantData = [
+    { name: 'Vikram Patel', email: 'vikram.p@doctorooms.com', gender: 'Male', mobileNo: '8888888801', doctorIdx: 0 },
+    { name: 'Sanjay Kumar', email: 'sanjay.k@doctorooms.com', gender: 'Male', mobileNo: '8888888802', doctorIdx: 1 },
+  ];
+  for (const a of assistantData) {
+    const user = await db.user.create({
+      data: {
+        name: a.name, email: a.email, password,
+        role: 'assistant', status: 'Active',
+        gender: a.gender, mobileNo: a.mobileNo, profileImg: 'default.png',
+      },
+    });
+    await db.doctorAssistant.create({
+      data: {
+        userId: user.id,
+        doctorId: doctors[a.doctorIdx].id,
+        address: '',
+      },
+    });
+  }
+  console.log('✅ 2 Assistants created and linked to doctors');
+
+  // ============================================================
+  // 5d. PHARMACISTS (2) - linked to first 2 doctors
+  // ============================================================
+  const pharmacistData = [
+    { name: 'Kavitha Devi', email: 'kavitha.d@doctorooms.com', gender: 'Female', mobileNo: '7777777701', doctorIdx: 0 },
+    { name: 'Ramesh Gupta', email: 'ramesh.g@doctorooms.com', gender: 'Male', mobileNo: '7777777702', doctorIdx: 1 },
+  ];
+  for (const p of pharmacistData) {
+    const user = await db.user.create({
+      data: {
+        name: p.name, email: p.email, password,
+        role: 'pharmacist', status: 'Active',
+        gender: p.gender, mobileNo: p.mobileNo, profileImg: 'default.png',
+      },
+    });
+    await db.doctorPharmacist.create({
+      data: {
+        userId: user.id,
+        doctorId: doctors[p.doctorIdx].id,
+        address: '',
+        dlNo: 'DL-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+      },
+    });
+  }
+  console.log('✅ 2 Pharmacists created and linked to doctors');
+
+  // ============================================================
   // 6. PATIENTS (15)
   // ============================================================
   const patientData = [
