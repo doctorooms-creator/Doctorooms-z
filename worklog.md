@@ -459,3 +459,157 @@ Stage Summary:
 - Settings dropdown in dashboard header now navigates to working page for patient role
 - Patient sidebar now has 9 items: Dashboard, Appointments, Health Records, My Blog, Feedback, Notifications, Profile, Settings, Change Password
 - Patient module plan completion checklist: all 5 phases (A-E) now complete plus bonus features
+
+---
+Task ID: 4-A1
+Agent: Reception Appointments Enhance Agent
+Task: Add date range filter and appointment detail dialog to receptionist appointments
+
+Work Log:
+- Modified API route (src/app/api/dashboard/receptionist/appointments/route.ts):
+  - Added `Prisma` import from `@prisma/client`
+  - Changed `where` type from `Record<string, unknown>` to `Prisma.BookingWhereInput` for type-safe filtering
+  - Added `from` and `to` query param parsing
+  - Added `bookingDate.gte` / `bookingDate.lte` date range filtering
+  - Added `doctorId` and `doctorSpecialization` to the appointment response payload
+- Modified frontend page (src/app/dashboard/receptionist/appointments/page.tsx):
+  - Added `X` and `Stethoscope` to lucide-react imports
+  - Added `doctorId` and `doctorSpecialization` to `ReceptionistAppointment` interface
+  - Added `fromDate`, `toDate`, `detailOpen`, `selectedAppt` state variables
+  - Added date range filter UI (From/To date inputs + Clear button) above status tabs
+  - Updated queryKey and fetch URL to include date params
+  - Made patient name in table rows clickable (opens detail dialog)
+  - Added Appointment Detail Dialog with: status badge, appointment number, patient info card, doctor info with specialization, 4-cell grid (date, time, fee, created date)
+  - Updated empty state message to account for date filters
+
+Stage Summary:
+- Receptionist appointments page now supports date range filtering (from/to) combined with existing status and search filters
+- Clicking a patient name opens a detail dialog showing full appointment information including doctor specialization
+- API uses proper Prisma.BookingWhereInput type for type-safe query building
+- ESLint: 0 errors, 0 warnings
+---
+Task ID: 4-A2
+Agent: Reception Notifications Agent
+Task: Create receptionist notifications page and API
+
+Work Log:
+- Created /src/app/api/receptionist/notifications/route.ts (GET list + PATCH mark read/all read)
+- GET: fetches notifications for logged-in receptionist ordered by createdAt desc, with unreadCount
+- PATCH: supports both single notificationId and markAll=true for bulk mark-as-read
+- Used requireRole(req, 'receptionist') for auth, used updateMany for safe single-notif update
+- Created /src/app/dashboard/receptionist/notifications/page.tsx (client component)
+  - Header with Bell icon, unread count display, 'Mark all read' button
+  - Notification list with teal unread highlighting, unread dot indicator, relative timestamps
+  - Click-to-mark-single-read on unread notifications
+  - Skeleton loading state (5 pulsing cards)
+  - Empty state with Bell icon and descriptive message
+  - Framer Motion staggered animations via AnimatePresence
+  - TanStack Query for data fetching, useMutation for mark-read actions
+  - Toast notifications via sonner
+- Added 'Notifications' entry to receptionist sidebar in src/lib/sidebar-config.ts (before Change Password)
+- Added '/dashboard/receptionist/notifications': 'Notifications' to routeTitles in dashboard-header.tsx
+- ESLint: 0 errors, 0 warnings
+
+Stage Summary:
+- Receptionist now has a dedicated notifications page accessible from sidebar
+- API follows existing patterns (requireRole, error handling, NextResponse)
+- Page matches design system: teal color scheme, shadcn/ui, Framer Motion, responsive
+- Receptionist sidebar now has 7 items: Dashboard, Appointments, Pending Bookings, Walk-in, Patients, Notifications, Change Password
+
+---
+Task ID: 4-A3
+Agent: Reception Profile Agent
+Task: Create receptionist profile page and API
+
+Work Log:
+- Created GET/PUT API route at src/app/api/receptionist/profile/route.ts
+  - GET fetches receptionist profile with linked doctor info (name, specialization, fees, city/state)
+  - PUT updates user fields (name, mobileNo, gender) and receptionist fields (address)
+  - Uses requireRole(req, 'receptionist') for auth
+- Created receptionist avatar upload API at src/app/api/receptionist/avatar/route.ts
+  - POST handles image upload (JPEG, PNG, WebP, max 2MB)
+  - Deletes old avatar, saves new file to public/uploads/profile
+  - Uses requireRole(req, 'receptionist') for auth (fixes issue where patient avatar API wouldn't work for receptionists)
+- Created profile page at src/app/dashboard/receptionist/profile/page.tsx
+  - Profile Header: 80x80 avatar with camera overlay, name, email, status badge, Edit Profile button
+  - Info Cards Grid: 2x2 grid with Mobile, Gender, Joined Date, Address cards (each with colored icon)
+  - Linked Doctor Card: doctor avatar, name, specialization, fees, city/state
+  - Edit Dialog: fields for Name, Mobile, Gender (select), Address with Save/Cancel
+  - Uses TanStack Query for data fetching, useMutation for PUT and avatar upload
+  - Framer Motion animations, skeleton loading states
+  - Teal color scheme, shadcn/ui components, responsive design
+- Updated sidebar config: added Profile entry before Notifications in receptionist array
+- Updated dashboard header: added '/dashboard/receptionist/profile': 'Profile' route title mapping
+- ESLint: 0 errors, 0 warnings
+
+Stage Summary:
+- Receptionist profile page fully functional with view and edit capabilities
+- API supports fetching profile with linked doctor data and updating personal info
+- Avatar upload endpoint created specifically for receptionist role
+- Receptionist sidebar now has 8 items: Dashboard, Appointments, Pending Bookings, Walk-in, Patients, Profile, Notifications, Change Password
+
+---
+Task ID: 4-B1
+Agent: Reception Schedule Agent
+Task: Create doctor schedule view page for receptionist
+
+Work Log:
+- Created API route at `src/app/api/dashboard/receptionist/schedule/route.ts`
+  - GET endpoint fetches the receptionist's linked doctor with weekly schedules and upcoming holidays
+  - Uses requireRole('receptionist') for authentication
+  - Returns doctor info, 7-day schedule map (Mon-Sun), upcoming holidays (next 30), and today's day name
+- Created schedule page at `src/app/dashboard/receptionist/schedule/page.tsx`
+  - Client component using TanStack Query for data fetching
+  - Header with Clock icon, doctor name, and specialization
+  - Responsive weekly grid (7 cards) showing active/inactive day schedules with teal left border accent
+  - Active cards display time range, slot duration, and scrollable time slot chips
+  - Inactive/off cards show muted "Day Off" state
+  - Today highlighted with teal styling and "Today" badge
+  - Upcoming Holidays section with red-themed cards, empty state support
+  - Framer Motion staggered animations on all cards
+  - Loading skeleton state
+- Updated `src/lib/sidebar-config.ts`: added Schedule entry (Clock icon) after Walk-in and before Patients in receptionist array
+- Updated `src/components/dashboard/dashboard-header.tsx`: added '/dashboard/receptionist/schedule': 'Schedule' route title mapping
+- ESLint: 0 errors, 0 warnings
+
+Stage Summary:
+- Receptionist schedule page fully functional with weekly view of doctor's schedule and upcoming holidays
+- API follows existing project patterns with requireRole auth and Prisma queries
+- Sidebar now has 9 items: Dashboard, Appointments, Pending Bookings, Walk-in, Schedule, Patients, Profile, Notifications, Change Password
+
+---
+Task ID: 4-B2
+Agent: Reception Report Agent
+Task: Create end-of-day summary report page for receptionist
+
+Work Log:
+- Created `src/app/api/dashboard/receptionist/reports/route.ts` — GET API that fetches all bookings for a given date for the receptionist's doctor, computes stats (total, pending, approved, visited, finished, canceled, extended, revenue), and returns structured report data
+- Created `src/app/dashboard/receptionist/reports/page.tsx` — Daily report page with: date picker header (defaults to today with reset button), 4 summary stat cards (Total, Completed, Canceled, Revenue) using existing StatCard component, 3 secondary stat cards (Pending, Approved/Waiting, Extended), animated status breakdown stacked bar, and full appointment details table with patient avatars, disease, time slot, mode, status badges, and fees
+- Updated `src/lib/sidebar-config.ts` — Added `BarChart3` to lucide-react imports, added Reports sidebar entry between Patients and Profile in receptionist array
+- Updated `src/components/dashboard/dashboard-header.tsx` — Added route title mapping `'/dashboard/receptionist/reports': 'Daily Report'`
+- Verified ESLint passes with 0 errors, 0 warnings
+
+Stage Summary:
+- Receptionist daily report page at `/dashboard/receptionist/reports` fully functional with date-filtered data, summary statistics, animated status breakdown bar, and detailed appointment table
+- API at `/api/dashboard/receptionist/reports?date=YYYY-MM-DD` returns comprehensive daily report data with booking-level detail
+- Sidebar now has 10 items for receptionist: Dashboard, Appointments, Pending Bookings, Walk-in, Schedule, Patients, Reports, Profile, Notifications, Change Password
+
+---
+Task ID: 4-B3
+Agent: Reception Print Queue Agent
+Task: Create print queue list page for receptionist
+
+Work Log:
+- Created `src/app/dashboard/receptionist/print-queue/page.tsx` — print-friendly queue page using existing walk-in API
+- Added `Printer` import and `{ label: 'Print Queue', href: '/dashboard/receptionist/print-queue', icon: Printer }` to receptionist sidebar in `src/lib/sidebar-config.ts`
+- Added `'/dashboard/receptionist/print-queue': 'Print Queue'` route title mapping in `src/components/dashboard/dashboard-header.tsx`
+- Removed unused `Card`, `CardContent`, `CardHeader`, `CardTitle`, and `Stethoscope` imports from the page to pass ESLint
+- Used `CheckCircle2` from lucide-react (as instructed, replacing the commented placeholder)
+- Verified ESLint passes with 0 errors, 0 warnings
+
+Stage Summary:
+- Print Queue page at `/dashboard/receptionist/print-queue` displays today's patient queue in a print-friendly table format
+- Uses existing `/api/dashboard/receptionist/walk-in` API — no new backend needed
+- Features: print-specific header/footer (visible only in print), summary bar (in queue / completed / limit), animated table rows, mode/status/type badges
+- Print button triggers `window.print()` with `print:hidden` / `print:block` classes for clean print output
+- Sidebar now has 11 items for receptionist (Print Queue added between Walk-in and Schedule)

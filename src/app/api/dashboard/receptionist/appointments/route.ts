@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 
@@ -17,8 +18,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const statusFilter = searchParams.get('status') || 'all'
     const search = searchParams.get('search') || ''
+    const from = searchParams.get('from') || ''
+    const to = searchParams.get('to') || ''
 
-    const where: Record<string, unknown> = { doctorId: receptionist.doctorId }
+    const where: Prisma.BookingWhereInput = { doctorId: receptionist.doctorId }
     if (statusFilter !== 'all') {
       where.status = statusFilter
     }
@@ -27,6 +30,11 @@ export async function GET(request: NextRequest) {
         { patientName: { contains: search } },
         { appointmentNo: { contains: search } },
       ]
+    }
+    if (from || to) {
+      where.bookingDate = {}
+      if (from) where.bookingDate.gte = new Date(from)
+      if (to) where.bookingDate.lte = new Date(to + 'T23:59:59.999Z')
     }
 
     const [appointments, statusCounts, doctor] = await Promise.all([
@@ -61,8 +69,10 @@ export async function GET(request: NextRequest) {
         appointmentNo: b.appointmentNo,
         patientName: b.patientName || b.user?.name || 'Walk-in',
         patientImg: b.user?.profileImg,
+        doctorId: b.doctor?.id || '',
         doctorName: b.doctor?.user?.name || 'Unknown',
         doctorImg: b.doctor?.user?.profileImg,
+        doctorSpecialization: b.doctor?.specialization || null,
         date: b.bookingDate,
         status: b.status,
         charge: b.appointmentCharge,

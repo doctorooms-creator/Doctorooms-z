@@ -43,6 +43,8 @@ import {
   Plus,
   CheckCircle2,
   XCircle,
+  X,
+  Stethoscope,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -55,6 +57,8 @@ interface ReceptionistAppointment {
   patientImg: string | null
   doctorName: string
   doctorImg: string | null
+  doctorId: string
+  doctorSpecialization: string | null
   date: string
   status: string
   charge: number
@@ -93,10 +97,14 @@ const tabs = [
 export default function ReceptionistAppointmentsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [search, setSearch] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [selectedAppt, setSelectedAppt] = useState<ReceptionistAppointment | null>(null)
 
   // New appointment form state
   const [formPatientName, setFormPatientName] = useState('')
@@ -112,10 +120,10 @@ export default function ReceptionistAppointmentsPage() {
     statusCounts: Record<string, number>
     doctor: { id: string; name: string; fees: number } | null
   }>({
-    queryKey: ['receptionist-appointments', statusFilter, search],
+    queryKey: ['receptionist-appointments', statusFilter, search, fromDate, toDate],
     queryFn: () =>
       fetch(
-        `/api/dashboard/receptionist/appointments?status=${statusFilter}&search=${encodeURIComponent(search)}`
+        `/api/dashboard/receptionist/appointments?status=${statusFilter}&search=${encodeURIComponent(search)}${fromDate ? `&from=${fromDate}` : ''}${toDate ? `&to=${toDate}` : ''}`
       ).then((r) => r.json()),
   })
 
@@ -222,37 +230,20 @@ export default function ReceptionistAppointmentsPage() {
     <div className="space-y-6">
       {/* Header with new appointment button */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1">
-          {tabs.map((tab) => {
-            const count =
-              tab.value === 'all'
-                ? Object.values(statusCounts).reduce((a, b) => a + b, 0)
-                : statusCounts[tab.value] || 0
-            return (
-              <button
-                key={tab.value}
-                onClick={() => setStatusFilter(tab.value)}
-                className={cn(
-                  'relative flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                  statusFilter === tab.value
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                {tab.label}
-                <span
-                  className={cn(
-                    'text-xs',
-                    statusFilter === tab.value
-                      ? 'text-teal-600 dark:text-teal-400'
-                      : 'text-muted-foreground'
-                  )}
-                >
-                  {count}
-                </span>
-              </button>
-            )
-          })}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="from" className="text-sm text-muted-foreground whitespace-nowrap">From</Label>
+            <Input id="from" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-40" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="to" className="text-sm text-muted-foreground whitespace-nowrap">To</Label>
+            <Input id="to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-40" />
+          </div>
+          {(fromDate || toDate) && (
+            <Button variant="ghost" size="sm" onClick={() => { setFromDate(''); setToDate('') }} className="text-xs text-muted-foreground">
+              <X className="h-3 w-3 mr-1" /> Clear
+            </Button>
+          )}
         </div>
 
         <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm() }}>
@@ -344,6 +335,40 @@ export default function ReceptionistAppointmentsPage() {
         </Dialog>
       </div>
 
+      {/* Status tabs */}
+      <div className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1">
+          {tabs.map((tab) => {
+            const count =
+              tab.value === 'all'
+                ? Object.values(statusCounts).reduce((a, b) => a + b, 0)
+                : statusCounts[tab.value] || 0
+            return (
+              <button
+                key={tab.value}
+                onClick={() => setStatusFilter(tab.value)}
+                className={cn(
+                  'relative flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  statusFilter === tab.value
+                    ? 'bg-background text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {tab.label}
+                <span
+                  className={cn(
+                    'text-xs',
+                    statusFilter === tab.value
+                      ? 'text-teal-600 dark:text-teal-400'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {count}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
       {/* Search */}
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -391,7 +416,7 @@ export default function ReceptionistAppointmentsPage() {
                   <TableCell colSpan={6} className="py-12 text-center">
                     <CalendarDays className="mx-auto mb-2 h-10 w-10 text-muted-foreground/50" />
                     <p className="text-sm text-muted-foreground">
-                      {search || statusFilter !== 'all'
+                      {search || statusFilter !== 'all' || fromDate || toDate
                         ? 'No appointments match your filters'
                         : 'No appointments yet'}
                     </p>
@@ -418,7 +443,12 @@ export default function ReceptionistAppointmentsPage() {
                             </AvatarFallback>
                           </Avatar>
                           <div>
-                            <p className="text-sm font-medium">{appt.patientName}</p>
+                            <p
+                              className="text-sm font-medium cursor-pointer hover:underline hover:text-teal-600 dark:hover:text-teal-400"
+                              onClick={() => { setSelectedAppt(appt); setDetailOpen(true) }}
+                            >
+                              {appt.patientName}
+                            </p>
                             <p className="text-xs text-muted-foreground">{appt.appointmentNo}</p>
                           </div>
                         </div>
@@ -480,6 +510,74 @@ export default function ReceptionistAppointmentsPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Appointment Detail Dialog */}
+      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Appointment Details</DialogTitle>
+          </DialogHeader>
+          {selectedAppt && (
+            <div className="space-y-4">
+              {/* Status + Appointment # */}
+              <div className="flex items-center justify-between">
+                <span className={cn(
+                  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+                  statusColors[selectedAppt.status] || 'bg-gray-100 text-gray-700'
+                )}>
+                  {selectedAppt.status}
+                </span>
+                <span className="text-xs text-muted-foreground">{selectedAppt.appointmentNo}</span>
+              </div>
+
+              {/* Patient info card */}
+              <div className="rounded-lg border p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={selectedAppt.patientImg || ''} />
+                    <AvatarFallback>{selectedAppt.patientName.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <p className="font-medium">{selectedAppt.patientName}</p>
+                </div>
+                <p className="text-sm">Disease: {selectedAppt.disease || '—'}</p>
+                <p className="text-sm">Type: {selectedAppt.bookingType}</p>
+              </div>
+
+              {/* Doctor info */}
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground mb-1">Doctor</p>
+                <div className="flex items-center gap-2">
+                  <Stethoscope className="h-4 w-4 text-teal-600" />
+                  <p className="text-sm font-medium">{selectedAppt.doctorName}</p>
+                </div>
+                {selectedAppt.doctorSpecialization && (
+                  <p className="text-xs text-muted-foreground mt-1">{selectedAppt.doctorSpecialization}</p>
+                )}
+              </div>
+
+              {/* Date & Time */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Date</p>
+                  <p className="text-sm font-medium">{format(new Date(selectedAppt.date), 'MMM d, yyyy')}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Time</p>
+                  <p className="text-sm font-medium">{format(new Date(selectedAppt.date), 'h:mm a')}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Fee</p>
+                  <p className="text-sm font-medium">₹{selectedAppt.charge.toLocaleString('en-IN')}</p>
+                </div>
+                <div className="rounded-lg bg-muted/50 p-3">
+                  <p className="text-xs text-muted-foreground">Created</p>
+                  <p className="text-sm font-medium">{format(new Date(selectedAppt.createdAt), 'MMM d, yyyy')}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmation dialog */}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
