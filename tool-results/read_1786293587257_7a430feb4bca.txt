@@ -1,0 +1,875 @@
+     1→# Patient Module — Complete Architecture & Development Plan
+     2→
+     3→> **Module**: Patient (the money-maker — users come from here)
+     4→> **Purpose**: Full patient journey audit, architecture gaps, and development roadmap
+     5→> **Philosophy**: "Pehle patient, baad mein admin" — Patient module is the #1 priority
+     6→> **Created**: After deep code audit (12 pages, 20 APIs) + browser testing + PHP reference analysis
+     7→
+     8→---
+     9→
+    10→## Table of Contents
+    11→
+    12→1. [The Big Picture — Why Patient Module First?](#1-the-big-picture--why-patient-module-first)
+    13→2. [Browser-Verified Reality (Agent-Browser Test Results)](#2-browser-verified-reality)
+    14→3. [Patient Journey Map — Complete Flow](#3-patient-journey-map--complete-flow)
+    15→4. [Critical Blockers (Must Fix Before Anything Else)](#4-critical-blockers)
+    16→5. [Database Seeding — The Foundation](#5-database-seeding--the-foundation)
+    17→6. [Bug Registry — All Issues Found](#6-bug-registry--all-issues-found)
+    18→7. [Landing Page — Public-Facing Audit](#7-landing-page--public-facing-audit)
+    19→8. [Auth Flow Audit](#8-auth-flow-audit)
+    20→9. [Doctor Discovery — Public Pages Audit](#9-doctor-discovery--public-pages-audit)
+    21→10. [Patient Dashboard — Post-Login Audit](#10-patient-dashboard--post-login-audit)
+    22→11. [Booking Flow — The Core Feature](#11-booking-flow--the-core-feature)
+    23→12. [Post-Booking Features Audit](#12-post-booking-features-audit)
+    24→13. [Missing Pages & Features vs PHP Original](#13-missing-pages--features-vs-php-original)
+    25→14. [Development Phases (Ordered by Impact)](#14-development-phases-ordered-by-impact)
+    26→15. [Architecture Recommendations](#15-architecture-recommendations)
+    27→
+    28→---
+    29→
+    30→## 1. The Big Picture — Why Patient Module First?
+    31→
+    32→### The Business Reality
+    33→
+    34→```
+    35→Patient Flow: Landing → Discover Doctors → Register → Login → Book → Consult → Rate → Return
+    36→                  ↑                                                      │
+    37→                  └──────────────────────────────────────────────────────┘
+    38→                         (THIS IS WHERE MONEY COMES FROM)
+    39→```
+    40→
+    41→| Reason | Detail |
+    42→|--------|--------|
+    43→| **Revenue Source** | Patients book appointments → platform earns commission |
+    44→| **First Impression** | Landing page + doctor discovery = first thing users see |
+    45→| **Growth Driver** | Word-of-mouth starts with patient experience |
+    46→| **Data Generator** | Patient actions create bookings, ratings, prescriptions — all data admin/reports need |
+    47→| **Current State** | Code is 90%+ built BUT the app appears completely broken to new visitors |
+    48→
+    49→### The Shocking Browser Test Result
+    50→
+    51→When a real user visits the site today:
+    52→
+    53→1. **Landing page**: Shows "0+ Doctors, 0+ Hospitals, 0+ Patients, 0+ Appointments" (fallback data doesn't kick in due to API returning 0 with 200 status)
+    54→2. **Doctors page**: "Showing 0 of 0 doctors" — completely empty
+    55→3. **Login**: Demo credentials don't work (no users in DB) — fails silently, stays on login page
+    56→4. **Register**: Client-side crash on Step 3 (React nesting error)
+    57→5. **"Book Appointment" button**: Goes to `/book` → 404 page
+    58→6. **Footer**: 8 broken links (Join as Doctor, Doctor Dashboard, Prescriptions, Schedule, Privacy, Terms, Cookies)
+    59→
+    60→**Conclusion**: The entire patient journey is NON-FUNCTIONAL despite 90%+ of the code being written.
+    61→
+    62→---
+    63→
+    64→## 2. Browser-Verified Reality
+    65→
+    66→### Test Results (Agent-Browser, 2025-06-24)
+    67→
+    68→| Test | Expected | Actual | Status |
+    69→|------|----------|--------|--------|
+    70→| Landing page loads | Hero + stats + doctors | Shows 0+ for everything, fallback doctors with ₹0 fees | ❌ BROKEN DATA |
+    71→| Click "Book Appointment" (navbar) | Booking page | 404 page | ❌ 404 |
+    72→| Click "Book Appointment" (hero) | Booking page | 404 page | ❌ 404 |
+    73→| Doctors listing page | Doctor cards | "Showing 0 of 0 doctors" | ❌ EMPTY |
+    74→| Login with demo credentials | Dashboard | 401 error, stays on login page | ❌ NO DATA |
+    75→| Register new patient | 3-step wizard → success | Step 3 crashes (client-side React error) | ❌ CRASH |
+    76→| Search bar on landing | Search/filter doctors | Non-functional (no handler) | ❌ DEAD |
+    77→| Specialization cards on landing | Link to filtered doctors | Not clickable | ❌ DEAD |
+    78→| Footer links | Navigate to pages | 8 broken links → 404 | ❌ 8× 404 |
+    79→| Notification bell | Show unread count | Shows but no data (no user logged in) | ⚠️ N/A |
+    80→
+    81→---
+    82→
+    83→## 3. Patient Journey Map — Complete Flow
+    84→
+    85→```
+    86→┌─────────────────────────────────────────────────────────────────────────────┐
+    87→│                         PATIENT USER JOURNEY                               │
+    88→├─────────────────────────────────────────────────────────────────────────────┤
+    89→│                                                                             │
+    90→│  LANDING PAGE (/)                                                           │
+    91→│  ├── [BROKEN] Hero search bar → does nothing                               │
+    92→│  ├── [BROKEN] "Book Appointment" CTA → /book → 404                        │
+    93→│  ├── [WORKS] "Find a Doctor" CTA → /doctors                               │
+    94→│  ├── [BROKEN] Featured doctors show ₹0 fees (fallback data)                │
+    95→│  ├── [BROKEN] Specialization cards not clickable                           │
+    96→│  └── [WORKS] Stats, How It Works, Testimonials, Why Choose Us              │
+    97→│       ↓                                                                     │
+    98→│  DOCTORS PAGE (/doctors)                                                    │
+    99→│  ├── [EMPTY] No doctors in DB → "Showing 0 of 0"                          │
+   100→│  ├── [WORKS] Search, filters UI exist (just no data)                       │
+   101→│  ├── [MISSING] No pagination                                               │
+   102→│  └── [MISSING] No sort options                                             │
+   103→│       ↓                                                                     │
+   104→│  DOCTOR PROFILE (/doctors/[id])                                             │
+   105→│  ├── [WORKS] Full profile page exists with schedule, reviews, etc.         │
+   106→│  ├── [BROKEN] "Book Appointment" → protected dashboard route               │
+   107→│  │   → Unauthenticated users hit auth wall with no redirect-to-login       │
+   108→│  └── [BROKEN] Online indicator always green (hardcoded)                    │
+   109→│       ↓                                                                     │
+   110→│  AUTH FLOW                                                                  │
+   111→│  ├── [BROKEN] Login → demo users don't exist in DB (401, no error toast)   │
+   112→│  ├── [CRASH] Register → client-side React crash on Step 3                  │
+   113→│  ├── [WORKS] Forgot password → 3-step OTP flow (but exposes OTP in toast)  │
+   114→│  └── [SECURITY] Session cookie not httpOnly, demo passwords in source      │
+   115→│       ↓                                                                     │
+   116→│  PATIENT DASHBOARD (/dashboard/patient)                                     │
+   117→│  ├── [WORKS] Stats, upcoming appointments, quick actions                   │
+   118→│  ├── [HARDCODED] Trend values in stat cards                                │
+   119→│  └── [WORKS] Recent activity feed                                          │
+   120→│       ↓                                                                     │
+   121→│  APPOINTMENTS LIST                                                          │
+   122→│  ├── [WORKS] Status tabs, date filter, cancel, queue position              │
+   123→│  └── [PERF] N+1 queue API calls per approved appointment                   │
+   124→│       ↓                                                                     │
+   125→│  APPOINTMENT DETAIL                                                        │
+   126→│  ├── [WORKS] Doctor/patient info, timeline, prescription view, print       │
+   127→│  ├── [BUG] Chat messages show on wrong side (fromId === 'me' bug)          │
+   128→│  ├── [WORKS] Re-book button, video call link, rating link                  │
+   129→│  └── [WORKS] Real-time chat (10s polling)                                   │
+   130→│       ↓                                                                     │
+   131→│  BOOK APPOINTMENT (/dashboard/patient/book/[doctorId])                      │
+   132→│  ├── [CRITICAL BUG] Missing gender field → all bookings fail with 400      │
+   133→│  ├── [PERF] N+1 slot availability checks (one HTTP request per slot)       │
+   134→│  ├── [WORKS] Calendar with schedule awareness, holiday detection           │
+   135→│  └── [WORKS] InPerson/VideoCall toggle, booking summary, notifications     │
+   136→│       ↓                                                                     │
+   137→│  HEALTH RECORDS                                                            │
+   138→│  ├── [WORKS] Visit stats, past prescriptions list, document categories     │
+   139→│  └── [FAKE] File upload only saves metadata, no actual file handling        │
+   140→│       ↓                                                                     │
+   141→│  FEEDBACK                                                                  │
+   142→│  └── [WORKS] Star ratings (overall + 3 sub), review, recommend, anonymous   │
+   143→│       ↓                                                                     │
+   144→│  NOTIFICATIONS                                                             │
+   145→│  ├── [WORKS] List with unread badges, mark read, mark all read             │
+   146→│  └── [MISSING] No pagination, no auto-refresh                               │
+   147→│       ↓                                                                     │
+   148→│  BLOG / PROFILE / SETTINGS                                                  │
+   149→│  ├── [WORKS] Blog CRUD (list, create, edit, delete)                        │
+   150→│  ├── [WORKS] Profile edit with avatar upload                               │
+   151→│  ├── [MINOR] Auth store name not updated after profile save                │
+   152→│  └── [WORKS] Settings (theme, notification prefs)                          │
+   153→│                                                                             │
+   154→└─────────────────────────────────────────────────────────────────────────────┘
+   155→```
+   156→
+   157→---
+   158→
+   159→## 4. Critical Blockers (Must Fix Before Anything Else)
+   160→
+   161→These issues make the app UNUSABLE for any new patient. Nothing else matters until these are fixed.
+   162→
+   163→### BLOCKER-1: Empty Database (SHOWSTOPPER)
+   164→**Problem**: Zero users, zero doctors, zero hospitals, zero bookings in the database.
+   165→**Impact**: Every page that relies on data shows nothing. Login fails. Booking impossible.
+   166→**Fix**: Create comprehensive seed script with:
+   167→- 5-10 doctors with full profiles, schedules, medicines
+   168→- 2-3 hospitals
+   169→- 10-20 patients
+   170→- 30-50 bookings in various statuses
+   171→- 10+ prescriptions with medicines
+   172→- 20+ ratings/reviews
+   173→- 20+ notifications
+   174→- Some blog posts
+   175→- Doctor types and disease types
+   176→
+   177→### BLOCKER-2: Registration Page Client-Side Crash
+   178→**Problem**: Register page crashes on Step 3 (Set Password) with React nesting error.
+   179→**Impact**: New users CANNOT create accounts.
+   180→**Fix**: Likely a `<p>` containing a `<div>` (skeleton component inside paragraph). Audit the register page JSX.
+   181→
+   182→### BLOCKER-3: Booking Form Missing Gender Field
+   183→**Problem**: API requires `gender` in booking body, but the booking form doesn't send it.
+   184→**Impact**: Every booking attempt returns 400 error. Patients CANNOT book.
+   185→**Fix**: Add gender field to booking form OR auto-populate from patient profile.
+   186→
+   187→### BLOCKER-4: /book Route Missing (404)
+   188→**Problem**: "Book Appointment" button in navbar, hero CTA, and bottom CTA all link to `/book` which doesn't exist.
+   189→**Impact**: Most prominent CTA on the site is a dead link.
+   190→**Fix**: Either create `/book` page (public booking page) OR redirect to `/doctors` with a prompt.
+   191→
+   192→---
+   193→
+   194→## 5. Database Seeding — The Foundation
+   195→
+   196→### Why Seeding is Step 0
+   197→- Without seed data, the app is a beautiful empty shell
+   198→- No developer or QA can test any patient flow
+   199→- Landing page shows 0+ for everything — looks dead
+   200→- Doctors page is empty — no discovery possible
+   201→
+   202→### Seed Data Requirements
+   203→
+   204→```typescript
+   205→// Minimum viable seed data for patient journey testing:
+   206→
+   207→// 1. DOCTORS (8 doctors, different specializations)
+   208→//    - User (role=doctor, status=Active) + Doctor profile + Schedule (5-6 days/week)
+   209→//    - Mix of specializations: Cardiologist, Dermatologist, Pediatrician, etc.
+   210→//    - 2 with hospitalId linked, 6 without
+   211→//    - 1 with isEmergency=true
+   212→//    - Various fees: ₹200-1000
+   213→
+   214→// 2. HOSPITALS (2 hospitals)
+   215→//    - User (role=hospital, status=Active) + Hospital profile
+   216→//    - Different cities
+   217→
+   218→// 3. PATIENTS (15 patients)
+   219→//    - User (role=patient, status=Active)
+   220→//    - Mix of genders, cities
+   221→
+   222→// 4. BOOKINGS (40 bookings across different statuses)
+   223→//    - 10 Pending, 8 Approve, 10 Visited, 5 Finish, 4 Canceled, 3 Extend
+   224→//    - Spread across different doctors
+   225→//    - Mix of InPerson and VideoCall
+   226→//    - Spread across last 60 days
+   227→
+   228→// 5. PRESCRIPTIONS (10 prescriptions for Visited/Finished bookings)
+   229→//    - Each with 2-4 medicines
+   230→//    - Some with labels, suggestions
+   231→
+   232→// 6. RATINGS (10 ratings for finished visits)
+   233→//    - Star ratings 3-5
+   234→//    - Some with reviews
+   235→
+   236→// 7. NOTIFICATIONS (20 notifications)
+   237→//    - Mix of READ/UNREAD
+   238→//    - Different types: booking, status change, prescription
+   239→
+   240→// 8. BLOG POSTS (5 published, 2 draft)
+   241→//    - Mix of Blog and News types
+   242→
+   243→// 9. MASTER DATA
+   244→//    - 5 DoctorTypeMaster entries
+   245→//    - 10 DiseaseMaster entries
+   246→
+   247→// 10. SCHEDULES & HOLIDAYS
+   248→//     - Weekly schedules for all doctors
+   249→//     - 2-3 holidays per doctor
+   250→```
+   251→
+   252→### Seed Script Location
+   253→- Create: `prisma/seed.ts`
+   254→- Run: `npx tsx prisma/seed.ts` (or add to package.json scripts)
+   255→
+   256→---
+   257→
+   258→## 6. Bug Registry — All Issues Found
+   259→
+   260→### 🔴 CRITICAL (App-Breaking)
+   261→
+   262→| ID | Bug | Location | Impact |
+   263→|----|-----|----------|--------|
+   264→| C-1 | **Empty database** | N/A | App shows nothing, login fails, booking impossible |
+   265→| C-2 | **Register page crash** | `register/page.tsx` Step 3 | New users cannot create accounts |
+   266→| C-3 | **Booking missing gender** | `book/[doctorId]/page.tsx` | All bookings fail with 400 |
+   267→| C-4 | **/book → 404** | Navbar, landing CTA | Primary CTA is dead link |
+   268→| C-5 | **Login fails silently** | `login/page.tsx` + `api/auth/login` | Demo credentials don't work, no error shown |
+   269→
+   270→### 🔴 HIGH (Major Feature Broken)
+   271→
+   272→| ID | Bug | Location | Impact |
+   273→|----|-----|----------|--------|
+   274→| H-1 | **Chat fromId === 'me'** | `appointments/[id]/page.tsx` | Patient messages appear on wrong side of chat |
+   275→| H-2 | **Landing search bar non-functional** | `page.tsx` | Most prominent UI element does nothing |
+   276→| H-3 | **Specialization cards not clickable** | `page.tsx` | Users can't browse by specialization |
+   277→| H-4 | **Doctor profile Book→protected route** | `doctors/[id]/page.tsx` | Unauthenticated users hit auth wall, no redirect |
+   278→| H-5 | **"Book Appointment" in doctor cards is dead** | `page.tsx` | Looks like button but is a `<span>` |
+   279→| H-6 | **Math.random() in specialization badges** | `page.tsx` | Different numbers on every render |
+   280→| H-7 | **8 broken footer links** | `public-footer.tsx` | Unprofessional, 8× 404 |
+   281→| H-8 | **Fallback doctor data mismatch** | `page.tsx` | Uses `doctorProfile` but API returns `doctor` |
+   282→
+   283→### 🟡 MEDIUM (Feature Impaired)
+   284→
+   285→| ID | Bug | Location | Impact |
+   286→|----|-----|----------|--------|
+   287→| M-1 | **Session cookie not httpOnly** | `api/auth/login/route.ts` | Session ID exposed to XSS |
+   288→| M-2 | **OTP exposed in toast** | `forgot-password/page.tsx` | Security issue |
+   289→| M-3 | **Demo credentials in source** | `login/page.tsx` | Security issue |
+   290→| M-4 | **N+1 queue position API calls** | `appointments/page.tsx` | Performance with many approved appointments |
+   291→| M-5 | **N+1 slot availability checks** | `book/[doctorId]/page.tsx` | 20+ parallel HTTP requests per date |
+   292→| M-6 | **Fake file upload** | `health-records/page.tsx` | No actual file handling, just metadata |
+   293→| M-7 | **Auth store name not refreshed** | `profile/page.tsx` | Header shows stale name after edit |
+   294→| M-8 | **No notification pagination** | `notifications/page.tsx` | Only page 1 loaded |
+   295→| M-9 | **No notification auto-refresh** | `dashboard-header.tsx` | New notifications don't appear |
+   296→| M-10 | **Hardcoded stat card trends** | `patient/page.tsx` | Trends never change |
+   297→| M-11 | **No pagination on doctors page** | `doctors/page.tsx` | All doctors loaded at once |
+   298→| M-12 | **No hospital detail page** | `hospitals/page.tsx` | Cards have no links |
+   299→| M-13 | **Register Terms/Privacy not links** | `register/page.tsx` | Look like links but are `<span>` |
+   300→| M-14 | **setTimeout(50ms) race condition** | `book/[doctorId]/page.tsx` | Fragile slot checking |
+   301→
+   302→### 🟢 LOW (Minor/Cosmetic)
+   303→
+   304→| ID | Bug | Location | Impact |
+   305→|----|-----|----------|--------|
+   306→| L-1 | Change Password uses `window.location.href` | `profile/page.tsx` | Full page reload instead of SPA nav |
+   307→| L-2 | Blog image uses URL input only | `blog/new/page.tsx` | No file upload |
+   308→| L-3 | Online indicator always green | `doctors/[id]/page.tsx` | Misleading |
+   309→| L-4 | Awards limited to 3 with no "show more" | `doctors/[id]/page.tsx` | Incomplete |
+   310→| L-5 | Dead imports in doctor profile page | `doctors/[id]/page.tsx` | Code cleanliness |
+   311→| L-6 | Anti-pattern `if (!mounted) setMounted` | `settings/page.tsx` | Code cleanliness |
+   312→| L-7 | About page counter doesn't animate | `about/page.tsx` | Feature advertised but not working |
+   313→
+   314→---
+   315→
+   316→## 7. Landing Page — Public-Facing Audit
+   317→
+   318→### Current State
+   319→
+   320→| Section | Status | Issues |
+   321→|---------|--------|--------|
+   322→| Hero + Search Bar | ⚠️ PARTIAL | Search bar has state but no handler — completely non-functional |
+   323→| "Find a Doctor" CTA | ✅ WORKS | Correctly links to `/doctors` |
+   324→| "Book Appointment" CTA | ❌ 404 | Links to `/book` which doesn't exist |
+   325→| Stats Counters | ❌ BROKEN | Shows "0+" because API returns 0 and fallback doesn't trigger properly |
+   326→| How It Works | ✅ WORKS | Informational only |
+   327→| Featured Doctors | ⚠️ PARTIAL | Shows fallback doctors with ₹0 fees, wrong data structure |
+   328→| Specializations | ❌ BROKEN | `Math.random()` for counts, cards not clickable |
+   329→| Why Choose Us | ✅ WORKS | Informational only |
+   330→| Testimonials | ✅ WORKS | Hardcoded but fine for MVP |
+   331→| Bottom CTA | ⚠️ PARTIAL | "Contact Us" works, "Find a Doctor" works |
+   332→
+   333→### Missing Features (vs PHP Original)
+   334→
+   335→| Feature | PHP Original | Current Status |
+   336→|---------|-------------|---------------|
+   337→| Doctor search from hero | Search bar → filtered doctor list | Search bar exists but non-functional |
+   338→| Specialization filtering | Click specialization → filtered list | Cards not clickable |
+   339→| Hospital showcase section | Hospital cards with link | Not present |
+   340→| Dynamic doctor count | Real DB counts | Uses `Math.random()` |
+   341→| Blog preview section | Latest 3 blog posts | Not on landing page |
+   342→
+   343→### Required Fixes
+   344→
+   345→1. **Search bar**: On submit, navigate to `/doctors?search={query}`
+   346→2. **"Book Appointment" CTA**: Change to link to `/doctors` OR create `/book` redirect
+   347→3. **Stats**: Ensure fallback data shows when API returns 0
+   348→4. **Featured Doctors**: Ensure fallback works, or hide section when 0 doctors
+   349→5. **Specializations**: Make cards clickable → `/doctors?specialization={name}`
+   350→6. **Math.random()**: Use `useMemo` to stabilize, or remove fake counts when 0 doctors
+   351→
+   352→---
+   353→
+   354→## 8. Auth Flow Audit
+   355→
+   356→### Login (`/login`)
+   357→
+   358→| Aspect | Status | Issue |
+   359→|--------|--------|-------|
+   360→| Form rendering | ✅ | Email + password + show/hide toggle |
+   361→| Demo credentials | ⚠️ | 7 roles shown but users don't exist in DB |
+   362→| Login API | ✅ | Validates email, bcrypt, status check |
+   363→| Error handling | ❌ | No error toast on 401 — user sees nothing |
+   364→| Remember me | ✅ | Cookie set with 7-day expiry |
+   365→| Redirect | ✅ | Goes to `/dashboard/{role}` |
+   366→| Session cookie | ❌ | Not httpOnly — security risk |
+   367→
+   368→### Register (`/register`)
+   369→
+   370→| Aspect | Status | Issue |
+   371→|--------|--------|-------|
+   372→| Step 1: Role Selection | ✅ | 6 roles, only Patient+Hospital allowed by API |
+   373→| Step 2: Personal Details | ✅ | Name, email, mobile, gender |
+   374→| Step 3: Password | ❌ CRASH | Client-side React nesting error |
+   375→| Password strength | ✅ | Visual strength meter |
+   376→| Terms checkbox | ❌ | Terms/Privacy text are `<span>`, not links |
+   377→| API restriction | ✅ | Only patient & hospital can self-register |
+   378→| Email verification | ❌ | No verification step |
+   379→
+   380→### Forgot Password (`/forgot-password`)
+   381→
+   382→| Aspect | Status | Issue |
+   383→|--------|--------|-------|
+   384→| OTP flow | ✅ | 3 steps: email → OTP → new password |
+   385→| OTP exposure | ❌ | OTP shown in toast message |
+   386→| Password requirements | ✅ | 4 checklist items |
+   387→
+   388→---
+   389→
+   390→## 9. Doctor Discovery — Public Pages Audit
+   391→
+   392→### Doctors Listing (`/doctors`)
+   393→
+   394→| Feature | Status | Details |
+   395→|---------|--------|--------|
+   396→| Search by name | ✅ | Debounced 300ms |
+   397→| Filter: Specialization | ✅ | 12 options from SPECIALIZATIONS constant |
+   398→| Filter: City | ✅ | Dynamic from API response |
+   399→| Filter: State | ✅ | Dynamic from API response |
+   400→| Doctor cards | ✅ | Avatar, name, spec, rating, city, fees |
+   401→| "Book Appointment" button | ⚠️ | Goes to doctor profile, not booking — misleading label |
+   402→| Pagination | ❌ | Loads ALL doctors |
+   403→| Sort options | ❌ | Only newest first |
+   404→| Experience display | ❌ | Available in data but not shown |
+   405→| Emergency badge | ❌ | Available in data but not shown |
+   406→
+   407→### Doctor Profile (`/doctors/[id]`)
+   408→
+   409→| Feature | Status | Details |
+   410→|---------|--------|--------|
+   411→| Full profile card | ✅ | Avatar, name, verified badge, spec, rating, fees |
+   412→| About section | ✅ | Doctor description |
+   413→| Key details grid | ✅ | Experience, education, registration, awards |
+   414→| Weekly schedule | ✅ | 7-day pill view with time ranges |
+   415→| Patient reviews | ✅ | Star distribution bars, individual reviews |
+   416→| Stat cards | ✅ | Patients, rating, appointments, fee |
+   417→| Related doctors | ✅ | Same specialization |
+   418→| "Book Appointment" CTA | ❌ | Links to PROTECTED dashboard route — unauthenticated users hit wall |
+   419→| "Video Call" button | ❌ | Also links to protected route |
+   420→| Online indicator | ❌ | Always green (hardcoded) |
+   421→| Awards "show more" | ❌ | Limited to 3, no expansion |
+   422→
+   423→---
+   424→
+   425→## 10. Patient Dashboard — Post-Login Audit
+   426→
+   427→### Dashboard Home (`/dashboard/patient`)
+   428→
+   429→| Feature | Status | Issue |
+   430→|---------|--------|-------|
+   431→| Stat cards (4) | ⚠️ | Shows data but trends are hardcoded |
+   432→| Upcoming appointments | ✅ | Max 3 with doctor info |
+   433→| Quick actions | ✅ | 4 action cards |
+   434→| Recent activity | ✅ | Colored timeline |
+   435→
+   436→### Appointments List (`/dashboard/patient/appointments`)
+   437→
+   438→| Feature | Status | Issue |
+   439→|---------|--------|-------|
+   440→| Status tabs with counts | ✅ | All/Pending/Approved/Visited/Canceled/Finished |
+   441→| Date range filter | ✅ | From/To date pickers |
+   442→| Cancel appointment | ✅ | With AlertDialog confirmation |
+   443→| Queue position | ✅ | For approved appointments |
+   444→| Prescription view | ✅ | Links to appointment detail |
+   445→| Queue API performance | ❌ | N+1 requests (one per approved appointment) |
+   446→
+   447→### Appointment Detail (`/dashboard/patient/appointments/[id]`) — 808 lines (largest page)
+   448→
+   449→| Feature | Status | Issue |
+   450→|---------|--------|-------|
+   451→| Doctor info card | ✅ | Full doctor details |
+   452→| Patient info card | ✅ | Gender, blood group, age, weight |
+   453→| Status timeline | ✅ | Visual vertical timeline |
+   454→| Prescription view | ✅ | Vitals, medicines, labels, suggestions |
+   455→| Print prescription | ✅ | Uses PrescriptionPrintView component |
+   456→| Chat with doctor | ❌ BUG | fromId === 'me' — messages on wrong side |
+   457→| Video call join | ✅ | Conditional on bookingMode and status |
+   458→| Re-book button | ✅ | For Visited/Finished appointments |
+   459→| Rate visit link | ✅ | Navigates to feedback page |
+   460→
+   461→### Book Appointment (`/dashboard/patient/book/[doctorId]`) — 741 lines
+   462→
+   463→| Feature | Status | Issue |
+   464→|---------|--------|-------|
+   465→| Doctor info card | ✅ | Full details with emergency badge |
+   466→| Calendar (schedule-aware) | ✅ | Disables non-schedule days, shows holidays |
+   467→| Slot selection | ✅ | Grid with available/unavailable states |
+   468→| InPerson/VideoCall toggle | ✅ | Mode selection |
+   469→| Booking summary | ✅ | Sticky sidebar with form |
+   470→| Gender field | ❌ CRITICAL | Missing from form — API requires it |
+   471→| Slot performance | ❌ | N+1 HTTP requests per slot |
+   472→| Race condition | ❌ | setTimeout(50ms) for slot checking |
+   473→
+   474→---
+   475→
+   476→## 11. Booking Flow — The Core Feature
+   477→
+   478→### Complete Booking Flow Analysis
+   479→
+   480→```
+   481→1. Patient discovers doctor via:
+   482→   a. Landing page "Find a Doctor" → /doctors
+   483→   b. Landing page featured doctor card → /doctors/[id]
+   484→   c. Navbar "Find Doctors" → /doctors
+   485→   d. Direct URL /doctors/[id]
+   486→
+   487→2. Patient views doctor profile → /doctors/[id]
+   488→   a. Sees schedule, reviews, fees
+   489→   b. Clicks "Book Appointment"
+   490→   c. → Gets redirected to /dashboard/patient/appointments?action=book&doctorId=X
+   491→   d. BUT: If not logged in, hits auth wall with NO redirect-to-login!
+   492→
+   493→3. Patient is on booking page → /dashboard/patient/book/[doctorId]
+   494→   a. Selects date from calendar
+   495→   b. Selects time slot
+   496→   c. Fills disease, state, city, notes
+   497→   d. CLICKS "Confirm & Book"
+   498→   e. → API returns 400 because `gender` is missing
+   499→   f. → BOOKING FAILS SILENTLY (no error handling visible?)
+   500→
+   501→4. If booking succeeded (hypothetically):
+   502→   a. Status: Pending
+   503→   b. Notification sent to patient, doctor, receptionist
+   504→   c. Patient sees in appointments list
+   505→   d. Doctor approves → status: Approve
+   506→   e. Doctor marks visited → status: Visited
+   507→   f. Doctor creates prescription
+   508→   g. Patient views prescription
+   509→   h. Patient rates the visit
+   510→```
+   511→
+   512→### What Needs to Work for a Complete Booking
+   513→
+   514→| Step | Current Status | Fix Needed |
+   515→|------|---------------|------------|
+   516→| 1. Doctor exists in DB | ❌ 0 doctors | Seed data |
+   517→| 2. Doctor discoverable | ❌ Empty listing | Seed data |
+   518→| 3. Patient can register | ❌ Page crashes | Fix React nesting error |
+   519→| 4. Patient can login | ❌ No users in DB | Seed data |
+   520→| 5. "Book" CTA works | ❌ Protected route, no redirect | Add login redirect or public booking |
+   521→| 6. Booking form complete | ❌ Missing gender | Add gender field |
+   522→| 7. Booking API succeeds | ❌ 400 due to gender | Fixed by #6 |
+   523→| 8. Appointment visible | ✅ | — |
+   524→| 9. Status changes work | ✅ | — |
+   525→| 10. Prescription viewable | ✅ | — |
+   526→| 11. Chat works | ❌ Wrong side for patient messages | Fix fromId comparison |
+   527→| 12. Rating works | ✅ | — |
+   528→
+   529→---
+   530→
+   531→## 12. Post-Booking Features Audit
+   532→
+   533→### Health Records (`/dashboard/patient/health-records`) — 732 lines
+   534→
+   535→| Feature | Status | Issue |
+   536→|---------|--------|-------|
+   537→| Visit summary stats | ✅ | Total visits, last visit, doctors, prescriptions |
+   538→| Past prescriptions list | ✅ | Scrollable with doctor info |
+   539→| Document categories | ✅ | 7 categories with filter tabs |
+   540→| Upload document | ⚠️ FAKE | Saves metadata only, no actual file |
+   541→| Download document | ❌ | Never works (no fileUrl from upload) |
+   542→| Delete document | ✅ | With confirmation |
+   543→
+   544→### Feedback (`/dashboard/patient/feedback`) — 419 lines
+   545→
+   546→| Feature | Status | Issue |
+   547→|---------|--------|-------|
+   548→| Completed visit cards | ✅ | With doctor info, date, status |
+   549→| Overall star rating | ✅ | 1-5 with labels |
+   550→| Sub-ratings (3) | ✅ | Consultation, Wait Time, Staff |
+   551→| Written review | ✅ | Optional textarea |
+   552→| Recommend toggle | ✅ | Would you recommend? |
+   553→| Anonymous toggle | ✅ | Submit anonymously |
+   554→| Already-rated indicator | ✅ | Green badge, reduced opacity |
+   555→
+   556→### Notifications (`/dashboard/patient/notifications`) — 212 lines
+   557→
+   558→| Feature | Status | Issue |
+   559→|---------|--------|-------|
+   560→| List with unread badges | ✅ | Blue dot, teal background for unread |
+   561→| Mark individual as read | ✅ | Click notification → optimistic update |
+   562→| Mark all as read | ✅ | Button with optimistic update |
+   563→| Header bell icon | ✅ | Unread count badge, dropdown with latest 5 |
+   564→| Pagination | ❌ | API supports it, frontend doesn't |
+   565→| Auto-refresh | ❌ | No polling or WebSocket |
+   566→
+   567→### Blog (`/dashboard/patient/blog`) — 3 pages
+   568→
+   569→| Feature | Status | Issue |
+   570→|---------|--------|-------|
+   571→| Post list with stats | ✅ | Total, Published, Drafts |
+   572→| Create new post | ✅ | Title, content, video link, image URL, status |
+   573→| Edit post | ✅ | Pre-filled form |
+   574→| Delete post | ✅ | With AlertDialog |
+   575→| Image upload | ❌ | URL input only |
+   576→
+   577→### Profile (`/dashboard/patient/profile`) — 343 lines
+   578→
+   579→| Feature | Status | Issue |
+   580→|---------|--------|-------|
+   581→| Avatar upload | ✅ | Real file upload with type/size validation |
+   582→| Edit name/mobile/gender | ✅ | Toggle edit mode |
+   583→| Email read-only | ✅ | With shield icon |
+   584→| Change Password link | ⚠️ | Uses `window.location.href` instead of `router.push` |
+   585→| Header name update | ❌ | Auth store not refreshed after save |
+   586→
+   587→### Settings (`/dashboard/patient/settings`) — 194 lines
+   588→
+   589→| Feature | Status | Issue |
+   590→|---------|--------|-------|
+   591→| Theme switcher | ✅ | Light/Dark/System |
+   592→| Notification preferences | ✅ | 3 toggles with save |
+   593→| Privacy info | ✅ | Links to profile and change password |
+   594→| About card | ✅ | Version info |
+   595→
+   596→---
+   597→
+   598→## 13. Missing Pages & Features vs PHP Original
+   599→
+   600→### Pages That Don't Exist
+   601→
+   602→| Page | PHP Had It? | Priority | Notes |
+   603→|------|-------------|----------|-------|
+   604→| `/book` (public booking) | No (PHP used doctor profile) | HIGH | Referenced from 3 prominent locations |
+   605→| `/privacy` | No | LOW | Referenced in footer |
+   606→| `/terms` | No | LOW | Referenced in footer |
+   607→| `/cookies` | No | LOW | Referenced in footer |
+   608→| `/join` (doctor registration) | No (doctors registered by admin) | MEDIUM | Referenced in footer |
+   609→
+   610→### Features That PHP Had But Are Missing
+   611→
+   612→| Feature | PHP Description | Priority | Notes |
+   613→|---------|---------------|----------|-------|
+   614→| Appointment export | PDF/CSV export of appointments | LOW | Nice-to-have |
+   615→| SMS notifications | Twilio SMS on booking | ⬜ SKIP | No SMS provider configured |
+   616→| Email notifications | Email on status change | MEDIUM | Need email provider |
+   617→| Doctor search from hero | Search → filtered list | HIGH | Search bar exists but dead |
+   618→| Specialization filtering | Click spec → doctor list | HIGH | Cards exist but not clickable |
+   619→| File upload for docs | Real file upload with storage | MEDIUM | Currently metadata-only |
+   620→
+   621→---
+   622→
+   623→## 14. Development Phases (Ordered by Impact)
+   624→
+   625→### Phase 0: Foundation (CRITICAL — Do First)
+   626→> Without this, nothing works.
+   627→
+   628→#### 0.1: Database Seed Script
+   629→- Create `prisma/seed.ts`
+   630→- Seed: 8 doctors + profiles + schedules + holidays
+   631→- Seed: 2 hospitals + profiles
+   632→- Seed: 15 patients
+   633→- Seed: 40 bookings (all statuses)
+   634→- Seed: 10 prescriptions with medicines
+   635→- Seed: 10 ratings with reviews
+   636→- Seed: 20 notifications
+   637→- Seed: 5 blog posts
+   638→- Seed: Master data (doctor types, disease types)
+   639→- Add `
+   640→#### 0.2: Fix Register Page Crash
+   641→- **File**: `src/app/register/page.tsx`
+   642→- **Bug**: Client-side React error on Step 3 — likely `<p>` containing `<div>` (skeleton)
+   643→- **Fix**: Audit JSX nesting, ensure no block elements inside inline elements
+   644→- **Verify**: Register a test patient successfully
+   645→
+   646→#### 0.3: Fix Landing Page Stats Display
+   647→- **File**: `src/app/page.tsx`
+   648→- **Bug**: Shows "0+" when API returns 0 — fallback doesn't trigger (API returns 200 with 0, not error)
+   649→- **Fix**: Change fallback logic to trigger when `data.doctorCount === 0` too
+   650→- **Also**: Fix `Math.random()` in specialization badges
+   651→- **Also**: Fix fallback doctor data structure (`doctorProfile` → `doctor`)
+   652→
+   653→---
+   654→
+   655→### Phase 1: Fix the Patient Journey (HIGH)
+   656→> Make the core patient flow actually work end-to-end.
+   657→
+   658→#### 1.1: Fix Booking Form Missing Gender
+   659→- **File**: `src/app/dashboard/patient/book/[doctorId]/page.tsx`
+   660→- **Fix**: Add gender field (auto-populated from patient profile) OR add to form
+   661→- **Also**: Add error display when booking API returns error
+   662→
+   663→#### 1.2: Fix /book 404
+   664→- **Option A**: Create `/book` as a redirect to `/doctors` with a toast "Please select a doctor first"
+   665→- **Option B**: Create `/book` as a public page that shows doctor selection
+   666→- **Recommendation**: Option A (simpler, matches "Find a Doctor" flow)
+   667→
+   668→#### 1.3: Fix Landing Page Interactive Elements
+   669→- **Search bar**: `onSubmit` → `router.push(\
+   670→```/doctors?search=${query}\
+   671→```)`
+   672→- **Specialization cards**: Wrap in Link → `/doctors?specialization={name}`
+   673→- **"Book Appointment" in doctor cards**: Wrap in Link → `/doctors/[id]`
+   674→- **"View Profile" button**: Wrap in Link → `/doctors/[id]` (parent card is already a link, but button should work standalone)
+   675→
+   676→#### 1.4: Fix Doctor Profile Booking CTA for Unauthenticated Users
+   677→- **File**: `src/app/doctors/[id]/page.tsx`
+   678→- **Current**: Links to `/dashboard/patient/appointments?action=book&doctorId=X` (protected)
+   679→- **Fix**: Check `isAuthenticated` — if false, redirect to `/login?redirect=/doctors/[id]`
+   680→- **Also**: Use the already-imported `isAuthenticated` and `user` from auth store (currently dead imports!)
+   681→
+   682→#### 1.5: Fix Login Error Handling
+   683→- **File**: `src/app/login/page.tsx`
+   684→- **Current**: On 401, nothing happens — stays on login page
+   685→- **Fix**: Show error toast "Invalid email or password" on API failure
+   686→
+   687→#### 1.6: Fix Chat Message fromId Bug
+   688→- **File**: `src/app/dashboard/patient/appointments/[id]/page.tsx`
+   689→- **Current**: `msg.fromId === 'me'` — compares to string 'me'
+   690→- **Fix**: Compare with actual logged-in user ID from auth store
+   691→
+   692→#### 1.7: Fix Broken Footer Links
+   693→- **File**: `src/components/layout/public-footer.tsx`
+   694→- **For Doctors section**: Remove or replace with working links
+   695→  - "Join as Doctor" → `/register` (or remove)
+   696→  - "Doctor Dashboard" → remove (auth-protected)
+   697→  - "Prescriptions" → remove
+   698→  - "Schedule" → remove
+   699→- **Legal section**: Create simple placeholder pages for Privacy, Terms, Cookies
+   700→  - OR: Change to `#` with tooltip "Coming soon"
+   701→
+   702→---
+   703→
+   704→### Phase 2: Performance & Polish (MEDIUM)
+   705→> Fix N+1 queries, add missing UX.
+   706→
+   707→#### 2.1: Batch Queue Position API
+   708→- **Current**: N separate `GET /api/patient/bookings/queue?bookingId=X` calls
+   709→- **Fix**: New `POST /api/patient/bookings/queue/batch` accepting `{bookingIds: string[]}`
+   710→- **Frontend**: Single call with all approved booking IDs
+   711→
+   712→#### 2.2: Batch Slot Availability API
+   713→- **Current**: N separate `GET /api/patient/bookings/check-slot?doctorId=X&date=Y&timeSlot=Z` calls
+   714→- **Fix**: New `POST /api/patient/bookings/check-slots` accepting `{doctorId, date, slots: string[]}`
+   715→- **Frontend**: Single call with all slots for selected date
+   716→- **Also**: Remove `setTimeout(50ms)` race condition
+   717→
+   718→#### 2.3: Notification Auto-Refresh
+   719→- **File**: `src/components/dashboard/dashboard-header.tsx`
+   720→- **Fix**: Add `refetchInterval: 30_000` to notification query
+   721→- **Also**: Add pagination to notifications page (`useInfiniteQuery` or Load More button)
+   722→
+   723→#### 2.4: Fix Profile Save → Header Name Update
+   724→- **File**: `src/app/dashboard/patient/profile/page.tsx`
+   725→- **Fix**: After successful PUT, update Zustand auth store: `useAuthStore.getState().setUser({...user, name: newName})`
+   726→
+   727→#### 2.5: Add Pagination to Doctors Listing
+   728→- **File**: `src/app/doctors/page.tsx`
+   729→- **API**: Already supports `limit` and `offset` params
+   730→- **Frontend**: Add "Load More" button or pagination controls
+   731→
+   732→#### 2.6: Remove Hardcoded Stat Trends
+   733→- **File**: `src/app/dashboard/patient/page.tsx`
+   734→- **API**: Modify `/api/dashboard/patient/stats` to include trend data
+   735→- **Frontend**: Use API trends instead of hardcoded values
+   736→
+   737→---
+   738→
+   739→### Phase 3: Security Hardening (MEDIUM)
+   740→> Fix security issues.
+   741→
+   742→#### 3.1: Make Session Cookie httpOnly
+   743→- **File**: `src/app/api/auth/login/route.ts`
+   744→- **Change**: `httpOnly: true` in cookie options
+   745→- **Note**: Client can't read cookie anymore — session check via API only (already done)
+   746→
+   747→#### 3.2: Remove OTP from Toast
+   748→- **File**: `src/app/forgot-password/page.tsx`
+   749→- **Change**: Remove `(Demo: ${data.otp})` from toast message
+   750→
+   751→#### 3.3: Hide Demo Credentials in Production
+   752→- **File**: `src/app/login/page.tsx`
+   753→- **Change**: Wrap demo section in `{process.env.NODE_ENV === 'development' && ...}`
+   754→
+   755→---
+   756→
+   757→### Phase 4: Enhanced Features (LOW)
+   758→> Nice-to-have improvements.
+   759→
+   760→#### 4.1: Real File Upload for Medical Documents
+   761→- Replace metadata-only upload with actual file handling
+   762→- Store files in `public/uploads/documents/` (same pattern as avatar)
+   763→- Add file picker with drag-and-drop
+   764→
+   765→#### 4.2: Blog Image Upload
+   766→- Add image upload to blog create/edit forms
+   767→- Store in `public/uploads/blog/`
+   768→
+   769→#### 4.3: Landing Page Blog Preview
+   770→- Add "Latest Articles" section to landing page
+   771→- Show 3 most recent published blog posts
+   772→
+   773→#### 4.4: Hospital Detail Page
+   774→- Create `/hospitals/[id]` with hospital info and linked doctors
+   775→- Link hospital cards on `/hospitals` page
+   776→
+   777→#### 4.5: Email Notifications
+   778→- Configure email provider (Resend/SendGrid)
+   779→- Send email on: booking created, status changed, prescription created
+   780→
+   781→#### 4.6: Legal Pages
+   782→- Create simple `/privacy`, `/terms`, `/cookies` placeholder pages
+   783→
+   784→---
+   785→
+   786→## 15. Architecture Recommendations
+   787→
+   788→### 15.1 Immediate Priorities (This Week)
+   789→
+   790→```
+   791→1. Seed database ← NOTHING WORKS WITHOUT THIS
+   792→2. Fix register crash ← NEW USERS CAN'T SIGN UP
+   793→3. Fix booking gender bug ← PATIENTS CAN'T BOOK
+   794→4. Fix /book 404 ← PRIMARY CTA IS DEAD
+   795→5. Fix login error toast ← FAILED LOGIN SHOWS NOTHING
+   796→6. Fix landing search + specialization clicks ← DISCOVERY IS BROKEN
+   797→```
+   798→
+   799→### 15.2 Public Page Architecture
+   800→
+   801→```
+   802→/src/app
+   803→├── page.tsx                          (Landing — FIX: search, specs, CTAs, stats)
+   804→├── doctors/
+   805→│   ├── page.tsx                     (Listing — ADD: pagination, sort)
+   806→│   └── [id]/page.tsx                (Profile — FIX: CTA for unauthenticated)
+   807→├── hospitals/
+   808→│   ├── page.tsx                     (Listing — ADD: detail page links)
+   809→│   └── [id]/page.tsx                (NEW — Hospital detail)
+   810→├── login/page.tsx                   (FIX: error toast)
+   811→├── register/page.tsx                (FIX: Step 3 crash)
+   812→├── forgot-password/page.tsx         (FIX: OTP exposure)
+   813→├── contact/page.tsx                 (WORKS)
+   814→├── about/page.tsx                   (FIX: counter animation)
+   815→├── blog/
+   816→│   ├── page.tsx                     (WORKS)
+   817→│   └── [permalink]/page.tsx         (WORKS)
+   818→├── book/page.tsx                    (NEW — redirect to /doctors)
+   819→├── privacy/page.tsx                 (NEW — placeholder)
+   820→├── terms/page.tsx                   (NEW — placeholder)
+   821→└── cookies/page.tsx                 (NEW — placeholder)
+   822→```
+   823→
+   824→### 15.3 Patient Dashboard Architecture (Post-Login)
+   825→
+   826→```
+   827→/src/app/dashboard/patient
+   828→├── page.tsx                          (FIX: hardcoded trends)
+   829→├── appointments/
+   830→│   ├── page.tsx                     (FIX: N+1 queue API)
+   831→│   └── [id]/page.tsx                (FIX: chat fromId bug)
+   832→├── book/[doctorId]/page.tsx         (FIX: gender, N+1 slots, race condition)
+   833→├── health-records/page.tsx          (ENHANCE: real file upload)
+   834→├── feedback/page.tsx                (WORKS ✅)
+   835→├── notifications/page.tsx           (ADD: pagination, auto-refresh)
+   836→├── blog/
+   837→│   ├── page.tsx                     (WORKS ✅)
+   838→│   ├── new/page.tsx                 (ENHANCE: image upload)
+   839→│   └── [id]/edit/page.tsx           (ENHANCE: image upload)
+   840→├── profile/page.tsx                 (FIX: auth store update, password link)
+   841→└── settings/page.tsx                (WORKS ✅)
+   842→```
+   843→
+   844→### 15.4 API Architecture — New/Modified Endpoints
+   845→
+   846→```
+   847→NEW ENDPOINTS:
+   848→├── POST /api/patient/bookings/queue/batch     (batch queue positions)
+   849→├── POST /api/patient/bookings/check-slots     (batch slot availability)
+   850→
+   851→MODIFIED ENDPOINTS:
+   852→├── GET /api/dashboard/patient/stats            (ADD: trend data)
+   853→├── GET /api/public/stats                      (ENSURE: fallback when 0)
+   854→```
+   855→
+   856→---
+   857→
+   858→## Summary: What to Build and In What Order
+   859→
+   860→| Priority | Phase | Items | Impact |
+   861→|----------|-------|-------|--------|
+   862→| 🔴 CRITICAL | Phase 0 | Seed DB, Fix register crash, Fix landing stats | App becomes visible and usable |
+   863→| 🔴 HIGH | Phase 1 | Fix booking gender, /book 404, landing interactivity, login error, chat bug, footer links | Complete patient journey works |
+   864→| 🟡 MEDIUM | Phase 2 | Batch APIs, notification refresh, pagination, profile fix, trends | Performance and UX polish |
+   865→| 🟡 MEDIUM | Phase 3 | httpOnly cookie, OTP fix, hide demo creds | Security |
+   866→| 🟢 LOW | Phase 4 | File upload, blog images, hospital detail, email, legal pages | Enhanced features |
+   867→
+   868→**Total Bugs to Fix**: 5 Critical + 8 High + 14 Medium + 7 Low = 34 issues
+   869→**Total New Pages**: ~5 (book redirect, hospital detail, privacy, terms, cookies)
+   870→**Total New APIs**: 2 (batch queue, batch slots)
+   871→
+   872→---
+   873→
+   874→*End of Patient Module Architecture & Development Plan*
+   875→
