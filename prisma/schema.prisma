@@ -391,6 +391,7 @@ model Post {
   permalink String   @unique @default("")
   content   String   @default("")
   blogImg   String   @default("")
+  videoLink String   @default("")
   type      String   @default("Blog") // Blog, News
   status    String   @default("Draft") // Published, Draft
   authorId  String

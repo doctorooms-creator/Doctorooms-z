@@ -58,7 +58,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Set session cookie — NOT httpOnly so client JS can also read it
+    // Set session cookie (not httpOnly so dashboard layout can read it client-side for role-based routing)
+    // TODO(Phase 5): Migrate to random session tokens + middleware.ts for server-side auth
     response.cookies.set('doctorooms_session', user.id, {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',

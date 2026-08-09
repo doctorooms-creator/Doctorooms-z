@@ -66,6 +66,7 @@ export async function PUT(
     if (title !== undefined) updateData.title = title
     if (content !== undefined) updateData.content = content
     if (blogImg !== undefined) updateData.blogImg = blogImg
+    if (videoLink !== undefined) updateData.videoLink = videoLink
     if (status !== undefined) updateData.status = status
 
     // Regenerate permalink if title changed

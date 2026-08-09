@@ -109,7 +109,11 @@ export default function PatientProfilePage() {
     onSuccess: () => {
       toast.success('Profile updated successfully')
       queryClient.invalidateQueries({ queryKey: ['patient-profile'] })
-      // Name updated in store would happen via re-fetch
+      // Update Zustand auth store so header shows new name immediately
+      const store = useAuthStore.getState()
+      if (store.user) {
+        useAuthStore.getState().setUser({ ...store.user, name: form.name, mobileNo: form.mobileNo, gender: form.gender })
+      }
       setIsEditing(false)
     },
     onError: () => {

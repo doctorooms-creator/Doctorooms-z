@@ -35,6 +35,7 @@ import {
 import { format, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/lib/auth-store'
 import { PrescriptionPrintView, type PrescriptionPrintData } from '@/components/prescription/print-view'
 
 // ==================== TYPES ====================
@@ -74,6 +75,7 @@ export default function AppointmentDetailPage() {
   const params = useParams()
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { user } = useAuthStore()
   const id = params.id as string
   const [chatMessage, setChatMessage] = useState('')
   const [printRxIndex, setPrintRxIndex] = useState<number | null>(null)
@@ -130,11 +132,11 @@ export default function AppointmentDetailPage() {
           ...(old?.messages || []),
           {
             id: `temp-${Date.now()}`,
-            fromId: 'me',
+            fromId: user.id,
             message: msg,
             status: 'UNREAD',
             createdAt: new Date().toISOString(),
-            sender: { id: 'me', name: 'You', profileImg: '' },
+            sender: { id: user.id, name: user.name || 'You', profileImg: user.profileImg || '' },
           },
         ],
       }))
@@ -531,7 +533,7 @@ export default function AppointmentDetailPage() {
                   </div>
                 ) : (
                   chatMessages.map((msg: ChatMessage) => {
-                    const isMe = msg.fromId === 'me'
+                    const isMe = msg.fromId === user.id
                     return (
                       <motion.div
                         key={msg.id}

@@ -1300,3 +1300,22 @@ Stage Summary:
 - Development order: Patient → Doctor+Reception → Supporting → Admin → Hardening
 - Estimated effort: 6 phases × 2-3 sessions = 12-18 focused development sessions
 - Immediate priorities: Seed DB, fix 5 critical patient bugs, secure session cookie
+
+---
+Task ID: p0-seed
+Agent: full-stack-developer
+Task: Create comprehensive database seed script
+
+Work Log:
+- Read existing prisma/seed.ts, prisma/schema.prisma, and worklog.md to understand current state
+- Wrote comprehensive prisma/seed.ts with seed data for all 16 required entity types
+- Used PrismaClient directly (without query logging) for fast execution
+- Ran seed script successfully - all data created
+- Verified data counts match requirements
+
+Stage Summary:
+- Produced: prisma/seed.ts
+- Seeded: 8 doctors, 15 patients, 2 hospitals, 3 receptionists, 40 bookings (10 Pending, 8 Approve, 10 Visited, 5 Finish, 4 Canceled, 3 Extend), 10 prescriptions with medicines/labels/suggestions, 10 doctor ratings, 25 notifications, 7 blog posts (5 Published, 2 Draft), 5 doctor type masters, 10 disease masters, 20 chat messages, 5 medical documents, 44 doctor schedules, 20 doctor holidays, 52 doctor medicines
+- All passwords hashed with bcrypt ("123456")
+- Script is idempotent: clears all data except sliders on each run
+

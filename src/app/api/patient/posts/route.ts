@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
         permalink,
         content: content || '',
         blogImg: blogImg || '',
+        videoLink: videoLink || '',
         type: 'Blog',
         status: status || 'Draft',
         authorId: user.id,

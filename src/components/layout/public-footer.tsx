@@ -10,16 +10,16 @@ const QUICK_LINKS = [
 ]
 
 const DOCTOR_LINKS = [
-  { label: 'Join as Doctor', href: '/join' },
-  { label: 'Doctor Dashboard', href: '/dashboard' },
-  { label: 'Prescriptions', href: '/prescriptions' },
-  { label: 'Schedule', href: '/schedule' },
+  { label: 'Find Doctors', href: '/doctors' },
+  { label: 'Hospitals', href: '/hospitals' },
+  { label: 'Blog', href: '/blog' },
+  { label: 'Contact Us', href: '/contact' },
 ]
 
 const LEGAL_LINKS = [
-  { label: 'Privacy Policy', href: '/privacy' },
-  { label: 'Terms of Service', href: '/terms' },
-  { label: 'Cookie Policy', href: '/cookies' },
+  { label: 'About Us', href: '/about' },
+  { label: 'Contact', href: '/contact' },
+  { label: 'Find Doctors', href: '/doctors' },
 ]
 
 const SOCIAL_LINKS = [
@@ -82,10 +82,10 @@ export function PublicFooter() {
             </ul>
           </div>
 
-          {/* Col 3: For Doctors */}
+          {/* Col 3: Resources */}
           <div>
             <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">
-              For Doctors
+              Resources
             </h3>
             <ul className="space-y-3">
               {DOCTOR_LINKS.map((link) => (
@@ -101,10 +101,10 @@ export function PublicFooter() {
             </ul>
           </div>
 
-          {/* Col 4: Legal */}
+          {/* Col 4: Company */}
           <div>
             <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4">
-              Legal
+              Company
             </h3>
             <ul className="space-y-3">
               {LEGAL_LINKS.map((link) => (

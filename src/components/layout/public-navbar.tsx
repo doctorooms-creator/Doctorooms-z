@@ -68,7 +68,7 @@ export function PublicNavbar() {
             <Link href="/login">Login</Link>
           </Button>
           <Button className="bg-teal-600 hover:bg-teal-700 text-white" asChild>
-            <Link href="/book">Book Appointment</Link>
+            <Link href="/doctors">Book Appointment</Link>
           </Button>
         </div>
 
@@ -119,7 +119,7 @@ export function PublicNavbar() {
                     <Link href="/login" onClick={() => setOpen(false)}>Login</Link>
                   </Button>
                   <Button className="bg-teal-600 hover:bg-teal-700 text-white" asChild>
-                    <Link href="/book" onClick={() => setOpen(false)}>Book Appointment</Link>
+                    <Link href="/doctors" onClick={() => setOpen(false)}>Book Appointment</Link>
                   </Button>
                 </div>
               </div>

@@ -180,9 +180,10 @@ const fallbackDoctors: Doctor[] = [
     id: '1',
     name: 'Dr. Priya Sharma',
     profileImg: null,
-    doctorProfile: {
+    doctor: {
       specialization: 'Cardiologist',
       city: 'Mumbai',
+      state: null,
       fees: 800,
       experience: 12,
       isEmergency: true,
@@ -192,9 +193,10 @@ const fallbackDoctors: Doctor[] = [
     id: '2',
     name: 'Dr. Rajesh Kumar',
     profileImg: null,
-    doctorProfile: {
+    doctor: {
       specialization: 'Dermatologist',
       city: 'Delhi',
+      state: null,
       fees: 600,
       experience: 8,
       isEmergency: false,
@@ -204,9 +206,10 @@ const fallbackDoctors: Doctor[] = [
     id: '3',
     name: 'Dr. Anita Desai',
     profileImg: null,
-    doctorProfile: {
+    doctor: {
       specialization: 'Pediatrician',
       city: 'Bangalore',
+      state: null,
       fees: 500,
       experience: 15,
       isEmergency: false,
@@ -388,7 +391,7 @@ export default function HomePage() {
                   className="border-teal-600 text-teal-600 hover:bg-teal-50 dark:border-teal-400 dark:text-teal-400 dark:hover:bg-teal-950/30"
                   asChild
                 >
-                  <Link href="/book">Book Appointment</Link>
+                  <Link href="/doctors">Book Appointment</Link>
                 </Button>
               </div>
             </motion.div>
@@ -596,7 +599,7 @@ export default function HomePage() {
                     </div>
                     <h3 className="text-sm font-semibold text-gray-900 dark:text-white sm:text-base">{spec.name}</h3>
                     <Badge variant="secondary" className="text-xs">
-                      {Math.floor(Math.random() * 10) + 3} doctors
+                      {specDisplay.findIndex((s) => s.name === spec.name) + 3} doctors
                     </Badge>
                   </CardContent>
                 </Card>

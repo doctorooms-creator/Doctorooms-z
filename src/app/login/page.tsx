@@ -34,13 +34,13 @@ import Link from 'next/link';
 import { useAuthStore } from '@/lib/auth-store';
 
 const DEMO_CREDENTIALS = [
-  { email: 'admin@doctorooms.com', password: 'admin123', role: 'Admin', icon: Shield, color: 'border-red-400 bg-red-50 dark:bg-red-950/30' },
-  { email: 'rajesh@doctorooms.com', password: 'doctor123', role: 'Doctor', icon: UserCog, color: 'border-teal-400 bg-teal-50 dark:bg-teal-950/30' },
-  { email: 'rahul@doctorooms.com', password: 'patient123', role: 'Patient', icon: Heart, color: 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30' },
-  { email: 'city@doctorooms.com', password: 'hospital123', role: 'Hospital', icon: Building2, color: 'border-amber-400 bg-amber-50 dark:bg-amber-950/30' },
-  { email: 'meera@doctorooms.com', password: 'receptionist123', role: 'Receptionist', icon: HeadphonesIcon, color: 'border-pink-400 bg-pink-50 dark:bg-pink-950/30' },
-  { email: 'vikram@doctorooms.com', password: 'assistant123', role: 'Assistant', icon: UserCheck, color: 'border-violet-400 bg-violet-50 dark:bg-violet-950/30' },
-  { email: 'kavita@doctorooms.com', password: 'pharmacist123', role: 'Pharmacist', icon: Pill, color: 'border-orange-400 bg-orange-50 dark:bg-orange-950/30' },
+  { email: 'admin@doctorooms.com', password: '123456', role: 'Admin', icon: Shield, color: 'border-red-400 bg-red-50 dark:bg-red-950/30' },
+  { email: 'rajesh.sharma@doctorooms.com', password: '123456', role: 'Doctor', icon: UserCog, color: 'border-teal-400 bg-teal-50 dark:bg-teal-950/30' },
+  { email: 'rahul.v@doctorooms.com', password: '123456', role: 'Patient', icon: Heart, color: 'border-emerald-400 bg-emerald-50 dark:bg-emerald-950/30' },
+  { email: 'city.general@doctorooms.com', password: '123456', role: 'Hospital', icon: Building2, color: 'border-amber-400 bg-amber-50 dark:bg-amber-950/30' },
+  { email: 'meera.d@doctorooms.com', password: '123456', role: 'Receptionist', icon: HeadphonesIcon, color: 'border-pink-400 bg-pink-50 dark:bg-pink-950/30' },
+  { email: 'vikram.p@doctorooms.com', password: '123456', role: 'Assistant', icon: UserCheck, color: 'border-violet-400 bg-violet-50 dark:bg-violet-950/30' },
+  { email: 'kavitha.d@doctorooms.com', password: '123456', role: 'Pharmacist', icon: Pill, color: 'border-orange-400 bg-orange-50 dark:bg-orange-950/30' },
 ];
 
 const fadeIn = {
@@ -80,10 +80,10 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-      // Store user in Zustand (memory) + redirect
+      // Store user in Zustand (memory) + redirect using full navigation to avoid React 19 state batching issues with router.push
       setUser(data.user);
       toast.success(`Welcome back, ${data.user.name}!`);
-      router.push(`/dashboard/${data.user.role}`);
+      window.location.href = `/dashboard/${data.user.role}`;
     } catch {
       toast.error('Network error. Please try again.');
       setLoading(false);

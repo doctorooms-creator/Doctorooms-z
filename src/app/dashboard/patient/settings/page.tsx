@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -50,10 +50,13 @@ function ThemeOption({ value, label, description, icon: Icon, currentTheme, onSe
 function SettingsContent({ serverSettings }: { serverSettings: UserSettings }) {
   const { theme, setTheme } = useTheme()
   const queryClient = useQueryClient()
-  const [mounted, setMounted] = useState(false)
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  )
   const [settings, setSettings] = useState(serverSettings)
   const [hasChanges, setHasChanges] = useState(false)
-  if (!mounted) setMounted(true)
 
   const updateMutation = useMutation({
     mutationFn: (s: UserSettings) =>

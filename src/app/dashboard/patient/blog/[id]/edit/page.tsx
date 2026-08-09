@@ -21,6 +21,7 @@ interface BlogPost {
   title: string
   content: string
   blogImg: string | null
+  videoLink: string | null
   status: 'Published' | 'Draft'
   createdAt: string
   updatedAt: string
@@ -42,7 +43,7 @@ function EditBlogForm({ post, id }: { post: BlogPost; id: string }) {
 
   const [title, setTitle] = useState(post.title || '')
   const [content, setContent] = useState(post.content || '')
-  const [videoLink, setVideoLink] = useState('')
+  const [videoLink, setVideoLink] = useState(post.videoLink || '')
   const [blogImg, setBlogImg] = useState(post.blogImg || '')
   const [status, setStatus] = useState<'Published' | 'Draft'>(post.status || 'Draft')
 
