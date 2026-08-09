@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -90,83 +90,34 @@ export default function WalkInPage() {
     refetchInterval: 15_000,
   })
 
-  // Fetch doctor schedule for available slots
-  const { data: scheduleData } = useQuery<{ doctorId: string; userId: string; schedules: ScheduleSlot[] }>({
+  // Fetch doctor schedule via the receptionist schedule API (handles doctorId lookup internally)
+  const { data: scheduleResponse } = useQuery<{
+    schedules: (ScheduleSlot & { startTime: string; endTime: string; slotDuration: number })[] | null
+    todayName: string
+  }>({
     queryKey: ['walkin-doctor-schedule'],
-    queryFn: async () => {
-      // We need to get the doctor's userId to fetch schedule
-      // Use the queue data which includes it indirectly, or use a separate approach
-      // The schedule API is public and works with doctorId or userId
-      // We'll use the queue endpoint's response pattern - but we need doctor info
-      // Let's fetch from a helper approach: get the receptionist's doctor schedule
-      const res = await fetch('/api/dashboard/receptionist/pending-bookings')
-      const data = await res.json()
-      // pending-bookings returns bookings with doctorId, we can get the doctorUserId from the first booking
-      // Actually, we need a different approach. Let's use the check-slot API pattern
-      // For now, fetch schedule by trying to get the doctor info from queue context
-      return data.bookings?.[0]?.doctorId
-        ? fetch(`/api/doctors/${data.bookings[0].doctorId}/schedule`).then((r) => r.json())
-        : null
-    },
-    enabled: false, // We'll trigger this differently
+    queryFn: () =>
+      fetch('/api/dashboard/receptionist/schedule').then((r) => r.json()),
   })
 
-  // Actually, let's fetch available slots more efficiently
-  // We'll derive available slots from the queue data and schedule
-  const [availableSlots, setAvailableSlots] = useState<string[]>([])
+  // Compute available slots from schedule and queue data
+  const availableSlots = (() => {
+    if (!scheduleResponse?.schedules || !queueData) return []
 
-  // Fetch doctor schedule and compute available slots
-  useEffect(() => {
-    async function loadSlots() {
-      try {
-        // Get today's day name
-        const today = new Date()
-        const dayName = today.toLocaleDateString('en-US', { weekday: 'long' })
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    const todaySchedule = scheduleResponse.schedules.find(
+      (s) => s.day === scheduleResponse.todayName
+    )
 
-        // We need the doctorId. Fetch from pending-bookings or queue.
-        // Queue data doesn't return doctorId, so let's use a small helper.
-        const queueRes = await fetch('/api/dashboard/receptionist/walk-in')
-        const queueJson = await queueRes.json()
+    if (!todaySchedule?.timeSlots?.length) return []
 
-        // Get the first booking's appointmentNo to derive doctorId, or use pending bookings
-        // Better approach: get from pending-bookings which has doctorId in each booking
-        const pbRes = await fetch('/api/dashboard/receptionist/pending-bookings')
-        const pbJson = await pbRes.json()
-        const doctorId = pbJson.bookings?.[0]?.doctorId
+    const bookedSlots = new Set(
+      queueData.queue
+        .filter((q: QueueItem) => q.timeSlot)
+        .map((q: QueueItem) => q.timeSlot)
+    )
 
-        if (!doctorId) return
-
-        // Fetch schedule
-        const schRes = await fetch(`/api/doctors/${doctorId}/schedule`)
-        const schJson = await schRes.json()
-
-        const todaySchedule = schJson.schedules?.find(
-          (s: ScheduleSlot) => s.day === dayName
-        )
-
-        if (!todaySchedule?.timeSlots?.length) {
-          setAvailableSlots([])
-          return
-        }
-
-        // Check each slot availability
-        const bookedSlots = new Set(
-          (queueJson.queue || [])
-            .filter((q: QueueItem) => q.timeSlot)
-            .map((q: QueueItem) => q.timeSlot)
-        )
-
-        const available = todaySchedule.timeSlots.filter(
-          (slot: string) => !bookedSlots.has(slot)
-        )
-        setAvailableSlots(available)
-      } catch {
-        setAvailableSlots([])
-      }
-    }
-    loadSlots()
-  }, [queueData])
+    return todaySchedule.timeSlots.filter((slot: string) => !bookedSlots.has(slot))
+  })()
 
   // Walk-in mutation
   const walkInMutation = useMutation({

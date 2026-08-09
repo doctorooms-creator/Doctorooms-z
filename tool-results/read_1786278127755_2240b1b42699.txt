@@ -1,0 +1,672 @@
+     1→'use client'
+     2→
+     3→import { useState } from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Card, CardContent } from '@/components/ui/card'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Label } from '@/components/ui/label'
+    11→import { Textarea } from '@/components/ui/textarea'
+    12→import {
+    13→  Dialog,
+    14→  DialogContent,
+    15→  DialogHeader,
+    16→  DialogTitle,
+    17→  DialogTrigger,
+    18→} from '@/components/ui/dialog'
+    19→import {
+    20→  Table,
+    21→  TableBody,
+    22→  TableCell,
+    23→  TableHead,
+    24→  TableHeader,
+    25→  TableRow,
+    26→} from '@/components/ui/table'
+    27→import {
+    28→  AlertDialog,
+    29→  AlertDialogAction,
+    30→  AlertDialogCancel,
+    31→  AlertDialogContent,
+    32→  AlertDialogDescription,
+    33→  AlertDialogFooter,
+    34→  AlertDialogHeader,
+    35→  AlertDialogTitle,
+    36→} from '@/components/ui/alert-dialog'
+    37→import {
+    38→  CalendarDays,
+    39→  CalendarClock,
+    40→  Search,
+    41→  Clock,
+    42→  UserCheck,
+    43→  UserX,
+    44→  Plus,
+    45→  CheckCircle2,
+    46→  XCircle,
+    47→  X,
+    48→  Stethoscope,
+    49→} from 'lucide-react'
+    50→import { format } from 'date-fns'
+    51→import { cn } from '@/lib/utils'
+    52→import { toast } from 'sonner'
+    53→
+    54→interface ReceptionistAppointment {
+    55→  id: string
+    56→  appointmentNo: string
+    57→  patientName: string
+    58→  patientImg: string | null
+    59→  doctorName: string
+    60→  doctorImg: string | null
+    61→  doctorId: string
+    62→  doctorSpecialization: string | null
+    63→  date: string
+    64→  status: string
+    65→  charge: number
+    66→  disease: string
+    67→  bookingType: string
+    68→  createdAt: string
+    69→}
+    70→
+    71→const statusColors: Record<string, string> = {
+    72→  Pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400',
+    73→  Approve: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400',
+    74→  Visited: 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-400',
+    75→  Canceled: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400',
+    76→  Finish: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400',
+    77→  Extend: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-400',
+    78→}
+    79→
+    80→const statusIcons: Record<string, typeof Clock> = {
+    81→  Pending: Clock,
+    82→  Approve: UserCheck,
+    83→  Visited: UserCheck,
+    84→  Canceled: UserX,
+    85→  Finish: UserCheck,
+    86→  Extend: Clock,
+    87→}
+    88→
+    89→const tabs = [
+    90→  { value: 'all', label: 'All' },
+    91→  { value: 'Pending', label: 'Pending' },
+    92→  { value: 'Approve', label: 'Approved' },
+    93→  { value: 'Visited', label: 'Visited' },
+    94→  { value: 'Finish', label: 'Finished' },
+    95→  { value: 'Canceled', label: 'Canceled' },
+    96→]
+    97→
+    98→export default function ReceptionistAppointmentsPage() {
+    99→  const [statusFilter, setStatusFilter] = useState('all')
+   100→  const [search, setSearch] = useState('')
+   101→  const [fromDate, setFromDate] = useState('')
+   102→  const [toDate, setToDate] = useState('')
+   103→  const [dialogOpen, setDialogOpen] = useState(false)
+   104→  const [confirmOpen, setConfirmOpen] = useState(false)
+   105→  const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | 'extend' | 'visited' | null>(null)
+   106→  const [selectedId, setSelectedId] = useState<string | null>(null)
+   107→  const [detailOpen, setDetailOpen] = useState(false)
+   108→  const [selectedAppt, setSelectedAppt] = useState<ReceptionistAppointment | null>(null)
+   109→
+   110→  // New appointment form state
+   111→  const [formPatientName, setFormPatientName] = useState('')
+   112→  const [formDisease, setFormDisease] = useState('')
+   113→  const [formDate, setFormDate] = useState('')
+   114→  const [formTime, setFormTime] = useState('')
+   115→  const [formDescription, setFormDescription] = useState('')
+   116→
+   117→  const queryClient = useQueryClient()
+   118→
+   119→  const { data, isLoading } = useQuery<{
+   120→    appointments: ReceptionistAppointment[]
+   121→    statusCounts: Record<string, number>
+   122→    doctor: { id: string; name: string; fees: number } | null
+   123→  }>({
+   124→    queryKey: ['receptionist-appointments', statusFilter, search, fromDate, toDate],
+   125→    queryFn: () =>
+   126→      fetch(
+   127→        `/api/dashboard/receptionist/appointments?status=${statusFilter}&search=${encodeURIComponent(search)}${fromDate ? `&from=${fromDate}` : ''}${toDate ? `&to=${toDate}` : ''}`
+   128→      ).then((r) => r.json()),
+   129→  })
+   130→
+   131→  const createMutation = useMutation({
+   132→    mutationFn: (body: {
+   133→      patientName: string
+   134→      disease: string
+   135→      date: string
+   136→      time: string
+   137→      description: string
+   138→    }) =>
+   139→      fetch('/api/dashboard/receptionist/appointments', {
+   140→        method: 'POST',
+   141→        headers: { 'Content-Type': 'application/json' },
+   142→        body: JSON.stringify(body),
+   143→      }).then((r) => r.json()),
+   144→    onSuccess: () => {
+   145→      queryClient.invalidateQueries({ queryKey: ['receptionist-appointments'] })
+   146→      queryClient.invalidateQueries({ queryKey: ['receptionist-stats'] })
+   147→      toast.success('Appointment created successfully')
+   148→      setDialogOpen(false)
+   149→      resetForm()
+   150→    },
+   151→    onError: () => {
+   152→      toast.error('Failed to create appointment')
+   153→    },
+   154→  })
+   155→
+   156→  const statusMutation = useMutation({
+   157→    mutationFn: ({
+   158→      id,
+   159→      status,
+   160→    }: {
+   161→      id: string
+   162→      status: string
+   163→    }) =>
+   164→      fetch(`/api/dashboard/receptionist/bookings/${id}/status`, {
+   165→        method: 'PATCH',
+   166→        headers: { 'Content-Type': 'application/json' },
+   167→        body: JSON.stringify({ status }),
+   168→      }).then((r) => r.json()),
+   169→    onSuccess: (_, variables) => {
+   170→      queryClient.invalidateQueries({ queryKey: ['receptionist-appointments'] })
+   171→      queryClient.invalidateQueries({ queryKey: ['receptionist-stats'] })
+   172→      const toastMap: Record<string, string> = {
+   173→        Approve: 'Appointment approved',
+   174→        Canceled: 'Appointment rejected',
+   175→        Extend: 'Appointment extended',
+   176→        Visited: 'Appointment marked as visited',
+   177→      }
+   178→      toast.success(toastMap[variables.status] || 'Appointment updated')
+   179→    },
+   180→    onError: () => {
+   181→      toast.error('Failed to update appointment')
+   182→    },
+   183→  })
+   184→
+   185→  const handleCreateAppointment = () => {
+   186→    if (!formPatientName || !formDate) {
+   187→      toast.error('Patient name and date are required')
+   188→      return
+   189→    }
+   190→    createMutation.mutate({
+   191→      patientName: formPatientName,
+   192→      disease: formDisease,
+   193→      date: formDate,
+   194→      time: formTime,
+   195→      description: formDescription,
+   196→    })
+   197→  }
+   198→
+   199→  const handleStatusAction = (id: string, action: 'approve' | 'reject' | 'extend' | 'visited') => {
+   200→    setSelectedId(id)
+   201→    setConfirmAction(action)
+   202→    setConfirmOpen(true)
+   203→  }
+   204→
+   205→  const confirmStatusChange = () => {
+   206→    if (selectedId && confirmAction) {
+   207→      const statusMap: Record<string, string> = {
+   208→        approve: 'Approve',
+   209→        reject: 'Canceled',
+   210→        extend: 'Extend',
+   211→        visited: 'Visited',
+   212→      }
+   213→      statusMutation.mutate({
+   214→        id: selectedId,
+   215→        status: statusMap[confirmAction],
+   216→      })
+   217→    }
+   218→    setConfirmOpen(false)
+   219→    setSelectedId(null)
+   220→    setConfirmAction(null)
+   221→  }
+   222→
+   223→  const resetForm = () => {
+   224→    setFormPatientName('')
+   225→    setFormDisease('')
+   226→    setFormDate('')
+   227→    setFormTime('')
+   228→    setFormDescription('')
+   229→  }
+   230→
+   231→  const appointments = data?.appointments ?? []
+   232→  const statusCounts = data?.statusCounts ?? {}
+   233→  const doctor = data?.doctor
+   234→
+   235→  // Get today's date as YYYY-MM-DD for the date input min
+   236→  const today = format(new Date(), 'yyyy-MM-dd')
+   237→
+   238→  return (
+   239→    <div className="space-y-6">
+   240→      {/* Header with new appointment button */}
+   241→      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   242→        <div className="flex flex-wrap items-center gap-3">
+   243→          <div className="flex items-center gap-2">
+   244→            <Label htmlFor="from" className="text-sm text-muted-foreground whitespace-nowrap">From</Label>
+   245→            <Input id="from" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-40" />
+   246→          </div>
+   247→          <div className="flex items-center gap-2">
+   248→            <Label htmlFor="to" className="text-sm text-muted-foreground whitespace-nowrap">To</Label>
+   249→            <Input id="to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-40" />
+   250→          </div>
+   251→          {(fromDate || toDate) && (
+   252→            <Button variant="ghost" size="sm" onClick={() => { setFromDate(''); setToDate('') }} className="text-xs text-muted-foreground">
+   253→              <X className="h-3 w-3 mr-1" /> Clear
+   254→            </Button>
+   255→          )}
+   256→        </div>
+   257→
+   258→        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm() }}>
+   259→          <DialogTrigger asChild>
+   260→            <Button className="flex items-center gap-2 bg-teal-600 text-white hover:bg-teal-700">
+   261→              <Plus className="h-4 w-4" />
+   262→              New Appointment
+   263→            </Button>
+   264→          </DialogTrigger>
+   265→          <DialogContent className="sm:max-w-md">
+   266→            <DialogHeader>
+   267→              <DialogTitle>Book New Appointment</DialogTitle>
+   268→            </DialogHeader>
+   269→            <div className="space-y-4 pt-2">
+   270→              {doctor && (
+   271→                <div className="rounded-lg bg-teal-50 p-3 dark:bg-teal-950/30">
+   272→                  <p className="text-xs text-muted-foreground">Doctor</p>
+   273→                  <p className="text-sm font-medium">{doctor.name}</p>
+   274→                  {doctor.fees > 0 && (
+   275→                    <p className="text-xs text-muted-foreground">
+   276→                      Consultation fee: ₹{doctor.fees.toLocaleString('en-IN')}
+   277→                    </p>
+   278→                  )}
+   279→                </div>
+   280→              )}
+   281→              <div className="space-y-2">
+   282→                <Label htmlFor="patientName">Patient Name *</Label>
+   283→                <Input
+   284→                  id="patientName"
+   285→                  placeholder="Enter patient name"
+   286→                  value={formPatientName}
+   287→                  onChange={(e) => setFormPatientName(e.target.value)}
+   288→                />
+   289→              </div>
+   290→              <div className="space-y-2">
+   291→                <Label htmlFor="disease">Disease / Condition</Label>
+   292→                <Input
+   293→                  id="disease"
+   294→                  placeholder="e.g. Fever, Headache"
+   295→                  value={formDisease}
+   296→                  onChange={(e) => setFormDisease(e.target.value)}
+   297→                />
+   298→              </div>
+   299→              <div className="grid grid-cols-2 gap-3">
+   300→                <div className="space-y-2">
+   301→                  <Label htmlFor="date">Date *</Label>
+   302→                  <Input
+   303→                    id="date"
+   304→                    type="date"
+   305→                    min={today}
+   306→                    value={formDate}
+   307→                    onChange={(e) => setFormDate(e.target.value)}
+   308→                  />
+   309→                </div>
+   310→                <div className="space-y-2">
+   311→                  <Label htmlFor="time">Time</Label>
+   312→                  <Input
+   313→                    id="time"
+   314→                    type="time"
+   315→                    value={formTime}
+   316→                    onChange={(e) => setFormTime(e.target.value)}
+   317→                  />
+   318→                </div>
+   319→              </div>
+   320→              <div className="space-y-2">
+   321→                <Label htmlFor="description">Description</Label>
+   322→                <Textarea
+   323→                  id="description"
+   324→                  placeholder="Additional notes..."
+   325→                  value={formDescription}
+   326→                  onChange={(e) => setFormDescription(e.target.value)}
+   327→                  rows={3}
+   328→                />
+   329→              </div>
+   330→              <div className="flex justify-end gap-3 pt-2">
+   331→                <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm() }}>
+   332→                  Cancel
+   333→                </Button>
+   334→                <Button
+   335→                  onClick={handleCreateAppointment}
+   336→                  disabled={createMutation.isPending}
+   337→                  className="bg-teal-600 text-white hover:bg-teal-700"
+   338→                >
+   339→                  {createMutation.isPending ? 'Booking...' : 'Book Appointment'}
+   340→                </Button>
+   341→              </div>
+   342→            </div>
+   343→          </DialogContent>
+   344→        </Dialog>
+   345→      </div>
+   346→
+   347→      {/* Status tabs */}
+   348→      <div className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1">
+   349→          {tabs.map((tab) => {
+   350→            const count =
+   351→              tab.value === 'all'
+   352→                ? Object.values(statusCounts).reduce((a, b) => a + b, 0)
+   353→                : statusCounts[tab.value] || 0
+   354→            return (
+   355→              <button
+   356→                key={tab.value}
+   357→                onClick={() => setStatusFilter(tab.value)}
+   358→                className={cn(
+   359→                  'relative flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+   360→                  statusFilter === tab.value
+   361→                    ? 'bg-background text-foreground shadow-sm'
+   362→                    : 'text-muted-foreground hover:text-foreground'
+   363→                )}
+   364→              >
+   365→                {tab.label}
+   366→                <span
+   367→                  className={cn(
+   368→                    'text-xs',
+   369→                    statusFilter === tab.value
+   370→                      ? 'text-teal-600 dark:text-teal-400'
+   371→                      : 'text-muted-foreground'
+   372→                  )}
+   373→                >
+   374→                  {count}
+   375→                </span>
+   376→              </button>
+   377→            )
+   378→          })}
+   379→        </div>
+   380→
+   381→      {/* Search */}
+   382→      <div className="relative max-w-sm">
+   383→        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   384→        <Input
+   385→          placeholder="Search patient or appointment #..."
+   386→          value={search}
+   387→          onChange={(e) => setSearch(e.target.value)}
+   388→          className="pl-9"
+   389→        />
+   390→      </div>
+   391→
+   392→      {/* Table */}
+   393→      <Card>
+   394→        <CardContent className="p-0">
+   395→          <Table>
+   396→            <TableHeader>
+   397→              <TableRow>
+   398→                <TableHead>Patient</TableHead>
+   399→                <TableHead>Date & Time</TableHead>
+   400→                <TableHead>Type</TableHead>
+   401→                <TableHead>Status</TableHead>
+   402→                <TableHead className="text-right">Fee</TableHead>
+   403→                <TableHead className="text-right">Actions</TableHead>
+   404→              </TableRow>
+   405→            </TableHeader>
+   406→            <TableBody>
+   407→              {isLoading ? (
+   408→                Array.from({ length: 6 }).map((_, i) => (
+   409→                  <TableRow key={i}>
+   410→                    <TableCell>
+   411→                      <div className="flex items-center gap-2">
+   412→                        <div className="h-7 w-7 animate-pulse rounded-full bg-muted" />
+   413→                        <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+   414→                      </div>
+   415→                    </TableCell>
+   416→                    <TableCell><div className="h-4 w-24 animate-pulse rounded bg-muted" /></TableCell>
+   417→                    <TableCell><div className="h-5 w-16 animate-pulse rounded-full bg-muted" /></TableCell>
+   418→                    <TableCell><div className="h-5 w-16 animate-pulse rounded-full bg-muted" /></TableCell>
+   419→                    <TableCell><div className="ml-auto h-4 w-14 animate-pulse rounded bg-muted" /></TableCell>
+   420→                    <TableCell><div className="ml-auto h-8 w-20 animate-pulse rounded bg-muted" /></TableCell>
+   421→                  </TableRow>
+   422→                ))
+   423→              ) : appointments.length === 0 ? (
+   424→                <TableRow>
+   425→                  <TableCell colSpan={6} className="py-12 text-center">
+   426→                    <CalendarDays className="mx-auto mb-2 h-10 w-10 text-muted-foreground/50" />
+   427→                    <p className="text-sm text-muted-foreground">
+   428→                      {search || statusFilter !== 'all' || fromDate || toDate
+   429→                        ? 'No appointments match your filters'
+   430→                        : 'No appointments yet'}
+   431→                    </p>
+   432→                  </TableCell>
+   433→                </TableRow>
+   434→              ) : (
+   435→                appointments.map((appt, i) => {
+   436→                  const StatusIcon = statusIcons[appt.status] || Clock
+   437→                  const canPendingActions = appt.status === 'Pending'
+   438→                  const canApproveActions = appt.status === 'Approve'
+   439→                  return (
+   440→                    <motion.tr
+   441→                      key={appt.id}
+   442→                      initial={{ opacity: 0, x: -10 }}
+   443→                      animate={{ opacity: 1, x: 0 }}
+   444→                      transition={{ delay: i * 0.03 }}
+   445→                      className="group border-b border-border transition-colors hover:bg-muted/50"
+   446→                    >
+   447→                      <TableCell>
+   448→                        <div className="flex items-center gap-2">
+   449→                          <Avatar className="h-7 w-7">
+   450→                            <AvatarImage src={appt.patientImg || ''} />
+   451→                            <AvatarFallback className="text-xs">
+   452→                              {appt.patientName.charAt(0)}
+   453→                            </AvatarFallback>
+   454→                          </Avatar>
+   455→                          <div>
+   456→                            <p
+   457→                              className="text-sm font-medium cursor-pointer hover:underline hover:text-teal-600 dark:hover:text-teal-400"
+   458→                              onClick={() => { setSelectedAppt(appt); setDetailOpen(true) }}
+   459→                            >
+   460→                              {appt.patientName}
+   461→                            </p>
+   462→                            <p className="text-xs text-muted-foreground">{appt.appointmentNo}</p>
+   463→                          </div>
+   464→                        </div>
+   465→                      </TableCell>
+   466→                      <TableCell>
+   467→                        <div className="flex flex-col">
+   468→                          <span className="text-sm">
+   469→                            {format(new Date(appt.date), 'MMM d, yyyy')}
+   470→                          </span>
+   471→                          <span className="text-xs text-muted-foreground">
+   472→                            {format(new Date(appt.date), 'h:mm a')}
+   473→                          </span>
+   474→                        </div>
+   475→                      </TableCell>
+   476→                      <TableCell>
+   477→                        <span className="text-xs text-muted-foreground">{appt.bookingType}</span>
+   478→                      </TableCell>
+   479→                      <TableCell>
+   480→                        <span
+   481→                          className={cn(
+   482→                            'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+   483→                            statusColors[appt.status] || 'bg-gray-100 text-gray-700'
+   484→                          )}
+   485→                        >
+   486→                          <StatusIcon className="h-3 w-3" />
+   487→                          {appt.status}
+   488→                        </span>
+   489→                      </TableCell>
+   490→                      <TableCell className="text-right font-medium">
+   491→                        ₹{appt.charge.toLocaleString('en-IN')}
+   492→                      </TableCell>
+   493→                      <TableCell className="text-right">
+   494→                        {canPendingActions && (
+   495→                          <div className="flex items-center justify-end gap-1">
+   496→                            <Button
+   497→                              size="icon"
+   498→                              variant="ghost"
+   499→                              className="h-8 w-8 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/50"
+   500→                              onClick={() => handleStatusAction(appt.id, 'approve')}
+   501→                              title="Approve"
+   502→                            >
+   503→                              <CheckCircle2 className="h-4 w-4" />
+   504→                            </Button>
+   505→                            <Button
+   506→                              size="icon"
+   507→                              variant="ghost"
+   508→                              className="h-8 w-8 text-violet-600 hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50"
+   509→                              onClick={() => handleStatusAction(appt.id, 'extend')}
+   510→                              title="Extend"
+   511→                            >
+   512→                              <CalendarClock className="h-4 w-4" />
+   513→                            </Button>
+   514→                            <Button
+   515→                              size="icon"
+   516→                              variant="ghost"
+   517→                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50"
+   518→                              onClick={() => handleStatusAction(appt.id, 'reject')}
+   519→                              title="Reject"
+   520→                            >
+   521→                              <XCircle className="h-4 w-4" />
+   522→                            </Button>
+   523→                          </div>
+   524→                        )}
+   525→                        {canApproveActions && (
+   526→                          <div className="flex items-center justify-end gap-1">
+   527→                            <Button
+   528→                              size="icon"
+   529→                              variant="ghost"
+   530→                              className="h-8 w-8 text-teal-600 hover:bg-teal-50 hover:text-teal-700 dark:hover:bg-teal-950/50"
+   531→                              onClick={() => handleStatusAction(appt.id, 'visited')}
+   532→                              title="Mark Visited"
+   533→                            >
+   534→                              <CheckCircle2 className="h-4 w-4" />
+   535→                            </Button>
+   536→                            <Button
+   537→                              size="icon"
+   538→                              variant="ghost"
+   539→                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50"
+   540→                              onClick={() => handleStatusAction(appt.id, 'reject')}
+   541→                              title="Reject"
+   542→                            >
+   543→                              <XCircle className="h-4 w-4" />
+   544→                            </Button>
+   545→                          </div>
+   546→                        )}
+   547→                      </TableCell>
+   548→                    </motion.tr>
+   549→                  )
+   550→                })
+   551→              )}
+   552→            </TableBody>
+   553→          </Table>
+   554→        </CardContent>
+   555→      </Card>
+   556→
+   557→      {/* Appointment Detail Dialog */}
+   558→      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+   559→        <DialogContent className="sm:max-w-lg">
+   560→          <DialogHeader>
+   561→            <DialogTitle>Appointment Details</DialogTitle>
+   562→          </DialogHeader>
+   563→          {selectedAppt && (
+   564→            <div className="space-y-4">
+   565→              {/* Status + Appointment # */}
+   566→              <div className="flex items-center justify-between">
+   567→                <span className={cn(
+   568→                  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+   569→                  statusColors[selectedAppt.status] || 'bg-gray-100 text-gray-700'
+   570→                )}>
+   571→                  {selectedAppt.status}
+   572→                </span>
+   573→                <span className="text-xs text-muted-foreground">{selectedAppt.appointmentNo}</span>
+   574→              </div>
+   575→
+   576→              {/* Patient info card */}
+   577→              <div className="rounded-lg border p-3 space-y-2">
+   578→                <div className="flex items-center gap-2">
+   579→                  <Avatar className="h-8 w-8">
+   580→                    <AvatarImage src={selectedAppt.patientImg || ''} />
+   581→                    <AvatarFallback>{selectedAppt.patientName.charAt(0)}</AvatarFallback>
+   582→                  </Avatar>
+   583→                  <p className="font-medium">{selectedAppt.patientName}</p>
+   584→                </div>
+   585→                <p className="text-sm">Disease: {selectedAppt.disease || '—'}</p>
+   586→                <p className="text-sm">Type: {selectedAppt.bookingType}</p>
+   587→              </div>
+   588→
+   589→              {/* Doctor info */}
+   590→              <div className="rounded-lg border p-3">
+   591→                <p className="text-xs text-muted-foreground mb-1">Doctor</p>
+   592→                <div className="flex items-center gap-2">
+   593→                  <Stethoscope className="h-4 w-4 text-teal-600" />
+   594→                  <p className="text-sm font-medium">{selectedAppt.doctorName}</p>
+   595→                </div>
+   596→                {selectedAppt.doctorSpecialization && (
+   597→                  <p className="text-xs text-muted-foreground mt-1">{selectedAppt.doctorSpecialization}</p>
+   598→                )}
+   599→              </div>
+   600→
+   601→              {/* Date & Time */}
+   602→              <div className="grid grid-cols-2 gap-3">
+   603→                <div className="rounded-lg bg-muted/50 p-3">
+   604→                  <p className="text-xs text-muted-foreground">Date</p>
+   605→                  <p className="text-sm font-medium">{format(new Date(selectedAppt.date), 'MMM d, yyyy')}</p>
+   606→                </div>
+   607→                <div className="rounded-lg bg-muted/50 p-3">
+   608→                  <p className="text-xs text-muted-foreground">Time</p>
+   609→                  <p className="text-sm font-medium">{format(new Date(selectedAppt.date), 'h:mm a')}</p>
+   610→                </div>
+   611→                <div className="rounded-lg bg-muted/50 p-3">
+   612→                  <p className="text-xs text-muted-foreground">Fee</p>
+   613→                  <p className="text-sm font-medium">₹{selectedAppt.charge.toLocaleString('en-IN')}</p>
+   614→                </div>
+   615→                <div className="rounded-lg bg-muted/50 p-3">
+   616→                  <p className="text-xs text-muted-foreground">Created</p>
+   617→                  <p className="text-sm font-medium">{format(new Date(selectedAppt.createdAt), 'MMM d, yyyy')}</p>
+   618→                </div>
+   619→              </div>
+   620→            </div>
+   621→          )}
+   622→        </DialogContent>
+   623→      </Dialog>
+   624→
+   625→      {/* Confirmation dialog */}
+   626→      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+   627→        <AlertDialogContent>
+   628→          <AlertDialogHeader>
+   629→            <AlertDialogTitle>
+   630→              {confirmAction === 'approve' && 'Approve Appointment'}
+   631→              {confirmAction === 'reject' && 'Reject Appointment'}
+   632→              {confirmAction === 'extend' && 'Extend Appointment'}
+   633→              {confirmAction === 'visited' && 'Mark as Visited'}
+   634→            </AlertDialogTitle>
+   635→            <AlertDialogDescription>
+   636→              {confirmAction === 'approve' &&
+   637→                'Are you sure you want to approve this appointment? The patient will be notified.'}
+   638→              {confirmAction === 'reject' &&
+   639→                'Are you sure you want to reject this appointment? The patient will be notified.'}
+   640→              {confirmAction === 'extend' &&
+   641→                'Are you sure you want to extend this appointment? The patient will be notified.'}
+   642→              {confirmAction === 'visited' &&
+   643→                'Are you sure you want to mark this appointment as visited? The patient will be notified.'}
+   644→            </AlertDialogDescription>
+   645→          </AlertDialogHeader>
+   646→          <AlertDialogFooter>
+   647→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   648→            <AlertDialogAction
+   649→              onClick={confirmStatusChange}
+   650→              className={cn(
+   651→                (confirmAction === 'approve') &&
+   652→                  'bg-emerald-600 hover:bg-emerald-700',
+   653→                (confirmAction === 'reject') &&
+   654→                  'bg-red-600 hover:bg-red-700',
+   655→                (confirmAction === 'extend') &&
+   656→                  'bg-violet-600 hover:bg-violet-700',
+   657→                (confirmAction === 'visited') &&
+   658→                  'bg-teal-600 hover:bg-teal-700'
+   659→              )}
+   660→            >
+   661→              {confirmAction === 'approve' && 'Approve'}
+   662→              {confirmAction === 'reject' && 'Reject'}
+   663→              {confirmAction === 'extend' && 'Extend'}
+   664→              {confirmAction === 'visited' && 'Mark Visited'}
+   665→            </AlertDialogAction>
+   666→          </AlertDialogFooter>
+   667→        </AlertDialogContent>
+   668→      </AlertDialog>
+   669→    </div>
+   670→  )
+   671→}
+   672→

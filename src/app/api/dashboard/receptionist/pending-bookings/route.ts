@@ -9,10 +9,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const receptionist = await db.receptionist.findUnique({
+      where: { userId: user.id },
+      select: { doctorId: true },
+    })
+    if (!receptionist) {
+      return NextResponse.json({ error: 'Receptionist not found' }, { status: 404 })
+    }
+
     const pendingBookings = await db.booking.findMany({
       where: {
         status: 'Pending',
         bookingType: 'By Self',
+        doctorId: receptionist.doctorId,
       },
       orderBy: { createdAt: 'desc' },
       include: {

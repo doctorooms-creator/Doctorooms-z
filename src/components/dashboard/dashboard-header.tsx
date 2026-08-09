@@ -69,10 +69,14 @@ const routeTitles: Record<string, string> = {
   '/dashboard/receptionist/appointments': 'Appointments',
   '/dashboard/receptionist/pending-bookings': 'Pending Bookings',
   '/dashboard/receptionist/schedule': 'Schedule',
+  '/dashboard/receptionist/medicines': 'Medicine List',
   '/dashboard/receptionist/patients': 'Patients',
   '/dashboard/receptionist/walk-in': 'Walk-in Registration',
   '/dashboard/receptionist/print-queue': 'Print Queue',
   '/dashboard/receptionist/reports': 'Daily Report',
+  '/dashboard/receptionist/blog': 'My Blog',
+  '/dashboard/receptionist/blog/new': 'New Post',
+  '/dashboard/receptionist/blog/[id]/edit': 'Edit Post',
   '/dashboard/receptionist/profile': 'Profile',
   '/dashboard/receptionist/notifications': 'Notifications',
   '/dashboard/assistant': 'Assistant Dashboard',
@@ -112,8 +116,11 @@ export function DashboardHeader({ onMenuClick, onLogout }: DashboardHeaderProps)
   const userImg = user?.profileImg || ''
 
   useEffect(() => {
-    if (role !== 'patient') return
-    fetch('/api/patient/notifications?limit=5')
+    if (role !== 'patient' && role !== 'receptionist') return
+    const endpoint = role === 'receptionist'
+      ? '/api/receptionist/notifications?limit=5'
+      : '/api/patient/notifications?limit=5'
+    fetch(endpoint)
       .then((r) => r.json())
       .then((data) => {
         setUnreadCount(data?.unreadCount || 0)
@@ -124,7 +131,15 @@ export function DashboardHeader({ onMenuClick, onLogout }: DashboardHeaderProps)
 
   const markAllRead = async () => {
     try {
-      await fetch('/api/patient/notifications/read-all', { method: 'PATCH' })
+      if (role === 'receptionist') {
+        await fetch('/api/receptionist/notifications', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ markAll: true }),
+        })
+      } else {
+        await fetch('/api/patient/notifications/read-all', { method: 'PATCH' })
+      }
       setUnreadCount(0)
       setNotifications((prev) => prev.map((n) => ({ ...n, status: 'READ' })))
     } catch {}

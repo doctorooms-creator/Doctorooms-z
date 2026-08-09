@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
     const todayStart = startOfDay(today)
     const todayEnd = endOfDay(today)
 
-    const [todayAppointments, totalPatients, pendingApprovals, todayAppointmentsList, doctor] =
+    const [todayAppointments, todayVisited, pendingApprovals, todayAppointmentsList, doctor] =
       await Promise.all([
         db.booking.count({
           where: {
@@ -27,12 +27,11 @@ export async function GET(req: NextRequest) {
             bookingDate: { gte: todayStart, lte: todayEnd },
           },
         }),
-        db.user.count({
+        db.booking.count({
           where: {
-            bookings: {
-              some: { doctorId: receptionist.doctorId },
-            },
-            role: 'patient',
+            doctorId: receptionist.doctorId,
+            status: 'Visited',
+            bookingDate: { gte: todayStart, lte: todayEnd },
           },
         }),
         db.booking.count({
@@ -56,13 +55,16 @@ export async function GET(req: NextRequest) {
         }),
         db.doctor.findUnique({
           where: { id: receptionist.doctorId },
-          include: { user: { select: { name: true, profileImg: true } } },
+          include: {
+            user: { select: { name: true, profileImg: true } },
+            hospital: { select: { hospitalName: true, address: true, city: true, state: true, contactNo: true } },
+          },
         }),
       ])
 
     return NextResponse.json({
       todayAppointments,
-      totalPatients,
+      todayVisited,
       pendingApprovals,
       doctor: doctor
         ? {
@@ -70,6 +72,19 @@ export async function GET(req: NextRequest) {
             name: doctor.user.name,
             profileImg: doctor.user.profileImg,
             specialization: doctor.specialization,
+            contactNo: doctor.contactNo,
+            hospitalAddress: doctor.hospitalAddress,
+            city: doctor.city,
+            state: doctor.state,
+          }
+        : null,
+      hospital: doctor?.hospital
+        ? {
+            hospitalName: doctor.hospital.hospitalName,
+            address: doctor.hospital.address,
+            city: doctor.hospital.city,
+            state: doctor.hospital.state,
+            contactNo: doctor.hospital.contactNo,
           }
         : null,
       todayAppointmentsList: todayAppointmentsList.map((b) => ({

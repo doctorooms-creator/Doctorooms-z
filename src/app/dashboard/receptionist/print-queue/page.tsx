@@ -34,6 +34,7 @@ export default function PrintQueuePage() {
   const { data, isLoading } = useQuery<QueueData>({
     queryKey: ['walkin-queue-print'],
     queryFn: () => fetch('/api/dashboard/receptionist/walk-in').then(r => r.json()),
+    refetchInterval: 15000,
   })
 
   const handlePrint = () => {

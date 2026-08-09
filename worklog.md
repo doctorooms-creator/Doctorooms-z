@@ -715,3 +715,367 @@ Stage Summary:
 - Total research files: 1 master plan + 8 phase agent files in agent-ctx/
 - Key findings: All 10 planned pages already built, but 5 HIGH priority features missing vs PHP original
 - Recommended execution order: A (bugs) → B (status actions) → C (rich form) → D (chat) → E-H (features)
+
+---
+
+## Task 5-A: Reception Bug Fixes
+## Date: 2025-06-23
+## Agent: Bug Fix Agent
+
+### Summary
+Fixed 3 bugs in the reception module: (1) pending-bookings API not scoped to doctor, (2) walk-in slot loading fragility, (3) header bell empty for receptionist.
+
+### BUG-1: Pending Bookings API Not Scoped to Doctor
+**File:** `src/app/api/dashboard/receptionist/pending-bookings/route.ts`
+- Added receptionist lookup via `db.receptionist.findUnique({ where: { userId: user.id }, select: { doctorId: true } })`
+- Added `doctorId: receptionist.doctorId` to the booking query's `where` clause
+- Added 404 guard if receptionist profile not found
+
+### BUG-2: Walk-in Slot Loading Fragility
+**File:** `src/app/dashboard/receptionist/walk-in/page.tsx`
+- Removed the fragile `useEffect` chain that depended on pending-bookings to extract `doctorId`
+- Removed the disabled `scheduleData` useQuery that was never triggered
+- Removed unused `useEffect` import
+- Replaced with a single `useQuery(['walkin-doctor-schedule'])` that calls `/api/dashboard/receptionist/schedule` (which handles doctorId lookup server-side)
+- Computed `availableSlots` as a derived value (IIFE) from schedule response + queue data, no state needed
+
+### BUG-3: Header Bell Empty for Receptionist
+**File:** `src/components/dashboard/dashboard-header.tsx`
+- Changed `if (role !== 'patient') return` to `if (role !== 'patient' && role !== 'receptionist') return`
+- Added role-based notification endpoint selection (patient vs receptionist API)
+- Updated `markAllRead` to use `/api/receptionist/notifications` with `{ markAll: true }` body for receptionist role
+
+### Verification
+- ESLint: 0 errors, 0 warnings
+
+---
+
+## Task 5-B: Reception Status Actions (Extend + Visited)
+## Date: 2025-06-23
+## Agent: Status Actions Agent
+
+### Summary
+Added Extend and Visited status actions on the receptionist appointments page and pending-bookings page, with a new generic status update API endpoint.
+
+### New File: Generic Status API
+**File:** `src/app/api/dashboard/receptionist/bookings/[id]/status/route.ts`
+- PATCH method with `requireAuth` + `RECEPTION_ROLES` guard
+- Body: `{ status: string }`
+- Validates status transitions via a `VALID_TRANSITIONS` map:
+  - Pending → Extend, Visited, Approve, Canceled
+  - Extend → Approve, Canceled
+  - Approve → Visited, Canceled
+  - Visited/Canceled/Finish → no transitions (400)
+- Verifies booking belongs to receptionist's doctor
+- Sends notifications to patient and doctor on status change
+- Returns updated booking
+
+### Modified: Appointments Page
+**File:** `src/app/dashboard/receptionist/appointments/page.tsx`
+- Added `CalendarClock` icon import
+- Extended `confirmAction` type to include `'extend' | 'visited'`
+- Rewired `statusMutation` to call new generic API (`/bookings/${id}/status`) instead of old `/appointments` PATCH
+- Added toast messages for Extend and Visited statuses
+- For `Pending` rows: 3 buttons (Approve green, Extend violet, Reject red)
+- For `Approve` rows: 2 buttons (Mark Visited teal, Reject red)
+- Updated AlertDialog to show correct title, description, and button color per action type
+
+### Modified: Pending Bookings Page
+**File:** `src/app/dashboard/receptionist/pending-bookings/page.tsx`
+- Added `CalendarClock` icon import
+- Added `extendDialogOpen`, `extendTargetId`, `extendTargetName` state
+- Added `extendMutation` calling the generic status API with `{ status: 'Extend' }`
+- Added `handleExtend` / `confirmExtend` functions
+- Added `isExtending` helper for loading/disabled state
+- Added Extend button (violet) between Approve and Reject in the action bar
+- Added Extend confirmation AlertDialog with violet styling
+
+### Verification
+- ESLint: 0 errors, 0 warnings
+
+---
+
+## Task 5-C: Rich Receptionist Booking Form
+
+## Date
+2025-06-23
+
+## Summary
+Expanded the receptionist appointment booking dialog with comprehensive patient fields, mobile number lookup with auto-fill, new patient registration dialog, and already-booked appointment count.
+
+## Files Created
+
+| File | Description |
+|------|-------------|
+| `src/app/api/dashboard/receptionist/patients/register/route.ts` | New POST endpoint for patient registration |
+
+## Files Modified
+
+| File | Description |
+|------|-------------|
+| `src/app/dashboard/receptionist/appointments/page.tsx` | Expanded booking dialog, added mobile lookup, register dialog, booked count |
+| `src/app/api/dashboard/receptionist/appointments/route.ts` | Accept new fields (gender, DOB, age, bloodGroup, height, weight, physicallyChallenged, relationWithMe, timeSlot) |
+
+## Changes Per File
+
+### `src/app/api/dashboard/receptionist/patients/register/route.ts` (NEW)
+- POST handler with `requireRole(req, 'receptionist')` auth
+- Accepts: name (required), mobile (required), gender (required), email (optional)
+- Creates a User record with role='patient', status='Active'
+- Generates random 8-char password, hashes with bcryptjs
+- Returns created patient data for form auto-fill
+- Checks for duplicate email before creation
+
+### `src/app/api/dashboard/receptionist/appointments/route.ts`
+- POST handler now destructures 8 additional fields from request body
+- Maps them to Booking model fields (all already exist in schema)
+- Fields: gender, dateOfBirth, age, bloodGroup, weight, height, physicallyChallenged, relationWithMe, timeSlot
+
+### `src/app/dashboard/receptionist/appointments/page.tsx`
+- **New imports**: useEffect, useCallback, useRef, Select components, Separator, Badge, Phone/Loader2/AlertTriangle/UserPlus icons, differenceInYears
+- **New form state**: formMobile, formGender, formDob, formAge, formBloodGroup, formHeight, formWeight, formPhysicalHandicap, formRelationWithMe
+- **Booking dialog expanded to 3 sections** with section headers and Separator components:
+  - **Patient Information**: Mobile (with lookup button), Patient Name, Gender (Select), Date of Birth, Age (auto-filled from DOB), Blood Group (Select with ABO+Rh options)
+  - **Appointment Details**: Date (with booked count), Time Slot, Disease/Condition, Description
+  - **Additional Information**: Height (cm), Weight (kg), Physical Handicap (Select: Yes/No), Relation With Me
+- **Mobile Number Lookup**: On blur, calls GET /api/dashboard/receptionist/patients?search=<mobile>. Shows green Badge on found, amber Badge + "Register New Patient" button on not found
+- **New Patient Registration Dialog**: Separate dialog with Name, Mobile (pre-filled/disabled), Email, Gender fields. On submit, calls POST /api/dashboard/receptionist/patients/register and auto-fills booking form
+- **Already-Booked Count**: When date changes, fetches appointment count via existing API and shows below date field with CalendarDays icon
+- **Dialog scrollability**: `max-h-[85vh] overflow-y-auto` on dialog content
+- **2-column grid** on desktop (`grid-cols-1 sm:grid-cols-2`), single column on mobile
+- **DOB auto-calculates Age** via handler (not effect, to satisfy react-hooks lint rule)
+- All existing functionality preserved (approve/reject/extend/visited buttons, detail dialog, confirmation dialog)
+
+### Verification
+- ESLint: 0 errors, 0 warnings
+
+---
+
+# 5-D: Per-Appointment Chat System (Receptionist)
+
+## Task
+Build a real-time chat UI between receptionist and patient per appointment, integrated into the appointment detail dialog.
+
+## Date
+2025-06-23
+
+## Summary
+Built a per-appointment chat system with a tabbed interface (Details | Chat) in the appointment detail dialog. Reused the existing `/api/bookings/[bookingId]/chat` API. Created a dedicated `AppointmentChat` component with 5-second polling, chat bubbles, message grouping, auto-scroll, and proper disable logic for closed appointments and walk-ins.
+
+## Files Created/Modified
+
+| File | Action | Description |
+|------|--------|-------------|
+| `src/components/receptionist/appointment-chat.tsx` | Created | Chat UI component with TanStack Query polling, grouped bubbles, auto-scroll, disabled states |
+| `src/app/dashboard/receptionist/appointments/page.tsx` | Modified | Added Tabs (Details/Chat) to detail dialog, `patientUserId` to interface, `MessageCircle` import |
+| `src/app/api/dashboard/receptionist/appointments/route.ts` | Modified | Added `patientUserId` field to GET response for walk-in detection |
+
+## Key Decisions
+- Reused existing chat API at `/api/bookings/[bookingId]/chat/route.ts` (GET/POST with proper auth)
+- Used `useAuthStore` (Zustand) to get current user ID for mine/theirs message alignment
+- Tabbed dialog (Details | Chat) via shadcn `Tabs` — minimal change to existing layout
+- 5-second polling via `refetchInterval` matching original PHP behavior
+- Walk-in detection via new `patientUserId` field in API response
+- Chat disabled for Visited/Canceled/Rejected (read-only history), hidden input area
+
+## Verification
+- ESLint: 0 errors, 0 warnings
+
+---
+
+# 5-E Receptionist Blog CRUD
+
+## Task
+Build full CRUD blog/post management for the receptionist module.
+
+## Date
+2025-06-23
+
+## Summary
+Created complete blog CRUD for receptionist role mirroring the patient blog pattern. Includes 2 API route files (list/create + get/update/delete), 3 dashboard pages (list, new, edit), and updates to sidebar config and dashboard header.
+
+## Changes
+
+### 1. API Routes
+
+**`src/app/api/receptionist/posts/route.ts`** (created)
+- GET: Lists blog posts for the logged-in receptionist (`requireRole('receptionist')`, filters by `authorId`)
+- POST: Creates new blog post with slugified unique permalink (collision handling with `-1`, `-2`, etc.)
+- Uses the existing `Post` model with `authorId` field
+
+**`src/app/api/receptionist/posts/[id]/route.ts`** (created)
+- GET: Fetches single blog post with ownership check
+- PUT: Updates blog post fields (title, content, blogImg, status), re-slugifies if title changed
+- DELETE: Deletes blog post with ownership check
+
+### 2. Dashboard Pages
+
+**`src/app/dashboard/receptionist/blog/page.tsx`** (created)
+- Blog list page with stats row (Total Posts, Published, Drafts)
+- Card grid (1/2/3 cols responsive) with blog image, title, status badge, date, edit/delete actions
+- Framer Motion stagger animation, skeleton loading, empty state with CTA
+- Delete with AlertDialog confirmation
+
+**`src/app/dashboard/receptionist/blog/new/page.tsx`** (created)
+- Create post form: title, content (textarea 10 rows), video link, blog image URL, status toggle (Draft/Published)
+- Breadcrumb navigation, teal gradient styling
+- Redirects to blog list on success
+
+**`src/app/dashboard/receptionist/blog/[id]/edit/page.tsx`** (created)
+- Uses child component pattern (`EditBlogForm`) to avoid eslint react-hooks/exhaustive-deps
+- Parent fetches post data, passes to form component
+- Same form fields as create, pre-filled with existing data
+- Loading skeleton and not-found error state
+
+### 3. Config Updates
+
+**`src/lib/sidebar-config.ts`** (modified)
+- Added `{ label: 'My Blog', href: '/dashboard/receptionist/blog', icon: PenLine }` after Reports, before Profile
+
+**`src/components/dashboard/dashboard-header.tsx`** (modified)
+- Added route titles for `/dashboard/receptionist/blog` → 'My Blog', `/dashboard/receptionist/blog/new` → 'New Post', `/dashboard/receptionist/blog/[id]/edit` → 'Edit Post'
+
+## Verification
+- ESLint: 0 errors, 0 warnings
+- Dev server compiles without errors
+
+---
+
+# 5-F Reception Medicine Master
+
+## Task
+Build medicine master management for the receptionist role — full CRUD with search, toggle, and add/edit dialog.
+
+## Date
+2025-06-23
+
+## Summary
+Created 3 API routes and 1 page for the receptionist to manage the doctor's `DoctorMedicine` records. Updated sidebar and header configs. ESLint 0/0.
+
+## Schema Note
+The existing Prisma model is `DoctorMedicine` (not `Medicine`). Fields: `name`, `morning`, `afternoon`, `evening`, `dose`, `tab`, `description`, `status` (Active/Inactive), `userId` (doctor's User.id), `createdById`. The receptionist is linked via `Receptionist.doctorId` → `Doctor.id` → `Doctor.userId`.
+
+## Files Created
+
+### 1. `src/app/api/receptionist/medicines/route.ts`
+- **GET**: Lists medicines for the receptionist's linked doctor, with optional `?search=` filter by name
+- **POST**: Creates a new medicine with validation (name required, defaults: status='Active', tab=1)
+
+### 2. `src/app/api/receptionist/medicines/[id]/route.ts`
+- **GET**: Fetches single medicine with ownership check
+- **PUT**: Updates medicine fields with ownership check
+- **DELETE**: Deletes medicine with ownership check
+
+### 3. `src/app/api/receptionist/medicines/[id]/toggle/route.ts`
+- **PATCH**: Toggles medicine status between 'Active' and 'Inactive' with ownership check
+
+### 4. `src/app/dashboard/receptionist/medicines/page.tsx`
+- Full medicine list page with:
+  - Page header with "Add Medicine" button
+  - Debounced search input filtering by name
+  - Medicine count display ("Showing X medicines")
+  - Desktop: responsive table with columns Name, Morning, Afternoon, Evening, Dosage, Tabs, Status, Actions
+  - Mobile: card layout with dose icons (Sun/CloudSun/Moon) and condensed info
+  - Status badge (emerald for Active, gray for Inactive) — click to toggle
+  - Edit button opens Dialog pre-filled with current values
+  - Delete with AlertDialog confirmation
+  - Add/Edit Dialog with fields: Name*, Morning, Afternoon, Evening, Dosage, Tab Count, Description
+  - Framer Motion stagger animations
+  - Skeleton loading states
+  - Empty state with Pill icon
+
+## Files Modified
+
+### 5. `src/lib/sidebar-config.ts`
+- Added `{ label: 'Medicines', href: '/dashboard/receptionist/medicines', icon: Pill }` after Schedule, before Patients
+
+### 6. `src/components/dashboard/dashboard-header.tsx`
+- Added `'/dashboard/receptionist/medicines' → 'Medicine List'` to route titles
+
+## Verification
+- ESLint: 0 errors, 0 warnings
+- Dev server compiles without errors
+
+---
+
+# 5-G Reception Schedule Write Access
+
+## Task
+Add holiday CRUD and booking days update to the receptionist schedule page.
+
+## Date
+2025-06-23
+
+## Summary
+Created 3 new API routes and rewrote the read-only schedule page to support full holiday management (add, batch add, delete) and booking days editing. ESLint 0/0.
+
+## Files Created
+
+### 1. `src/app/api/receptionist/holidays/route.ts`
+- **GET**: Lists all holidays for the receptionist's linked doctor, sorted by date ascending. Supports optional `?from=&to=` date range filtering.
+- **POST**: Creates a single holiday with validation — rejects past dates and duplicate dates. Uses `DoctorHoliday.userId` (doctor's User.id).
+
+### 2. `src/app/api/receptionist/holidays/[id]/route.ts`
+- **DELETE**: Deletes a holiday after verifying ownership. Blocks deletion of past holidays.
+
+### 3. `src/app/api/receptionist/booking-days/route.ts`
+- **GET**: Returns current `bookingDays` for the linked doctor.
+- **PUT**: Updates `bookingDays` with validation (integer 1-365).
+
+## Files Modified
+
+### 4. `src/app/dashboard/receptionist/schedule/page.tsx`
+- Rewrote from read-only to full write-capable page:
+  - **Booking Days Card**: Displays current booking window with Edit button → Dialog with number input (1-365).
+  - **Holiday Section**: Separate query for full list (past + future). Future holidays show emerald badge + delete. Past holidays dimmed, no delete.
+  - **Add Holiday**: Dialog with date picker (Calendar+Popover, min=today) and remark.
+  - **Batch Add**: Dialog with dynamic rows, parallel processing with success/fail toasts.
+  - **Delete**: AlertDialog confirmation.
+  - All mutations invalidate both `receptionist-holidays` and `receptionist-schedule` query keys.
+
+## Verification
+- ESLint: 0 errors, 0 warnings
+- Dev server compiles without errors
+
+---
+
+## Task
+5-H: Reception Dashboard Enhancements — Hospital Card, Today Visited, Auto-Refresh, Search Debounce
+
+## Date
+2025-06-23
+
+## Summary
+Enhanced the receptionist dashboard with 5 improvements: hospital info card, today visited stat replacement, auto-refresh on appointments (10s) and print queue (15s), and 300ms search debounce on patients.
+
+## Changes
+
+### H1 — Hospital Info Card
+- **`src/app/api/dashboard/receptionist/stats/route.ts`**: Added `hospital` include on doctor query, returned `hospital` object in response.
+- **`src/app/dashboard/receptionist/page.tsx`**: Replaced single doctor banner with 2-column responsive grid (My Doctor + My Hospital cards). Hospital card shows name, address/city/state with MapPin icon, contact with Phone icon.
+
+### H2 — Today Visited Stat
+- **API**: Replaced `totalPatients` count query with `todayVisited` (status='Visited', today's date range).
+- **Frontend**: Changed StatCard from "Total Patients" (Users icon, amber) to "Today Visited" (UserCheck icon, teal).
+
+### H3 — Auto-Refresh Appointments (10s)
+- **`src/app/dashboard/receptionist/appointments/page.tsx`**: Added `refetchInterval: 10000` to main useQuery.
+
+### H4 — Auto-Refresh Print Queue (15s)
+- **`src/app/dashboard/receptionist/print-queue/page.tsx`**: Added `refetchInterval: 15000` to useQuery.
+
+### H5 — Search Debounce 300ms on Patients
+- **`src/app/dashboard/receptionist/patients/page.tsx`**: Added `useEffect` with 300ms setTimeout. Query uses `debouncedSearch` state instead of raw `search`.
+
+## Files Modified
+| File | Description |
+|------|-------------|
+| `src/app/api/dashboard/receptionist/stats/route.ts` | todayVisited count, hospital include + response |
+| `src/app/dashboard/receptionist/page.tsx` | Hospital card, Today Visited stat, 2-col grid, skeleton |
+| `src/app/dashboard/receptionist/appointments/page.tsx` | refetchInterval: 10000 |
+| `src/app/dashboard/receptionist/print-queue/page.tsx` | refetchInterval: 15000 |
+| `src/app/dashboard/receptionist/patients/page.tsx` | 300ms search debounce |
+
+## Verification
+- ESLint: 0 errors, 0 warnings
+- Dev server compiles without errors

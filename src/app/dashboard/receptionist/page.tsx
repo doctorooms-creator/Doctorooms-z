@@ -14,7 +14,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CalendarDays, Users, Clock, ArrowRight, Plus, Stethoscope, ClipboardCheck } from 'lucide-react'
+import { CalendarDays, Users, Clock, ArrowRight, Plus, Stethoscope, ClipboardCheck, UserCheck, Building2, MapPin, Phone } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -22,13 +22,24 @@ import { useRouter } from 'next/navigation'
 
 interface ReceptionistStats {
   todayAppointments: number
-  totalPatients: number
+  todayVisited: number
   pendingApprovals: number
   doctor: {
     id: string
     name: string
     profileImg: string | null
     specialization: string
+    contactNo: string
+    hospitalAddress: string
+    city: string
+    state: string
+  } | null
+  hospital: {
+    hospitalName: string
+    address: string
+    city: string
+    state: string
+    contactNo: string
   } | null
   todayAppointmentsList: {
     id: string
@@ -65,31 +76,63 @@ export default function ReceptionistDashboardPage() {
 
   return (
     <div className="space-y-6">
-      {/* Doctor info banner */}
-      {stats?.doctor && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-4 rounded-xl border border-teal-200 bg-teal-50/50 p-4 dark:border-teal-900 dark:bg-teal-950/30"
-        >
-          <Avatar className="h-12 w-12">
-            <AvatarImage src={stats.doctor.profileImg || ''} />
-            <AvatarFallback className="bg-teal-100 dark:bg-teal-900/50 text-lg">
-              {stats.doctor.name.charAt(0)}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <div className="flex items-center gap-2">
-              <Stethoscope className="h-4 w-4 text-teal-600 dark:text-teal-400" />
-              <p className="text-sm font-medium text-muted-foreground">Working with</p>
+      {/* Doctor + Hospital info cards */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {stats?.doctor && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex items-center gap-4 rounded-xl border border-teal-200 bg-teal-50/50 p-4 dark:border-teal-900 dark:bg-teal-950/30"
+          >
+            <Avatar className="h-12 w-12">
+              <AvatarImage src={stats.doctor.profileImg || ''} />
+              <AvatarFallback className="bg-teal-100 dark:bg-teal-900/50 text-lg">
+                {stats.doctor.name.charAt(0)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <Stethoscope className="h-4 w-4 shrink-0 text-teal-600 dark:text-teal-400" />
+                <p className="text-sm font-medium text-muted-foreground">My Doctor</p>
+              </div>
+              <p className="truncate text-lg font-semibold">{stats.doctor.name}</p>
+              {stats.doctor.specialization && (
+                <p className="truncate text-sm text-muted-foreground">{stats.doctor.specialization}</p>
+              )}
             </div>
-            <p className="text-lg font-semibold">{stats.doctor.name}</p>
-            {stats.doctor.specialization && (
-              <p className="text-sm text-muted-foreground">{stats.doctor.specialization}</p>
-            )}
-          </div>
-        </motion.div>
-      )}
+          </motion.div>
+        )}
+        {stats?.hospital && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="flex items-start gap-4 rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-900 dark:bg-amber-950/30"
+          >
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/50">
+              <Building2 className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-muted-foreground">My Hospital</p>
+              <p className="truncate text-lg font-semibold">{stats.hospital.hospitalName}</p>
+              {stats.hospital.address && (
+                <div className="mt-1 flex items-start gap-1.5 text-sm text-muted-foreground">
+                  <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  <span className="line-clamp-2">
+                    {stats.hospital.address}{stats.hospital.city ? `, ${stats.hospital.city}` : ''}{stats.hospital.state ? `, ${stats.hospital.state}` : ''}
+                  </span>
+                </div>
+              )}
+              {stats.hospital.contactNo && (
+                <div className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                  <Phone className="h-3.5 w-3.5 shrink-0" />
+                  <span>{stats.hospital.contactNo}</span>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </div>
 
       {/* Stat cards */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -101,11 +144,11 @@ export default function ReceptionistDashboardPage() {
           iconBg="bg-teal-100 dark:bg-teal-900/50"
         />
         <StatCard
-          title="Total Patients"
-          value={stats?.totalPatients ?? 0}
-          icon={Users}
-          gradient="from-amber-500 to-amber-600"
-          iconBg="bg-amber-100 dark:bg-amber-900/50"
+          title="Today Visited"
+          value={stats?.todayVisited ?? 0}
+          icon={UserCheck}
+          gradient="from-teal-500 to-teal-600"
+          iconBg="bg-teal-100 dark:bg-teal-900/50"
         />
         <StatCard
           title="Pending Approvals"
@@ -237,12 +280,24 @@ export default function ReceptionistDashboardPage() {
 function ReceptionistDashboardSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-border bg-card p-4">
-        <div className="flex items-center gap-4">
-          <div className="h-12 w-12 animate-pulse rounded-full bg-muted" />
-          <div className="space-y-2">
-            <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-            <div className="h-6 w-40 animate-pulse rounded bg-muted" />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 animate-pulse rounded-full bg-muted" />
+            <div className="space-y-2">
+              <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+              <div className="h-6 w-40 animate-pulse rounded bg-muted" />
+            </div>
+          </div>
+        </div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center gap-4">
+            <div className="h-12 w-12 animate-pulse rounded-full bg-muted" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+              <div className="h-6 w-48 animate-pulse rounded bg-muted" />
+              <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+            </div>
           </div>
         </div>
       </div>

@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import {
   CalendarCheck,
+  CalendarClock,
   CheckCircle,
   XCircle,
   Phone,
@@ -62,8 +63,11 @@ const bookingModeIcons: Record<string, typeof UserRound> = {
 
 export default function PendingBookingsPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [extendDialogOpen, setExtendDialogOpen] = useState(false)
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null)
   const [rejectTargetName, setRejectTargetName] = useState('')
+  const [extendTargetId, setExtendTargetId] = useState<string | null>(null)
+  const [extendTargetName, setExtendTargetName] = useState('')
   const [approvingId, setApprovingId] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
@@ -151,8 +155,53 @@ export default function PendingBookingsPage() {
     setRejectTargetName('')
   }
 
+  const handleExtend = (id: string, name: string) => {
+    setExtendTargetId(id)
+    setExtendTargetName(name)
+    setExtendDialogOpen(true)
+  }
+
+  const confirmExtend = () => {
+    if (extendTargetId) {
+      extendMutation.mutate(extendTargetId)
+    }
+    setExtendDialogOpen(false)
+    setExtendTargetId(null)
+    setExtendTargetName('')
+  }
+
+  const extendMutation = useMutation({
+    mutationFn: (id: string) =>
+      fetch(`/api/dashboard/receptionist/bookings/${id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Extend' }),
+      }).then((r) => r.json()),
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: ['receptionist-pending-bookings'] })
+      const prev = queryClient.getQueryData<{ bookings: PendingBooking[] }>(['receptionist-pending-bookings'])
+      return { prev }
+    },
+    onSuccess: (_result, id) => {
+      toast.success('Booking extended')
+      queryClient.setQueryData<{ bookings: PendingBooking[] }>(
+        ['receptionist-pending-bookings'],
+        (old) => old ? { bookings: old.bookings.filter((b) => b.id !== id) } : old
+      )
+      queryClient.invalidateQueries({ queryKey: ['receptionist-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['receptionist-appointments'] })
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prev) {
+        queryClient.setQueryData(['receptionist-pending-bookings'], ctx.prev)
+      }
+      toast.error('Failed to extend booking')
+    },
+  })
+
   const isApproving = (id: string) => approveMutation.isPending || approvingId === id
   const isRejecting = (id: string) => rejectMutation.isPending && rejectMutation.variables === id
+  const isExtending = (id: string) => extendMutation.isPending && extendMutation.variables === id
 
   return (
     <div className="space-y-6">
@@ -354,7 +403,7 @@ export default function PendingBookingsPage() {
                       <Button
                         size="sm"
                         onClick={() => approveMutation.mutate(booking.id)}
-                        disabled={isApproving(booking.id) || isRejecting(booking.id)}
+                        disabled={isApproving(booking.id) || isRejecting(booking.id) || isExtending(booking.id)}
                         className="gap-1.5 bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-60"
                       >
                         {isApproving(booking.id) ? (
@@ -367,8 +416,22 @@ export default function PendingBookingsPage() {
                       <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => handleExtend(booking.id, booking.patientName)}
+                        disabled={isApproving(booking.id) || isRejecting(booking.id) || isExtending(booking.id)}
+                        className="gap-1.5 border-violet-200 text-violet-600 hover:bg-violet-50 hover:text-violet-700 dark:border-violet-900 dark:hover:bg-violet-950/50 disabled:opacity-60"
+                      >
+                        {isExtending(booking.id) ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <CalendarClock className="h-4 w-4" />
+                        )}
+                        Extend
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         onClick={() => handleReject(booking.id, booking.patientName)}
-                        disabled={isApproving(booking.id) || isRejecting(booking.id)}
+                        disabled={isApproving(booking.id) || isRejecting(booking.id) || isExtending(booking.id)}
                         className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:hover:bg-red-950/50 disabled:opacity-60"
                       >
                         {isRejecting(booking.id) ? (
@@ -405,6 +468,29 @@ export default function PendingBookingsPage() {
               className="bg-red-600 text-white hover:bg-red-700"
             >
               Reject Booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Extend confirmation dialog */}
+      <AlertDialog open={extendDialogOpen} onOpenChange={setExtendDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Extend Booking Request</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to extend the booking request from{' '}
+              <span className="font-semibold text-foreground">{extendTargetName}</span>
+              ? The patient will be notified.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmExtend}
+              className="bg-violet-600 text-white hover:bg-violet-700"
+            >
+              Extend Booking
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

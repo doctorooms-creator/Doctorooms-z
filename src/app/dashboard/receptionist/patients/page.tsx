@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -32,12 +32,18 @@ const genderIcons: Record<string, string> = {
 
 export default function ReceptionistPatientsPage() {
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const { data, isLoading } = useQuery<{ patients: Patient[] }>({
-    queryKey: ['receptionist-patients', search],
+    queryKey: ['receptionist-patients', debouncedSearch],
     queryFn: () =>
       fetch(
-        `/api/dashboard/receptionist/patients?search=${encodeURIComponent(search)}`
+        `/api/dashboard/receptionist/patients?search=${encodeURIComponent(debouncedSearch)}`
       ).then((r) => r.json()),
   })
 

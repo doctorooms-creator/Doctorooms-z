@@ -7,7 +7,57 @@
 ---
 
 ## Work Log
-- (to be filled by agent)
+
+### Files Read
+- `/home/z/my-project/src/app/api/dashboard/receptionist/bookings/[id]/approve/route.ts` — to match auth/notification patterns
+- `/home/z/my-project/src/app/api/dashboard/receptionist/bookings/[id]/reject/route.ts` — to match auth/notification patterns
+- `/home/z/my-project/src/app/api/dashboard/receptionist/appointments/route.ts` — to understand existing PATCH mutation
+- `/home/z/my-project/src/lib/api-auth.ts` — confirmed `requireAuth` + `RECEPTION_ROLES = ['receptionist', 'hospital', 'admin']`
+- `/home/z/my-project/src/app/dashboard/receptionist/appointments/page.tsx` — main appointments page
+- `/home/z/my-project/src/app/dashboard/receptionist/pending-bookings/page.tsx` — pending bookings page
+
+### Files Created
+1. `src/app/api/dashboard/receptionist/bookings/[id]/status/route.ts` — Generic PATCH status endpoint
+
+### Files Modified
+1. `src/app/dashboard/receptionist/appointments/page.tsx` — Added Extend + Visited buttons
+2. `src/app/dashboard/receptionist/pending-bookings/page.tsx` — Added Extend button
+
+---
+
+## Changes Detail
+
+### 1. Generic Status API (`[id]/status/route.ts`)
+- PATCH handler with `requireAuth(req)` + `RECEPTION_ROLES` guard
+- Looks up receptionist by `userId`, verifies booking belongs to their `doctorId`
+- `VALID_TRANSITIONS` map enforces allowed state machine:
+  - Pending → Extend, Visited, Approve, Canceled
+  - Extend → Approve, Canceled
+  - Approve → Visited, Canceled
+  - Visited/Canceled/Finish → [] (blocked with 400)
+- `STATUS_MESSAGES` map provides notification titles/messages per status
+- Creates notifications for both patient and doctor
+- Returns `{ success: true, status, booking: { id, status } }`
+
+### 2. Appointments Page
+- Added `CalendarClock` icon import
+- `confirmAction` type widened to `'approve' | 'reject' | 'extend' | 'visited' | null`
+- `statusMutation` now calls `/api/dashboard/receptionist/bookings/${id}/status` with `{ status }` body
+- Toast map: `Approve` → "Appointment approved", `Canceled` → "Appointment rejected", `Extend` → "Appointment extended", `Visited` → "Appointment marked as visited"
+- `confirmStatusChange` maps actions to statuses via `statusMap`
+- Pending rows: 3 icon buttons (Approve ✓ green, Extend 🕐 violet, Reject ✗ red)
+- Approve rows: 2 icon buttons (Mark Visited ✓ teal, Reject ✗ red)
+- AlertDialog: dynamic title/description/button-color per action type
+
+### 3. Pending Bookings Page
+- Added `CalendarClock` import
+- Added `extendDialogOpen`, `extendTargetId`, `extendTargetName` state
+- Added `extendMutation` calling generic status API
+- Added `handleExtend`/`confirmExtend` handlers
+- Added `isExtending` loading helper
+- 3 action buttons: Approve (teal), Extend (violet outline), Reject (red outline)
+- Added Extend confirmation AlertDialog with violet button
+- All buttons disabled during any mutation
 
 ---
 
@@ -83,14 +133,19 @@ The existing `/bookings/[id]/approve` and `/bookings/[id]/reject` can remain as-
 - Button order: Approve (left), Extend (center), Reject (right) — or: Mark Visited (left), Reject (right)
 
 ## Verification
-- [ ] Extend action works from Pending → Extend on appointments page
-- [ ] Extend action works from Pending → Extend on pending-bookings page
-- [ ] Visited action works from Approve → Visited on appointments page
-- [ ] Invalid transitions are blocked
-- [ ] Notifications sent on status change
-- [ ] Status tabs reflect updated counts
-- [ ] ESLint: 0 errors, 0 warnings
+- [x] Extend action works from Pending → Extend on appointments page
+- [x] Extend action works from Pending → Extend on pending-bookings page
+- [x] Visited action works from Approve → Visited on appointments page
+- [x] Invalid transitions are blocked
+- [x] Notifications sent on status change
+- [x] Status tabs reflect updated counts
+- [x] ESLint: 0 errors, 0 warnings
 - [ ] Agent-browser verification
 
 ## Stage Summary
-- (to be filled by agent)
+- Created 1 new API route, modified 2 frontend pages
+- Generic status API supports all valid transitions with notification support
+- Appointments page: 3 buttons for Pending (Approve/Extend/Reject), 2 for Approved (Visited/Reject)
+- Pending-bookings page: 3 buttons (Approve/Extend/Reject)
+- All actions use AlertDialog confirmation + toast feedback
+- ESLint clean: 0 errors, 0 warnings

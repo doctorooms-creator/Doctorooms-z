@@ -1,0 +1,1134 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback, useRef } from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Card, CardContent } from '@/components/ui/card'
+    10→import { Input } from '@/components/ui/input'
+    11→import { Label } from '@/components/ui/label'
+    12→import { Textarea } from '@/components/ui/textarea'
+    13→import { Separator } from '@/components/ui/separator'
+    14→import {
+    15→  Select,
+    16→  SelectContent,
+    17→  SelectItem,
+    18→  SelectTrigger,
+    19→  SelectValue,
+    20→} from '@/components/ui/select'
+    21→import {
+    22→  Dialog,
+    23→  DialogContent,
+    24→  DialogHeader,
+    25→  DialogTitle,
+    26→  DialogTrigger,
+    27→} from '@/components/ui/dialog'
+    28→import {
+    29→  Table,
+    30→  TableBody,
+    31→  TableCell,
+    32→  TableHead,
+    33→  TableHeader,
+    34→  TableRow,
+    35→} from '@/components/ui/table'
+    36→import {
+    37→  AlertDialog,
+    38→  AlertDialogAction,
+    39→  AlertDialogCancel,
+    40→  AlertDialogContent,
+    41→  AlertDialogDescription,
+    42→  AlertDialogFooter,
+    43→  AlertDialogHeader,
+    44→  AlertDialogTitle,
+    45→} from '@/components/ui/alert-dialog'
+    46→import {
+    47→  CalendarDays,
+    48→  CalendarClock,
+    49→  Search,
+    50→  Clock,
+    51→  UserCheck,
+    52→  UserX,
+    53→  Plus,
+    54→  CheckCircle2,
+    55→  XCircle,
+    56→  X,
+    57→  Stethoscope,
+    58→  Phone,
+    59→  Loader2,
+    60→  AlertTriangle,
+    61→  UserPlus,
+    62→} from 'lucide-react'
+    63→import { format, differenceInYears } from 'date-fns'
+    64→import { cn } from '@/lib/utils'
+    65→import { toast } from 'sonner'
+    66→
+    67→interface ReceptionistAppointment {
+    68→  id: string
+    69→  appointmentNo: string
+    70→  patientName: string
+    71→  patientImg: string | null
+    72→  doctorName: string
+    73→  doctorImg: string | null
+    74→  doctorId: string
+    75→  doctorSpecialization: string | null
+    76→  date: string
+    77→  status: string
+    78→  charge: number
+    79→  disease: string
+    80→  bookingType: string
+    81→  createdAt: string
+    82→}
+    83→
+    84→interface PatientLookupResult {
+    85→  id: string
+    86→  name: string
+    87→  email: string
+    88→  mobileNo: string
+    89→  gender: string
+    90→  status: string
+    91→  visitCount: number
+    92→  lastVisit: string | null
+    93→  createdAt: string
+    94→}
+    95→
+    96→const statusColors: Record<string, string> = {
+    97→  Pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400',
+    98→  Approve: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400',
+    99→  Visited: 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-400',
+   100→  Canceled: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400',
+   101→  Finish: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400',
+   102→  Extend: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-400',
+   103→}
+   104→
+   105→const statusIcons: Record<string, typeof Clock> = {
+   106→  Pending: Clock,
+   107→  Approve: UserCheck,
+   108→  Visited: UserCheck,
+   109→  Canceled: UserX,
+   110→  Finish: UserCheck,
+   111→  Extend: Clock,
+   112→}
+   113→
+   114→const tabs = [
+   115→  { value: 'all', label: 'All' },
+   116→  { value: 'Pending', label: 'Pending' },
+   117→  { value: 'Approve', label: 'Approved' },
+   118→  { value: 'Visited', label: 'Visited' },
+   119→  { value: 'Finish', label: 'Finished' },
+   120→  { value: 'Canceled', label: 'Canceled' },
+   121→]
+   122→
+   123→const bloodGroupOptions = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+   124→
+   125→export default function ReceptionistAppointmentsPage() {
+   126→  const [statusFilter, setStatusFilter] = useState('all')
+   127→  const [search, setSearch] = useState('')
+   128→  const [fromDate, setFromDate] = useState('')
+   129→  const [toDate, setToDate] = useState('')
+   130→  const [dialogOpen, setDialogOpen] = useState(false)
+   131→  const [confirmOpen, setConfirmOpen] = useState(false)
+   132→  const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | 'extend' | 'visited' | null>(null)
+   133→  const [selectedId, setSelectedId] = useState<string | null>(null)
+   134→  const [detailOpen, setDetailOpen] = useState(false)
+   135→  const [selectedAppt, setSelectedAppt] = useState<ReceptionistAppointment | null>(null)
+   136→
+   137→  // New appointment form state
+   138→  const [formMobile, setFormMobile] = useState('')
+   139→  const [formPatientName, setFormPatientName] = useState('')
+   140→  const [formGender, setFormGender] = useState('')
+   141→  const [formDob, setFormDob] = useState('')
+   142→  const [formAge, setFormAge] = useState('')
+   143→  const [formBloodGroup, setFormBloodGroup] = useState('')
+   144→  const [formDisease, setFormDisease] = useState('')
+   145→  const [formDate, setFormDate] = useState('')
+   146→  const [formTime, setFormTime] = useState('')
+   147→  const [formDescription, setFormDescription] = useState('')
+   148→  const [formHeight, setFormHeight] = useState('')
+   149→  const [formWeight, setFormWeight] = useState('')
+   150→  const [formPhysicalHandicap, setFormPhysicalHandicap] = useState('No')
+   151→  const [formRelationWithMe, setFormRelationWithMe] = useState('')
+   152→
+   153→  // Mobile lookup state
+   154→  const [lookupStatus, setLookupStatus] = useState<'idle' | 'searching' | 'found' | 'not_found'>('idle')
+   155→  const [lookupDebounceTimer, setLookupDebounceTimer] = useRef<ReturnType<typeof setTimeout> | null>(null)
+   156→
+   157→  // Register dialog state
+   158→  const [showRegisterDialog, setShowRegisterDialog] = useState(false)
+   159→  const [regName, setRegName] = useState('')
+   160→  const [regEmail, setRegEmail] = useState('')
+   161→  const [regGender, setRegGender] = useState('')
+   162→  const [regMobile, setRegMobile] = useState('')
+   163→
+   164→  // Already-booked count
+   165→  const [bookedCount, setBookedCount] = useState<number | null>(null)
+   166→
+   167→  const queryClient = useQueryClient()
+   168→
+   169→  const { data, isLoading } = useQuery<{
+   170→    appointments: ReceptionistAppointment[]
+   171→    statusCounts: Record<string, number>
+   172→    doctor: { id: string; name: string; fees: number } | null
+   173→  }>({
+   174→    queryKey: ['receptionist-appointments', statusFilter, search, fromDate, toDate],
+   175→    queryFn: () =>
+   176→      fetch(
+   177→        `/api/dashboard/receptionist/appointments?status=${statusFilter}&search=${encodeURIComponent(search)}${fromDate ? `&from=${fromDate}` : ''}${toDate ? `&to=${toDate}` : ''}`
+   178→      ).then((r) => r.json()),
+   179→  })
+   180→
+   181→  const createMutation = useMutation({
+   182→    mutationFn: (body: {
+   183→      patientName: string
+   184→      mobile: string
+   185→      disease: string
+   186→      date: string
+   187→      time: string
+   188→      description: string
+   189→      gender: string
+   190→      dateOfBirth: string
+   191→      age: string
+   192→      bloodGroup: string
+   193→      weight: string
+   194→      height: string
+   195→      physicallyChallenged: string
+   196→      relationWithMe: string
+   197→    }) =>
+   198→      fetch('/api/dashboard/receptionist/appointments', {
+   199→        method: 'POST',
+   200→        headers: { 'Content-Type': 'application/json' },
+   201→        body: JSON.stringify(body),
+   202→      }).then((r) => r.json()),
+   203→    onSuccess: () => {
+   204→      queryClient.invalidateQueries({ queryKey: ['receptionist-appointments'] })
+   205→      queryClient.invalidateQueries({ queryKey: ['receptionist-stats'] })
+   206→      toast.success('Appointment created successfully')
+   207→      setDialogOpen(false)
+   208→      resetForm()
+   209→    },
+   210→    onError: () => {
+   211→      toast.error('Failed to create appointment')
+   212→    },
+   213→  })
+   214→
+   215→  const registerMutation = useMutation({
+   216→    mutationFn: (body: { name: string; email: string; mobile: string; gender: string }) =>
+   217→      fetch('/api/dashboard/receptionist/patients/register', {
+   218→        method: 'POST',
+   219→        headers: { 'Content-Type': 'application/json' },
+   220→        body: JSON.stringify(body),
+   221→      }).then((r) => r.json()),
+   222→    onSuccess: (data) => {
+   223→      if (data.success && data.patient) {
+   224→        toast.success('New patient registered successfully')
+   225→        setFormPatientName(data.patient.name)
+   226→        setFormGender(data.patient.gender)
+   227→        setLookupStatus('found')
+   228→        setShowRegisterDialog(false)
+   229→      } else {
+   230→        toast.error(data.error || 'Failed to register patient')
+   231→      }
+   232→    },
+   233→    onError: () => {
+   234→      toast.error('Failed to register patient')
+   235→    },
+   236→  })
+   237→
+   238→  const statusMutation = useMutation({
+   239→    mutationFn: ({
+   240→      id,
+   241→      status,
+   242→    }: {
+   243→      id: string
+   244→      status: string
+   245→    }) =>
+   246→      fetch(`/api/dashboard/receptionist/bookings/${id}/status`, {
+   247→        method: 'PATCH',
+   248→        headers: { 'Content-Type': 'application/json' },
+   249→        body: JSON.stringify({ status }),
+   250→      }).then((r) => r.json()),
+   251→    onSuccess: (_, variables) => {
+   252→      queryClient.invalidateQueries({ queryKey: ['receptionist-appointments'] })
+   253→      queryClient.invalidateQueries({ queryKey: ['receptionist-stats'] })
+   254→      const toastMap: Record<string, string> = {
+   255→        Approve: 'Appointment approved',
+   256→        Canceled: 'Appointment rejected',
+   257→        Extend: 'Appointment extended',
+   258→        Visited: 'Appointment marked as visited',
+   259→      }
+   260→      toast.success(toastMap[variables.status] || 'Appointment updated')
+   261→    },
+   262→    onError: () => {
+   263→      toast.error('Failed to update appointment')
+   264→    },
+   265→  })
+   266→
+   267→  // DOB -> Age auto-calculation (computed via handler, not effect)
+   268→  const handleDobChange = (value: string) => {
+   269→    setFormDob(value)
+   270→    if (value) {
+   271→      const dob = new Date(value)
+   272→      const age = differenceInYears(new Date(), dob)
+   273→      setFormAge(String(age))
+   274→    } else {
+   275→      setFormAge('')
+   276→    }
+   277→  }
+   278→
+   279→  // Mobile lookup with debounce
+   280→  const doLookup = useCallback(async (mobile: string) => {
+   281→    if (mobile.length < 3) {
+   282→      setLookupStatus('idle')
+   283→      return
+   284→    }
+   285→    setLookupStatus('searching')
+   286→    try {
+   287→      const res = await fetch(`/api/dashboard/receptionist/patients?search=${encodeURIComponent(mobile)}`)
+   288→      const data = await res.json()
+   289→      const patients: PatientLookupResult[] = data.patients || []
+   290→      const match = patients.find((p) => p.mobileNo === mobile)
+   291→      if (match) {
+   292→        setFormPatientName(match.name)
+   293→        if (match.gender) setFormGender(match.gender)
+   294→        setLookupStatus('found')
+   295→      } else {
+   296→        setLookupStatus('not_found')
+   297→      }
+   298→    } catch {
+   299→      setLookupStatus('not_found')
+   300→    }
+   301→  }, [])
+   302→
+   303→  const handleMobileBlur = useCallback(() => {
+   304→    if (lookupDebounceTimer.current) {
+   305→      clearTimeout(lookupDebounceTimer.current)
+   306→    }
+   307→    if (formMobile) {
+   308→      doLookup(formMobile)
+   309→    }
+   310→  }, [formMobile, doLookup, lookupDebounceTimer])
+   311→
+   312→  const handleLookupClick = useCallback(() => {
+   313→    if (lookupDebounceTimer.current) {
+   314→      clearTimeout(lookupDebounceTimer.current)
+   315→    }
+   316→    if (formMobile) {
+   317→      doLookup(formMobile)
+   318→    }
+   319→  }, [formMobile, doLookup, lookupDebounceTimer])
+   320→
+   321→  // Already-booked count on date change
+   322→  useEffect(() => {
+   323→    if (!formDate) return
+   324→    let cancelled = false
+   325→    fetch(`/api/dashboard/receptionist/appointments?from=${formDate}&to=${formDate}`)
+   326→      .then((r) => r.json())
+   327→      .then((data) => {
+   328→        if (!cancelled) {
+   329→          setBookedCount((data.appointments?.length) ?? 0)
+   330→        }
+   331→      })
+   332→      .catch(() => {
+   333→        if (!cancelled) setBookedCount(0)
+   334→      })
+   335→    return () => { cancelled = true }
+   336→  }, [formDate])
+   337→
+   338→  const handleCreateAppointment = () => {
+   339→    if (!formPatientName || !formDate) {
+   340→      toast.error('Patient name and date are required')
+   341→      return
+   342→    }
+   343→    if (!formMobile) {
+   344→      toast.error('Mobile number is required')
+   345→      return
+   346→    }
+   347→    createMutation.mutate({
+   348→      patientName: formPatientName,
+   349→      mobile: formMobile,
+   350→      disease: formDisease,
+   351→      date: formDate,
+   352→      time: formTime,
+   353→      description: formDescription,
+   354→      gender: formGender,
+   355→      dateOfBirth: formDob,
+   356→      age: formAge,
+   357→      bloodGroup: formBloodGroup,
+   358→      weight: formWeight,
+   359→      height: formHeight,
+   360→      physicallyChallenged: formPhysicalHandicap,
+   361→      relationWithMe: formRelationWithMe,
+   362→    })
+   363→  }
+   364→
+   365→  const handleRegisterPatient = () => {
+   366→    if (!regName || !regMobile || !regGender) {
+   367→      toast.error('Name, mobile, and gender are required')
+   368→      return
+   369→    }
+   370→    registerMutation.mutate({
+   371→      name: regName,
+   372→      email: regEmail,
+   373→      mobile: regMobile,
+   374→      gender: regGender,
+   375→    })
+   376→  }
+   377→
+   378→  const handleStatusAction = (id: string, action: 'approve' | 'reject' | 'extend' | 'visited') => {
+   379→    setSelectedId(id)
+   380→    setConfirmAction(action)
+   381→    setConfirmOpen(true)
+   382→  }
+   383→
+   384→  const confirmStatusChange = () => {
+   385→    if (selectedId && confirmAction) {
+   386→      const statusMap: Record<string, string> = {
+   387→        approve: 'Approve',
+   388→        reject: 'Canceled',
+   389→        extend: 'Extend',
+   390→        visited: 'Visited',
+   391→      }
+   392→      statusMutation.mutate({
+   393→        id: selectedId,
+   394→        status: statusMap[confirmAction],
+   395→      })
+   396→    }
+   397→    setConfirmOpen(false)
+   398→    setSelectedId(null)
+   399→    setConfirmAction(null)
+   400→  }
+   401→
+   402→  const resetForm = () => {
+   403→    setFormMobile('')
+   404→    setFormPatientName('')
+   405→    setFormGender('')
+   406→    setFormDob('')
+   407→    setFormAge('')
+   408→    setFormBloodGroup('')
+   409→    setFormDisease('')
+   410→    setFormDate('')
+   411→    setFormTime('')
+   412→    setFormDescription('')
+   413→    setFormHeight('')
+   414→    setFormWeight('')
+   415→    setFormPhysicalHandicap('No')
+   416→    setFormRelationWithMe('')
+   417→    setLookupStatus('idle')
+   418→    setBookedCount(null)
+   419→  }
+   420→
+   421→  const handleOpenRegisterDialog = () => {
+   422→    setRegName('')
+   423→    setRegEmail('')
+   424→    setRegGender('')
+   425→    setRegMobile(formMobile)
+   426→    setShowRegisterDialog(true)
+   427→  }
+   428→
+   429→  const appointments = data?.appointments ?? []
+   430→  const statusCounts = data?.statusCounts ?? {}
+   431→  const doctor = data?.doctor
+   432→
+   433→  // Get today's date as YYYY-MM-DD for the date input min
+   434→  const today = format(new Date(), 'yyyy-MM-dd')
+   435→
+   436→  return (
+   437→    <div className="space-y-6">
+   438→      {/* Header with new appointment button */}
+   439→      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   440→        <div className="flex flex-wrap items-center gap-3">
+   441→          <div className="flex items-center gap-2">
+   442→            <Label htmlFor="from" className="text-sm text-muted-foreground whitespace-nowrap">From</Label>
+   443→            <Input id="from" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="h-9 w-40" />
+   444→          </div>
+   445→          <div className="flex items-center gap-2">
+   446→            <Label htmlFor="to" className="text-sm text-muted-foreground whitespace-nowrap">To</Label>
+   447→            <Input id="to" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="h-9 w-40" />
+   448→          </div>
+   449→          {(fromDate || toDate) && (
+   450→            <Button variant="ghost" size="sm" onClick={() => { setFromDate(''); setToDate('') }} className="text-xs text-muted-foreground">
+   451→              <X className="h-3 w-3 mr-1" /> Clear
+   452→            </Button>
+   453→          )}
+   454→        </div>
+   455→
+   456→        <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm() }}>
+   457→          <DialogTrigger asChild>
+   458→            <Button className="flex items-center gap-2 bg-teal-600 text-white hover:bg-teal-700">
+   459→              <Plus className="h-4 w-4" />
+   460→              New Appointment
+   461→            </Button>
+   462→          </DialogTrigger>
+   463→          <DialogContent className="sm:max-w-2xl">
+   464→            <DialogHeader>
+   465→              <DialogTitle>Book New Appointment</DialogTitle>
+   466→            </DialogHeader>
+   467→            <div className="max-h-[85vh] overflow-y-auto space-y-5 pt-2">
+   468→              {doctor && (
+   469→                <div className="rounded-lg bg-teal-50 p-3 dark:bg-teal-950/30">
+   470→                  <p className="text-xs text-muted-foreground">Doctor</p>
+   471→                  <p className="text-sm font-medium">{doctor.name}</p>
+   472→                  {doctor.fees > 0 && (
+   473→                    <p className="text-xs text-muted-foreground">
+   474→                      Consultation fee: ₹{doctor.fees.toLocaleString('en-IN')}
+   475→                    </p>
+   476→                  )}
+   477→                </div>
+   478→              )}
+   479→
+   480→              {/* PATIENT INFORMATION SECTION */}
+   481→              <div className="space-y-1">
+   482→                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Patient Information</p>
+   483→              </div>
+   484→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   485→                {/* Mobile Number */}
+   486→                <div className="space-y-2 sm:col-span-2">
+   487→                  <Label htmlFor="mobile">Mobile Number *</Label>
+   488→                  <div className="flex gap-2">
+   489→                    <Input
+   490→                      id="mobile"
+   491→                      type="tel"
+   492→                      placeholder="Enter mobile number"
+   493→                      value={formMobile}
+   494→                      onChange={(e) => {
+   495→                        setFormMobile(e.target.value)
+   496→                        setLookupStatus('idle')
+   497→                      }}
+   498→                      onBlur={handleMobileBlur}
+   499→                      className="flex-1"
+   500→                    />
+   501→                    <Button
+   502→                      type="button"
+   503→                      variant="outline"
+   504→                      size="icon"
+   505→                      onClick={handleLookupClick}
+   506→                      disabled={!formMobile || lookupStatus === 'searching'}
+   507→                      title="Look up patient"
+   508→                    >
+   509→                      {lookupStatus === 'searching' ? (
+   510→                        <Loader2 className="h-4 w-4 animate-spin" />
+   511→                      ) : (
+   512→                        <Phone className="h-4 w-4" />
+   513→                      )}
+   514→                    </Button>
+   515→                  </div>
+   516→                  {/* Lookup status feedback */}
+   517→                  {lookupStatus === 'found' && (
+   518→                    <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-400 dark:border-emerald-800">
+   519→                      <CheckCircle2 className="h-3 w-3" />
+   520→                      Patient found — details auto-filled
+   521→                    </Badge>
+   522→                  )}
+   523→                  {lookupStatus === 'not_found' && (
+   524→                    <div className="flex items-center gap-2">
+   525→                      <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">
+   526→                        <AlertTriangle className="h-3 w-3" />
+   527→                        No patient found
+   528→                      </Badge>
+   529→                      <Button
+   530→                        type="button"
+   531→                        variant="link"
+   532→                        size="sm"
+   533→                        className="h-auto p-0 text-teal-600 hover:text-teal-700"
+   534→                        onClick={handleOpenRegisterDialog}
+   535→                      >
+   536→                        <UserPlus className="h-3 w-3 mr-1" />
+   537→                        Register New Patient
+   538→                      </Button>
+   539→                    </div>
+   540→                  )}
+   541→                </div>
+   542→
+   543→                {/* Patient Name */}
+   544→                <div className="space-y-2">
+   545→                  <Label htmlFor="patientName">Patient Name *</Label>
+   546→                  <Input
+   547→                    id="patientName"
+   548→                    placeholder="Enter patient name"
+   549→                    value={formPatientName}
+   550→                    onChange={(e) => setFormPatientName(e.target.value)}
+   551→                  />
+   552→                </div>
+   553→
+   554→                {/* Gender */}
+   555→                <div className="space-y-2">
+   556→                  <Label>Gender</Label>
+   557→                  <Select value={formGender} onValueChange={setFormGender}>
+   558→                    <SelectTrigger className="w-full">
+   559→                      <SelectValue placeholder="Select gender" />
+   560→                    </SelectTrigger>
+   561→                    <SelectContent>
+   562→                      <SelectItem value="Male">Male</SelectItem>
+   563→                      <SelectItem value="Female">Female</SelectItem>
+   564→                      <SelectItem value="Other">Other</SelectItem>
+   565→                    </SelectContent>
+   566→                  </Select>
+   567→                </div>
+   568→
+   569→                {/* Date of Birth */}
+   570→                <div className="space-y-2">
+   571→                  <Label htmlFor="dob">Date of Birth</Label>
+   572→                  <Input
+   573→                    id="dob"
+   574→                    type="date"
+   575→                    value={formDob}
+   576→                    onChange={(e) => handleDobChange(e.target.value)}
+   577→                  />
+   578→                </div>
+   579→
+   580→                {/* Age */}
+   581→                <div className="space-y-2">
+   582→                  <Label htmlFor="age">Age</Label>
+   583→                  <Input
+   584→                    id="age"
+   585→                    type="text"
+   586→                    placeholder="Auto-filled from DOB"
+   587→                    value={formAge}
+   588→                    onChange={(e) => setFormAge(e.target.value)}
+   589→                  />
+   590→                </div>
+   591→
+   592→                {/* Blood Group */}
+   593→                <div className="space-y-2">
+   594→                  <Label>Blood Group</Label>
+   595→                  <Select value={formBloodGroup} onValueChange={setFormBloodGroup}>
+   596→                    <SelectTrigger className="w-full">
+   597→                      <SelectValue placeholder="Select blood group" />
+   598→                    </SelectTrigger>
+   599→                    <SelectContent>
+   600→                      {bloodGroupOptions.map((bg) => (
+   601→                        <SelectItem key={bg} value={bg}>{bg}</SelectItem>
+   602→                      ))}
+   603→                    </SelectContent>
+   604→                  </Select>
+   605→                </div>
+   606→              </div>
+   607→
+   608→              <Separator />
+   609→
+   610→              {/* APPOINTMENT DETAILS SECTION */}
+   611→              <div className="space-y-1">
+   612→                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Appointment Details</p>
+   613→              </div>
+   614→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   615→                {/* Date */}
+   616→                <div className="space-y-2">
+   617→                  <Label htmlFor="date">Date *</Label>
+   618→                  <Input
+   619→                    id="date"
+   620→                    type="date"
+   621→                    min={today}
+   622→                    value={formDate}
+   623→                    onChange={(e) => setFormDate(e.target.value)}
+   624→                  />
+   625→                  {bookedCount !== null && formDate && (
+   626→                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+   627→                      <CalendarDays className="h-3 w-3" />
+   628→                      {bookedCount} appointment{bookedCount !== 1 ? 's' : ''} already booked for this date
+   629→                    </p>
+   630→                  )}
+   631→                </div>
+   632→
+   633→                {/* Time Slot */}
+   634→                <div className="space-y-2">
+   635→                  <Label htmlFor="time">Time Slot</Label>
+   636→                  <Input
+   637→                    id="time"
+   638→                    type="time"
+   639→                    value={formTime}
+   640→                    onChange={(e) => setFormTime(e.target.value)}
+   641→                  />
+   642→                </div>
+   643→
+   644→                {/* Disease / Reason */}
+   645→                <div className="space-y-2">
+   646→                  <Label htmlFor="disease">Disease / Condition</Label>
+   647→                  <Input
+   648→                    id="disease"
+   649→                    placeholder="e.g. Fever, Headache"
+   650→                    value={formDisease}
+   651→                    onChange={(e) => setFormDisease(e.target.value)}
+   652→                  />
+   653→                </div>
+   654→
+   655→                {/* Description — spans full width */}
+   656→                <div className="space-y-2 sm:col-span-2">
+   657→                  <Label htmlFor="description">Description</Label>
+   658→                  <Textarea
+   659→                    id="description"
+   660→                    placeholder="Additional notes..."
+   661→                    value={formDescription}
+   662→                    onChange={(e) => setFormDescription(e.target.value)}
+   663→                    rows={3}
+   664→                  />
+   665→                </div>
+   666→              </div>
+   667→
+   668→              <Separator />
+   669→
+   670→              {/* ADDITIONAL INFORMATION SECTION */}
+   671→              <div className="space-y-1">
+   672→                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Additional Information</p>
+   673→              </div>
+   674→              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   675→                {/* Height */}
+   676→                <div className="space-y-2">
+   677→                  <Label htmlFor="height">Height (cm)</Label>
+   678→                  <Input
+   679→                    id="height"
+   680→                    type="number"
+   681→                    placeholder="e.g. 170"
+   682→                    value={formHeight}
+   683→                    onChange={(e) => setFormHeight(e.target.value)}
+   684→                  />
+   685→                </div>
+   686→
+   687→                {/* Weight */}
+   688→                <div className="space-y-2">
+   689→                  <Label htmlFor="weight">Weight (kg)</Label>
+   690→                  <Input
+   691→                    id="weight"
+   692→                    type="number"
+   693→                    placeholder="e.g. 70"
+   694→                    value={formWeight}
+   695→                    onChange={(e) => setFormWeight(e.target.value)}
+   696→                  />
+   697→                </div>
+   698→
+   699→                {/* Physical Handicap */}
+   700→                <div className="space-y-2">
+   701→                  <Label>Physical Handicap</Label>
+   702→                  <Select value={formPhysicalHandicap} onValueChange={setFormPhysicalHandicap}>
+   703→                    <SelectTrigger className="w-full">
+   704→                      <SelectValue placeholder="Select" />
+   705→                    </SelectTrigger>
+   706→                    <SelectContent>
+   707→                      <SelectItem value="No">No</SelectItem>
+   708→                      <SelectItem value="Yes">Yes</SelectItem>
+   709→                    </SelectContent>
+   710→                  </Select>
+   711→                </div>
+   712→
+   713→                {/* Relation With Me */}
+   714→                <div className="space-y-2">
+   715→                  <Label htmlFor="relationWithMe">Relation With Me</Label>
+   716→                  <Input
+   717→                    id="relationWithMe"
+   718→                    placeholder="Self, Father, Mother, etc."
+   719→                    value={formRelationWithMe}
+   720→                    onChange={(e) => setFormRelationWithMe(e.target.value)}
+   721→                  />
+   722→                </div>
+   723→              </div>
+   724→
+   725→              {/* Action buttons */}
+   726→              <div className="flex justify-end gap-3 pt-2">
+   727→                <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm() }}>
+   728→                  Cancel
+   729→                </Button>
+   730→                <Button
+   731→                  onClick={handleCreateAppointment}
+   732→                  disabled={createMutation.isPending}
+   733→                  className="bg-teal-600 text-white hover:bg-teal-700"
+   734→                >
+   735→                  {createMutation.isPending ? 'Booking...' : 'Book Appointment'}
+   736→                </Button>
+   737→              </div>
+   738→            </div>
+   739→          </DialogContent>
+   740→        </Dialog>
+   741→
+   742→        {/* Register New Patient Dialog */}
+   743→        <Dialog open={showRegisterDialog} onOpenChange={setShowRegisterDialog}>
+   744→          <DialogContent className="sm:max-w-md">
+   745→            <DialogHeader>
+   746→              <DialogTitle>Register New Patient</DialogTitle>
+   747→            </DialogHeader>
+   748→            <div className="space-y-4 pt-2">
+   749→              <div className="space-y-2">
+   750→                <Label htmlFor="regName">Name *</Label>
+   751→                <Input
+   752→                  id="regName"
+   753→                  placeholder="Enter patient name"
+   754→                  value={regName}
+   755→                  onChange={(e) => setRegName(e.target.value)}
+   756→                />
+   757→              </div>
+   758→              <div className="space-y-2">
+   759→                <Label htmlFor="regMobile">Mobile *</Label>
+   760→                <Input
+   761→                  id="regMobile"
+   762→                  type="tel"
+   763→                  value={regMobile}
+   764→                  disabled
+   765→                  className="bg-muted"
+   766→                />
+   767→                <p className="text-xs text-muted-foreground">Pre-filled from booking form</p>
+   768→              </div>
+   769→              <div className="space-y-2">
+   770→                <Label htmlFor="regEmail">Email</Label>
+   771→                <Input
+   772→                  id="regEmail"
+   773→                  type="email"
+   774→                  placeholder="Optional"
+   775→                  value={regEmail}
+   776→                  onChange={(e) => setRegEmail(e.target.value)}
+   777→                />
+   778→              </div>
+   779→              <div className="space-y-2">
+   780→                <Label>Gender *</Label>
+   781→                <Select value={regGender} onValueChange={setRegGender}>
+   782→                  <SelectTrigger className="w-full">
+   783→                    <SelectValue placeholder="Select gender" />
+   784→                  </SelectTrigger>
+   785→                  <SelectContent>
+   786→                    <SelectItem value="Male">Male</SelectItem>
+   787→                    <SelectItem value="Female">Female</SelectItem>
+   788→                    <SelectItem value="Other">Other</SelectItem>
+   789→                  </SelectContent>
+   790→                </Select>
+   791→              </div>
+   792→              <div className="flex justify-end gap-3 pt-2">
+   793→                <Button variant="outline" onClick={() => setShowRegisterDialog(false)}>
+   794→                  Cancel
+   795→                </Button>
+   796→                <Button
+   797→                  onClick={handleRegisterPatient}
+   798→                  disabled={registerMutation.isPending}
+   799→                  className="bg-teal-600 text-white hover:bg-teal-700"
+   800→                >
+   801→                  {registerMutation.isPending ? 'Registering...' : 'Register Patient'}
+   802→                </Button>
+   803→              </div>
+   804→            </div>
+   805→          </DialogContent>
+   806→        </Dialog>
+   807→      </div>
+   808→
+   809→      {/* Status tabs */}
+   810→      <div className="flex gap-1 overflow-x-auto rounded-lg bg-muted p-1">
+   811→          {tabs.map((tab) => {
+   812→            const count =
+   813→              tab.value === 'all'
+   814→                ? Object.values(statusCounts).reduce((a, b) => a + b, 0)
+   815→                : statusCounts[tab.value] || 0
+   816→            return (
+   817→              <button
+   818→                key={tab.value}
+   819→                onClick={() => setStatusFilter(tab.value)}
+   820→                className={cn(
+   821→                  'relative flex shrink-0 items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+   822→                  statusFilter === tab.value
+   823→                    ? 'bg-background text-foreground shadow-sm'
+   824→                    : 'text-muted-foreground hover:text-foreground'
+   825→                )}
+   826→              >
+   827→                {tab.label}
+   828→                <span
+   829→                  className={cn(
+   830→                    'text-xs',
+   831→                    statusFilter === tab.value
+   832→                      ? 'text-teal-600 dark:text-teal-400'
+   833→                      : 'text-muted-foreground'
+   834→                  )}
+   835→                >
+   836→                  {count}
+   837→                </span>
+   838→              </button>
+   839→            )
+   840→          })}
+   841→        </div>
+   842→
+   843→      {/* Search */}
+   844→      <div className="relative max-w-sm">
+   845→        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   846→        <Input
+   847→          placeholder="Search patient or appointment #..."
+   848→          value={search}
+   849→          onChange={(e) => setSearch(e.target.value)}
+   850→          className="pl-9"
+   851→        />
+   852→      </div>
+   853→
+   854→      {/* Table */}
+   855→      <Card>
+   856→        <CardContent className="p-0">
+   857→          <Table>
+   858→            <TableHeader>
+   859→              <TableRow>
+   860→                <TableHead>Patient</TableHead>
+   861→                <TableHead>Date & Time</TableHead>
+   862→                <TableHead>Type</TableHead>
+   863→                <TableHead>Status</TableHead>
+   864→                <TableHead className="text-right">Fee</TableHead>
+   865→                <TableHead className="text-right">Actions</TableHead>
+   866→              </TableRow>
+   867→            </TableHeader>
+   868→            <TableBody>
+   869→              {isLoading ? (
+   870→                Array.from({ length: 6 }).map((_, i) => (
+   871→                  <TableRow key={i}>
+   872→                    <TableCell>
+   873→                      <div className="flex items-center gap-2">
+   874→                        <div className="h-7 w-7 animate-pulse rounded-full bg-muted" />
+   875→                        <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+   876→                      </div>
+   877→                    </TableCell>
+   878→                    <TableCell><div className="h-4 w-24 animate-pulse rounded bg-muted" /></TableCell>
+   879→                    <TableCell><div className="h-5 w-16 animate-pulse rounded-full bg-muted" /></TableCell>
+   880→                    <TableCell><div className="h-5 w-16 animate-pulse rounded-full bg-muted" /></TableCell>
+   881→                    <TableCell><div className="ml-auto h-4 w-14 animate-pulse rounded bg-muted" /></TableCell>
+   882→                    <TableCell><div className="ml-auto h-8 w-20 animate-pulse rounded bg-muted" /></TableCell>
+   883→                  </TableRow>
+   884→                ))
+   885→              ) : appointments.length === 0 ? (
+   886→                <TableRow>
+   887→                  <TableCell colSpan={6} className="py-12 text-center">
+   888→                    <CalendarDays className="mx-auto mb-2 h-10 w-10 text-muted-foreground/50" />
+   889→                    <p className="text-sm text-muted-foreground">
+   890→                      {search || statusFilter !== 'all' || fromDate || toDate
+   891→                        ? 'No appointments match your filters'
+   892→                        : 'No appointments yet'}
+   893→                    </p>
+   894→                  </TableCell>
+   895→                </TableRow>
+   896→              ) : (
+   897→                appointments.map((appt, i) => {
+   898→                  const StatusIcon = statusIcons[appt.status] || Clock
+   899→                  const canPendingActions = appt.status === 'Pending'
+   900→                  const canApproveActions = appt.status === 'Approve'
+   901→                  return (
+   902→                    <motion.tr
+   903→                      key={appt.id}
+   904→                      initial={{ opacity: 0, x: -10 }}
+   905→                      animate={{ opacity: 1, x: 0 }}
+   906→                      transition={{ delay: i * 0.03 }}
+   907→                      className="group border-b border-border transition-colors hover:bg-muted/50"
+   908→                    >
+   909→                      <TableCell>
+   910→                        <div className="flex items-center gap-2">
+   911→                          <Avatar className="h-7 w-7">
+   912→                            <AvatarImage src={appt.patientImg || ''} />
+   913→                            <AvatarFallback className="text-xs">
+   914→                              {appt.patientName.charAt(0)}
+   915→                            </AvatarFallback>
+   916→                          </Avatar>
+   917→                          <div>
+   918→                            <p
+   919→                              className="text-sm font-medium cursor-pointer hover:underline hover:text-teal-600 dark:hover:text-teal-400"
+   920→                              onClick={() => { setSelectedAppt(appt); setDetailOpen(true) }}
+   921→                            >
+   922→                              {appt.patientName}
+   923→                            </p>
+   924→                            <p className="text-xs text-muted-foreground">{appt.appointmentNo}</p>
+   925→                          </div>
+   926→                        </div>
+   927→                      </TableCell>
+   928→                      <TableCell>
+   929→                        <div className="flex flex-col">
+   930→                          <span className="text-sm">
+   931→                            {format(new Date(appt.date), 'MMM d, yyyy')}
+   932→                          </span>
+   933→                          <span className="text-xs text-muted-foreground">
+   934→                            {format(new Date(appt.date), 'h:mm a')}
+   935→                          </span>
+   936→                        </div>
+   937→                      </TableCell>
+   938→                      <TableCell>
+   939→                        <span className="text-xs text-muted-foreground">{appt.bookingType}</span>
+   940→                      </TableCell>
+   941→                      <TableCell>
+   942→                        <span
+   943→                          className={cn(
+   944→                            'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+   945→                            statusColors[appt.status] || 'bg-gray-100 text-gray-700'
+   946→                          )}
+   947→                        >
+   948→                          <StatusIcon className="h-3 w-3" />
+   949→                          {appt.status}
+   950→                        </span>
+   951→                      </TableCell>
+   952→                      <TableCell className="text-right font-medium">
+   953→                        ₹{appt.charge.toLocaleString('en-IN')}
+   954→                      </TableCell>
+   955→                      <TableCell className="text-right">
+   956→                        {canPendingActions && (
+   957→                          <div className="flex items-center justify-end gap-1">
+   958→                            <Button
+   959→                              size="icon"
+   960→                              variant="ghost"
+   961→                              className="h-8 w-8 text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700 dark:hover:bg-emerald-950/50"
+   962→                              onClick={() => handleStatusAction(appt.id, 'approve')}
+   963→                              title="Approve"
+   964→                            >
+   965→                              <CheckCircle2 className="h-4 w-4" />
+   966→                            </Button>
+   967→                            <Button
+   968→                              size="icon"
+   969→                              variant="ghost"
+   970→                              className="h-8 w-8 text-violet-600 hover:bg-violet-50 hover:text-violet-700 dark:hover:bg-violet-950/50"
+   971→                              onClick={() => handleStatusAction(appt.id, 'extend')}
+   972→                              title="Extend"
+   973→                            >
+   974→                              <CalendarClock className="h-4 w-4" />
+   975→                            </Button>
+   976→                            <Button
+   977→                              size="icon"
+   978→                              variant="ghost"
+   979→                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50"
+   980→                              onClick={() => handleStatusAction(appt.id, 'reject')}
+   981→                              title="Reject"
+   982→                            >
+   983→                              <XCircle className="h-4 w-4" />
+   984→                            </Button>
+   985→                          </div>
+   986→                        )}
+   987→                        {canApproveActions && (
+   988→                          <div className="flex items-center justify-end gap-1">
+   989→                            <Button
+   990→                              size="icon"
+   991→                              variant="ghost"
+   992→                              className="h-8 w-8 text-teal-600 hover:bg-teal-50 hover:text-teal-700 dark:hover:bg-teal-950/50"
+   993→                              onClick={() => handleStatusAction(appt.id, 'visited')}
+   994→                              title="Mark Visited"
+   995→                            >
+   996→                              <CheckCircle2 className="h-4 w-4" />
+   997→                            </Button>
+   998→                            <Button
+   999→                              size="icon"
+  1000→                              variant="ghost"
+  1001→                              className="h-8 w-8 text-red-600 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/50"
+  1002→                              onClick={() => handleStatusAction(appt.id, 'reject')}
+  1003→                              title="Reject"
+  1004→                            >
+  1005→                              <XCircle className="h-4 w-4" />
+  1006→                            </Button>
+  1007→                          </div>
+  1008→                        )}
+  1009→                      </TableCell>
+  1010→                    </motion.tr>
+  1011→                  )
+  1012→                })
+  1013→              )}
+  1014→            </TableBody>
+  1015→          </Table>
+  1016→        </CardContent>
+  1017→      </Card>
+  1018→
+  1019→      {/* Appointment Detail Dialog */}
+  1020→      <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+  1021→        <DialogContent className="sm:max-w-lg">
+  1022→          <DialogHeader>
+  1023→            <DialogTitle>Appointment Details</DialogTitle>
+  1024→          </DialogHeader>
+  1025→          {selectedAppt && (
+  1026→            <div className="space-y-4">
+  1027→              {/* Status + Appointment # */}
+  1028→              <div className="flex items-center justify-between">
+  1029→                <span className={cn(
+  1030→                  'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+  1031→                  statusColors[selectedAppt.status] || 'bg-gray-100 text-gray-700'
+  1032→                )}>
+  1033→                  {selectedAppt.status}
+  1034→                </span>
+  1035→                <span className="text-xs text-muted-foreground">{selectedAppt.appointmentNo}</span>
+  1036→              </div>
+  1037→
+  1038→              {/* Patient info card */}
+  1039→              <div className="rounded-lg border p-3 space-y-2">
+  1040→                <div className="flex items-center gap-2">
+  1041→                  <Avatar className="h-8 w-8">
+  1042→                    <AvatarImage src={selectedAppt.patientImg || ''} />
+  1043→                    <AvatarFallback>{selectedAppt.patientName.charAt(0)}</AvatarFallback>
+  1044→                  </Avatar>
+  1045→                  <p className="font-medium">{selectedAppt.patientName}</p>
+  1046→                </div>
+  1047→                <p className="text-sm">Disease: {selectedAppt.disease || '—'}</p>
+  1048→                <p className="text-sm">Type: {selectedAppt.bookingType}</p>
+  1049→              </div>
+  1050→
+  1051→              {/* Doctor info */}
+  1052→              <div className="rounded-lg border p-3">
+  1053→                <p className="text-xs text-muted-foreground mb-1">Doctor</p>
+  1054→                <div className="flex items-center gap-2">
+  1055→                  <Stethoscope className="h-4 w-4 text-teal-600" />
+  1056→                  <p className="text-sm font-medium">{selectedAppt.doctorName}</p>
+  1057→                </div>
+  1058→                {selectedAppt.doctorSpecialization && (
+  1059→                  <p className="text-xs text-muted-foreground mt-1">{selectedAppt.doctorSpecialization}</p>
+  1060→                )}
+  1061→              </div>
+  1062→
+  1063→              {/* Date & Time */}
+  1064→              <div className="grid grid-cols-2 gap-3">
+  1065→                <div className="rounded-lg bg-muted/50 p-3">
+  1066→                  <p className="text-xs text-muted-foreground">Date</p>
+  1067→                  <p className="text-sm font-medium">{format(new Date(selectedAppt.date), 'MMM d, yyyy')}</p>
+  1068→                </div>
+  1069→                <div className="rounded-lg bg-muted/50 p-3">
+  1070→                  <p className="text-xs text-muted-foreground">Time</p>
+  1071→                  <p className="text-sm font-medium">{format(new Date(selectedAppt.date), 'h:mm a')}</p>
+  1072→                </div>
+  1073→                <div className="rounded-lg bg-muted/50 p-3">
+  1074→                  <p className="text-xs text-muted-foreground">Fee</p>
+  1075→                  <p className="text-sm font-medium">₹{selectedAppt.charge.toLocaleString('en-IN')}</p>
+  1076→                </div>
+  1077→                <div className="rounded-lg bg-muted/50 p-3">
+  1078→                  <p className="text-xs text-muted-foreground">Created</p>
+  1079→                  <p className="text-sm font-medium">{format(new Date(selectedAppt.createdAt), 'MMM d, yyyy')}</p>
+  1080→                </div>
+  1081→              </div>
+  1082→            </div>
+  1083→          )}
+  1084→        </DialogContent>
+  1085→      </Dialog>
+  1086→
+  1087→      {/* Confirmation dialog */}
+  1088→      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+  1089→        <AlertDialogContent>
+  1090→          <AlertDialogHeader>
+  1091→            <AlertDialogTitle>
+  1092→              {confirmAction === 'approve' && 'Approve Appointment'}
+  1093→              {confirmAction === 'reject' && 'Reject Appointment'}
+  1094→              {confirmAction === 'extend' && 'Extend Appointment'}
+  1095→              {confirmAction === 'visited' && 'Mark as Visited'}
+  1096→            </AlertDialogTitle>
+  1097→            <AlertDialogDescription>
+  1098→              {confirmAction === 'approve' &&
+  1099→                'Are you sure you want to approve this appointment? The patient will be notified.'}
+  1100→              {confirmAction === 'reject' &&
+  1101→                'Are you sure you want to reject this appointment? The patient will be notified.'}
+  1102→              {confirmAction === 'extend' &&
+  1103→                'Are you sure you want to extend this appointment? The patient will be notified.'}
+  1104→              {confirmAction === 'visited' &&
+  1105→                'Are you sure you want to mark this appointment as visited? The patient will be notified.'}
+  1106→            </AlertDialogDescription>
+  1107→          </AlertDialogHeader>
+  1108→          <AlertDialogFooter>
+  1109→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+  1110→            <AlertDialogAction
+  1111→              onClick={confirmStatusChange}
+  1112→              className={cn(
+  1113→                (confirmAction === 'approve') &&
+  1114→                  'bg-emerald-600 hover:bg-emerald-700',
+  1115→                (confirmAction === 'reject') &&
+  1116→                  'bg-red-600 hover:bg-red-700',
+  1117→                (confirmAction === 'extend') &&
+  1118→                  'bg-violet-600 hover:bg-violet-700',
+  1119→                (confirmAction === 'visited') &&
+  1120→                  'bg-teal-600 hover:bg-teal-700'
+  1121→              )}
+  1122→            >
+  1123→              {confirmAction === 'approve' && 'Approve'}
+  1124→              {confirmAction === 'reject' && 'Reject'}
+  1125→              {confirmAction === 'extend' && 'Extend'}
+  1126→              {confirmAction === 'visited' && 'Mark Visited'}
+  1127→            </AlertDialogAction>
+  1128→          </AlertDialogFooter>
+  1129→        </AlertDialogContent>
+  1130→      </AlertDialog>
+  1131→    </div>
+  1132→  )
+  1133→}
+  1134→

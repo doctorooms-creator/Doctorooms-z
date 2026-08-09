@@ -69,6 +69,7 @@ export async function GET(request: NextRequest) {
         appointmentNo: b.appointmentNo,
         patientName: b.patientName || b.user?.name || 'Walk-in',
         patientImg: b.user?.profileImg,
+        patientUserId: b.userId || null,
         doctorId: b.doctor?.id || '',
         doctorName: b.doctor?.user?.name || 'Unknown',
         doctorImg: b.doctor?.user?.profileImg,
@@ -104,7 +105,21 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { patientName, disease, date, time, description } = body
+    const {
+      patientName,
+      disease,
+      date,
+      time,
+      description,
+      gender,
+      dateOfBirth,
+      age,
+      bloodGroup,
+      weight,
+      height,
+      physicallyChallenged,
+      relationWithMe,
+    } = body
 
     if (!patientName || !date) {
       return NextResponse.json(
@@ -136,6 +151,15 @@ export async function POST(request: NextRequest) {
         status: 'Approve',
         bookingType: 'By Receptionist',
         appointmentCharge: doctor?.fees || 0,
+        gender: gender || '',
+        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
+        age: age ? parseInt(String(age), 10) || null : null,
+        bloodGroup: bloodGroup || '',
+        weight: weight ? parseFloat(String(weight)) || 0 : 0,
+        height: height ? parseFloat(String(height)) || 0 : 0,
+        physicallyChallenged: physicallyChallenged || 'No',
+        relationWithMe: relationWithMe || '',
+        timeSlot: time || '',
       },
     })
 
