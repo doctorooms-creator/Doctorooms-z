@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -27,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { FileText, Eye, CalendarX, CalendarDays, X, Loader2 } from 'lucide-react'
+import { FileText, Eye, CalendarX, CalendarDays, Calendar as CalendarIcon, X, Loader2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -69,14 +70,19 @@ interface Appointment {
 export default function PatientAppointmentsPage() {
   const [activeTab, setActiveTab] = useState('All')
   const [cancelId, setCancelId] = useState<string | null>(null)
+  const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined)
+  const [dateTo, setDateTo] = useState<Date | undefined>(undefined)
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['patient-appointments', activeTab],
+    queryKey: ['patient-appointments', activeTab, dateFrom?.toISOString(), dateTo?.toISOString()],
     queryFn: () => {
-      const status = statusMap[activeTab]
-      const params = status !== 'All' ? `?status=${status}` : ''
-      return fetch(`/api/dashboard/patient/appointments${params}`).then((r) => r.json())
+      const params = new URLSearchParams()
+      if (activeTab !== 'All') params.set('status', statusMap[activeTab])
+      if (dateFrom) params.set('from', format(dateFrom, 'yyyy-MM-dd'))
+      if (dateTo) params.set('to', format(dateTo, 'yyyy-MM-dd'))
+      const qs = params.toString()
+      return fetch(`/api/dashboard/patient/appointments${qs ? '?' + qs : ''}`).then(r => r.json())
     },
   })
 
@@ -134,6 +140,42 @@ export default function PatientAppointmentsPage() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
     >
+      {/* Date Range Filter */}
+      <Card>
+        <CardContent className="flex flex-wrap gap-3 items-center p-4">
+          <div className="flex items-center gap-2">
+            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">From:</Label>
+            <input
+              type="date"
+              value={dateFrom ? format(dateFrom, 'yyyy-MM-dd') : ''}
+              onChange={(e) => setDateFrom(e.target.value ? new Date(e.target.value + 'T00:00:00') : undefined)}
+              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label className="text-sm text-muted-foreground whitespace-nowrap">To:</Label>
+            <input
+              type="date"
+              value={dateTo ? format(dateTo, 'yyyy-MM-dd') : ''}
+              onChange={(e) => setDateTo(e.target.value ? new Date(e.target.value + 'T00:00:00') : undefined)}
+              className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            />
+          </div>
+          {(dateFrom || dateTo) && (
+            <Button variant="ghost" size="sm" onClick={() => { setDateFrom(undefined); setDateTo(undefined) }}>
+              <X className="h-4 w-4 mr-1" />
+              Clear
+            </Button>
+          )}
+          <span className="text-sm text-muted-foreground ml-auto">
+            {dateFrom || dateTo
+              ? `Showing ${appointments.length} appointment${appointments.length !== 1 ? 's' : ''}`
+              : 'Filter by date range'}
+          </span>
+        </CardContent>
+      </Card>
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="flex-wrap h-auto gap-1 bg-muted/50 p-1">

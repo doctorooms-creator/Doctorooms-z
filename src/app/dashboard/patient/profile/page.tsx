@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { useAuthStore } from '@/lib/auth-store'
@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { GENDERS } from '@/lib/constants'
-import { User, Mail, Phone, Camera, Save, X, Calendar, Shield, KeyRound } from 'lucide-react'
+import { User, Mail, Phone, Camera, Save, X, Calendar, Shield, KeyRound, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface Profile {
@@ -34,6 +34,7 @@ interface Profile {
 export default function PatientProfilePage() {
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [isEditing, setIsEditing] = useState(false)
   const [form, setForm] = useState({
     name: '',
@@ -61,6 +62,38 @@ export default function PatientProfilePage() {
 
   const cancelEditing = () => {
     setIsEditing(false)
+  }
+
+  const avatarMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append('avatar', file)
+      const res = await fetch('/api/patient/avatar', {
+        method: 'POST',
+        body: formData,
+      })
+      if (!res.ok) throw new Error('Upload failed')
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['patient-profile'] })
+      toast.success('Profile photo updated!')
+    },
+    onError: () => toast.error('Failed to upload photo'),
+  })
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('File size must be less than 2MB')
+      return
+    }
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      toast.error('Only JPEG, PNG, and WebP images are allowed')
+      return
+    }
+    avatarMutation.mutate(file)
   }
 
   const updateMutation = useMutation({
@@ -118,7 +151,7 @@ export default function PatientProfilePage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex flex-col items-center text-center">
-              <div className="relative">
+              <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                 <Avatar className="h-24 w-24">
                   <AvatarImage src={profile?.profileImg} />
                   <AvatarFallback className="bg-teal-100 text-2xl font-bold text-teal-700 dark:bg-teal-900 dark:text-teal-300">
@@ -130,12 +163,16 @@ export default function PatientProfilePage() {
                       .slice(0, 2)}
                   </AvatarFallback>
                 </Avatar>
-                <button
-                  onClick={() => toast.info('Avatar upload will be available soon')}
-                  className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-teal-500 text-white transition-transform hover:scale-110"
-                >
+                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  {avatarMutation.isPending ? (
+                    <Loader2 className="h-5 w-5 text-white animate-spin" />
+                  ) : (
+                    <Camera className="h-5 w-5 text-white" />
+                  )}
+                </div>
+                <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-background bg-teal-500 text-white">
                   <Camera className="h-4 w-4" />
-                </button>
+                </div>
               </div>
               <h3 className="mt-4 text-lg font-semibold">{profile?.name || user?.name}</h3>
               <p className="text-sm text-muted-foreground">Patient</p>
@@ -274,6 +311,14 @@ export default function PatientProfilePage() {
           </CardContent>
         </Card>
       </motion.div>
+
+      <input
+        type="file"
+        ref={fileInputRef}
+        className="hidden"
+        accept="image/jpeg,image/png,image/webp"
+        onChange={handleFileChange}
+      />
 
       {/* Change Password Link */}
       <motion.div

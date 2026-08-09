@@ -1,0 +1,842 @@
+     1→# Phase 1: Frontend (Public-Facing) Module — Complete Research Document
+     2→
+     3→> Source: `/tmp/Doctorooms/` (PHP/CodeIgniter)
+     4→> Date: Research completed for Next.js migration
+     5→
+     6→---
+     7→
+     8→## Architecture Overview
+     9→
+    10→- **Base Controller**: Public pages extend `Guest_controller` (no auth required). Patient-only pages extend `Patient_contoller` (requires login, role=PATIENT).
+    11→- **Layout**: All front-end pages use `layouts/master_page_front.php` (except login, register, forgot-password, OTP views which are standalone full HTML pages).
+    12→- **Session**: `$this->user_data` = logged-in user object; `$this->user` = same, passed to views; `$this->notification` = Notifications_model loaded in MY_Controller.
+    13→- **Constants**: `PENDING`, `APPROVE`, `REJECTED`, `EXTEND`, `VISITED`, `ACTIVE`, `BLOCK`, `DOCTOR`, `PATIENT`, `HOSPITAL`, `RECEPTIONIST`, `ADMIN`, `BLOG`, `PUBLISHED`, `HIDE`, `READ`, `UNREAD`, `BY_SELF`, `SITE_TITLE`, `DOCTOR_ASSISTANT` — all defined in `config/constants.php`.
+    14→
+    15→---
+    16→
+    17→## LAYOUT: `views/layouts/master_page_front.php`
+    18→
+    19→### Header
+    20→- **Logo**: `<img>` from `assets/brand/LOGO-CIRCLE.png`, links to `base_url()`, 8rem × 4rem
+    21→- **Search Bar**: `<form method="GET" action="search">` with `<input name="q" class="form-control header-search" placeholder="Search…">`
+    22→- **Notification Bell** (only if logged in as DOCTOR/RECEPTIONIST/PATIENT):
+    23→  - Links to role-specific notification page
+    24→  - Shows `nav-unread` dot if `$notificationsCount > 0`
+    25→  - Dropdown shows latest notifications + "Read All" link
+    26→- **User Dropdown** (if logged in):
+    27→  - Shows avatar (`upload/profile/{profile_img}`), name, role badge
+    28→  - Menu items vary by role:
+    29→    - **ADMIN**: Dashboard, Profile → `admin/dashboard`, `admin/dashboard/update_admin_profile`
+    30→    - **HOSPITAL**: Dashboard, Profile → `hospital/dashboard`, `hospital/profile/update_profile`
+    31→    - **DOCTOR**: Dashboard, Profile → `doctor/dashboard`, `doctor/profile`
+    32→    - **PATIENT**: My Appointment (`appointment`), My Blog (`post`), Profile (`profile`)
+    33→    - **RECEPTIONIST**: Dashboard, Profile → `receptionist/dashboard`, `receptionist/profile`
+    34→    - **All**: Sign out → `auth/logout`
+    35→
+    36→### Navigation Bar (collapsible, `#headerMenuCollapse`)
+    37→- Home → `home`
+    38→- Blog → `blog`
+    39→- Find Doctor → `doctors`
+    40→- Find Hospital → `hospitals`
+    41→- About Us → `about`
+    42→- Contact Us → `contactus`
+    43→- Register → `auth/register_for` (only if NOT logged in)
+    44→- Login → `auth/login` (only if NOT logged in)
+    45→
+    46→### Footer
+    47→- Links: About us, Contact Us, Terms & Conditions, Privacy Policy, Hospital Inquiry
+    48→- Social icons: Facebook, Twitter, Phone, Skype (all `javascript:void(0)` — placeholder)
+    49→- Copyright: "© 2018 Bracesoft Solution"
+    50→
+    51→### CSS/JS Loaded
+    52→- `sweetalert.min.js` (CDN unpkg) — for confirm dialogs
+    53→- `ckeditor.js` v4.11.1 standard (CDN) — rich text editor
+    54→- `bootstrap-datepicker3.standalone.min.css`
+    55→- `dashboard.css`, `dashboard.js` (core Tabler UI framework)
+    56→- `datatables.net`, `datatables` (DataTables for `.dttable` class)
+    57→- `datepicker` module (require.js)
+    58→- `charts-c3` plugin (c3.js D3 charts)
+    59→- `maps-google` plugin
+    60→- `input-mask` plugin
+    61→- `font-awesome/4.7.0` (CDN)
+    62→- Google Analytics: `UA-171698773-1`
+    63→
+    64→### Global JS Functions
+    65→- `conformDel(aa, event)` — SweetAlert confirm before delete
+    66→- `conformCancel(aa, event)` — SweetAlert confirm before cancel
+    67→- `.dttable` auto-initialized as DataTable
+    68→- Star rating CSS (`.rating` with radio inputs)
+    69→- Chat UI CSS (`.chat li.left`, `.chat li.right`)
+    70→
+    71→### Custom CSS
+    72→- Star rating system (pure CSS, no JS library)
+    73→- `.avatar-thumb` — 4rem × 3rem thumbnail
+    74→- `.disabled-date.day` — red background for disabled datepicker dates
+    75→- Print media: `#pos { display:none; }`
+    76→
+    77→---
+    78→
+    79→## 1.1 Homepage
+    80→
+    81→### Controller: `Home.php`
+    82→- **Class**: `Home extends Guest_controller`
+    83→- **Models loaded**: `Posts_model` (as `$this->post`), `Slider_model` (as `$this->slider`), `Doctors_model` (as `$this->doctor`), `Hospital_model` (as `$this->hospital`)
+    84→- **Method**: `index()` — GET
+    85→  - Queries:
+    86→    - `$this->post->get_latest_post(4)` → 4 latest published blog posts
+    87→    - `$this->slider->get_slider_active()` → all active sliders
+    88→    - `$this->doctor->get_active_users(8)` → 8 active doctors (no hospital, active status, doctor role)
+    89→    - `$this->hospital->get_active_hospitals(8)` → 8 active hospitals
+    90→  - Data passed: `$posts`, `$slide`, `$doc`, `$hospitals`
+    91→  - View: `front/home` in `layouts/master_page_front`
+    92→
+    93→### Model: `Slider_model`
+    94→- `get_slider_active()`: `SELECT * FROM slider WHERE status=ACTIVE ORDER BY position DESC`
+    95→  - Returns: array of objects with `slider_image`, `position`, `status`
+    96→
+    97→### Model: `Doctors_model`
+    98→- `get_active_users($limit=8, $start=0)`: `SELECT doctors.doctor_type, doctors.city, doctors.state, users.* FROM doctors, users WHERE doctors.user_id=users.id AND doctors.hospital_id IS NULL AND users.status=ACTIVE AND users.role=DOCTOR LIMIT 8`
+    99→  - Returns: array of objects (id, name, profile_img, doctor_type, city, state, etc.)
+   100→
+   101→### Model: `Hospital_model`
+   102→- `get_active_hospitals($limit=8, $start=0)`: `SELECT hospital.hospital_name, hospital.address, hospital.state, hospital.city, hospital.contact_no, hospital.gallary, hospital.lat, hospital.longi, users.* FROM hospital, users WHERE hospital.user_id=users.id AND users.status=ACTIVE AND users.role=HOSPITAL LIMIT 8`
+   103→  - Returns: array of objects
+   104→
+   105→### Model: `Posts_model`
+   106→- `get_latest_post($limit=4)`: `SELECT p.*, users.email, users.name, users.profile_img FROM posts AS p, users WHERE users.id=p.user_id AND p.status=PUBLISHED AND p.type=BLOG ORDER BY id DESC LIMIT 4`
+   107→  - Returns: array with title, content, blog_img, paramalink, name, profile_img, created_at
+   108→
+   109→### View: `front/home.php`
+   110→- **Image Carousel**: Bootstrap 4 carousel (`#carousel-captions`) with prev/next arrows
+   111→  - Images: `upload/slider/{slider_image}`
+   112→  - First item has class `active`
+   113→- **Doctors Section**: "Doctors" heading + "VIEW ALL" button (→ `doctors`)
+   114→  - Grid: `row row-cards row-deck`, 4 per row (`col-sm-6 col-xl-3`)
+   115→  - Card: `card card-profile` with background image (`assets/images/doctor_backgraound.jpeg`)
+   116→  - Each card: profile image (`upload/profile/{profile_img}`), "Dr. {name}", "{doctor_type} | {city}, {state}", Profile button → `doctors/view/{id}`
+   117→  - Empty state: "Oops! No data"
+   118→- **Hospitals Section**: Same card layout, background `hospital_background.jpg`
+   119→  - Shows: hospital_name, city, Profile button → `hospitals/view/{id}`
+   120→- **Recent Blog Section**: Same 4-column grid
+   121→  - Blog card: image (`upload/blog/{blog_img}` or `assets/images/no_img.png`), title (→ `blog/view/{paramalink}`), content excerpt (200 chars), author avatar + name + date, Read link
+   122→  - Empty state: "Oops! No data"
+   123→
+   124→### Connections
+   125→- Tables: `slider`, `users`, `doctors`, `hospital`, `posts`
+   126→
+   127→---
+   128→
+   129→## 1.2 Doctor Listing
+   130→
+   131→### Controller: `Doctors.php`
+   132→- **Class**: `Doctors extends Guest_controller`
+   133→- **Models**: `Doctors_model` (doctor), `Hospital_model` (hospital), `Doctor_rating_model` (doctor_rating)
+   134→- **Method**: `index($page=0)` — GET
+   135→  - Gets all active doctors (no limit) for count
+   136→  - Pagination: base_url `doctors/index/`, per_page=12, Bootstrap 4 styled (`<li>` tags, `page-link` class)
+   137→  - Gets paginated doctors: `get_active_users(12, $page)`
+   138→  - Data: `$doctors`, `$links`, `_title="Doctors"`
+   139→  - View: `front/doctor/index`
+   140→
+   141→- **Method**: `view($id)` — GET
+   142→  - Gets single active doctor by user ID
+   143→  - If not found → redirect `doctors`
+   144→  - Gets: `doctor_total_rate_user` (count of ratings), `doctor_average_rating` (avg)
+   145→  - If logged in (`$this->user_data`): gets `my_rating` (patient's existing rating)
+   146→  - Gets hospital info via `$this->hospital->get_one_by_user($doctor->hospital_id)`
+   147→  - Data: `$doctor`, `$doctor_total_rate_user`, `$doctor_average_rating`, `$my_rating`, `$hospital`
+   148→  - View: `front/doctor/profile`
+   149→
+   150→### View: `front/doctor/index.php`
+   151→- Page title: "Doctors"
+   152→- Grid: `col-sm-6 col-xl-3` (4 per row)
+   153→- Same card layout as homepage doctor cards but WITHOUT city/state
+   154→- Pagination: `<ul class="pagination">{{links}}</ul>`
+   155→- Empty state: "Oops! No data"
+   156→
+   157→### Connections
+   158→- Tables: `users`, `doctors`
+   159→
+   160→---
+   161→
+   162→## 1.3 Doctor Profile
+   163→
+   164→### View: `front/doctor/profile.php`
+   165→- **Layout**: 2-column (col-lg-4 sidebar + col-lg-8 main)
+   166→- **Left Sidebar**:
+   167→  - Doctor card: avatar (avatar-xxl), name ("Dr. {name}"), doctor_type, star rating (X/5), total raters
+   168→  - **Rating Widget** (only if logged in AND role==PATIENT):
+   169→    - 5 radio inputs (star1-5), value 1-5
+   170→    - Pre-checks existing rating
+   171→    - CSS-only star rating system
+   172→  - Google Maps iframe: `https://maps.google.com/maps?q={lat},{longi}&hl=es;z=13&output=embed` (200px height)
+   173→    - If hospital exists: uses hospital lat/longi; else uses doctor's lat/longi
+   174→  - Hospital info (if exists): hospital_name (link → `hospitals/view/{hospital_id}`), address, city, state
+   175→  - Info grid: Fees (Rs. X), Emergency charge (Rs. X or "-"), Email, Phone, Description
+   176→- **Right Column**:
+   177→  - Card with "Appoint Now" button → `book/doctor/{doctor.id}`
+   178→  - List group items:
+   179→    1. Overview & Description — `$doctor->description`
+   180→    2. Specialization — `json_decode($doctor->specialization)` → tags (`tag-gray`)
+   181→    3. Award & Recognition — `$doctor->award_and_recognition`
+   182→    4. Education — `$doctor->eduction` (sic — typo in DB column)
+   183→    5. Registration Detail — `$doctor->registration_detail`
+   184→    6. Gallery — `json_decode($doctor->photos)` → thumbnails (150px, link opens full in new tab, from `upload/gallery/`)
+   185→- **JavaScript**:
+   186→  - On rating radio click: `$.post('api/rate_us', {patient, doctor, star})` → SweetAlert success/error
+   187→
+   188→### Connections
+   189→- Tables: `users`, `doctors`, `hospital`, `doctor_rating`
+   190→- API: `api/rate_us` (POST, params: patient, doctor, star)
+   191→
+   192→---
+   193→
+   194→## 1.4 Doctor Search
+   195→
+   196→### Controller: `Search.php`
+   197→- **Class**: `Search extends Guest_controller`
+   198→- **Models**: `Doctors_model` (doctor), `Hospital_model` (hospital), `City_model` (city), `Doctor_type_model` (type)
+   199→- **Method**: `index()` — GET
+   200→  - Params: `q` (query string, required — redirects to home if missing), `city`, `type`
+   201→  - Queries:
+   202→    - `$this->doctor->get_search_users($q, $city, $type)` — searches doctors
+   203→    - `$this->hospital->get_search_hospital($q, $city)` — searches hospitals
+   204→    - `$this->city->get_all_city()` — all cities for filter dropdown
+   205→    - `$this->type->get_all()` — all doctor types for filter dropdown
+   206→  - Data: `$doctors`, `$hospitals`, `$city`, `$type`, `_title={q} - Search`
+   207→  - View: `front/doctor/search`
+   208→
+   209→### Model: `Doctors_model`
+   210→- `get_search_users($keyword, $city, $doctor_type)`: Searches `users.name`, `doctors.state`, `doctors.specialization`, `doctors.eduction`, `doctors.experience` with LIKE `%keyword%`. Optional filters: city, doctor_type. Only active doctors with `hospital_id IS NULL`.
+   211→  - Returns: array of matching doctors
+   212→
+   213→### Model: `Hospital_model`
+   214→- `get_search_hospital($keyword, $city)`: Searches `hospital.hospital_name`, `hospital.state` with LIKE. Optional city filter. Only active hospitals.
+   215→  - Returns: array of matching hospitals
+   216→
+   217→### View: `front/doctor/search.php`
+   218→- Page title: "Search Results for: {q}"
+   219→- **Filter form** (GET, inline):
+   220→  - Hidden input: `name="q" value={q}`
+   221→  - City dropdown: `name="city"` — all cities from DB with state_name suffix
+   222→  - Doctor type dropdown: `name="type"` — all types from DB
+   223→  - Filter button with icon
+   224→- **Results**: Two sections — Doctors and Hospitals (same card layouts as listing pages)
+   225→- Empty state: "Oops! did not match any result."
+   226→
+   227→### Connections
+   228→- Tables: `users`, `doctors`, `hospital`, `city` (assumed), `doctor_type` (assumed)
+   229→
+   230→---
+   231→
+   232→## 1.5 Hospital Listing
+   233→
+   234→### Controller: `Hospitals.php`
+   235→- **Class**: `Hospitals extends Guest_controller`
+   236→- **Models**: `Doctors_model` (doctor), `Hospital_model` (hospital), `Schedule_pdf_model` (schedule)
+   237→- **Method**: `index($page=0)` — GET
+   238→  - Pagination: per_page=12, same config as doctors
+   239→  - Data: `$hospitals`, `$links`, `_title="Hospitals"`
+   240→  - View: `front/hospital/index`
+   241→
+   242→### View: `front/hospital/index.php`
+   243→- Same card grid as doctor listing (col-xl-3, 4 per row)
+   244→- Shows: hospital profile_img, hospital_name, city, Profile button
+   245→- Pagination links
+   246→- Empty state
+   247→
+   248→### Connections
+   249→- Tables: `users`, `hospital`
+   250→
+   251→---
+   252→
+   253→## 1.6 Hospital Profile
+   254→
+   255→### Controller: `Hospitals.php`
+   256→- **Method**: `view($id)` — GET
+   257→  - Gets hospital by user ID; if not found → redirect `doctors` (note: bug — should redirect to `hospitals`)
+   258→  - Gets: `$this->doctor->get_hospital_doctors($id)` — doctors belonging to this hospital
+   259→  - Gets: `$this->schedule->get_last_by_hospital($id)` — latest schedule PDF
+   260→  - Data: `$doctors`, `$schedule`, `$hospital`
+   261→  - View: `front/hospital/profile`
+   262→
+   263→### View: `front/hospital/profile.php`
+   264→- **2-column layout** (col-lg-4 + col-lg-8)
+   265→- **Left sidebar**:
+   266→  - Hospital avatar + name + city/state
+   267→  - Google Maps (using hospital lat/longi)
+   268→  - Hospital details: hospital_name, address, city, state, email, phone
+   269→- **Right column**:
+   270→  - **Doctors list**: Grid of doctor cards (col-sm-4, 3 per row) with profile images, "Dr. {name}", doctor_type, Profile button
+   271→  - If schedule exists: "Get Doctor Schedule" download button (→ `upload/schedule_docs/{file_name}`)
+   272→  - **Gallery**: `json_decode($hospital->gallary)` → thumbnail images (150px) from `upload/gallery/`
+   273→  - Empty gallery: "No images"
+   274→
+   275→### Connections
+   276→- Tables: `users`, `hospital`, `doctors`, `schedule_docs` (assumed)
+   277→
+   278→---
+   279→
+   280→## 1.7 Blog Listing
+   281→
+   282→### Controller: `Blog.php`
+   283→- **Class**: `Blog extends Guest_controller`
+   284→- **Model**: `Posts_model` (post)
+   285→- **Method**: `index($page=0)` — GET
+   286→  - Pagination: per_page=9
+   287→  - Gets: `get_all_front(9, $page)` — published blog posts
+   288→  - Gets: `get_latest_post(5)` — sidebar latest posts
+   289→  - Data: `$posts`, `$links`, `$latest_post`
+   290→  - View: `front/blog`
+   291→
+   292→- **Method**: `view($paramalink)` — GET
+   293→  - Gets: `get_single_post($paramalink)` — single post by permalink
+   294→  - Gets: `get_latest_post(5)` — sidebar
+   295→  - Data: `$single_blog`, `$latest_post`, `_title={paramalink}`
+   296→  - View: `front/blog-details`
+   297→
+   298→### Model: `Posts_model`
+   299→- `get_all_front($limit, $start)`: `SELECT p.*, users.email, users.name, users.profile_img FROM posts AS p, users WHERE users.id=p.user_id AND p.status=PUBLISHED AND p.type=BLOG ORDER BY id DESC LIMIT {limit} OFFSET {start}`
+   300→  - Returns: array
+   301→- `get_single_post($paramalink)`: Same join + `WHERE p.paramalink=$paramalink`
+   302→  - Returns: single row
+   303→- `get_latest_post($limit)`: Same as get_all_front but just with limit
+   304→
+   305→### View: `front/blog.php`
+   306→- **2-column layout** (col-lg-8 main + col-md-4 sidebar)
+   307→- **Main**: Blog cards in `col-md-4` (3 per row)
+   308→  - Image (150px height), title (link), content excerpt (100 chars), author avatar + name + date, Read More button
+   309→  - Pagination links
+   310→- **Sidebar**: "Read more" → table of latest 5 posts with thumbnail, title (32 chars), content excerpt (35 chars)
+   311→
+   312→### View: `front/blog-details.php`
+   313→- **2-column layout** (col-md-8 + col-md-4)
+   314→- **Main article**:
+   315→  - Title (h1)
+   316→  - Blog image (full width, from `upload/blog/`)
+   317→  - Video iframe (if `video_link` exists)
+   318→  - Content (raw HTML)
+   319→  - Share buttons: AddToAny (Facebook, Twitter, Google Plus, WhatsApp, Copy Link)
+   320→  - Footer: date, author name
+   321→  - Disqus comments: `https://https-doctorooms-com.disqus.com/embed.js`
+   322→- **Sidebar**: Same latest posts table
+   323→
+   324→### Connections
+   325→- Tables: `posts`, `users`
+   326→- External: Disqus, AddToAny
+   327→
+   328→---
+   329→
+   330→## 1.8 Appointment Booking
+   331→
+   332→### Controller: `Book.php`
+   333→- **Class**: `Book extends Patient_contoller` (requires login, role=PATIENT)
+   334→- **Models loaded**: Booking_model, Doctors_model, Doctor_holiday_schedule_model, Hospital_model, State_model, City_model, Config_model, Doctor_rating_model, Notifications_model, Receptionist_model
+   335→
+   336→- **Method**: `doctor($id)` — GET
+   337→  - Validates doctor exists (active)
+   338→  - Gets: doctor_total_rate_user, doctor_average_rating, all states, hospital info
+   339→  - Gets holiday dates: `$this->holiday_schedule->get_next_holidays($doctor->user_id)` → JSON array for datepicker
+   340→  - Data: `$doctor_total_rate_user`, `$doctor_average_rating`, `$state`, `$hospital`, `$doctor`, `$getHolidays`
+   341→  - View: `front/doctor/book`
+   342→
+   343→- **Method**: `doctor_book($id)` — POST
+   344→  - Validates doctor exists
+   345→  - Runs form validation rule: `booking_by_patient`
+   346→  - Checks daily limit: `$doctor->daily_limit` vs `$this->book->get_booking_count_by_date_by_doctor($id, $data['booking_date'])`
+   347→    - If limit reached: `_alertSuccessResponce(1, "limit over message", "not created", "book/doctor/$id")`
+   348→  - Creates booking with:
+   349→    - `doctor_id` = $id
+   350→    - `user_id` = current user
+   351→    - `status` = PENDING
+   352→    - `appointment_charge` = from config (`config_model->get_one()->admin_charge`)
+   353→    - `booking_type` = BY_SELF
+   354→    - `appointment_no` = auto-generated (APMT-{increment})
+   355→  - Sends notification to doctor + receptionist (if exists)
+   356→  - Sends SMS to patient: `sendMobileMessage(mobile_no, message)`
+   357→  - On success: redirect to `appointment`
+   358→  - On validation fail: re-loads book form with errors
+   359→
+   360→- **Method**: `generateBookingNumber()` — Internal
+   361→  - Gets latest booking record, increments APMT-{N}
+   362→  - If no records: APMT-1
+   363→
+   364→- **Method**: `city_by_state()` — POST (AJAX)
+   365→  - Params: `state_name`
+   366→  - Returns: JSON array of cities for given state
+   367→
+   368→- **Method**: `date_booked()` — POST (AJAX)
+   369→  - Params: `doctor`, `date`
+   370→  - Returns: `json_encode(["booked" => count])`
+   371→
+   372→### View: `front/doctor/book.php`
+   373→- **Custom CSS**: `.disabled-date.day` — red background
+   374→- **Flash message**: Shows `$this->session->flashdata('feedback')` if exists
+   375→- **2-column** (col-lg-4 sidebar + col-lg-8 form)
+   376→- **Left sidebar**:
+   377→  - Doctor card: avatar, name, type, rating, hospital map, hospital name/address, fees, time, email, phone, description
+   378→- **Booking Form** (`form_open("book/doctor_book/{doctor.user_id})`):
+   379→  - **Form Fields**:
+   380→    | Field | Type | Name | Validation | Notes |
+   381→    |-------|------|------|------------|-------|
+   382→    | Patient Name | text | `petient_name` | required | |
+   383→    | Appointment Date | text (datepicker) | `booking_date` | required | `onkeydown="return false"`, autocomplete off |
+   384→    | Physical Handicap | select | `physical_handicape` | optional | No/Yes |
+   385→    | Symptoms | text | `disease` | optional | |
+   386→    | State | select | `state` | optional | Populated from `$state` array |
+   387→    | City | select | `city` | optional | AJAX populated on state change |
+   388→    | Gender | select | `gender` | optional | Male/Female/Other |
+   389→    | Blood Group | select | `blood_group` | optional | O+/-, A+/-, B+/-, AB+/- |
+   390→    | Date Of Birth | date | `date_of_birth` | optional | readonly, triggers age calculation |
+   391→    | Age | text | `age` | optional | Auto-calculated from DOB |
+   392→    | Height (cm) | text | `height` | optional | |
+   393→    | Weight (KG) | text | `weight` | optional | |
+   394→    | Relation With Me | text | `relation_with_me` | optional | |
+   395→    | Description | textarea | `description` | optional | 5 rows |
+   396→  - **Submit**: "Appoint" button, disables after click (`onclick="this.form.submit();this.disabled=true;"`)
+   397→- **JavaScript** (require.js):
+   398→  1. **State → City AJAX**: `$.post('book/city_by_state', {state_name}, ...)` → populates city dropdown
+   399→  2. **DOB → Age**: Calculates age in years from date_of_birth
+   400→  3. **Datepicker**: Bootstrap datepicker on `#booking_date`
+   401→     - Format: `yyyy-mm-dd`
+   402→     - Disabled dates: holiday dates from PHP (red)
+   403→     - Start date: today
+   404→     - End date: today + `doctor.booking_days`
+   405→     - On date change: checks `book/date_booked` → if daily limit reached, disables that date dynamically
+   406→
+   407→### Connections
+   408→- Tables: `users`, `doctors`, `hospital`, `booking`, `doctor_holiday_schedule`, `states`, `cities`, `config`, `notifications`, `receptionist`
+   409→- External: SMS gateway (via `sendMobileMessage`)
+   410→
+   411→---
+   412→
+   413→## 1.9 Patient Appointment History
+   414→
+   415→### Controller: `Appointment.php`
+   416→- **Class**: `Appointment extends Patient_contoller`
+   417→- **Models**: Booking_model, Notifications_model, Receptionist_model, Booking_chat_model, Prescriptions_model, Ajaxprescription_model, P_Co_model, P_Label_model, P_digno_model, P_medicine_model, P_Suggestion_model, P_other_setting_model, Doctors_model, Users_model
+   418→
+   419→- **Method**: `index()` — GET
+   420→  - Params: `from` (date), `to` (date), `status` (default: PENDING)
+   421→  - Query: `get_patient_appointment(user_id, from, to, status)`
+   422→  - Data: `$appointments`
+   423→  - View: `front/patient/my-appointment`
+   424→
+   425→- **Method**: `show($id)` — GET
+   426→  - Gets single appointment by ID + user_id (ownership check)
+   427→  - If null → redirect `appointment`
+   428→  - Gets prescription data, chat availability, appointment position
+   429→  - Data: `$prescription`, `$isCheckBoxEnable`, `$appointment_position`, `$appointment`
+   430→  - View: `front/patient/my-appointment-show`
+   431→
+   432→- **Method**: `cancel($id)` — GET
+   433→  - Ownership check + status must be PENDING
+   434→  - Sends notification to doctor + receptionist about cancellation
+   435→  - Updates status to REJECTED via `$this->book->update($id, ['status' => REJECTED])`
+   436→  - Redirect: `appointment`
+   437→
+   438→- **Method**: `get_all_chat_message()` — POST (AJAX)
+   439→  - Params: `appointid`
+   440→  - Returns: JSON of all chat messages for appointment
+   441→
+   442→- **Method**: `send_chat_msg()` — POST (AJAX)
+   443→  - Params: `appointId`, `msg`
+   444→  - Sends to receptionist (if exists) — NOT to doctor directly
+   445→  - Creates chat with status=UNREAD
+   446→  - Returns: `{status: true/false, msg: "..."}`
+   447→
+   448→- **Method**: `print_prescription($appointment_id)` — GET
+   449→  - Full prescription data loading (for print view)
+   450→  - View: `doctor/AjaxPrescription/print_prescription` (shared with doctor module)
+   451→
+   452→### Model: `Booking_model`
+   453→- `get_patient_appointment($user_id, $from, $to, $status)`: `SELECT booking.*, users.name, users.email, users.profile_img, users.mobile_no FROM booking, users WHERE booking.doctor_id=users.id AND booking.user_id=$user_id [AND status=$status] [AND date filters] ORDER BY created_at DESC`
+   454→- `get_patient_appointment_one($id, $user_id)`: Same join + `WHERE booking.id=$id AND booking.user_id=$user_id`
+   455→- `get_today_appointment_position($doctor_id)`: Today's APPROVED appointments ordered by created_at ASC
+   456→- `get_booking_count_by_date_by_doctor($doctor_id, $date)`: COUNT of bookings for doctor on date
+   457→- `get_by_id($id)`: Single booking row
+   458→- `get_latest_record()`: Latest booking by created_at DESC
+   459→
+   460→### View: `front/patient/my-appointment.php`
+   461→- **Filter bar** (form inline):
+   462→  - From date, To date (date inputs)
+   463→  - Status dropdown: Pending, Extend, Approve, Rejected, Visited, All
+   464→  - Filter button
+   465→- **DataTable** (class `dttable`):
+   466→  - Columns: Avatar, Appointment ID (link → `appointment/show/{id}`), Doctor (name, booked at, booking on), Patient Name, Disease, Status (color-coded tags), Actions
+   467→  - Status colors: Pending=tag-warning, Approve=tag-primary, Extend=tag-info, Visited=tag-green, Rejected=tag-danger
+   468→  - Actions: Dropdown with "Cancel" (only if PENDING or EXTEND) → `appointment/cancel/{id}` with `conformCancel()` confirm
+   469→
+   470→### View: `front/patient/my-appointment-show.php`
+   471→- **Appointment Detail Table**: appointment_no, booking_type, booking_date, petient_name, disease, physical_handicape, date_of_birth, age, gender, relation_with_me, height, weight, book_date, status, description
+   472→- **Print button**: → `Appointment/print_prescription/{id}`
+   473→- **My Position** (if `$appointment_position`):
+   474→  - DataTable showing today's approved appointments with position number
+   475→  - Current appointment row highlighted (`table-warning`)
+   476→- **Chat** (if `$isCheckBoxEnable` AND status != VISITED/REJECTED):
+   477→  - Chat box (400px height, scrollable)
+   478→  - Input + Send button
+   479→  - **JS**: Loads chat every 5 seconds via `$.post('appointment/get_all_chat_message')`
+   480→  - Send: `$.post('appointment/send_chat_msg', {appointId, msg})`
+   481→  - Chat bubbles: left (other) and right (self) with avatar placeholders
+   482→- **Prescription** (if exists and has medicine_details):
+   483→  - Disease description
+   484→  - Medicine list (JSON decoded): medicine_name, description, tab
+   485→  - Remark
+   486→  - Print button
+   487→
+   488→### Connections
+   489→- Tables: `booking`, `users`, `prescription`, `booking_chat`, `receptionist`, `p_co`, `p_labels`, `p_medicine`, `p_suggestions`, `p_digno_table`, `p_other_settings`, `notifications`
+   490→
+   491→---
+   492→
+   493→## 1.10 Contact Us
+   494→
+   495→### Controller: `Contactus.php`
+   496→- **Class**: `Contactus extends Guest_controller`
+   497→- **Method**: `index()` — GET: loads `front/contact-us`
+   498→- **Method**: `send()` — POST
+   499→  - Validation: `contact_us` rule group
+   500→  - NOTE: Email sending is **commented out** (`$this->send_mail` is commented)
+   501→  - Success: redirect `contactus` with flash message
+   502→  - Fail: reload form
+   503→
+   504→### View: `front/contact-us.php`
+   505→- **2-column**: col-md-4 (office info) + col-md-8 (form)
+   506→- **Office info card** (HARDCODED, not dynamic):
+   507→  - Name: "Axa Global Group"
+   508→  - Address: "1290 Avenua of The Americas, New York, NY 101040105"
+   509→  - Business Type: "Insurance Company"
+   510→  - Website: "http://www.axa.com"
+   511→  - Phone: "+123456789"
+   512→  - Description: Lorem ipsum
+   513→- **Contact Form** (`form_open("contactus/send")`):
+   514→  - Fields: name (text, required), email (email, required), subject (text, required), message (textarea, required)
+   515→  - Submit: "Send" button
+   516→- Flash message support
+   517→
+   518→### Connections
+   519→- Tables: None (email is commented out)
+   520→
+   521→---
+   522→
+   523→## 1.11 Hospital Inquiry
+   524→
+   525→### Controller: `Inquiry.php`
+   526→- **Class**: `Inquiry extends Guest_controller`
+   527→- **Model**: `Hospital_inquiry_model` (inquiry)
+   528→- **Method**: `index()` — GET: loads `front/inquiry`
+   529→- **Method**: `send()` — POST
+   530→  - Validation: `hospital_inquiry` rule group
+   531→  - Creates inquiry via `$this->inquiry->create($data)`
+   532→  - Success/error redirect to `inquiry`
+   533→
+   534→### Model: `Hospital_inquiry_model`
+   535→- `create($data)`: Inserts into `hospital_inquiry` with created_at, updated_at. Returns insert_id.
+   536→
+   537→### View: `front/inquiry.php`
+   538→- **Form** (`form_open("inquiry/send")`):
+   539→  - Fields:
+   540→    | Field | Type | Name | Required |
+   541→    |-------|------|------|----------|
+   542→    | Hospital Name | text | `hospital_name` | Yes |
+   543→    | Hospital Contact | text | `hospital_cotanct_no` | Yes (note typo: cotanct) |
+   544→    | Email | email | `email` | Yes |
+   545→    | Contact Person Name | text | `contact_person_name` | Yes |
+   546→    | Contact Person Mobile | text | `contact_person_mobile` | Yes |
+   547→    | Address | text | `address` | Yes |
+   548→    | City | text | `city` | Yes |
+   549→    | State | text | `state` | Yes |
+   550→    | Description | textarea | `description` | No |
+   551→  - Submit: "Submit" button
+   552→
+   553→### Connections
+   554→- Tables: `hospital_inquiry`
+   555→
+   556→---
+   557→
+   558→## 1.12 Static Pages
+   559→
+   560→### Controller: `About.php` — `index()` → `front/about`
+   561→- Static lorem ipsum content in card
+   562→
+   563→### Controller: `Privacy.php` — `index()` → `front/privacy`
+   564→- Full Privacy Policy text (hardcoded HTML):
+   565→  - Sections: Overview, Collection of Information, Use and Sharing, Cookies, Links, Legal Requests, User Competency, Security, Changes, Grievance Officer (Aditya Joshi, +91 9106096745, ksv1619aditya@gmail.com)
+   566→
+   567→### Controller: `Terms.php` — `index()` → `front/terms-condition`
+   568→- Full Terms & Conditions (hardcoded HTML):
+   569→  - Sections: User Eligibility (1.1 Service Provider, 1.2 Service Recipient), Amendments, Account Obligations, Electronic Communications, Fees and Services (5.1 Taxes, 5.2 Non-payment), Use of Website, Platform for Communication (7.1-7.7), Privacy, Consent, Breach (10.1-10.5), Limitation of Liability (11.1-11.2), Indemnity, General, Arbitration (Palanpur), Governing Law (India)
+   570→
+   571→### Connections
+   572→- Tables: None
+   573→
+   574→---
+   575→
+   576→## 1.13 Patient Profile
+   577→
+   578→### Controller: `Profile.php`
+   579→- **Class**: `Profile extends Patient_contoller`
+   580→- **Model**: `User_model` (user)
+   581→
+   582→- **Method**: `index()` — GET
+   583→  - Gets: `$this->user->get_by_id($this->user_data->id)`
+   584→  - Data: `$profile`
+   585→  - View: `front/profile/show`
+   586→
+   587→- **Method**: `upload_profile_img()` — POST (multipart)
+   588→  - Uploads to `upload/profile/` with naming: `{Y-m-d}_{user_id}`
+   589→  - Deletes old image (if not `default.png`)
+   590→  - Updates `profile_img` in users table
+   591→  - Redirect: `profile`
+   592→
+   593→- **Method**: `update_profile_basic()` — POST
+   594→  - Validation: `patient_profile` rule group
+   595→  - Updates: `name`, `gender` only (email and mobile are disabled/not updated)
+   596→  - Redirect: `profile`
+   597→
+   598→- **Method**: `chnage_password()` — POST (note: typo `chnage`)
+   599→  - Validation: `change_password` rule group
+   600→  - Custom validator: `valid_current_password($str)` — checks SHA256 hash
+   601→  - Updates: `password` = `hash("sha256", $new_pass)`
+   602→  - Redirect: `profile`
+   603→
+   604→### Model: `Users_model`
+   605→- `get_by_id($id)`: `SELECT * FROM users WHERE id=$id` → single row
+   606→- `update($id, $data)`: Updates users table, returns affected_rows boolean
+   607→- `checkCurrentPassword($id, $str)`: SHA256 hash comparison
+   608→
+   609→### View: `front/profile/show.php`
+   610→- **2-column** (col-lg-4 + col-sm-8)
+   611→- **Left**: Profile card with avatar, name, file upload form (`form_open_multipart('profile/upload_profile_img')`), Upload button
+   612→- **Right top**: Update Profile form (`form_open('profile/update_profile_basic')`)
+   613→  - Fields: Name (text, editable), Email (text, **disabled**), Gender (select: Male/Female/Other), Mobile (text, **disabled**, maxlength=10)
+   614→  - Update button
+   615→- **Right bottom**: Change Password form (`form_open('profile/chnage_password')`)
+   616→  - Fields: Old Password, New Password, Confirm Password (all password type)
+   617→  - Change button
+   618→- Flash message support
+   619→
+   620→### Connections
+   621→- Tables: `users`
+   622→- File uploads: `upload/profile/`
+   623→
+   624→---
+   625→
+   626→## 1.14 Patient Notifications
+   627→
+   628→### Controller: `Notifications.php`
+   629→- **Class**: `Notifications extends Patient_contoller`
+   630→- **Method**: `index()` — GET
+   631→  - Gets: `$this->notification->get_all_by_user($this->user_data->id, 100)` — last 100 notifications
+   632→  - **After loading view**: marks all as READ: `$this->notification->update($this->user_data->id, ["status" => READ])`
+   633→  - Data: `$all_notifications`
+   634→  - View: `front/patient/notifications`
+   635→
+   636→### View: `front/patient/notifications.php`
+   637→- Table (not DataTable): columns — bell icon, title+body, datetime
+   638→- Unread rows: class `table-warning`
+   639→- Empty state: Large bell icon + "You have no notifications"
+   640→
+   641→### Connections
+   642→- Tables: `notifications`
+   643→
+   644→---
+   645→
+   646→## 1.15 Patient Posts/Blog
+   647→
+   648→### Controller: `Post.php`
+   649→- **Class**: `Post extends Patient_contoller`
+   650→- **Model**: `Posts_model` (post)
+   651→
+   652→- **Method**: `index()` — GET
+   653→  - Gets: `$this->post->get_all_by_user($this->user_data->id)`
+   654→  - View: `front/post/index`
+   655→
+   656→- **Method**: `create()` — GET: loads `front/post/add`
+   657→
+   658→- **Method**: `store()` — POST
+   659→  - Validation: `blog` rule group
+   660→  - Image upload: optional, to `upload/blog/{Y-m-d}`
+   661→  - Data: title, content, status=PUBLISHED, type=BLOG, paramalink (SEO URL, recursive uniqueness check), user_id, blog_img
+   662→  - Removes `_wysihtml5_mode` from POST data
+   663→  - Redirect: `post`
+   664→
+   665→- **Method**: `edit($id)` — GET
+   666→  - Ownership check: `get_one_by_user($id, user_id)` → null redirects to `users/blog`
+   667→  - View: `front/post/edit`
+   668→
+   669→- **Method**: `update($id)` — POST
+   670→  - Same as store but updates. Deletes old image if new uploaded.
+   671→  - Redirect: `post`
+   672→
+   673→- **Method**: `delete($id)` — GET
+   674→  - Ownership check
+   675→  - Deletes post
+   676→  - Warning redirect: `post`
+   677→
+   678→- **Method**: `generateUrl($str)` — Internal
+   679→  - Uses `$this->_generateSeoURL($str)` (from MY_Controller)
+   680→  - Checks uniqueness in `posts` table by `paramalink`
+   681→  - If duplicate: appends random number (1-99) and recurses
+   682→
+   683→### Model: `Posts_model`
+   684→- `get_all_by_user($user_id)`: `SELECT p.*, users.email FROM posts AS p, users WHERE users.id=p.user_id AND p.user_id=$user_id ORDER BY id DESC`
+   685→- `get_one_by_user($id, $user_id)`: `SELECT * FROM posts WHERE id=$id AND user_id=$user_id`
+   686→- `create($data)`: INSERT with created_at, updated_at
+   687→- `update($id, $data)`: UPDATE with updated_at
+   688→- `destroy($id, $user_id)`: DELETE where id AND user_id
+   689→
+   690→### View: `front/post/index.php`
+   691→- DataTable (class `dttable`): No, Title (link to blog view), Date Time, Status (PUBLISHED=green badge, HIDE=default, BLOCK=danger), Actions (Edit + Delete buttons)
+   692→- "New" button → `post/create`
+   693→- Delete uses `conformDel()` confirm
+   694→
+   695→### View: `front/post/add.php`
+   696→- Form: `form_open_multipart('post/store')`
+   697→- Fields: Title (text), Content (textarea with CKEditor `id="editor1"`), Video Link (text, optional, YouTube embed), Image (file, optional)
+   698→- Buttons: Publish, Cancel (→ `post`)
+   699→- JS: `validateYouTubeUrl()` — YouTube URL regex validator (non-functional, references wrong element ID)
+   700→
+   701→### View: `front/post/edit.php`
+   702→- Same as add but:
+   703→  - Form action: `post/update/{id}`
+   704→  - Pre-populated with existing data
+   705→  - Shows current blog image (200×200)
+   706→- No Cancel button
+   707→
+   708→### Connections
+   709→- Tables: `posts`, `users`
+   710→- File uploads: `upload/blog/`
+   711→
+   712→---
+   713→
+   714→## 1.16 Login Page (standalone)
+   715→
+   716→### View: `front/login.php`
+   717→- **Standalone HTML** (no layout wrapper)
+   718→- Same CSS/JS as layout (duplicated head section)
+   719→- Centered card on page (`page-single`, `col-login mx-auto`)
+   720→- Logo: `assets/brand/LOGO-CIRCLE.png`
+   721→- Flash alert support
+   722→- **Form** (`form_open('auth/auth_login')`):
+   723→  - Email or Mobile (text, name=`email`)
+   724→  - Password (password, name=`password`)
+   725→  - Remember me (checkbox, name=`remember`, value=1)
+   726→  - Forgot password link → `auth/forgot_password`
+   727→  - Login error flash: `log_error`
+   728→  - Submit: "Log in" button
+   729→- Footer links: "Sign up as Doctor" → `auth/register?type=dr`, "Sign up as Patient" → `auth/register?type=patient`
+   730→
+   731→---
+   732→
+   733→## 1.17 Register Page (standalone)
+   734→
+   735→### View: `front/register.php`
+   736→- **Standalone HTML** (same head section as login)
+   737→- **Form** (`form_open('auth/signup?type={type from GET}')`):
+   738→  - Name (text, name=`name`)
+   739→  - Email (email, name=`email`)
+   740→  - Mobile (text, name=`mobile_no`, maxlength=10)
+   741→  - Gender (select: Male/Female/Other, name=`gender`)
+   742→  - Password (password, name=`password`)
+   743→  - Confirm Password (password, name=`c_pass`)
+   744→  - Terms checkbox (name=`terms`) — links to Terms & Privacy Policy
+   745→  - Submit: "Create new account" button
+   746→- Footer: "Already have account? Log in"
+   747→
+   748→---
+   749→
+   750→## 1.18 Forgot Password (3-step flow)
+   751→
+   752→### View: `front/forgot_password/forgot_password.php`
+   753→- Standalone HTML
+   754→- Form: `form_open('auth/forgot_submit')`
+   755→- Field: Mobile (text, name=`mobile`, maxlength=10)
+   756→- Button: "Find Account"
+   757→- Footer: Login link
+   758→
+   759→### View: `front/forgot_password/otp_verify_form.php`
+   760→- Standalone HTML
+   761→- Shows: "Verify your mobile {mobile} to forgot your password"
+   762→- Form: `form_open('auth/forgot_password_mobile_verification_submit')`
+   763→- Field: OTP (number, name=`otp`, disabled until OTP sent)
+   764→- Buttons: "Send OTP" / "Resend OTP" (disabled for 60 seconds with countdown JS), "Submit" (disabled until OTP sent)
+   765→- JS: 60-second countdown timer, after which "Resend OTP" link becomes clickable
+   766→- Footer: Login link
+   767→
+   768→### View: `front/forgot_password/generate_password.php`
+   769→- Standalone HTML
+   770→- Form: `form_open('auth/generate_new_password_submit')`
+   771→- Fields: New Password (password, name=`new_password`), Confirm Password (password, name=`conform_password`)
+   772→- Button: "Submit"
+   773→
+   774→---
+   775→
+   776→## 1.19 Mobile Verification (Registration)
+   777→
+   778→### View: `front/register_mobile_verify.php`
+   779→- Standalone HTML
+   780→- Same OTP flow UI as forgot password
+   781→- Form: `form_open('auth/verify_mobile_submit')`
+   782→- OTP field, Send/Resend OTP button (60s countdown), Submit button
+   783→- Links: `auth/sendotp_mobile_verify` for OTP
+   784→- Footer: Login link
+   785→
+   786→---
+   787→
+   788→## 1.20 Registration Choice Page
+   789→
+   790→### View: `front/reg_for.php`
+   791→- **2-column** layout (col-lg-6 each)
+   792→- **Doctor card**: Background image `assets/photos/doctor-Placements.png`, text "Are You a Doctor? Come online with us.", "Register Now" button → `auth/register?type=dr`
+   793→- **Patient card**: Background image `assets/photos/1491426154_medical_icon_1-e1491408177492.png`, text "You looking for a good doctor? Register Now.", "Register Now" button → `auth/register?type=patient`
+   794→
+   795→---
+   796→
+   797→## DATABASE TABLES TOUCHED (Summary)
+   798→
+   799→| Table | Used By |
+   800→|-------|---------|
+   801→| `users` | All modules (auth, profiles, doctor/hospital listings, search) |
+   802→| `doctors` | Doctor listing, profile, search, hospital doctors |
+   803→| `hospital` | Hospital listing, profile, search |
+   804→| `booking` | Appointment booking, history, cancel, position, daily limit |
+   805→| `posts` | Blog listing, detail, patient post CRUD |
+   806→| `slider` | Homepage carousel |
+   807→| `doctor_rating` | Doctor profile rating, average calculation |
+   808→| `hospital_inquiry` | Inquiry form |
+   809→| `notifications` | Patient notifications, booking/receptionist alerts |
+   810→| `booking_chat` | Patient-doctor/receptionist chat per appointment |
+   811→| `prescription` | Appointment show (prescription display) |
+   812→| `states` | Booking form state dropdown |
+   813→| `cities` | Booking form city dropdown (AJAX) |
+   814→| `config` | Admin charge for appointment |
+   815→| `receptionist` | Chat routing, notification routing |
+   816→| `doctor_holiday_schedule` | Datepicker disabled dates |
+   817→| `schedule_docs` | Hospital schedule PDF download |
+   818→| `p_co`, `p_labels`, `p_medicine`, `p_suggestions`, `p_digno_table`, `p_other_settings` | Prescription print (shared with doctor module) |
+   819→
+   820→---
+   821→
+   822→## KEY MIGRATION NOTES
+   823→
+   824→1. **Password hashing**: SHA256 (not bcrypt) — `hash("sha256", $password)`
+   825→2. **Image uploads**: Stored in `upload/profile/`, `upload/blog/`, `upload/slider/`, `upload/gallery/`, `upload/schedule_docs/`
+   826→3. **SEO URLs**: Blog posts use `paramalink` field (auto-generated from title, uniqueness enforced)
+   827→4. **Rating system**: Pure CSS stars (5-point), AJAX post to `api/rate_us`, stored in `doctor_rating` table
+   828→5. **Chat system**: Per-appointment, between patient and receptionist (NOT doctor), polling every 5 seconds
+   829→6. **Notifications**: Created on booking/cancel, stored per user, mark-as-read on viewing notification page
+   830→7. **SMS**: Sent on booking confirmation via `sendMobileMessage()`
+   831→8. **Appointment number**: Auto-incrementing format `APMT-{N}`
+   832→9. **Daily limit**: Doctor has `daily_limit` and `booking_days` fields that constrain booking
+   833→10. **Holiday blocking**: Dates from `doctor_holiday_schedule` are disabled in datepicker
+   834→11. **DataTables**: Used on appointment list (`.dttable` class), post list
+   835→12. **CKEditor**: Used for blog post content (wysiwyg)
+   836→13. **SweetAlert**: Used for delete/cancel confirmations
+   837→14. **Disqus**: Comments on blog detail pages (hardcoded shortname)
+   838→15. **AddToAny**: Social sharing on blog detail pages
+   839→16. **Google Analytics**: UA-171698773-1
+   840→17. **Search**: Searches across doctor name, state, specialization, education, experience AND hospital name, state
+   841→18. **Pagination**: CI Pagination library, Bootstrap 4 styled, 12 per page (doctors/hospitals), 9 per page (blog)
+   842→

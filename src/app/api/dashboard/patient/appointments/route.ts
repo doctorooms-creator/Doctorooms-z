@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
+import { Prisma } from '@prisma/client'
 
 export async function GET(req: NextRequest) {
   try {
@@ -8,10 +9,19 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
+    const from = searchParams.get('from')
+    const to = searchParams.get('to')
 
-    const where: Record<string, unknown> = { userId: user.id }
+    const where: Prisma.BookingWhereInput = { userId: user.id }
     if (status && status !== 'All') {
       where.status = status
+    }
+    if (from && to) {
+      where.bookingDate = { gte: new Date(from), lte: new Date(to + 'T23:59:59') }
+    } else if (from) {
+      where.bookingDate = { gte: new Date(from) }
+    } else if (to) {
+      where.bookingDate = { lte: new Date(to + 'T23:59:59') }
     }
 
     const appointments = await db.booking.findMany({

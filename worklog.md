@@ -205,3 +205,124 @@ Stage Summary:
 - Patient health records gives patients a single view of their medical history
 - Platform now covers: auth, patient booking, doctor module, hospital module, admin module,
   receptionist module, assistant module, pharmacist module, public pages
+
+---
+Task ID: 2-A
+Agent: Blog API Agent
+Task: Create Patient Blog/Posts API routes (GET list, POST create, GET single, PUT update, DELETE)
+
+Work Log:
+- Created /src/app/api/patient/posts/route.ts (GET list + POST create)
+- Created /src/app/api/patient/posts/[id]/route.ts (GET single + PUT update + DELETE)
+- Implemented slugify + unique permalink generation
+- All routes use requireRole(req, 'patient')
+
+Stage Summary:
+- 2 API files created with full CRUD for patient blog posts
+- Slugify with uniqueness check implemented
+- Ownership verification on all single-resource operations
+
+---
+Task ID: 2-C
+Agent: Avatar Upload API Agent
+Task: Create Patient Avatar Upload API route
+
+Work Log:
+- Created /src/app/api/patient/avatar/route.ts (POST upload)
+- File validation (type, size)
+- Saves to public/uploads/profile/
+- Deletes old avatar
+- Updates User.profileImg in DB
+
+Stage Summary:
+- 1 API file created for avatar upload
+- Supports JPEG, PNG, WebP up to 2MB
+
+---
+Task ID: 2-A-FE
+Agent: Blog List Frontend Agent
+Task: Create Patient Blog List page
+
+Work Log:
+- Created /src/app/dashboard/patient/blog/page.tsx
+- Stats row (Total, Published, Drafts)
+- Card grid with images, status badges, edit/delete actions
+- Empty state with CTA
+- Delete confirmation AlertDialog
+- Skeleton loading, Framer Motion animations
+
+Stage Summary:
+- Blog list page ready with full CRUD UI (except create/edit forms which are separate tasks)
+
+---
+Task ID: 2-A-FE2
+Agent: Blog New/Edit Frontend Agent
+Task: Create Patient Blog New Post and Edit Post pages
+
+Work Log:
+- Created /src/app/dashboard/patient/blog/new/page.tsx (create form)
+- Created /src/app/dashboard/patient/blog/[id]/edit/page.tsx (edit form with pre-fill)
+- Both pages have breadcrumb, form validation, status toggle, loading states
+- Create redirects to list on success, Edit does the same
+
+Stage Summary:
+- Full blog CRUD frontend complete (list + create + edit + delete)
+- All 3 pages follow consistent teal theme design
+
+---
+Task ID: 2-B-C-FE
+Agent: Date Filter + Avatar UI Agent
+Task: Add date range filter to appointments and avatar upload to profile
+
+Work Log:
+- Modified /src/app/dashboard/patient/appointments/page.tsx — added date range filter with from/to date inputs
+- Modified /src/app/dashboard/patient/profile/page.tsx — replaced coming-soon toast with real file upload
+- Both modifications follow existing design patterns
+
+Stage Summary:
+- Appointments now filterable by date range (from/to) combined with status tabs
+- Profile avatar upload is functional (JPEG/PNG/WebP, max 2MB)
+
+---
+Task ID: 2-MAIN
+Agent: Main CTO Agent
+Task: Patient Module Plan + Blog CRUD + Date Filter + Avatar Upload + Sidebar Update
+
+Work Log:
+- Created detailed plan file: agent-ctx/PATIENT-MODULE-PLAN.md
+- Added 'My Blog' to patient sidebar (src/lib/sidebar-config.ts) with PenLine icon
+- Added blog route titles to dashboard-header.tsx
+- Updated appointments API (src/app/api/dashboard/patient/appointments/route.ts) to accept from/to date params using Prisma BookingWhereInput
+- Fixed ESLint: removed unused eslint-disable directive in dashboard/layout.tsx
+- Fixed ESLint: rewrote blog edit page to use child component pattern (avoids set-state-in-effect and refs-during-render errors)
+- Fixed patient demo password (was not bcrypt-matched, reset with bcrypt.hashSync)
+- Verified all pages via agent-browser:
+  - Blog list page: Stats row, empty state, sidebar link ✅
+  - New Post page: Breadcrumb, form fields, status toggle ✅
+  - Appointments page: Date range filter (From/To), status tabs ✅
+- bun run lint: 0 errors, 0 warnings ✅
+
+Stage Summary:
+- Patient module now has 11 pages (was 8):
+  - Dashboard, Appointments, Appointment Detail, Book Appointment, Health Records, Profile, Feedback, Notifications, Blog List, Blog New, Blog Edit
+- Patient module now has 16 API routes (was 14):
+  - + /api/patient/posts (GET/POST)
+  - + /api/patient/posts/[id] (GET/PUT/DELETE)
+  - + /api/patient/avatar (POST)
+- Date range filtering on appointments (from/to query params)
+- Avatar upload on profile (real file upload, not placeholder)
+- Sidebar updated with 'My Blog' link
+
+## Current Project Status
+- Patient module: ~95% feature-complete vs original PHP Doctorooms
+- Remaining gaps: Booking state/city fields (low priority), notification bell dropdown (nice-to-have)
+- All API routes use requireRole() — auth system is solid
+- ESLint: 0 errors, 0 warnings
+- Dev server: No runtime errors
+
+## Unresolved / Next Phase Recommendations
+1. Booking form: Add state/city text fields (original had cascading dropdowns)
+2. Notification bell: Add dropdown in header showing latest 5 notifications
+3. Patient settings/preferences page (new feature)
+4. Quick re-book button on completed appointments (new feature)
+5. Other modules may need similar gap analysis

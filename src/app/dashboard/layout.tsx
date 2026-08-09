@@ -70,7 +70,7 @@ export default function DashboardLayout({
     }
 
     checkAuth()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // Verify the user is on the correct role path
   useEffect(() => {
