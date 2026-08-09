@@ -123,8 +123,13 @@ export default function PatientDashboardPage() {
           <CardContent className="p-0">
             {stats?.upcomingList?.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
-                <CalendarDays className="h-12 w-12 text-muted-foreground/40" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+                  <CalendarDays className="h-7 w-7 text-muted-foreground/40" />
+                </div>
                 <p className="mt-3 text-sm font-medium text-muted-foreground">No upcoming appointments</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Book your first appointment to get started!
+                </p>
                 <Button variant="outline" size="sm" className="mt-4 text-teal-600 border-teal-200 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/50" asChild>
                   <Link href="/doctors">
                     <CalendarPlus className="mr-2 h-4 w-4" />
@@ -236,7 +241,15 @@ export default function PatientDashboardPage() {
             </CardHeader>
             <CardContent>
               {stats?.recentActivity?.length === 0 ? (
-                <p className="py-6 text-center text-sm text-muted-foreground">No recent activity</p>
+                <div className="flex flex-col items-center justify-center py-8 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                    <Clock className="h-6 w-6 text-muted-foreground/40" />
+                  </div>
+                  <p className="mt-3 text-sm font-medium text-muted-foreground">No recent activity</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Your appointment activity will appear here
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-3 max-h-64 overflow-y-auto">
                   {stats?.recentActivity?.map((activity, i) => (

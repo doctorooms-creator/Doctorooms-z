@@ -1,0 +1,733 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState } from 'react'
+     4→     4→import Link from 'next/link'
+     5→     5→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     6→     6→import { motion, AnimatePresence } from 'framer-motion'
+     7→     7→import { StatCard } from '@/components/dashboard/stat-card'
+     8→     8→import { Card, CardContent } from '@/components/ui/card'
+     9→     9→import { Button } from '@/components/ui/button'
+    10→    10→import { Badge } from '@/components/ui/badge'
+    11→    11→import { Input } from '@/components/ui/input'
+    12→    12→import { Label } from '@/components/ui/label'
+    13→    13→import { Textarea } from '@/components/ui/textarea'
+    14→    14→import { Skeleton } from '@/components/ui/skeleton'
+    15→    15→import { Separator } from '@/components/ui/separator'
+    16→    16→import {
+    17→    17→  Dialog,
+    18→    18→  DialogContent,
+    19→    19→  DialogFooter,
+    20→    20→  DialogHeader,
+    21→    21→  DialogTitle,
+    22→    22→  DialogTrigger,
+    23→    23→} from '@/components/ui/dialog'
+    24→    24→import {
+    25→    25→  Select,
+    26→    26→  SelectContent,
+    27→    27→  SelectItem,
+    28→    28→  SelectTrigger,
+    29→    29→  SelectValue,
+    30→    30→} from '@/components/ui/select'
+    31→    31→import {
+    32→    32→  FileText,
+    33→    33→  Heart,
+    34→    34→  Upload,
+    35→    35→  Trash2,
+    36→    36→  Download,
+    37→    37→  Calendar,
+    38→    38→  Stethoscope,
+    39→    39→  Pill,
+    40→    40→  Plus,
+    41→    41→  FolderOpen,
+    42→    42→  Eye,
+    43→    43→  ClipboardList,
+    44→    44→  FlaskConical,
+    45→    45→  ImageIcon,
+    46→    46→  Syringe,
+    47→    47→  Users,
+    48→    48→} from 'lucide-react'
+    49→    49→import { format, formatDistanceToNow } from 'date-fns'
+    50→    50→import { cn } from '@/lib/utils'
+    51→    51→import { toast } from 'sonner'
+    52→    52→
+    53→    53→// ==================== CONSTANTS ====================
+    54→    54→
+    55→    55→const DOCUMENT_CATEGORIES = [
+    56→    56→  'Lab Report',
+    57→    57→  'Prescription',
+    58→    58→  'Test Results',
+    59→    59→  'Scan/X-Ray',
+    60→    60→  'Vaccination Record',
+    61→    61→  'Other',
+    62→    62→] as const
+    63→    63→
+    64→    64→const FILTER_TABS = ['All', ...DOCUMENT_CATEGORIES] as const
+    65→    65→
+    66→    66→type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number]
+    67→    67→
+    68→    68→const categoryIconMap: Record<string, React.ElementType> = {
+    69→    69→  'Lab Report': ClipboardList,
+    70→    70→  'Prescription': Pill,
+    71→    71→  'Test Results': FlaskConical,
+    72→    72→  'Scan/X-Ray': ImageIcon,
+    73→    73→  'Vaccination Record': Syringe,
+    74→    74→  Other: FileText,
+    75→    75→}
+    76→    76→
+    77→    77→const categoryColorMap: Record<string, string> = {
+    78→    78→  'Lab Report': 'bg-teal-100 text-teal-700 dark:bg-teal-900/40 dark:text-teal-400',
+    79→    79→  'Prescription': 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
+    80→    80→  'Test Results': 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+    81→    81→  'Scan/X-Ray': 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
+    82→    82→  'Vaccination Record': 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-400',
+    83→    83→  Other: 'bg-gray-100 text-gray-700 dark:bg-gray-900/40 dark:text-gray-400',
+    84→    84→}
+    85→    85→
+    86→    86→const categoryIconBgMap: Record<string, string> = {
+    87→    87→  'Lab Report': 'bg-teal-100 dark:bg-teal-900/50',
+    88→    88→  'Prescription': 'bg-emerald-100 dark:bg-emerald-900/50',
+    89→    89→  'Test Results': 'bg-amber-100 dark:bg-amber-900/50',
+    90→    90→  'Scan/X-Ray': 'bg-rose-100 dark:bg-rose-900/50',
+    91→    91→  'Vaccination Record': 'bg-sky-100 dark:bg-sky-900/50',
+    92→    92→  Other: 'bg-gray-100 dark:bg-gray-900/50',
+    93→    93→}
+    94→    94→
+    95→    95→const categoryIconColorMap: Record<string, string> = {
+    96→    96→  'Lab Report': 'text-teal-600 dark:text-teal-400',
+    97→    97→  'Prescription': 'text-emerald-600 dark:text-emerald-400',
+    98→    98→  'Test Results': 'text-amber-600 dark:text-amber-400',
+    99→    99→  'Scan/X-Ray': 'text-rose-600 dark:text-rose-400',
+   100→   100→  'Vaccination Record': 'text-sky-600 dark:text-sky-400',
+   101→   101→  Other: 'text-gray-600 dark:text-gray-400',
+   102→   102→}
+   103→   103→
+   104→   104→// ==================== HELPERS ====================
+   105→   105→
+   106→   106→function formatFileSize(bytes: number) {
+   107→   107→  if (!bytes || bytes === 0) return null
+   108→   108→  const k = 1024
+   109→   109→  const sizes = ['B', 'KB', 'MB', 'GB']
+   110→   110→  const i = Math.floor(Math.log(bytes) / Math.log(k))
+   111→   111→  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+   112→   112→}
+   113→   113→
+   114→   114→// ==================== TYPES ====================
+   115→   115→
+   116→   116→interface VisitStats {
+   117→   117→  completedVisits: number
+   118→   118→  lastVisitDate: string | null
+   119→   119→  totalDoctors: number
+   120→   120→  prescriptionsReceived: number
+   121→   121→}
+   122→   122→
+   123→   123→interface PrescriptionItem {
+   124→   124→  id: string
+   125→   125→  disease: string
+   126→   126→  description: string
+   127→   127→  medicinesCount: number
+   128→   128→  doctorName: string
+   129→   129→  doctorImg: string
+   130→   130→  bookingId: string
+   131→   131→  appointmentNo: string
+   132→   132→  bookingDate: string | null
+   133→   133→  createdAt: string
+   134→   134→}
+   135→   135→
+   136→   136→interface DocumentItem {
+   137→   137→  id: string
+   138→   138→  title: string
+   139→   139→  category: string
+   140→   140→  fileUrl: string
+   141→   141→  fileName: string
+   142→   142→  fileSize: number
+   143→   143→  mimeType: string
+   144→   144→  description: string
+   145→   145→  createdAt: string
+   146→   146→}
+   147→   147→
+   148→   148→// ==================== ANIMATION VARIANTS ====================
+   149→   149→
+   150→   150→const containerVariants = {
+   151→   151→  hidden: {},
+   152→   152→  show: { transition: { staggerChildren: 0.05 } },
+   153→   153→}
+   154→   154→
+   155→   155→const itemVariants = {
+   156→   156→  hidden: { opacity: 0, y: 16 },
+   157→   157→  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+   158→   158→}
+   159→   159→
+   160→   160→const fadeIn = {
+   161→   161→  hidden: { opacity: 0, y: 12 },
+   162→   162→  visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
+   163→   163→}
+   164→   164→
+   165→   165→// ==================== MAIN COMPONENT ====================
+   166→   166→
+   167→   167→export default function HealthRecordsPage() {
+   168→   168→  const [activeTab, setActiveTab] = useState<string>('All')
+   169→   169→  const [uploadOpen, setUploadOpen] = useState(false)
+   170→   170→  const [uploadForm, setUploadForm] = useState({
+   171→   171→    title: '',
+   172→   172→    category: 'Other' as DocumentCategory,
+   173→   173→    description: '',
+   174→   174→  })
+   175→   175→  const queryClient = useQueryClient()
+   176→   176→
+   177→   177→  // ---------- Queries ----------
+   178→   178→
+   179→   179→  const { data: statsData, isLoading: statsLoading } = useQuery<VisitStats>({
+   180→   180→    queryKey: ['patient-health-stats'],
+   181→   181→    queryFn: () =>
+   182→   182→      fetch('/api/dashboard/patient/stats').then((r) => r.json()),
+   183→   183→  })
+   184→   184→
+   185→   185→  const { data: prescriptionsData, isLoading: prescriptionsLoading } = useQuery<{
+   186→   186→    prescriptions: PrescriptionItem[]
+   187→   187→  }>({
+   188→   188→    queryKey: ['patient-prescriptions'],
+   189→   189→    queryFn: () =>
+   190→   190→      fetch('/api/dashboard/patient/prescriptions').then((r) => r.json()),
+   191→   191→  })
+   192→   192→
+   193→   193→  const { data: docsData, isLoading: docsLoading } = useQuery<{
+   194→   194→    documents: DocumentItem[]
+   195→   195→    counts: Record<string, number>
+   196→   196→  }>({
+   197→   197→    queryKey: ['medical-documents', activeTab],
+   198→   198→    queryFn: () => {
+   199→   199→      const params =
+   200→   200→        activeTab !== 'All' ? `?category=${activeTab}` : ''
+   201→   201→      return fetch(`/api/patient/medical-documents${params}`).then((r) =>
+   202→   202→        r.json()
+   203→   203→      )
+   204→   204→    },
+   205→   205→  })
+   206→   206→
+   207→   207→  const documents = docsData?.documents || []
+   208→   208→  const docCounts: Record<string, number> = docsData?.counts || {}
+   209→   209→  const prescriptions = prescriptionsData?.prescriptions || []
+   210→   210→
+   211→   211→  // ---------- Mutations ----------
+   212→   212→
+   213→   213→  const uploadMutation = useMutation({
+   214→   214→    mutationFn: async () => {
+   215→   215→      const res = await fetch('/api/patient/medical-documents', {
+   216→   216→        method: 'POST',
+   217→   217→        headers: { 'Content-Type': 'application/json' },
+   218→   218→        body: JSON.stringify({
+   219→   219→          ...uploadForm,
+   220→   220→          fileUrl: '',
+   221→   221→          fileName: uploadForm.title,
+   222→   222→          fileSize: 0,
+   223→   223→          mimeType: 'application/pdf',
+   224→   224→        }),
+   225→   225→      })
+   226→   226→      if (!res.ok) throw new Error('Upload failed')
+   227→   227→      return res.json()
+   228→   228→    },
+   229→   229→    onSuccess: () => {
+   230→   230→      toast.success('Document added successfully')
+   231→   231→      queryClient.invalidateQueries({ queryKey: ['medical-documents'] })
+   232→   232→      setUploadOpen(false)
+   233→   233→      setUploadForm({ title: '', category: 'Other', description: '' })
+   234→   234→    },
+   235→   235→    onError: () => {
+   236→   236→      toast.error('Failed to add document')
+   237→   237→    },
+   238→   238→  })
+   239→   239→
+   240→   240→  const deleteMutation = useMutation({
+   241→   241→    mutationFn: async (id: string) => {
+   242→   242→      const res = await fetch(`/api/patient/medical-documents/${id}`, {
+   243→   243→        method: 'DELETE',
+   244→   244→      })
+   245→   245→      if (!res.ok) throw new Error('Delete failed')
+   246→   246→    },
+   247→   247→    onSuccess: () => {
+   248→   248→      toast.success('Document deleted')
+   249→   249→      queryClient.invalidateQueries({ queryKey: ['medical-documents'] })
+   250→   250→    },
+   251→   251→    onError: () => {
+   252→   252→      toast.error('Failed to delete document')
+   253→   253→    },
+   254→   254→  })
+   255→   255→
+   256→   256→  // ---------- Handlers ----------
+   257→   257→
+   258→   258→  const handleUpload = (e: React.FormEvent) => {
+   259→   259→    e.preventDefault()
+   260→   260→    if (!uploadForm.title.trim()) {
+   261→   261→      toast.error('Please enter a document title')
+   262→   262→      return
+   263→   263→    }
+   264→   264→    uploadMutation.mutate()
+   265→   265→  }
+   266→   266→
+   267→   267→  const stats = statsData || {
+   268→   268→    completedVisits: 0,
+   269→   269→    lastVisitDate: null,
+   270→   270→    totalDoctors: 0,
+   271→   271→    prescriptionsReceived: 0,
+   272→   272→  }
+   273→   273→
+   274→   274→  // ==================== RENDER ====================
+   275→   275→
+   276→   276→  return (
+   277→   277→    <div className="space-y-8">
+   278→   278→      {/* ========== A. PAGE HEADER ========== */}
+   279→   279→      <motion.div
+   280→   280→        initial={{ opacity: 0, y: -10 }}
+   281→   281→        animate={{ opacity: 1, y: 0 }}
+   282→   282→        transition={{ duration: 0.35 }}
+   283→   283→        className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between"
+   284→   284→      >
+   285→   285→        <div>
+   286→   286→          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+   287→   287→            Health Records
+   288→   288→          </h1>
+   289→   289→          <p className="text-sm text-muted-foreground mt-1">
+   290→   290→            View your medical documents and visit history
+   291→   291→          </p>
+   292→   292→        </div>
+   293→   293→        <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
+   294→   294→          <DialogTrigger asChild>
+   295→   295→            <Button className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-md shadow-teal-500/20">
+   296→   296→              <Plus className="mr-2 h-4 w-4" />
+   297→   297→              Upload Document
+   298→   298→            </Button>
+   299→   299→          </DialogTrigger>
+   300→   300→          <DialogContent className="sm:max-w-md">
+   301→   301→            <DialogHeader>
+   302→   302→              <DialogTitle>Upload Medical Document</DialogTitle>
+   303→   303→            </DialogHeader>
+   304→   304→            <form onSubmit={handleUpload} className="space-y-4">
+   305→   305→              <div className="space-y-2">
+   306→   306→                <Label htmlFor="doc-title">
+   307→   307→                  Title <span className="text-red-500">*</span>
+   308→   308→                </Label>
+   309→   309→                <Input
+   310→   310→                  id="doc-title"
+   311→   311→                  value={uploadForm.title}
+   312→   312→                  onChange={(e) =>
+   313→   313→                    setUploadForm((f) => ({ ...f, title: e.target.value }))
+   314→   314→                  }
+   315→   315→                  placeholder="e.g., Blood Test Report"
+   316→   316→                />
+   317→   317→              </div>
+   318→   318→              <div className="space-y-2">
+   319→   319→                <Label htmlFor="doc-category">Category</Label>
+   320→   320→                <Select
+   321→   321→                  value={uploadForm.category}
+   322→   322→                  onValueChange={(v) =>
+   323→   323→                    setUploadForm((f) => ({
+   324→   324→                      ...f,
+   325→   325→                      category: v as DocumentCategory,
+   326→   326→                    }))
+   327→   327→                  }
+   328→   328→                >
+   329→   329→                  <SelectTrigger id="doc-category">
+   330→   330→                    <SelectValue />
+   331→   331→                  </SelectTrigger>
+   332→   332→                  <SelectContent>
+   333→   333→                    {DOCUMENT_CATEGORIES.map((cat) => (
+   334→   334→                      <SelectItem key={cat} value={cat}>
+   335→   335→                        {cat}
+   336→   336→                      </SelectItem>
+   337→   337→                    ))}
+   338→   338→                  </SelectContent>
+   339→   339→                </Select>
+   340→   340→              </div>
+   341→   341→              <div className="space-y-2">
+   342→   342→                <Label htmlFor="doc-desc">Description</Label>
+   343→   343→                <Textarea
+   344→   344→                  id="doc-desc"
+   345→   345→                  value={uploadForm.description}
+   346→   346→                  onChange={(e) =>
+   347→   347→                    setUploadForm((f) => ({ ...f, description: e.target.value }))
+   348→   348→                  }
+   349→   349→                  placeholder="Optional notes about this document"
+   350→   350→                  rows={3}
+   351→   351→                />
+   352→   352→              </div>
+   353→   353→              <DialogFooter className="gap-2 sm:gap-0">
+   354→   354→                <Button
+   355→   355→                  type="button"
+   356→   356→                  variant="outline"
+   357→   357→                  onClick={() => setUploadOpen(false)}
+   358→   358→                >
+   359→   359→                  Cancel
+   360→   360→                </Button>
+   361→   361→                <Button
+   362→   362→                  type="submit"
+   363→   363→                  className="bg-teal-500 hover:bg-teal-600 text-white"
+   364→   364→                  disabled={uploadMutation.isPending}
+   365→   365→                >
+   366→   366→                  {uploadMutation.isPending ? 'Saving...' : 'Save Document'}
+   367→   367→                </Button>
+   368→   368→              </DialogFooter>
+   369→   369→            </form>
+   370→   370→          </DialogContent>
+   371→   371→        </Dialog>
+   372→   372→      </motion.div>
+   373→   373→
+   374→   374→      {/* ========== B. VISIT SUMMARY SECTION ========== */}
+   375→   375→      <motion.section variants={fadeIn} initial="hidden" animate="visible">
+   376→   376→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+   377→   377→          {statsLoading ? (
+   378→   378→            Array.from({ length: 4 }).map((_, i) => (
+   379→   379→              <div
+   380→   380→                key={i}
+   381→   381→                className="h-[100px] rounded-xl border border-border bg-card"
+   382→   382→              >
+   383→   383→                <Skeleton className="h-full w-full rounded-xl" />
+   384→   384→              </div>
+   385→   385→            ))
+   386→   386→          ) : (
+   387→   387→            <>
+   388→   388→              <StatCard
+   389→   389→                title="Total Visits"
+   390→   390→                value={stats.completedVisits}
+   391→   391→                icon={Stethoscope}
+   392→   392→                gradient="from-teal-500 to-teal-600"
+   393→   393→                iconBg="bg-teal-100 dark:bg-teal-900/50"
+   394→   394→              />
+   395→   395→              <StatCard
+   396→   396→                title="Last Visit"
+   397→   397→                value={
+   398→   398→                  stats.lastVisitDate
+   399→   399→                    ? formatDistanceToNow(new Date(stats.lastVisitDate), {
+   400→   400→                        addSuffix: true,
+   401→   401→                      })
+   402→   402→                    : 'N/A'
+   403→   403→                }
+   404→   404→                icon={Calendar}
+   405→   405→                gradient="from-emerald-500 to-emerald-600"
+   406→   406→                iconBg="bg-emerald-100 dark:bg-emerald-900/50"
+   407→   407→              />
+   408→   408→              <StatCard
+   409→   409→                title="Doctors Visited"
+   410→   410→                value={stats.totalDoctors}
+   411→   411→                icon={Users}
+   412→   412→                gradient="from-amber-500 to-amber-600"
+   413→   413→                iconBg="bg-amber-100 dark:bg-amber-900/50"
+   414→   414→              />
+   415→   415→              <StatCard
+   416→   416→                title="Prescriptions"
+   417→   417→                value={stats.prescriptionsReceived}
+   418→   418→                icon={Pill}
+   419→   419→                gradient="from-rose-500 to-rose-600"
+   420→   420→                iconBg="bg-rose-100 dark:bg-rose-900/50"
+   421→   421→              />
+   422→   422→            </>
+   423→   423→          )}
+   424→   424→        </div>
+   425→   425→      </motion.section>
+   426→   426→
+   427→   427→      <Separator />
+   428→   428→
+   429→   429→      {/* ========== C. PAST PRESCRIPTIONS SECTION ========== */}
+   430→   430→      <motion.section
+   431→   431→        variants={fadeIn}
+   432→   432→        initial="hidden"
+   433→   433→        animate="visible"
+   434→   434→        transition={{ delay: 0.1 }}
+   435→   435→      >
+   436→   436→        <div className="flex items-center gap-2 mb-4">
+   437→   437→          <Heart className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   438→   438→          <h2 className="text-lg font-semibold">Past Prescriptions</h2>
+   439→   439→        </div>
+   440→   440→
+   441→   441→        {prescriptionsLoading ? (
+   442→   442→          <div className="space-y-3">
+   443→   443→            {Array.from({ length: 3 }).map((_, i) => (
+   444→   444→              <div
+   445→   445→                key={i}
+   446→   446→                className="h-24 rounded-xl border border-border bg-card"
+   447→   447→              >
+   448→   448→                <Skeleton className="h-full w-full rounded-xl" />
+   449→   449→              </div>
+   450→   450→            ))}
+   451→   451→          </div>
+   452→   452→        ) : prescriptions.length === 0 ? (
+   453→   453→          <Card>
+   454→   454→            <CardContent className="flex flex-col items-center justify-center py-12">
+   455→   455→              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-muted">
+   456→   456→                <Pill className="h-7 w-7 text-muted-foreground/40" />
+   457→   457→              </div>
+   458→   458→              <p className="mt-3 text-sm font-medium text-muted-foreground">
+   459→   459→                No prescriptions yet
+   460→   460→              </p>
+   461→   461→              <p className="mt-1 text-xs text-muted-foreground">
+   462→   462→                Your prescriptions from completed visits will appear here
+   463→   463→              </p>
+   464→   464→            </CardContent>
+   465→   465→          </Card>
+   466→   466→        ) : (
+   467→   467→          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+   468→   468→            <motion.div
+   469→   469→              className="space-y-3"
+   470→   470→              variants={containerVariants}
+   471→   471→              initial="hidden"
+   472→   472→              animate="show"
+   473→   473→            >
+   474→   474→              {prescriptions.map((rx) => {
+   475→   475→                const dateStr = rx.bookingDate
+   476→   476→                  ? format(new Date(rx.bookingDate), 'MMM d, yyyy')
+   477→   477→                  : format(new Date(rx.createdAt), 'MMM d, yyyy')
+   478→   478→                return (
+   479→   479→                  <motion.div key={rx.id} variants={itemVariants}>
+   480→   480→                    <Card className="group transition-all hover:shadow-md hover:border-teal-200 dark:hover:border-teal-800">
+   481→   481→                      <CardContent className="p-4">
+   482→   482→                        <div className="flex items-start justify-between gap-3">
+   483→   483→                          <div className="flex items-start gap-3 flex-1 min-w-0">
+   484→   484→                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/50">
+   485→   485→                              <Pill className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+   486→   486→                            </div>
+   487→   487→                            <div className="flex-1 min-w-0">
+   488→   488→                              <div className="flex items-center gap-2 flex-wrap">
+   489→   489→                                <p className="text-sm font-semibold truncate">
+   490→   490→                                  {rx.doctorName}
+   491→   491→                                </p>
+   492→   492→                                {rx.disease && (
+   493→   493→                                  <Badge
+   494→   494→                                    variant="secondary"
+   495→   495→                                    className="text-[10px] px-1.5 py-0"
+   496→   496→                                  >
+   497→   497→                                    {rx.disease}
+   498→   498→                                  </Badge>
+   499→   499→                                )}
+   500→   500→                              </div>
+   501→   501→                              <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+   502→   502→                                <span className="flex items-center gap-1">
+   503→   503→                                  <Calendar className="h-3 w-3" />
+   504→   504→                                  {dateStr}
+   505→   505→                                </span>
+   506→   506→                                <span className="flex items-center gap-1">
+   507→   507→                                  <Pill className="h-3 w-3" />
+   508→   508→                                  {rx.medicinesCount}{' '}
+   509→   509→                                  {rx.medicinesCount === 1 ? 'medicine' : 'medicines'}
+   510→   510→                                </span>
+   511→   511→                              </div>
+   512→   512→                            </div>
+   513→   513→                          </div>
+   514→   514→                          <Link href={`/dashboard/patient/appointments/${rx.bookingId}`}>
+   515→   515→                            <Button
+   516→   516→                              variant="ghost"
+   517→   517→                              size="sm"
+   518→   518→                              className="text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-950/50 shrink-0"
+   519→   519→                            >
+   520→   520→                              <Eye className="mr-1.5 h-3.5 w-3.5" />
+   521→   521→                              View
+   522→   522→                            </Button>
+   523→   523→                          </Link>
+   524→   524→                        </div>
+   525→   525→                      </CardContent>
+   526→   526→                    </Card>
+   527→   527→                  </motion.div>
+   528→   528→                )
+   529→   529→              })}
+   530→   530→            </motion.div>
+   531→   531→          </div>
+   532→   532→        )}
+   533→   533→      </motion.section>
+   534→   534→
+   535→   535→      <Separator />
+   536→   536→
+   537→   537→      {/* ========== D. DOCUMENTS SECTION ========== */}
+   538→   538→      <motion.section
+   539→   539→        variants={fadeIn}
+   540→   540→        initial="hidden"
+   541→   541→        animate="visible"
+   542→   542→        transition={{ delay: 0.15 }}
+   543→   543→      >
+   544→   544→        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+   545→   545→          <div className="flex items-center gap-2">
+   546→   546→            <FileText className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   547→   547→            <h2 className="text-lg font-semibold">Medical Documents</h2>
+   548→   548→          </div>
+   549→   549→          {/* Filter tabs */}
+   550→   550→          <div className="flex flex-wrap gap-1.5">
+   551→   551→            {FILTER_TABS.map((tab) => (
+   552→   552→              <button
+   553→   553→                key={tab}
+   554→   554→                onClick={() => setActiveTab(tab)}
+   555→   555→                className={cn(
+   556→   556→                  'inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-medium transition-colors',
+   557→   557→                  activeTab === tab
+   558→   558→                    ? 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-400'
+   559→   559→                    : 'bg-muted text-muted-foreground hover:bg-muted/80'
+   560→   560→                )}
+   561→   561→              >
+   562→   562→                {tab}
+   563→   563→                <span
+   564→   564→                  className={cn(
+   565→   565→                    'inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold',
+   566→   566→                    activeTab === tab
+   567→   567→                      ? 'bg-teal-200/60 dark:bg-teal-800/60'
+   568→   568→                      : 'bg-background/60'
+   569→   569→                  )}
+   570→   570→                >
+   571→   571→                  {docCounts[tab] || 0}
+   572→   572→                </span>
+   573→   573→              </button>
+   574→   574→            ))}
+   575→   575→          </div>
+   576→   576→        </div>
+   577→   577→
+   578→   578→        {docsLoading ? (
+   579→   579→          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+   580→   580→            {Array.from({ length: 6 }).map((_, i) => (
+   581→   581→              <div
+   582→   582→                key={i}
+   583→   583→                className="h-44 rounded-xl border border-border bg-card"
+   584→   584→              >
+   585→   585→                <Skeleton className="h-full w-full rounded-xl" />
+   586→   586→              </div>
+   587→   587→            ))}
+   588→   588→          </div>
+   589→   589→        ) : documents.length === 0 ? (
+   590→   590→          <motion.div
+   591→   591→            initial={{ opacity: 0, y: 20 }}
+   592→   592→            animate={{ opacity: 1, y: 0 }}
+   593→   593→            className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20"
+   594→   594→          >
+   595→   595→            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+   596→   596→              <FolderOpen className="h-8 w-8 text-muted-foreground/40" />
+   597→   597→            </div>
+   598→   598→            <p className="mt-4 text-sm font-medium text-muted-foreground">
+   599→   599→              No{' '}
+   600→   600→              {activeTab === 'All'
+   601→   601→                ? 'documents'
+   602→   602→                : activeTab.toLowerCase() + ' documents'}{' '}
+   603→   603→              yet
+   604→   604→            </p>
+   605→   605→            <p className="mt-1 text-xs text-muted-foreground">
+   606→   606→              Upload your first medical document to get started
+   607→   607→            </p>
+   608→   608→            <Button
+   609→   609→              variant="outline"
+   610→   610→              size="sm"
+   611→   611→              className="mt-4 text-teal-600 border-teal-200 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/50"
+   612→   612→              onClick={() => setUploadOpen(true)}
+   613→   613→            >
+   614→   614→              <Upload className="mr-2 h-4 w-4" />
+   615→   615→              Upload Document
+   616→   616→            </Button>
+   617→   617→          </motion.div>
+   618→   618→        ) : (
+   619→   619→          <motion.div
+   620→   620→            className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+   621→   621→            variants={containerVariants}
+   622→   622→            initial="hidden"
+   623→   623→            animate="show"
+   624→   624→          >
+   625→   625→            <AnimatePresence mode="popLayout">
+   626→   626→              {documents.map((doc) => {
+   627→   627→                const CatIcon = categoryIconMap[doc.category] || FileText
+   628→   628→                const dateStr = format(
+   629→   629→                  new Date(doc.createdAt),
+   630→   630→                  'MMM d, yyyy'
+   631→   631→                )
+   632→   632→                const sizeStr = formatFileSize(doc.fileSize)
+   633→   633→
+   634→   634→                return (
+   635→   635→                  <motion.div
+   636→   636→                    key={doc.id}
+   637→   637→                    layout
+   638→   638→                    variants={itemVariants}
+   639→   639→                    initial="hidden"
+   640→   640→                    animate="show"
+   641→   641→                    exit={{ opacity: 0, scale: 0.95 }}
+   642→   642→                  >
+   643→   643→                    <Card className="group relative h-full overflow-hidden transition-all hover:shadow-md hover:border-teal-200 dark:hover:border-teal-800">
+   644→   644→                      <CardContent className="p-4 flex flex-col h-full">
+   645→   645→                        {/* Top row: icon + actions */}
+   646→   646→                        <div className="flex items-start justify-between">
+   647→   647→                          <div
+   648→   648→                            className={cn(
+   649→   649→                              'flex h-11 w-11 items-center justify-center rounded-xl',
+   650→   650→                              categoryIconBgMap[doc.category] ||
+   651→   651→                                categoryIconBgMap.Other
+   652→   652→                            )}
+   653→   653→                          >
+   654→   654→                            <CatIcon
+   655→   655→                              className={cn(
+   656→   656→                                'h-5 w-5',
+   657→   657→                                categoryIconColorMap[doc.category] ||
+   658→   658→                                  categoryIconColorMap.Other
+   659→   659→                              )}
+   660→   660→                            />
+   661→   661→                          </div>
+   662→   662→                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+   663→   663→                            {doc.fileUrl && (
+   664→   664→                              <Button
+   665→   665→                                variant="ghost"
+   666→   666→                                size="icon"
+   667→   667→                                className="h-8 w-8 text-muted-foreground hover:text-teal-600"
+   668→   668→                                asChild
+   669→   669→                              >
+   670→   670→                                <a
+   671→   671→                                  href={doc.fileUrl}
+   672→   672→                                  target="_blank"
+   673→   673→                                  rel="noopener noreferrer"
+   674→   674→                                >
+   675→   675→                                  <Download className="h-4 w-4" />
+   676→   676→                                </a>
+   677→   677→                              </Button>
+   678→   678→                            )}
+   679→   679→                            <Button
+   680→   680→                              variant="ghost"
+   681→   681→                              size="icon"
+   682→   682→                              className="h-8 w-8 text-muted-foreground hover:text-red-600"
+   683→   683→                              onClick={() =>
+   684→   684→                                deleteMutation.mutate(doc.id)
+   685→   685→                              }
+   686→   686→                              disabled={deleteMutation.isPending}
+   687→   687→                            >
+   688→   688→                              <Trash2 className="h-4 w-4" />
+   689→   689→                            </Button>
+   690→   690→                          </div>
+   691→   691→                        </div>
+   692→   692→
+   693→   693→                        {/* Content */}
+   694→   694→                        <div className="mt-3 flex-1 min-w-0">
+   695→   695→                          <p className="text-sm font-semibold leading-snug line-clamp-2">
+   696→   696→                            {doc.title}
+   697→   697→                          </p>
+   698→   698→                          {doc.description && (
+   699→   699→                            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+   700→   700→                              {doc.description}
+   701→   701→                            </p>
+   702→   702→                          )}
+   703→   703→                        </div>
+   704→   704→
+   705→   705→                        {/* Bottom row: badge + date */}
+   706→   706→                        <div className="mt-3 flex items-center justify-between pt-2 border-t border-border/50">
+   707→   707→                          <Badge
+   708→   708→                            variant="secondary"
+   709→   709→                            className={cn(
+   710→   710→                              'text-[10px] font-medium border-0',
+   711→   711→                              categoryColorMap[doc.category] ||
+   712→   712→                                categoryColorMap.Other
+   713→   713→                            )}
+   714→   714→                          >
+   715→   715→                            {doc.category}
+   716→   716→                          </Badge>
+   717→   717→                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+   718→   718→                            {sizeStr && <span>{sizeStr}</span>}
+   719→   719→                            <span>{dateStr}</span>
+   720→   720→                          </div>
+   721→   721→                        </div>
+   722→   722→                      </CardContent>
+   723→   723→                    </Card>
+   724→   724→                  </motion.div>
+   725→   725→                )
+   726→   726→              })}
+   727→   727→            </AnimatePresence>
+   728→   728→          </motion.div>
+   729→   729→        )}
+   730→   730→      </motion.section>
+   731→   731→    </div>
+   732→   732→  )
+   733→   733→}

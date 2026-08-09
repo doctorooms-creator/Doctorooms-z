@@ -1319,3 +1319,89 @@ Stage Summary:
 - All passwords hashed with bcrypt ("123456")
 - Script is idempotent: clears all data except sliders on each run
 
+
+---
+Task ID: phase0-phase1-critical
+Agent: Main Agent
+Task: Execute Phase 0 (Foundation) + Phase 1 (Patient Journey) critical tasks
+
+Work Log:
+- Verified seed DB data: 28 users, 8 doctors, 40 bookings, 7 posts, 10 prescriptions ✅
+- Fixed Task 0.2: Added gender Select field to booking form (/dashboard/patient/book/[doctorId]/page.tsx)
+  - Added imports: Select components, useAuthStore, GENDERS constant
+  - Added bookingGender state, auto-populated from user.gender
+  - Added Gender Select UI before Disease input
+  - Included gender in mutation body
+- Verified Task 0.3: Settings page JSX already correct (lint passes)
+- Verified Task 0.4: Register Step 3 crash already fixed (only 3 steps: 0,1,2)
+- Fixed Task 0.5: Login error toast safety
+  - Added !res.ok check before res.json() in login page
+  - Shows error toast even if response is non-JSON
+- Fixed Task 0.6: Secure session cookie
+  - Changed doctorooms_session cookie from httpOnly:false to httpOnly:true
+  - doctorooms_role remains httpOnly:false for client-side role check
+  - Dashboard layout reads auth via /api/auth/me (server-side cookie read)
+- Fixed Task 0.7: Created /book redirect page
+  - New file: src/app/book/page.tsx
+  - Redirects to /doctors with toast message
+- Fixed Task 1.1: Landing page interactivity
+  - Added form onSubmit handler for search bar (navigates to /doctors?search=query)
+  - Wrapped specialization cards in Link (navigates to /doctors?specialization=name)
+  - Changed search button to type="submit"
+- Fixed Task 1.2: Doctor profile CTA for unauthenticated
+  - Both "Book Appointment" buttons now check isAuthenticated
+  - If not auth → redirect to /login?redirect=/dashboard/patient/book/[id]
+  - If auth → navigate to booking page
+  - Fixed wrong link (was /dashboard/patient/appointments?action=book...)
+- Verified Task 1.3: Chat fromId bug already fixed (msg.fromId === user.id)
+- Verified Task 1.5: Blog videoLink already handled in POST route
+- Verified Task 1.8: Footer links already proper
+- Browser verified: landing page shows 8 real doctors, login works, dashboard loads, /book redirects
+
+Stage Summary:
+- Phase 0 complete: 7/7 tasks done. App is visible, login works, booking flow technically possible
+- Phase 1 partial: 5/8 tasks done. Landing page interactive, doctor profile CTA fixed
+- Remaining Phase 1: file upload (1.4), error states (1.7), profile header (1.6)
+- All lint checks pass, dev server stable
+
+---
+Task ID: phase1-remaining
+Agent: full-stack-developer
+Task: Complete Phase 1 remaining tasks (1.4, 1.6, 1.7)
+
+Work Log:
+- Task 1.4: Real File Upload for Medical Documents
+  - Rewrote POST handler in src/app/api/patient/medical-documents/route.ts to accept FormData
+  - Added file validation: PDF, JPG, PNG, DOC, DOCX only; max 5MB
+  - Files saved to uploads/documents/{userId}_{timestamp}_{safeFilename}
+  - Stores fileUrl (disk-relative path), fileName (original), fileSize, mimeType in MedicalDocument model
+  - Created src/app/api/patient/medical-documents/[id]/download/route.ts — streams files for download with auth + ownership check
+  - Created uploads/documents/ directory
+  - Updated health-records page upload dialog: added <Input type='file'> with accept filter, client-side validation, file size display, auto-title from filename
+  - Changed upload mutation from JSON to FormData submission
+  - Updated download button to use new API route (/api/patient/medical-documents/{id}/download)
+  - Button text changed from 'Save Document' to 'Upload Document', loading state 'Uploading...'
+
+- Task 1.6: Profile Header Update
+  - Added getAvatarUrl() helper to construct proper /uploads/profile/{filename} path
+  - Fixed avatar not displaying: profileImg was stored as bare filename, now prefixed with /uploads/profile/
+  - Added teal gradient hero band (h-24 sm:h-28) above profile card with overflow-hidden
+  - Avatar now overlaps the gradient band with -mt-12 and border-4 border-background
+  - Name bumped to text-xl font-bold, added email + join date as icon-prefixed metadata row
+  - Replaced inline skeleton with dedicated ProfilePageSkeleton component matching new hero layout
+  - Also fixed dashboard header avatar (dashboard-header.tsx) with same getAvatarSrc() helper
+
+- Task 1.7: Error States and Empty States
+  - Patient Dashboard (page.tsx): Upcoming Appointments empty state now has icon-in-circle container, descriptive subtitle 'Book your first appointment to get started!', and Book CTA button
+  - Patient Dashboard (page.tsx): Recent Activity empty state improved with icon-in-circle and descriptive subtitle
+  - Appointments page (appointments/page.tsx): Added contextual description line — 'No appointments yet. Book your first appointment!' for All tab, or 'You have no {status} appointments.' for filtered tabs
+  - Notifications page (notifications/page.tsx): Updated empty state description from 'We'll let you know when something arrives.' to 'We'll notify you about appointment updates, reminders, and more.'
+
+Stage Summary:
+- Phase 1 is now 100% complete (8/8 tasks)
+- File upload is real: patients can upload PDF/JPG/PNG/DOC/DOCX up to 5MB, files stored on disk, downloadable via authenticated API
+- Profile page has a proper hero header with gradient band, overlapping avatar, and metadata row
+- All avatar images now display correctly with proper path prefix (/uploads/profile/)
+- All empty states have consistent design: icon-in-circle, title, descriptive subtitle, and CTA where appropriate
+- ESLint: 0 errors, 0 warnings
+- Dev server: Compiles without errors

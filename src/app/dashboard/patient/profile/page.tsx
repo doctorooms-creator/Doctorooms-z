@@ -31,6 +31,36 @@ interface Profile {
   createdAt: string
 }
 
+function getAvatarUrl(profileImg: string | null | undefined): string {
+  if (!profileImg || profileImg === 'default.png') return '/default.png'
+  return `/uploads/profile/${profileImg}`
+}
+
+function ProfilePageSkeleton() {
+  return (
+    <div className="mx-auto max-w-2xl space-y-6">
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="h-24 bg-muted sm:h-28" />
+        <div className="flex flex-col items-center gap-4 px-6 pb-6 -mt-12">
+          <div className="h-24 w-24 rounded-full border-4 border-background animate-pulse bg-muted" />
+          <div className="space-y-2 text-center">
+            <div className="h-5 w-36 mx-auto animate-pulse rounded bg-muted" />
+            <div className="h-4 w-48 mx-auto animate-pulse rounded bg-muted" />
+          </div>
+        </div>
+      </div>
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4">
+            <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+            <div className="h-10 flex-1 animate-pulse rounded-lg bg-muted" />
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function PatientProfilePage() {
   const { user } = useAuthStore()
   const queryClient = useQueryClient()
@@ -48,6 +78,7 @@ export default function PatientProfilePage() {
   })
 
   const profile = data?.profile
+  const avatarUrl = getAvatarUrl(profile?.profileImg)
 
   const startEditing = () => {
     if (profile) {
@@ -126,23 +157,7 @@ export default function PatientProfilePage() {
   const displayGender = isEditing ? form.gender : (profile?.gender || 'Male')
 
   if (isLoading) {
-    return (
-      <div className="mx-auto max-w-2xl space-y-6">
-        <div className="flex flex-col items-center gap-4 py-6">
-          <div className="h-24 w-24 animate-pulse rounded-full bg-muted" />
-          <div className="h-6 w-36 animate-pulse rounded bg-muted" />
-          <div className="h-4 w-48 animate-pulse rounded bg-muted" />
-        </div>
-        <div className="space-y-4">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4">
-              <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-              <div className="h-10 w-full animate-pulse rounded-lg bg-muted" />
-            </div>
-          ))}
-        </div>
-      </div>
-    )
+    return <ProfilePageSkeleton />
   }
 
   return (
@@ -152,22 +167,26 @@ export default function PatientProfilePage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
       >
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex flex-col items-center text-center">
+        <Card className="overflow-hidden">
+          {/* Hero gradient band */}
+          <div className="h-24 bg-gradient-to-r from-teal-500 to-teal-600 sm:h-28" />
+          <CardContent className="relative px-6 pb-6">
+            <div className="flex flex-col items-center text-center -mt-12">
               <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                <Avatar className="h-24 w-24">
-                  <AvatarImage src={profile?.profileImg} />
-                  <AvatarFallback className="bg-teal-100 text-2xl font-bold text-teal-700 dark:bg-teal-900 dark:text-teal-300">
-                    {(profile?.name || user?.name || 'P')
-                      .split(' ')
-                      .map((w) => w[0])
-                      .join('')
-                      .toUpperCase()
-                      .slice(0, 2)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="absolute inset-0 bg-black/40 rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <div className="rounded-full border-4 border-background">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage src={avatarUrl} />
+                    <AvatarFallback className="bg-teal-100 text-2xl font-bold text-teal-700 dark:bg-teal-900 dark:text-teal-300">
+                      {(profile?.name || user?.name || 'P')
+                        .split(' ')
+                        .map((w) => w[0])
+                        .join('')
+                        .toUpperCase()
+                        .slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+                <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center border-4 border-transparent">
                   {avatarMutation.isPending ? (
                     <Loader2 className="h-5 w-5 text-white animate-spin" />
                   ) : (
@@ -178,12 +197,18 @@ export default function PatientProfilePage() {
                   <Camera className="h-4 w-4" />
                 </div>
               </div>
-              <h3 className="mt-4 text-lg font-semibold">{profile?.name || user?.name}</h3>
+              <h3 className="mt-3 text-xl font-bold">{profile?.name || user?.name || '—'}</h3>
               <p className="text-sm text-muted-foreground">Patient</p>
-              <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                <Calendar className="h-3.5 w-3.5" />
-                Joined {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
-              </p>
+              <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <Mail className="h-3.5 w-3.5" />
+                  {profile?.email || user?.email}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  Joined {profile?.createdAt ? new Date(profile.createdAt).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : '—'}
+                </span>
+              </div>
             </div>
           </CardContent>
         </Card>

@@ -135,7 +135,7 @@ export default function PatientNotificationsPage() {
               No notifications yet
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              We&apos;ll let you know when something arrives.
+              We&apos;ll notify you about appointment updates, reminders, and more.
             </p>
           </CardContent>
         </Card>

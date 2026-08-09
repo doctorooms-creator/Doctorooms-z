@@ -45,6 +45,7 @@ import {
   ImageIcon,
   Syringe,
   Users,
+  FileUp,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -172,6 +173,7 @@ export default function HealthRecordsPage() {
     category: 'Other' as DocumentCategory,
     description: '',
   })
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const queryClient = useQueryClient()
 
   // ---------- Queries ----------
@@ -212,28 +214,34 @@ export default function HealthRecordsPage() {
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
+      if (!uploadForm.title.trim()) {
+        throw new Error('Please enter a document title')
+      }
+      const formData = new FormData()
+      formData.append('title', uploadForm.title.trim())
+      formData.append('category', uploadForm.category)
+      formData.append('description', uploadForm.description)
+      if (selectedFile) {
+        formData.append('file', selectedFile)
+      }
       const res = await fetch('/api/patient/medical-documents', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...uploadForm,
-          fileUrl: '',
-          fileName: uploadForm.title,
-          fileSize: 0,
-          mimeType: 'application/pdf',
-        }),
+        body: formData,
       })
-      if (!res.ok) throw new Error('Upload failed')
-      return res.json()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Upload failed')
+      return data
     },
     onSuccess: () => {
-      toast.success('Document added successfully')
+      toast.success('Document uploaded successfully')
       queryClient.invalidateQueries({ queryKey: ['medical-documents'] })
+      queryClient.invalidateQueries({ queryKey: ['patient-health-stats'] })
       setUploadOpen(false)
       setUploadForm({ title: '', category: 'Other', description: '' })
+      setSelectedFile(null)
     },
-    onError: () => {
-      toast.error('Failed to add document')
+    onError: (err) => {
+      toast.error(err.message || 'Failed to upload document')
     },
   })
 
@@ -254,6 +262,35 @@ export default function HealthRecordsPage() {
   })
 
   // ---------- Handlers ----------
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ]
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Only PDF, JPG, PNG, DOC, and DOCX files are allowed')
+      e.target.value = ''
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB')
+      e.target.value = ''
+      return
+    }
+    setSelectedFile(file)
+    // Auto-fill title from filename if empty
+    if (!uploadForm.title.trim()) {
+      const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '')
+      setUploadForm((f) => ({ ...f, title: nameWithoutExt }))
+    }
+  }
 
   const handleUpload = (e: React.FormEvent) => {
     e.preventDefault()
@@ -302,6 +339,29 @@ export default function HealthRecordsPage() {
               <DialogTitle>Upload Medical Document</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleUpload} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="doc-file">
+                  File <span className="text-red-500">*</span>
+                </Label>
+                <div className="relative">
+                  <Input
+                    id="doc-file"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+                    onChange={handleFileSelect}
+                    className="file:mr-4 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-medium file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100 dark:file:bg-teal-950/50 dark:file:text-teal-400 dark:hover:file:bg-teal-900/50 file:cursor-pointer cursor-pointer"
+                  />
+                  {selectedFile && (
+                    <p className="mt-1.5 text-xs text-muted-foreground flex items-center gap-1">
+                      <FileUp className="h-3 w-3" />
+                      {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                    </p>
+                  )}
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  PDF, JPG, PNG, DOC, DOCX — Max 5MB
+                </p>
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="doc-title">
                   Title <span className="text-red-500">*</span>
@@ -354,7 +414,11 @@ export default function HealthRecordsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setUploadOpen(false)}
+                  onClick={() => {
+                    setUploadOpen(false)
+                    setSelectedFile(null)
+                    setUploadForm({ title: '', category: 'Other', description: '' })
+                  }}
                 >
                   Cancel
                 </Button>
@@ -363,7 +427,7 @@ export default function HealthRecordsPage() {
                   className="bg-teal-500 hover:bg-teal-600 text-white"
                   disabled={uploadMutation.isPending}
                 >
-                  {uploadMutation.isPending ? 'Saving...' : 'Save Document'}
+                  {uploadMutation.isPending ? 'Uploading...' : 'Upload Document'}
                 </Button>
               </DialogFooter>
             </form>
@@ -660,7 +724,7 @@ export default function HealthRecordsPage() {
                             />
                           </div>
                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            {doc.fileUrl && (
+                            {doc.fileName && (
                               <Button
                                 variant="ghost"
                                 size="icon"
@@ -668,7 +732,7 @@ export default function HealthRecordsPage() {
                                 asChild
                               >
                                 <a
-                                  href={doc.fileUrl}
+                                  href={`/api/patient/medical-documents/${doc.id}/download`}
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >

@@ -16,6 +16,9 @@ import { Separator } from '@/components/ui/separator'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useAuthStore } from '@/lib/auth-store'
+import { GENDERS } from '@/lib/constants'
 import { toast } from 'sonner'
 import {
   IndianRupee,
@@ -99,7 +102,9 @@ export default function PatientBookDoctorPage() {
   const [description, setDescription] = useState('')
   const [bookingState, setBookingState] = useState('')
   const [bookingCity, setBookingCity] = useState('')
+  const [bookingGender, setBookingGender] = useState('')
   const [showBookingForm, setShowBookingForm] = useState(false)
+  const { user } = useAuthStore()
   const [slotStatuses, setSlotStatuses] = useState<SlotAvailability[]>([])
 
   // ── Fetch doctor info ──
@@ -231,12 +236,14 @@ export default function PatientBookDoctorPage() {
       return
     }
 
+    const selectedGender = bookingGender || user?.gender || 'Male'
     const dateStr = format(selectedDate, 'yyyy-MM-dd')
     bookMutation.mutate({
       doctorId: scheduleData?.doctorId || doctorId,
       bookingDate: dateStr,
       timeSlot: selectedSlot,
       bookingMode,
+      gender: selectedGender,
       disease: disease.trim(),
       description: description.trim(),
       state: bookingState.trim(),
@@ -597,6 +604,21 @@ export default function PatientBookDoctorPage() {
                     >
                       <Separator />
                       <div className="space-y-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="gender" className="text-sm font-medium">
+                            Gender <span className="text-red-500">*</span>
+                          </Label>
+                          <Select value={bookingGender || user?.gender || 'Male'} onValueChange={setBookingGender}>
+                            <SelectTrigger id="gender" className="h-9">
+                              <SelectValue placeholder="Select gender" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {GENDERS.map((g) => (
+                                <SelectItem key={g} value={g}>{g}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="disease" className="text-sm font-medium">
                             Reason / Disease <span className="text-red-500">*</span>

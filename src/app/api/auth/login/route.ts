@@ -58,10 +58,10 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Set session cookie (not httpOnly so dashboard layout can read it client-side for role-based routing)
+    // Set session cookie (httpOnly for security — client reads user via /api/auth/me)
     // TODO(Phase 5): Migrate to random session tokens + middleware.ts for server-side auth
     response.cookies.set('doctorooms_session', user.id, {
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7,

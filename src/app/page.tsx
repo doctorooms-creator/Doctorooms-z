@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, useInView } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -291,7 +292,17 @@ function StarRating({ rating = 4.8 }: { rating?: number }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 export default function HomePage() {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      router.push(`/doctors?search=${encodeURIComponent(searchQuery.trim())}`)
+    } else {
+      router.push('/doctors')
+    }
+  }
 
   // ── Queries ──────────────────────────────────────────────────────────────
 
@@ -356,7 +367,7 @@ export default function HomePage() {
               </p>
 
               {/* Search bar */}
-              <div className="flex max-w-md items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+              <form onSubmit={handleSearch} className="flex max-w-md items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm dark:border-gray-700 dark:bg-gray-900">
                 <Search className="h-5 w-5 shrink-0 text-gray-400" />
                 <Input
                   placeholder="Search doctors, specializations..."
@@ -365,13 +376,14 @@ export default function HomePage() {
                   className="h-9 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
                 />
                 <Button
+                  type="submit"
                   size="sm"
                   className="shrink-0 bg-gradient-to-r from-teal-600 to-emerald-500 text-white hover:from-teal-700 hover:to-emerald-600"
                 >
                   <Search className="h-4 w-4" />
                   <span className="hidden sm:inline">Search</span>
                 </Button>
-              </div>
+              </form>
 
               {/* CTA buttons */}
               <div className="flex flex-wrap gap-3 pt-2">
@@ -592,6 +604,7 @@ export default function HomePage() {
           <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:gap-6">
             {specDisplay.map((spec, i) => (
               <FadeUpItem key={spec.name} index={i}>
+                <Link href={`/doctors?specialization=${encodeURIComponent(spec.name)}`}>
                 <Card className="group cursor-pointer border-transparent transition-all duration-300 hover:border-teal-300 hover:shadow-md dark:hover:border-teal-700">
                   <CardContent className="flex flex-col items-center gap-3 p-5 text-center">
                     <div className={`flex h-14 w-14 items-center justify-center rounded-xl ${spec.bg}`}>
@@ -603,6 +616,7 @@ export default function HomePage() {
                     </Badge>
                   </CardContent>
                 </Card>
+                </Link>
               </FadeUpItem>
             ))}
           </div>

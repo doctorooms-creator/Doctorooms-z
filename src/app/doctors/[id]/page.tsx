@@ -395,12 +395,16 @@ export default function DoctorDetailPage() {
                         <Button
                           size="lg"
                           className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-semibold shadow-lg shadow-teal-500/20"
-                          asChild
+                          onClick={() => {
+                            if (!isAuthenticated) {
+                              router.push(`/login?redirect=/dashboard/patient/book/${doctor.id}`)
+                            } else {
+                              router.push(`/dashboard/patient/book/${doctor.id}`)
+                            }
+                          }}
                         >
-                          <Link href={`/dashboard/patient/appointments?action=book&doctorId=${doctor.id}`}>
-                            <Calendar className="h-5 w-5 mr-2" />
-                            Book Appointment
-                          </Link>
+                          <Calendar className="h-5 w-5 mr-2" />
+                          Book Appointment
                         </Button>
                         <Button
                           variant="outline"
@@ -806,12 +810,16 @@ export default function DoctorDetailPage() {
                 <CardContent className="p-6 space-y-3">
                   <Button
                     className="w-full bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white h-12 text-base font-semibold"
-                    asChild
+                    onClick={() => {
+                      if (!isAuthenticated) {
+                        router.push(`/login?redirect=/dashboard/patient/book/${doctor.id}`)
+                      } else {
+                        router.push(`/dashboard/patient/book/${doctor.id}`)
+                      }
+                    }}
                   >
-                    <Link href={`/dashboard/patient/appointments?action=book&doctorId=${doctor.id}`}>
                       <Calendar className="h-5 w-5 mr-2" />
                       Book Appointment
-                    </Link>
                   </Button>
                   <div className="flex gap-2">
                     <Button
@@ -822,11 +830,19 @@ export default function DoctorDetailPage() {
                       <Share2 className="h-4 w-4" />
                       Share
                     </Button>
-                    <Button variant="outline" className="flex-1 gap-2" asChild>
-                      <Link href={`/dashboard/patient/book/${doctor.id}`}>
-                        <Video className="h-4 w-4" />
-                        Video Call
-                      </Link>
+                    <Button
+                      variant="outline"
+                      className="flex-1 gap-2"
+                      onClick={() => {
+                        if (!isAuthenticated) {
+                          router.push(`/login?redirect=/dashboard/patient/book/${doctor.id}`)
+                        } else {
+                          router.push(`/dashboard/patient/book/${doctor.id}`)
+                        }
+                      }}
+                    >
+                      <Video className="h-4 w-4" />
+                      Book Video Call
                     </Button>
                   </div>
                 </CardContent>

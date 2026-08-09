@@ -225,6 +225,11 @@ export default function PatientAppointmentsPage() {
               <p className="mt-4 text-sm font-medium text-muted-foreground">
                 No {activeTab === 'All' ? '' : activeTab.toLowerCase() + ' '}appointments found
               </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {activeTab === 'All'
+                  ? 'No appointments yet. Book your first appointment!'
+                  : `You have no ${activeTab.toLowerCase()} appointments.`}
+              </p>
               <Button variant="outline" size="sm" className="mt-4 text-teal-600 border-teal-200 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/50" asChild>
                 <Link href="/doctors">
                   <CalendarDays className="mr-2 h-4 w-4" />

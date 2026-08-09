@@ -74,6 +74,12 @@ export default function LoginPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ message: 'Invalid email or password' }));
+        toast.error(errData.message || 'Invalid email or password');
+        setLoading(false);
+        return;
+      }
       const data = await res.json();
       if (!data.success) {
         toast.error(data.message || 'Invalid credentials');

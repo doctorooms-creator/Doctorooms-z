@@ -113,7 +113,11 @@ export function DashboardHeader({ onMenuClick, onLogout }: DashboardHeaderProps)
   const pageTitle = getPageTitle(pathname)
   const userName = user?.name || 'User'
   const userEmail = user?.email || ''
-  const userImg = user?.profileImg || ''
+  const getAvatarSrc = (img: string | null | undefined): string => {
+    if (!img || img === 'default.png') return '/default.png'
+    return `/uploads/profile/${img}`
+  }
+  const userImg = getAvatarSrc(user?.profileImg)
 
   useEffect(() => {
     if (role !== 'patient' && role !== 'receptionist') return
