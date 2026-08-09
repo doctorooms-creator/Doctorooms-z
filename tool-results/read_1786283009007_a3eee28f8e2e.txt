@@ -1,0 +1,502 @@
+     1→# Phase 3: Doctor Dashboard Module - Complete Research
+     2→
+     3→## Overview
+     4→The Doctor Dashboard is the largest module in Doctorooms. It provides doctors with full control over appointments, prescriptions (two systems: legacy and ajax-based), scheduling, profile management, staff management (assistant, receptionist, pharmacist), prescription settings (C/O categories, complaints/questions, suggestions, labels, diagnostic tables, other settings), reporting, gallery, blog posts, and notifications. All controllers extend `Doctor_controller` which enforces authentication.
+     5→
+     6→## Database Tables Used
+     7→| Table | Purpose |
+     8→|---|---|
+     9→| `doctors` | Doctor profiles (user_id, fees, emergency_charge, doctor_type, specialization, address, state, city, lat, longi, hospital_id, photos, booking_days, daily_limit, is_emergency) |
+    10→| `users` | User accounts (name, email, mobile_no, password, role, profile_img, status, gender) |
+    11→| `booking` | Appointments (appointment_no, user_id, doctor_id, booking_date, petient_name, disease, status, description, booking_type, appointment_charge, physical_handicape, date_of_birth, age, gender, height, weight, relation_with_me) |
+    12→| `prescriptions` | Legacy prescriptions (disease_description, medicine_details JSON, remark, booking_id, user_id) |
+    13→| `prescription` | Ajax prescriptions (doc_id, patient_id, booking_id, status, next_visit) |
+    14→| `p_cos` | Prescription C/O selections (p_id, co, question, question_code) |
+    15→| `p_labels` | Prescription label values (p_id, label, l_value, label_unit) |
+    16→| `p_medicine` | Prescription medicines (p_id, medicine, morning, after_noon, evning, tab, doz, description) |
+    17→| `p_suggestions` | Prescription suggestions (p_id, question, suggestions) |
+    18→| `p_digno_table` | Prescription diagnostic tables (p_id, rows, cols, header_label, cols_label, footer_label, extra_label) |
+    19→| `p_other_settings` | Prescription print settings (logo, full_header, time, header, is_full_header) |
+    20→| `co_master` | C/O categories (co_code, co_detail, doctor_id, status) |
+    21→| `questions_master` | Complaints/questions (question, explenations, co_id, question_code, doctor_id) |
+    22→| `suggestions_master` | Suggestion templates (suggestions, question_id, doctor_id) |
+    23→| `label_master` | Label templates (label_title, label_unit, input_type, doctor_id) |
+    24→| `table_master` | Diagnostic table templates (row, table_column, lable_header/footer/row JSON, extra_label, doctor_id) |
+    25→| `doctor_holiday_schedule` | Holiday dates (date, remark, user_id) |
+    26→| `doctor_assistants` | Assistant staff (user_id, doctor_id, address, description) |
+    27→| `doctor_pharmacist` | Pharmacist staff (user_id, doctor_id, address, description, dlno) |
+    28→| `receptionists` | Receptionist staff (user_id, doctor_id, address) |
+    29→| `doctor_medicine_list` | Doctor's medicine list (name, morning, afternoon, evening, tab, doz, description, user_id, status) |
+    30→| `notifications` | User notifications (title, body, user_id, status, created_at) |
+    31→| `posts` | Blog posts (title, content, type, blog_img, paramalink, status, user_id, video_link) |
+    32→| `booking_chat` | Chat messages for appointments |
+    33→
+    34→---
+    35→
+    36→## Layout: master_page_doctors
+    37→**File:** `views/layouts/master_page_doctors.php`
+    38→
+    39→### Navbar
+    40→- **Logo/Brand:** Site title
+    41→- **Notification Bell:** Dropdown showing notification count badge + latest 5 notifications with links to `doctor/notifications`
+    42→- **User Menu Dropdown:** Profile image, name, role label, "Profile Settings" link → `doctor/profile`, "Sign out" → `auth/logout`
+    43→
+    44→### Sidebar Menu
+    45→1. **Dashboard** (`doctor/dashboard`) - `fa-dashboard`
+    46→2. **Appointments** (`doctor/appointment`) - `fa-check-circle`
+    47→3. **Appointment History** (`doctor/appointment/history`) - `fa-file-text`
+    48→4. **My Profile** (`doctor/profile`) - `fa-user-md`
+    49→5. **Manage Schedule** (`doctor/schedule`) - `fa-clock-o`
+    50→6. **Gallery** (`doctor/gallery`) - `fa-photo`
+    51→7. **Blog** (`doctor/post`) - `fa-rss`
+    52→8. **Receptionist** (`doctor/receptionist`) - `fa-user-o`
+    53→9. **Assistant** (`doctor/assistant`) - `fa-user-o`
+    54→10. **Pharmacist** (`doctor/pharmacist/`) - `fa-user-o`
+    55→11. **Reports** (`doctor/report`) - `fa-file`
+    56→12. **Prescription Settings** (treeview, auto-open for co/questions/suggestions/label/table_master/p_other_setting):
+    57→    - C/O - Category (`doctor/co`) - `fa-plus-square`
+    58→    - Complains (`doctor/questions`) - `fa-question-circle`
+    59→    - Suggestions (`doctor/suggestions`) - `fa-check-circle`
+    60→    - Labels (`doctor/label`) - `fa-tag`
+    61→    - Table (`doctor/table_master`) - `fa-table`
+    62→    - Other Settings (`doctor/p_other_setting`) - `fa-cog`
+    63→
+    64→### CSS/JS Libraries Loaded
+    65→- AdminLTE 2.4.0, Bootstrap 3, jQuery, jQuery UI, Font Awesome, Ionicons
+    66→- DataTables (dataTables.net-bs + buttons: copy, excel, csv, pdf)
+    67→- PNotify (flash messages), SweetAlert (delete confirmations)
+    68→- Bootstrap WysiHTML5 (rich text editor)
+    69→- Ekko-Lightbox (gallery), Select2
+    70→- Google Analytics (UA-171698773-1)
+    71→- Print CSS: hides `.d-n` elements, links, and icon spans
+    72→
+    73→### Global JS
+    74→- `$('.dttable').DataTable()` - Auto-init for tables with class `dttable`
+    75→- `$('#example').DataTable({dom:'Bfrtip', buttons:['copyHtml5','excelHtml5','csvHtml5','pdfHtml5']})`
+    76→- `conformDel()`, `conformFormDel()`, `conformCancel()` - SweetAlert confirmation dialogs
+    77→- Double-submit prevention on all forms
+    78→- Auto-init tooltips and Select2
+    79→
+    80→---
+    81→
+    82→## 3.1 Dashboard
+    83→#### Controller: `controllers/doctor/Dashboard.php`
+    84→**Class:** `Dashboard extends Doctor_controller`
+    85→
+    86→**Models Loaded:** `Booking_model` (book), `posts_model` (post), `Doctor_rating_model` (doctor_rating), `Doctors_model` (doctor), `Hospital_model` (hospital)
+    87→
+    88→**Constructor:** Creates a doctor record if none exists for the logged-in user (with `booking_days=BEFORE_BOOKING_DAYS`, `is_emergency=0`).
+    89→
+    90→| Method | Type | Params | Queries | Data to View | Redirect/Response |
+    91→|---|---|---|---|---|---|
+    92→| `index()` | GET | - | `doctor->get_active_user()`, `hospital->get_one_by_user()`, `book->get_today_doctor_appointment(id, PENDING)`, `post->get_all_by_user()`, `doctor_rating->get_average_rating()`, `book->get_today_doctor_appointment(id, VISITED)`, `book->get_doctor_appointments_ajax(id, 10, 0)` | `is_emergency`, `hospital`, `today_pending_appointment`, `my_blog`, `myprofile_rating`, `today_visited_appointment`, `appointments`, `today_appointments` | View: `doctor/dashboard` |
+    93→| `change_emergency()` | POST | `is_emergency` (0/1) | `doctor->get_one_by_user()`, `book->get_doctor_appointments_today(id, APPROVE)`, `doctor->update()` | - | JSON: `['success','Emergency Status Successfully updated']` or `['error','Something want wrong']`. Sends SMS to all today's approved appointments if emergency=1 |
+    94→| `loadmore()` | GET | `limit`, `offset` | `book->get_doctor_appointments_ajax(id, limit, offset)` | JSON: `{view: HTML, offset: offset+10, limit: limit}` | - | Returns partial HTML table rows |
+    95→| `sendMobileMessage()` | Internal | `mobile`, `message` | - | - | - | Sends SMS via curl to `sms.soft-techsolutions.com` (hardcoded API key). Used by `change_emergency()` |
+    96→
+    97→#### View: `views/doctor/dashboard.php`
+    98→
+    99→**Structure:** `div.content-wrapper` containing:
+   100→
+   101→**Info Boxes (4 columns):**
+   102→1. Today Pending Appointment (yellow, `fa-check-circle-o`) → link to `doctor/appointment`
+   103→2. Today Visited Appointment (green, `fa-check-circle`) → link to `doctor/appointment?status=Visited`
+   104→3. Profile Rating (aqua, `fa-user-md`) → link to `doctor/profile`, shows `X/5` with star icon
+   105→4. My Blogs (red, `fa-rss`) → link to `doctor/post`
+   106→
+   107→**Emergency Toggle:** Custom CSS toggle switch (100x50px, red/blue colors, animated with X→V transition). Checkbox `#check_emergency`. AJAX POST to `dashboard/change_emergency`. PNotify notification on response.
+   108→
+   109→**Latest Booked Appointment Table:**
+   110→- Class `table table-bordered table-responsive dttable` with id `#ajaxTable`
+   111→- Columns: #, Appointment ID (link to show), Appointment Date, Who has booked (name/email/mobile or "By Receptionist"), Patient Name, Disease, Status (colored label)
+   112→- Status colors: Pending=warning, Approve=primary, Extend=info, Visited=success, Rejected=danger
+   113→- Dropdown filter `#st` for status (Pending/Extend/Approve/Visited/Rejected/All Appointment)
+   114→- "Load more" button → AJAX GET `doctor/dashboard/loadmore` appends rows
+   115→- Hidden inputs: `#limit=10`, `#offset=10`
+   116→- Client-side filter via `#st` change event (text match on rows)
+   117→
+   118→**Today Appointments Table:** (hidden with class `hidden`)
+   119→- Same columns as above, no actions
+   120→
+   121→**Search Appointment History:** Form GET to `doctor/appointment/history`
+   122→- Input: `aptid` (text) OR `mobile` (number) + search button
+   123→
+   124→**JS:** Emergency toggle AJAX, loadmore AJAX, client-side status filter
+   125→
+   126→#### View: `views/doctor/get_appointment_ajax_table.php`
+   127→Partial view (table rows only) returned by `loadmore()`. Same columns as dashboard table. Uses `$offset` for row numbering.
+   128→
+   129→#### Connections: `doctors`, `booking`, `users`, `posts`, `doctor_ratings`, `hospitals`, `notifications` (SMS)
+   130→
+   131→---
+   132→
+   133→## 3.2 Appointments
+   134→#### Controller: `controllers/doctor/Appointment.php`
+   135→**Class:** `Appointment extends Doctor_controller`
+   136→
+   137→**Models Loaded:** `Booking_model` (book), `Notifications_model` (notification), `Prescriptions_model` (prescription), `Receptionist_model` (receptionist), `Doctor_medicine_list_model` (medicine), `P_medicine_model` (p_medicine)
+   138→
+   139→| Method | Type | Params | Queries | Data to View | Redirect | Flash Message |
+   140→|---|---|---|---|---|---|---|
+   141→| `index()` | GET | `?status=` (default: PENDING) | `book->get_doctor_appointment(id, status, 'asc')` | `appointments` | View: `doctor/appointment/index` | - |
+   142→| `get_appointment_table()` | GET | `?status=` (default: APPROVE) | `book->get_doctor_appointment(id, status, 'DESC')` | `appointments` | View: partial (table only) | - |
+   143→| `show($id)` | GET | `$id` | `book->get_doctor_appointment_one(id, doctor_id)`, `prescription->get_by_booking_id(id, doctor_id)` | `appointment`, `prescription` | Redirect: `doctor/appointment` if null | - |
+   144→| `get_branch()` | GET | `?q=` | `medicine->get_by_doctor_id(doctor_id, q)` | JSON array `[{value, text, morning, afternoon, evening, tab, doz, description}]` | - | - | - |
+   145→| `get_medi_list()` | GET | - | `medicine->get_all_list_by_doctor_id(doctor_id)` | JSON array of medicine name strings | - | - | - |
+   146→| `extend($id)` | GET | `$id` | `book->get_doctor_appointment_one()`, `notification->create()`, `receptionist->get_receptionist_by_doctor()`, `book->update(id, ['status'=>EXTEND])` | - | `doctor/appointment?status=Extend` | success/error |
+   147→| `approve($id)` | GET | `$id` | Same pattern, status→APPROVE, notifications to user + receptionist | - | `doctor/appointment?status=Approve` | success/error |
+   148→| `visited($id)` | GET | `$id` | Same pattern, status→VISITED | - | `doctor/appointment?status=Visited` | success/error |
+   149→| `cancel($id)` | GET | `$id` | Same pattern, status→REJECTED | - | `doctor/appointment?status=Rejected` | success/error |
+   150→| `create_prescription($booking_id)` | GET | `$booking_id` | `book->get_doctor_appointment_one()`, `prescription->get_by_booking_id()` | `appointment` | View: `doctor/appointment/create_prescription` or redirect if exists | - |
+   151→| `store_prescription($booking_id)` | POST | `$booking_id`, `disease_description` (required) | `book->get_doctor_appointment_one()`, `prescription->get_by_booking_id()`, `prescription->create()` | - | `doctor/appointment/show/$id` | success/error |
+   152→| `edit_prescription($booking_id)` | GET | `$booking_id` | Same + prescription data | `appointment`, `prescription` | View: `doctor/appointment/edit_prescription` or redirect | - |
+   153→| `update_prescription($booking_id)` | POST | `$booking_id`, `disease_description` (required) | Same + `prescription->update()` | - | `doctor/appointment/show/$id` | success/error |
+   154→| `create_medicine($booking_id)` | GET | `$booking_id` | Same + prescription check | `appointment`, `prescription` | View: `doctor/appointment/create_medicine` or redirect | - |
+   155→| `store_medicine($booking_id)` | POST | `$booking_id`, `details[]` (medicine_name, tab, description), `remark` | `prescription->update(id, [medicine_details=>JSON, remark])` | - | `doctor/appointment/show/$id` | success/error |
+   156→| `edit_medicine($booking_id)` | GET | `$booking_id` | Same + prescription.medicine_details decode | `appointment`, `medicine_details`, `prescription` | View: `doctor/appointment/edit_medicine` or redirect | - |
+   157→| `update_medicine($booking_id)` | POST | `$booking_id`, `details[]`, `remark` | Same + `prescription->update()` | - | `doctor/appointment/show/$id` | success/error |
+   158→| `history($offset=0)` | GET | `?aptid=`, `?mobile=` | `book->get_doctor_appointment_all_by_doctor_visited(id, mobile, aptid)` | `appointments`, `book`, `p_medicine` | View: `doctor/appointment/history` | - |
+   159→
+   160→**Appointment Status Flow:** PENDING → EXTEND → APPROVE → VISITED (or REJECTED at any point before VISITED)
+   161→
+   162→**Notification Pattern:** Every status change creates notifications for both the patient (`$appointment->user_id`) and the doctor's receptionist (`receptionist->get_receptionist_by_doctor(doctor_id)`). Body contains HTML with link to appointment.
+   163→
+   164→#### View: `views/doctor/appointment/index.php`
+   165→- Status filter dropdown (Pending/Extend/Approve/Visited/Rejected/All) → AJAX reloads table every 10 seconds via `setInterval`
+   166→- DataTable with class `dttable`
+   167→- Columns: #, Appointment ID (link), Date, Booked By, Patient Name, Disease, Status (colored label), Action
+   168→- **Actions by status:**
+   169→  - Pending: Approve (primary btn, `fa-thumbs-o-up`), Extend (info btn, `fa-arrow-right`), Cancel (commented out)
+   170→  - Extend: Approve (primary btn)
+   171→  - Approve: Visited (success btn, `fa-check`)
+   172→  - Visited/Rejected: -
+   173→- JS: `changeStatus()` loads table via AJAX, `visited()`, `approve()`, `extend()` via GET
+   174→
+   175→#### View: `views/doctor/appointment/show.php`
+   176→- Back button to appointments list
+   177→- **Appointment Detail Table:** 2-column table: Appointment ID, Booking From, Appointment Date, Patient Name, Disease, Physical Handicap, DOB, Age, Gender, Relation, Height (CM), Weight (KG), Book date, Status, Description
+   178→- **Prescription Section** (if exists):
+   179→  - Disease Description with edit icon (only when APPROVE)
+   180→  - Medicine List table (if exists): medicine_name, tab, description
+   181→  - Remark
+   182→- **Toolbar Buttons** (context-sensitive):
+   183→  - If VISITED: Print Prescription, Update Ajax Prescription
+   184→  - If no prescription + APPROVE: Create Prescription, Create Ajax Prescription
+   185→  - If PENDING: Approve, Extend, Cancel
+   186→  - If EXTEND: Approve, Cancel
+   187→  - If APPROVE: Visited, Cancel
+   188→
+   189→#### View: `views/doctor/appointment/get_appointment_table.php`
+   190→- Same table structure as index, used for AJAX partial reload
+   191→- DataTable init: `$('.dttable').DataTable()`
+   192→- Action buttons use `onclick` JS functions instead of href links
+   193→
+   194→#### View: `views/doctor/appointment/history.php`
+   195→- Search form: aptid (text) + mobile (number) + search button
+   196→- Each appointment rendered as a card with full detail table + prescription + medicine table
+   197→- Medicine table from `p_medicine->get_prescription_medicine($p_id)`: No, Medicine, Doz, Quantity, Time (morning-afternoon-evening), Description, Remark
+   198→- Print CSS hides pagination
+   199→- Empty state: exclamation icon + "No History yet"
+   200→
+   201→#### View: `views/doctor/appointment/create_prescription.php`
+   202→- 2-column layout: Left = appointment detail table (read-only), Right = form
+   203→- Form POST to `doctor/appointment/store_prescription/$appointment->id`
+   204→- Fields: `disease_description` (textarea, rows=7, **required**)
+   205→
+   206→#### View: `views/doctor/appointment/edit_prescription.php`
+   207→- Same layout, textarea pre-filled with `$prescription->disease_description`
+   208→- Form POST to `doctor/appointment/update_prescription/$appointment->id`
+   209→
+   210→#### View: `views/doctor/appointment/create_medicine.php`
+   211→- Same 2-column layout + medicine table
+   212→- Dynamic table `#mytbl` with columns: Medicine Name (autocomplete via `basicAutoComplete` → `doctor/appointment/get_branch`), Tab, Description, Action (delete, hidden for first row)
+   213→- "Add More" button adds rows dynamically (JS template with `__name__` replacement)
+   214→- Remark textarea below table
+   215→- Form POST to `doctor/appointment/store_medicine/$appointment->id`
+   216→- Data sent: `details[]` array with medicine_name, tab, description + `remark`
+   217→- Uses bootstrap-autocomplete CDN
+   218→
+   219→#### View: `views/doctor/appointment/edit_medicine.php`
+   220→- Same as create but pre-fills from `json_decode($prescription->medicine_details)`
+   221→- First row has delete button, added rows have delete too
+   222→- Data fields: `details[$i][medicine_name]`, `details[$i][tab]`, `details[$i][description]`
+   223→
+   224→#### Connections: `booking`, `prescriptions`, `users`, `notifications`, `receptionists`, `doctor_medicine_list`, `p_medicine`
+   225→
+   226→---
+   227→
+   228→## 3.3 Ajax Prescription (Advanced Prescription System)
+   229→#### Controller: `controllers/doctor/AjaxPrescription.php`
+   230→**Class:** `AjaxPrescription extends Doctor_controller`
+   231→
+   232→**Models Loaded:** `Ajaxprescription_model`, `Co_model`, `P_Co_model`, `Booking_model`, `Questions_model`, `Label_model`, `P_Label_model`, `Table_master_model`, `P_digno_model`, `P_medicine_model`, `P_Suggestion_model`, `Doctor_medicine_list_model` (medicine), `Doctors_model`, `P_other_setting_model`, `Users_model`
+   233→
+   234→| Method | Type | Params | Queries | Response | Flash |
+   235→|---|---|---|---|---|---|
+   236→| `create()` | GET | `?booking_id=`, `?user_id=` | `check_doctor_booking()`, `check_user_prescription()`, `P_digno_model->check_dgno_table()`, `P_Co_model->get_prescription_co()`, `Co_model->get_all_co_master()`, `P_Label_model->get_prescription_label()`, `Label_model->get_all_label_master()`, `P_medicine_model->get_prescription_medicine()`, `Questions_model->get_co_question()` for each co | View: `doctor/AjaxPrescription/index` | - |
+   237→| `get_medi_list()` | Internal | - | `medicine->get_all_list_by_doctor_id()` | JSON string array of medicine names | - |
+   238→| `get_branch()` | Internal | - | `medicine->get_by_doctor_id(id, "")` | JSON object: `{"med_name":[morning,afternoon,evening,tab,doz,description]}` | - |
+   239→| `ajax_insert_co()` | POST | `cos[]` (arrays of [co, question, question_code]), `pre_id`, `p_id` | `P_Co_model->get_prescription_co()`, delete then `P_Co_model->insert_prescription_co()` (insert_batch) | JSON: `['success','Cos-Category Details successfully inserted']` | - |
+   240→| `ajax_insert_suggestion()` | POST | `sug[]` (arrays of [question, suggestions]), `pre_id`, `next_date` | `P_Suggestion_model->get_prescription_suggestion()`, delete then `P_Suggestion_model->insert_prescription_sugg()`, also updates prescription `next_visit` and status→VISITED, updates booking status→VISITED | JSON: `['success','suggestion successfully inserted']` | - |
+   241→| `ajax_insert_labels()` | POST | `labels[]` (arrays of [label, l_value, label_unit]), `pre_id` | `P_Label_model->get_prescription_label()`, delete then `P_Label_model->insert_prescription_label()` (insert_batch). Skips entries where l_value is empty. | JSON: `['success','labels Successfully inserted']` | - |
+   242→| `ajax_insert_medi_list()` | POST | `lists[]` (arrays of [medicine, morning, afternoon, evening, tab, doz, description]), `pre_id` | `P_medicine_model->get_prescription_medicine()`, delete then `P_medicine_model->insert_prescription_medicine()` (insert_batch). Skips entries where medicine is empty. | JSON: `['success','Medicines Successfully inserted']` or `['warning','No medicine Selected...']` | - |
+   243→| `get_saggestion()` | GET | `?id=` (prescription_id) | `P_Co_model->get_prescription_co()`, `Questions_model->get_question_suggestion()` for each co question, `P_Suggestion_model->get_prescription_suggestion()`, `Ajaxprescription_model->get_prescription_by_id()` | Partial view: `doctor/AjaxPrescription/get_saggestion_ajax_view` | - |
+   244→| `print_prescription()` | GET | `?booking_id=`, `?user_id=` | `check_doctor_booking()`, `check_user_prescription()`, `P_digno_model->check_dgno_table()`, `Doctors_model->get_profile()`, `Booking_model->get_by_id()`, `Users_model->get_by_id()`, `P_Co_model->get_prescription_co_group_by()`, `P_Label_model->get_prescription_label()`, `P_medicine_model->get_prescription_medicine()`, `P_Suggestion_model->get_prescription_suggestion_by_question()`, `P_Suggestion_model->get_question_suggestion()`, `P_other_setting_model->get_all_p_other_settings()` | View: `doctor/AjaxPrescription/print_prescription` | - |
+   245→
+   246→#### View: `views/doctor/AjaxPrescription/index.php` (~1284 lines)
+   247→
+   248→**Wizard Interface (4 tabs + finish):**
+   249→
+   250→**Tab 1 - Category Details (C/O):**
+   251→- Hidden input `#p_id` with prescription ID
+   252→- Each CO category rendered as a box (`col-md-6`) with title (`$co['co_code']`)
+   253→- Under each CO, questions shown as checkboxes (`input[name='co_question']`) with `data-co`, `data-code`, and `data-question` attributes
+   254→- Pre-checked questions from `old_cos`
+   255→
+   256→**Tab 2 - Labels:**
+   257→- Dynamic inputs `input[name='p_label']` for each label master entry
+   258→- Each with `data-label` and `data-unit` attributes
+   259→- Pre-filled from `old_labels`
+   260→
+   261→**Tab 3 - Medicine List:**
+   262→- Dynamic table with autocomplete medicine search (jQuery UI autocomplete, not bootstrap-autocomplete)
+   263→- Columns per row: Medicine Name (autocomplete), Doz (select), Morning (text), Afternoon (text), Evening (text), Tab/Qty (text), Description (text), Remove button
+   264→- "Add More" button appends new rows via JS template
+   265→- Autocomplete fills morning, afternoon, evening, tab, doz (JSON-parsed select options), description from saved medicine details
+   266→- Pre-filled from `old_medicines`
+   267→- `speechToText` integration (commented out)
+   268→
+   269→**Tab 4 - Suggestions / Finish:**
+   270→- "Get Suggestion" button loads suggestions via AJAX into `#loading` div
+   271→- Extra suggestion textarea for notes
+   272→- Next Visit Date input (date)
+   273→- "Save and continue" button (commented out) → calls `add_suggestion()` which saves and marks as VISITED
+   274→- Finish tab shows success.gif image with "Go Appointment" and "Print Prescription" buttons
+   275→- Print opens `print_prescription?booking_id=X&user_id=Y` in new window
+   276→
+   277→**JS:**
+   278→- Wizard tab navigation (next/prev step, disabled tab prevention)
+   279→- `add_co()`: collects checked CO questions, POSTs to `ajax_insert_co`
+   280→- `add_label()`: collects all p_label inputs, POSTs to `ajax_insert_labels`
+   281→- `add_medilist()`: collects medicine rows, POSTs to `ajax_insert_medi_list`
+   282→- `get_saggestion()`: loads suggestion checkboxes via AJAX
+   283→- `add_suggestion()`: collects checked suggestions + extra note + next_date, POSTs to `ajax_insert_suggestion`
+   284→- PNotify notifications on all AJAX responses
+   285→- Medicine autocomplete: searches `medi_data` array, selects auto-fill all fields
+   286→
+   287→#### View: `views/doctor/AjaxPrescription/get_saggestion_ajax_view.php`
+   288→- Loaded via AJAX into `#loading` div
+   289→- For each question: checkbox list of suggestions (pre-checked from `old_questions`)
+   290→- Extra textarea for notes (pre-filled from `ext`)
+   291→- Next Visit Date input (date, pre-filled from `next_date->next_visit`)
+   292→
+   293→#### View: `views/doctor/AjaxPrescription/print_prescription.php`
+   294→- **Print-optimized layout** (850px width, inline styles)
+   295→- Two header modes based on `is_full_header`:
+   296→  - **Logo/Time/Header mode:** Logo image (or text header), doctor name, doctor_type, address, phone_no, time, patient name/gender/age, appointment number
+   297→  - **Full Header mode:** Full-width header image (250px x 880px)
+   298→- **Content:**
+   299→  - C/O section (left): question_code list from `p_cos`
+   300→  - Main section (right): Medicine list (name, doz, morning/afternoon/evening, tab, description), Suggestions (grouped by question), Note
+   301→  - Diagnostic table (from `check_table`): Dynamic rows/cols with header/row/footer labels
+   302→  - Extra label displayed below table
+   303→  - Next Visit Date and Day (positioned absolutely for print)
+   304→- Footer: Doctorooms ID (patient mobile), website URL
+   305→- Color theme: `#993300` (dark orange/brown)
+   306→
+   307→#### Connections: `prescription`, `booking`, `users`, `doctors`, `p_cos`, `p_labels`, `p_medicine`, `p_suggestions`, `p_digno_table`, `co_master`, `questions_master`, `suggestions_master`, `label_master`, `table_master`, `p_other_settings`, `doctor_medicine_list`
+   308→
+   309→---
+   310→
+   311→## 3.4 Schedule
+   312→#### Controller: `controllers/doctor/Schedule.php`
+   313→**Class:** `Schedule extends Doctor_controller`
+   314→
+   315→**Models:** `Doctor_holiday_schedule_model` (holiday_schedule), `Doctors_model` (doctor)
+   316→
+   317→| Method | Type | Params | Validation | Queries | Data to View | Redirect | Flash |
+   318→|---|---|---|---|---|---|---|---|
+   319→| `index()` | GET | - | - | `holiday_schedule->get_all_by_user(id)`, `doctor->get_one_by_user(id)` | `schedule`, `doctor` | View: `doctor/schedule/index` | - |
+   320→| `update_appointment_day()` | POST | `days` (required, numeric, ≤180), `day_limit` (required, numeric) | CI validation | `doctor->get_one_by_user()`, `doctor->update(id, [booking_days, daily_limit])` | - | `doctor/schedule` | success/error |
+   321→| `create()` | GET | - | - | - | - | View: `doctor/schedule/add` (with `doctor/schedule/script` JS) | - |
+   322→| `store()` | POST | `schedule[]` (array of [date, remark]) | - | `holiday_schedule->create_many()` | - | `doctor/schedule` | success/error |
+   323→| `delete($id)` | GET | `$id` | - | `holiday_schedule->get_one_by_user(id, user_id)` | - | `doctor/schedule` | success/error |
+   324→| `delete_multi()` | POST | `selection[]` (array of IDs) | - | `holiday_schedule->destroy()` for each | - | `doctor/schedule` | success/error |
+   325→
+   326→#### View: `views/doctor/schedule/index.php`
+   327→- **Booking Days Form:** `days` text input (pre-filled with `$doctor->booking_days`), `day_limit` text input (pre-filled with `$doctor->daily_limit`), Update button
+   328→- **Holiday List Table:** DataTable with columns: checkbox, #, Date (red if past, green if future), Remark, Action (delete)
+   329→- Select All checkbox + Delete Selected button
+   330→- Form wraps table for multi-delete (`form_open("doctor/schedule/delete_multi")`)
+   331→
+   332→#### View: `views/doctor/schedule/add.php`
+   333→- Dynamic table with columns: Date (input type=date, `onchange="checkDate(this)"`), Remark (text), Remove button
+   334→- "Add More" button adds rows dynamically
+   335→- Save button
+   336→- Form POST to `doctor/schedule/store`
+   337→- Data: `schedule[N][date]`, `schedule[N][remark]`
+   338→
+   339→#### View: `views/doctor/schedule/script.php`
+   340→- `addMore` click: appends new date+remark row with `__name__` replacement
+   341→- `checkDate()`: prevents selecting past dates (clears input if selected date < today)
+   342→- `removeItem()`: removes row
+   343→
+   344→#### Connections: `doctor_holiday_schedule`, `doctors`
+   345→
+   346→---
+   347→
+   348→## 3.5 Profile
+   349→#### Controller: `controllers/doctor/Profile.php`
+   350→**Class:** `Profile extends Doctor_controller`
+   351→
+   352→**Models:** `Doctors_model` (doctor), `Users_model` (user), `Disease_model` (disease), `State_model` (state), `City_model` (city), `Doctor_type_model` (doctor_type)
+   353→
+   354→| Method | Type | Params | Validation | Queries | Data to View | Redirect | Flash |
+   355→|---|---|---|---|---|---|---|---|---|
+   356→| `index()` | GET | - | - | `doctor->get_one_by_user()`, `user->get_by_id()`, merged into single object | `profile` (merged user+doctor data) | View: `doctor/profile/show` | - |
+   357→| `edit()` | GET | - | - | `doctor->get_one_by_user()`, `user->get_by_id()`, `disease->get_all()`, `state->get_all()`, `doctor_type->get_all()` | `profile`, `dis_name`, `state`, `doctor_type` | View: `doctor/profile/edit` | - |
+   358→| `update()` | POST | `name` (from user), `gender` (from user), `doctor_type`, `fees`, `emergency_charge`, `contact_no`, `address`, `state`, `city`, `lat`, `longi`, `description`, `specialization[]` (checkboxes), `award_and_recognition`, `eduction`, `experience`, `registration_detail` | CI validation rule `doctor_profile` | `doctor->update(id, forDoc)`, `user->update(id, forUser)`. `specialization` JSON-encoded. `name` and `gender` go to users table; rest goes to doctors table. | - | `doctor/profile` | success/error |
+   359→| `change_pass()` | POST | `current_pass`, `new_pass`, `conform_pass` | CI validation rule `change_password` (includes `valid_current_password` callback) | `user->update(id, [password=>sha256(new_pass)])` | On fail: profile show | `doctor/profile` | success/error |
+   360→| `update_profile_photo()` | POST | `profile` (file upload) | - | `user->get_by_id()`, `user->update(id, [profile_img])`. Deletes old photo. Upload to `upload/profile/` | - | `doctor/profile` | success/error |
+   361→| `valid_current_password($str)` | Callback | `$str` | - | `user->checkCurrentPassword(id, str)` | - | - | - |
+   362→| `city_by_state()` | POST | `state_name` | - | `city->get_city_by_state_name(state)` | JSON city array | - | - | - |
+   363→
+   364→#### View: `views/doctor/profile/show.php`
+   365→- **Left Column (col-md-4):** Profile photo (img-circle, 100x100) with upload form (`profile` file input) + Submit button
+   366→- **Right Column (col-md-8):** Tab interface:
+   367→  - **Info tab:** Display-only form-horizontal showing: Full Name, Email, Gender, Phone, Status (Active=green label, else=danger), Doctor Type, Description, Address, State, City, Hospital Address, Fees, Emergency Charge, Specialization (JSON→labels), Award And Recognition, Education, Experience, Registration Details, Contact No., Hospital Phone. Edit link at top.
+   368→  - **Change Password tab:** Form: current_pass (password), new_pass (password), conform_pass (password), Submit button
+   369→
+   370→#### View: `views/doctor/profile/edit.php`
+   371→- Cancel button (red) → `doctor/profile`
+   372→- Form POST to `doctor/profile/update`
+   373→- **Fields:**
+   374→  - `name` (text, required)
+   375→  - `gender` (select: Male/Female/Other)
+   376→  - `doctor_type` (select from `doctor_type` model, required)
+   377→  - `fees` (text, required)
+   378→  - `emergency_charge` (text)
+   379→  - `contact_no` (text, Hospital Contact Number)
+   380→  - `address` (textarea, rows=3, required)
+   381→  - `state` (select from `state` model, required)
+   382→  - `city` (select, populated via AJAX on state change)
+   383→  - `lat` (text, Latitude)
+   384→  - `longi` (text, Longitude)
+   385→  - `description` (textarea, rows=5, required)
+   386→  - `specialization[]` (checkboxes from `disease` model, flat-red checkboxes)
+   387→  - `award_and_recognition` (textarea, rows=5)
+   388→  - `eduction` (textarea, rows=5, required)
+   389→  - `experience` (textarea, rows=5)
+   390→  - `registration_detail` (textarea, rows=5)
+   391→- **JS:** `loadCity()` function - POSTs `state_name` to `doctor/profile/city_by_state`, clears city dropdown, populates from JSON response, auto-selects current city
+   392→
+   393→#### Connections: `doctors`, `users`, `diseases`, `states`, `cities`, `doctor_types`
+   394→
+   395→---
+   396→
+   397→## 3.6 Assistant
+   398→#### Controller: `controllers/doctor/Assistant.php`
+   399→**Class:** `Assistant extends Doctor_controller`
+   400→
+   401→**Models:** `Users_model` (user), `Doctor_assistants_model` (assistants)
+   402→
+   403→| Method | Type | Params | Validation | Queries | Redirect | Flash |
+   404→|---|---|---|---|---|---|---|---|
+   405→| `index()` | GET | - | - | `assistants->get_assistant_by_doctor(id)`, `user->get_by_id()` → merged | `assistant` (or empty array) | View: `doctor/assistant/index` | - |
+   406→| `create()` | GET | - | - | - | - | View: `doctor/assistant/add` | - |
+   407→| `store()` | POST | `name` (required), `email` (required), `mobile_no` (required, max 10), `gender` (required), `password` (required), `c_pass` (required), `address` (required), `description` (required) | CI rule `register_assistant` | Creates user (role=DOCTOR_ASSISTANT, status=ACTIVE, password=sha256) → creates assistant (user_id, doctor_id, address, description) | `doctor/assistant` | success/error |
+   408→| `edit($id)` | GET | `$id` | - | `assistants->get_assistant_by_doctor()`, `user->get_by_id()` → merged | `assistant` | View: `doctor/assistant/edit` | - |
+   409→| `update($id)` | POST | Same fields except email/mobile disabled | CI rule `register_assistant_update` | Updates user + assistant. Password only updated if non-empty. | `doctor/assistant` | success/error |
+   410→
+   411→#### View: `views/doctor/assistant/index.php`
+   412→- If assistant exists: dl-horizontal showing photo (150x150 circle), Name, Gender, Email, Mobile, Address, Description, Edit button
+   413→- If not: exclamation icon + "No Assistant yet" + Create button → `doctor/assistant/create`
+   414→
+   415→#### View: `views/doctor/assistant/add.php`
+   416→- Cancel button → `doctor/assistant`
+   417→- Form POST to `doctor/assistant/store`
+   418→- Fields: name (text), email (email), mobile_no (text, maxlength=10), gender (select: Male/Female/Other), password (password), c_pass (password), address (text), description (text)
+   419→
+   420→#### View: `views/doctor/assistant/edit.php`
+   421→- Cancel button → `doctor/assistant`
+   422→- Same fields, email and mobile_no **disabled** (cannot be changed)
+   423→- Pre-filled with current data
+   424→- Password fields are optional on update
+   425→
+   426→#### Connections: `users` (role=DOCTOR_ASSISTANT), `doctor_assistants`
+   427→
+   428→---
+   429→
+   430→## 3.7 Receptionist
+   431→#### Controller: `controllers/doctor/Receptionist.php`
+   432→**Class:** `Receptionist extends Doctor_controller`
+   433→
+   434→**Models:** `Users_model` (user), `Receptionist_model` (receptionist)
+   435→
+   436→Identical pattern to Assistant controller. Key differences:
+   437→- Role constant: `RECEPTIONIST`
+   438→- No `description` field in receptionist table
+   439→- Form validation rule: `register_receptionist` / `register_receptionist_update`
+   440→- Views: `doctor/receptionist/index|add|edit` - same structure as assistant but no description field
+   441→
+   442→#### Connections: `users` (role=RECEPTIONIST), `receptionists`
+   443→
+   444→---
+   445→
+   446→## 3.8 Pharmacist
+   447→#### Controller: `controllers/doctor/doctor/Pharmacist.php`
+   448→**Class:** `Pharmacist extends Doctor_controller`
+   449→
+   450→**Models:** `Users_model` (user), `Doctor_pharmacist_model` (pharmacist)
+   451→
+   452→Similar to Assistant/Receptionist with additions:
+   453→- Role constant: `PHARMACIST`
+   454→- Additional field: `dlno` (Drug Licence Number)
+   455→- Stores: `address`, `description`, `dlno`, `doctor_id`, `created_at`
+   456→- Edit sets `created_by = date('Y-m-d H:i:s')` (bug: should be `updated_at`)
+   457→- `store()` redirects to `doctor/pharmacist/create` (not index)
+   458→- Extra `else` clause in `update()` redirecting with error
+   459→- Form validation: `register_pharmacist` / `register_pharmacist_update`
+   460→- Views: `doctor/pharmacist/index|add|edit` - shows DL No additionally
+   461→
+   462→#### Connections: `users` (role=PHARMACIST), `doctor_pharmacist`
+   463→
+   464→---
+   465→
+   466→## 3.9 C/O Categories (Complaints/Comorbidity)
+   467→#### Controller: `controllers/doctor/Co.php`
+   468→**Class:** `Co extends Doctor_controller`
+   469→
+   470→**Model:** `Co_model`
+   471→
+   472→Generated by CRUDigniter v3.2. CRUD pattern.
+   473→
+   474→| Method | Type | Params | Validation | Redirect | Flash |
+   475→|---|---|---|---|---|---|
+   476→| `index()` | GET | - | - | - | View: `doctor/co/index` | - |
+   477→| `add()` | GET/POST | `co_code` (required), `co_detail` (required) | CI rule `co` | View (fail) or `doctor/co/index` | success/error |
+   478→| `edit($id)` | GET/POST | Same fields | Same | View (fail) or `doctor/co/index` | success/error |
+   479→| `remove($id)` | GET | `$id` | Ownership check | `doctor/co/index` | success/error |
+   480→
+   481→**DB Table:** `co_master` - fields: co_code, co_detail, doctor_id, status ("Active"), created_at, updated_at, created_by
+   482→
+   483→#### View: `views/doctor/co/index.php`
+   484→- DataTable: #No, C/O Category, C/O Detail, Actions (edit btn, delete btn with confirm)
+   485→- Add button
+   486→
+   487→#### View: `views/doctor/co/add.php`
+   488→- Form: co_code (text, required), co_detail (textarea, required), Save button
+   489→
+   490→#### View: `views/doctor/co/edit.php`
+   491→- Same form, pre-filled, targets `doctor/co/edit/$id`
+   492→
+   493→#### Connections: `co_master`, `questions_master` (via co_id FK)
+   494→
+   495→---
+   496→
+   497→## 3.10 Questions (Complains)
+   498→#### Controller: `controllers/doctor/Questions.php`
+   499→**Class:** `Questions extends Doctor_Controller`
+   500→
+
+[showing lines 1-500 of 1010; use offset=501 with limit to continue reading]

@@ -1,0 +1,928 @@
+     1→# Phase 4: Hospital Dashboard Module - Complete Research
+     2→
+     3→> Project: Doctorooms (PHP/CodeIgniter Hospital Management System)
+     4→> Source: `/tmp/Doctorooms/`
+     5→> Module: Hospital Dashboard (Role: `hospital`)
+     6→
+     7→---
+     8→
+     9→## Architecture Overview
+    10→
+    11→### Base Controller: `Hospital_contoller` (MY_Controller.php, line 574)
+    12→
+    13→All hospital controllers extend `Hospital_contoller` (note: typo in class name - "contoller" not "controller").
+    14→
+    15→**Authentication & Authorization:**
+    16→- Checks `session('user_login')` exists, redirects to `auth/login` if not
+    17→- Validates `session_data['role'] == HOSPITAL`, redirects if not hospital
+    18→- Calls `Users_model->check_auth_after_login()` to verify user is not blocked
+    19→- Stores `$this->user_data = (object)$session_data` (id, name, email, role, status, mobile_no, profile_img)
+    20→- Stores `$this->view_data['user'] = $this->user_data`
+    21→
+    22→**Shared Properties:**
+    23→- `$this->view_data` - array passed to all views
+    24→- `$this->user_data` - current logged-in hospital user object
+    25→
+    26→**Helper Methods (from MY_Controller):**
+    27→- `_alertSuccessResponce($success, $success_msg, $fail_msg, $re_url)` - flash redirect with success/error
+    28→- `_alertInfoResponce($success, $success_msg, $fail_msg, $re_url)` - flash redirect with info/error
+    29→- `_alertWarningResponce($success, $success_msg, $fail_msg, $re_url)` - flash redirect with warning/error
+    30→- `_upload_file($path, $title, $img_control)` - file upload helper
+    31→- `_upload_pdf($path, $title, $img_control)` - PDF upload helper
+    32→- `_generateSeoURL($str)` - slug generator
+    33→- `sendMobileMessage($mobile, $message)` - SMS helper
+    34→- `send_mail($to, $subject, $msg)` - email helper
+    35→
+    36→### Constants Used
+    37→```
+    38→HOSPITAL="hospital"  DOCTOR="doctor"  PATIENT="patient"  RECEPTIONIST="receptionist"
+    39→ACTIVE="Active"  BLOCK="Block"  PENDING="Pending"
+    40→APPROVE="Approve"  VISITED="Visited"  REJECTED="Canceled"  EXTEND="Extend"
+    41→PUBLISHED="Published"  HIDE="Draft"  BLOG="Blog"
+    42→BY_HOSPITAL="By Hospital"  BY_RECEPTIONIST="By Receptionist"
+    43→UNREAD="UNREAD"
+    44→```
+    45→
+    46→### Master Layout: `layouts/master_page_hospital.php`
+    47→
+    48→**CSS Libraries:**
+    49→- AdminLTE 2.4.0 (Bootstrap-based admin theme)
+    50→- Bootstrap 3.x, Font Awesome, Ionicons
+    51→- Morris.js (charts), jVectorMap, DataTables
+    52→- Bootstrap Datepicker, Daterangepicker, CKEditor 4.11.1, WysiHTML5
+    53→- PNotify (toast notifications), SweetAlert
+    54→- Custom `point.css`
+    55→- Google Analytics (UA-171698773-1)
+    56→
+    57→**Header:**
+    58→- Logo links to `hospital/dashboard`
+    59→- User dropdown: profile image, name, role, links to `hospital/profile/update_profile` and `auth/logout`
+    60→
+    61→**Sidebar Navigation:**
+    62→1. Dashboard → `hospital/dashboard` (NOTE: sidebar has wrong URL `admin/dashboard`)
+    63→2. Upload Schedule → `hospital/doctor/schedule`
+    64→3. Doctors → `hospital/doctor`
+    65→4. Appointment → `hospital/appoinment` (note typo in URL)
+    66→5. Blog → `hospital/blog`
+    67→6. Income Summary → `hospital/income`
+    68→
+    69→**Global JavaScript (in layout):**
+    70→- CKEditor replaces `#editor1` (used by blog)
+    71→- WysiHTML5 on `.textarea`
+    72→- Datepicker on `#booking_date`
+    73→- PNotify flash message display
+    74→- Age auto-calc from DOB (`#date_of_birth` → `#age`)
+    75→- Morris.js bar chart (`#bar-chart`) - only renders when `$chartdata` exists
+    76→- Chat system: polls `get_all_chat_message` every 5 seconds, renders chat bubbles
+    77→- City dropdown: `loadCity()` posts to `hospital/profile/city_by_state`
+    78→- `CreateRandomNumber()` called on document ready (intended for add_doctor page but fires globally - BUG)
+    79→- Print CSS: hides `.d-n` class elements, links, and FA icons
+    80→
+    81→---
+    82→
+    83→## 4.1 Hospital Dashboard
+    84→
+    85→### Controller: `controllers/hospital/Dashboard.php`
+    86→
+    87→**Models loaded:** Users_model (user), Doctors_model (doctor), Posts_model (post), Booking_model (booking), Hospital_model (hospital)
+    88→
+    89→**Constructor:** Sets `$this->view_data['a']` = current user from `user->get_by_id()`
+    90→
+    91→**Method: `index()`**
+    92→| Data Variable | Source | Description |
+    93→|---|---|---|
+    94→| `countpost` | `post->count_by_hospital($user->id)` | Total blog posts by hospital |
+    95→| `countdoc` | `user->count_doctor_by_hospital($user->id)` | Doctor count (queries `doctors` table) |
+    96→| `booking` | `booking->get_hospital_appointment_count_pending($user->id)` | Pending appointments across all hospital doctors |
+    97→| `bookingtoday` | `booking->get_hospital_appointment_count_today($user->id)` | Today's appointments (by created_at date) |
+    98→| `doctors` | `doctor->get_by_hospital($user->id)` | All doctors (active + blocked) with user data |
+    99→| `chartdata` | `hospital->get_chart_data_month_wise($u)` | Monthly income data for bar chart (array of 12 months) |
+   100→
+   101→**View:** `hospital/common/dashboard`
+   102→
+   103→### View: `hospital/common/dashboard.php`
+   104→
+   105→**Structure:** AdminLTE `content-wrapper`
+   106→
+   107→**Info Boxes (4 cards, linked):**
+   108→1. DOCTORS (aqua, fa-user-md) → `hospital/doctor` | Value: `$countdoc`
+   109→2. POST (red, fa-file-o) → `hospital/blog` | Value: `$countpost`
+   110→3. Pending Appointment (green, fa-user) → `hospital/appoinment` | Value: `$booking`
+   111→4. Today appointment (yellow, fa-hospital-o) → `hospital/appoinment` | Value: `$bookingtoday`
+   112→
+   113→**Doctors Grid:**
+   114→- 3-column grid of `widget-user` cards
+   115→- Filters out blocked doctors (`$doc->status != BLOCK`)
+   116→- Shows: profile image (`upload/profile/`), name, doctor_type, contact_no, email
+   117→
+   118→**Bar Chart:**
+   119→- Container `#bar-chart` rendered by Morris.js in layout
+   120→- Monthly income data (Jan-Dec) from `$chartdata`
+   121→- Green bars (`#00a65a`), labeled "Income"
+   122→- Only shows VISITED status bookings' appointment_charge sums
+   123→
+   124→### Model Queries Used
+   125→- **Users_model::count_doctor_by_hospital($id)** → `SELECT COUNT(*) FROM doctors WHERE hospital_id=$id`
+   126→- **Booking_model::get_hospital_appointment_count_pending($hid)** → Joins `booking, users u1, users u2, doctors d` where `d.hospital_id=$hid` and `status='Pending'`
+   127→- **Booking_model::get_hospital_appointment_count_today($hid)** → Same joins, filters by `DATE(booking.created_at) = today`
+   128→- **Doctors_model::get_by_hospital($hid)** → Raw SQL: `SELECT d.*,u.* FROM doctors as d,users as u WHERE d.user_id=u.id and hospital_id=$hid`
+   129→- **Hospital_model::get_chart_data_month_wise($ids)** → 12 queries on `booking` table, `SUM(appointment_charge) as totalcollection` grouped by month, filtered by `status='Visited'` and `doctor_id IN ($ids)`
+   130→
+   131→### Connections
+   132→- Links to Doctor management, Blog, Appointment modules
+   133→- Chart data depends on VISITED bookings from Booking_model
+   134→- Dashboard sidebar has **BUG**: first link goes to `admin/dashboard` instead of `hospital/dashboard`
+   135→
+   136→---
+   137→
+   138→## 4.2 Appointment Management
+   139→
+   140→### Controller: `controllers/hospital/Appoinment.php` (note: typo in filename "Appoinment")
+   141→
+   142→**Models loaded:** Users_model (user), Booking_model (book), Doctors_model (doctor), Config_model (config_model), Notifications_model (notification), Booking_chat_model (chat)
+   143→
+   144→**Constructor:** Sets `$this->view_data['a']` and `$this->view_data['chartdata']=''`
+   145→
+   146→### Method: `index()`
+   147→- **GET param:** `status` (default: PENDING)
+   148→- Iterates all hospital doctors via `doctor->get_hospital_doctors($user->id)`
+   149→- For each doctor, gets their profile via `doctor->get_profile($doc->id)`, then fetches appointments by doctor profile ID and status
+   150→- Merges all appointments into one array
+   151→- **View:** `hospital/appointment`
+   152→
+   153→### Method: `show($id)`
+   154→- Gets single appointment via `book->get_doctor_appointment_one($id)`
+   155→- Null check redirects to `hospital/appoinment`
+   156→- **View:** `hospital/appointment_show`
+   157→
+   158→### Method: `add()`
+   159→- Fetches hospital doctors via `doctor->get_by_hospital($user->id)`
+   160→- **View:** `hospital/appointment_add`
+   161→
+   162→### Method: `add_validate()`
+   163→- **POST handler** for appointment creation
+   164→- Validation rule: `booking_by_hospital`
+   165→- **Flow:**
+   166→  1. Looks up patient by mobile: `user->get_by_mobile($data['mobile_no'])`
+   167→  2. Sets `user_id` from lookup
+   168→  3. Sets `status = APPROVE` (auto-approves hospital-created appointments)
+   169→  4. Gets `appointment_charge` from `config_model->get_one()->admin_charge`
+   170→  5. Sets `booking_type = BY_HOSPITAL`
+   171→  6. Generates appointment number via `generateBookingNumber()` (format: `APMT-{N}`)
+   172→  7. Creates notification to doctor and patient
+   173→  8. Sends SMS with appointment details
+   174→  9. Removes `mobile_no` from booking data before insert
+   175→  10. Creates booking via `book->create($data)`
+   176→
+   177→### Method: `generateBookingNumber()`
+   178→- Gets latest booking record
+   179→- Extracts number after "APMT-" prefix, increments by 1
+   180→- Returns `APMT-{N}` format
+   181→
+   182→### Method: `extend($id)`
+   183→- Only works from PENDING status
+   184→- Sets status to EXTEND
+   185→
+   186→### Method: `approve($id)`
+   187→- Works from PENDING or EXTEND status
+   188→- Sets status to APPROVE
+   189→
+   190→### Method: `visited($id)`
+   191→- Only works from APPROVE status (blocks PENDING, EXTEND, REJECTED)
+   192→- Sets status to VISITED
+   193→- Uses `_alertSuccessResponce` (green flash)
+   194→
+   195→### Method: `cancel($id)` / `reject($id)`
+   196→- `cancel()`: blocks only VISITED status
+   197→- `reject()`: similar but has commented-out notification code
+   198→- Both set status to REJECTED ("Canceled")
+   199→
+   200→### Method: `charges_income()`
+   201→- GET params: `fromdate`, `todate`, `doctor`
+   202→- Calls `book->get_doctor_wise_charges($doctor, $fromdate, $todate)`
+   203→- **View:** `hospital/income_summary`
+   204→
+   205→### Method: `appointment_show_detail($id)`
+   206→- Similar to `show($id)` but without doctor_id filter
+   207→- **View:** `hospital/appointment_show`
+   208→
+   209→### Method: `get_all_chat_message()`
+   210→- **AJAX endpoint** (POST)
+   211→- Returns JSON of all chat messages for an appointment
+   212→- Calls `chat->getByAppointment($appointmentId)`
+   213→
+   214→### Method: `send_chat_msg()`
+   215→- **AJAX endpoint** (POST)
+   216→- Sends chat message: `from_id` = hospital user, `to_id` = booking's patient
+   217→- Status = UNREAD
+   218→- Returns JSON `{status, msg}`
+   219→
+   220→### View: `hospital/appointment.php`
+   221→
+   222→**Structure:** AdminLTE box with DataTable
+   223→
+   224→**Status Filter:** Dropdown with auto-submit on change. Options: Pending, Extend, Approve, Visited, Canceled, All Appointment
+   225→
+   226→**Table Columns:** #, Appointment ID (linked to show), Appointment Date, Who Booked (name+mobile+email, linked), Patient Name, Doctor (Dr. name), Disease, Status (color-coded label), Action
+   227→
+   228→**Action Buttons (status-dependent):**
+   229→- PENDING: Approve (blue), Extend (info), Reject (red)
+   230→- EXTEND: Approve (blue), Reject (red)
+   231→- APPROVE: Visited (green), Reject (red)
+   232→- VISITED/REJECTED: no actions (dash)
+   233→
+   234→**Status Colors:** Pending=warning, Approve=primary, Extend=info, Visited=success, Canceled=danger
+   235→
+   236→### View: `hospital/appointment_add.php`
+   237→
+   238→**Form:** POST to `hospital/appoinment/add_validate`
+   239→
+   240→**Fields (2-row grid layout):**
+   241→| Row | Field | Type | Required | Notes |
+   242→|---|---|---|---|---|
+   243→| 1 | Mobile | number | Yes | Has "+" button for new patient registration modal |
+   244→| 1 | Patient Name | text | Yes | |
+   245→| 1 | Appointment Date | date | Yes | Default: today |
+   246→| 2 | Symptoms | text | Yes | Named `disease` |
+   247→| 2 | Physical Handicape | select | No | Yes/No |
+   248→| 3 | Gender | select | No | Male/Female/Other |
+   249→| 3 | Blood Group | select | No | O+, O-, A+, A-, B+, B-, AB+, AB- |
+   250→| 3 | Date Of Birth | date | No | Auto-calculates age via JS |
+   251→| 3 | Age | text | No | Auto-filled from DOB |
+   252→| 4 | Height (cm) | text | No | |
+   253→| 4 | Weight (KG) | text | No | |
+   254→| 4 | Relation With Me | text | No | |
+   255→| 4 | Doctor | select | Yes | From hospital doctors (excludes BLOCK) |
+   256→| 5 | Description | textarea | No | |
+   257→
+   258→**Embedded Modal: New Patient Registration**
+   259→- Form: POST to `hospital/registration/submit`
+   260→- Fields: Name, Email, Mobile, Gender, Password (readonly="123456"), Confirm Password (readonly="123456")
+   261→- **SECURITY ISSUE:** Default password hardcoded as "123456" and readonly
+   262→- **JavaScript:** `CreateRandomNumber()` generates 10-digit random number for mobile, creates matching @gmail.com email
+   263→
+   264→**JavaScript:**
+   265→- `CreateRandomNumber()` - random 10-digit mobile + matching email
+   266→
+   267→### View: `hospital/appointment_show.php`
+   268→
+   269→**Structure:** Detail table + Chat module
+   270→
+   271→**Detail Table:**
+   272→- Appointment ID, Booking From (type), Appointment Date, Patient Name
+   273→- Disease, Physical Handicape, Date Of Birth, Age
+   274→- Gender, Relation, Height (CM), Weight (KG)
+   275→- Book Date, Status (color-coded label)
+   276→- Description (spans full width)
+   277→- Print button (uses `onclick="print()"`)
+   278→
+   279→**Chat Module:**
+   280→- Only shown when status is NOT VISITED and NOT REJECTED
+   281→- Only shown when `$appointment->user_id` exists (patient is registered)
+   282→- Chat box: 400px height, scrollable, with `#chat` list
+   283→- Input: `#text-msg` text field + `#btn-send` button
+   284→- **Chat JS (in layout):** polls `get_all_chat_message` every 5 seconds, differentiates sender/receiver with left/right aligned bubbles, auto-scrolls to bottom
+   285→
+   286→### Model Queries Used
+   287→- **Booking_model::get_appintment_by_doctor($doctor_id, $status)** → Joins `booking LEFT OUTER users u2` and `LEFT OUTER users u1`, filters by doctor_id and status
+   288→- **Booking_model::get_doctor_appointment_one($id, $doctor_id=null)** → Same joins, optional doctor_id filter
+   289→- **Booking_model::get_doctor_wise_charges($did, $from, $to)** → `SUM(appointment_charge) as total` from booking, VISITED status, optional date range and doctor filter, grouped by doctor_id
+   290→- **Booking_model::get_hospital_appointment_count_pending($hid)** → Count across all hospital doctors' bookings
+   291→- **Booking_model::get_hospital_appointment_count_today($hid)** → Count by today's created_at date
+   292→- **Booking_model::get_income_by_doc_and_hspital($did, $from, $to)** → `SUM(appointment_charge) as total`, VISITED status, optional date range, grouped by doctor_id
+   293→- **Booking_chat_model** (not read, used via `chat->getByAppointment()`, `chat->create()`)
+   294→- **Config_model** (not read, used via `config_model->get_one()->admin_charge`)
+   295→- **Notifications_model** (not read, used via `notification->create($noti)`)
+   296→
+   297→### Connections
+   298→- Creates notifications to doctor and patient on new appointment
+   299→- Sends SMS via `sendMobileMessage()`
+   300→- Links to Registration module (new patient modal)
+   301→- Chat connects to Booking_chat_model
+   302→- Income/charges reports share view with Income controller
+   303→- Appointment status workflow: PENDING → EXTEND → APPROVE → VISITED / REJECTED
+   304→
+   305→---
+   306→
+   307→## 4.3 Doctor Management
+   308→
+   309→### Controller: `controllers/hospital/Doctor.php`
+   310→
+   311→**Models loaded:** Doctors_model (doctor), Users_model (user), Hospital_model (hospital), Receptionist_model (receptionist), Disease_model (disease), Schedule_pdf_model (schedule), Doctor_type_model (doc_type), Doctor_rating_model (doctor_rating)
+   312→
+   313→### Method: `index()`
+   314→- Fetches hospital detail (unused variable `$hosp`)
+   315→- Gets doctors: `doctor->get_by_hospital($user_data->id)`
+   316→- **View:** `hospital/doctor/view_doctor`
+   317→
+   318→### Method: `add()`
+   319→- Loads: `$dis_name` = all diseases, `$doctype` = all doctor types
+   320→- **View:** `hospital/doctor/add_doctor`
+   321→
+   322→### Method: `create()`
+   323→- **POST handler** - Validation rule: `profile`
+   324→- **Dual-table insert strategy:**
+   325→  1. Creates user record (`users` table): name, email, gender, mobile_no, status=ACTIVE, role=DOCTOR, password=SHA256
+   326→  2. Creates doctor record (`doctors` table): user_id, hospital_id, doctor_type, fees, contact_no, lat, longi, address, description, specialization (JSON), award_and_recognition, eduction, experience, registration_detail
+   327→- **BUG:** `if ($user_id = $this->user->create($forUser)) ;` - semicolon after if renders the block unconditional
+   328→- `$forDoc['hospital_id']` set to `$this->view_data['user']->id` (hospital's user ID)
+   329→
+   330→### Method: `edit($id)`
+   331→- Gets doctor by user_id: `doctor->get_one_by_user($id)`
+   332→- Merges user data and doctor data into single object
+   333→- Loads diseases and doctor types
+   334→- **View:** `hospital/doctor/edit_doctor`
+   335→
+   336→### Method: `update($id)`
+   337→- **POST handler** - Validation rule: `profile`
+   338→- Updates `doctors` table: all doctor fields + specialization as JSON
+   339→- Updates `users` table: name, gender only
+   340→- **BUG:** `$id` parameter is the user_id but `user->update($id, ...)` updates by users.id, and `doctor->update($doc_data->id, ...)` uses the doctors table id - this is correct
+   341→
+   342→### Method: `distroy()`
+   343→- **STUB:** Only loads the view, no delete logic
+   344→
+   345→### Method: `update_status()`
+   346→- **GET params:** `id` (user ID), `st` (status)
+   347→- Toggles between ACTIVE and BLOCK
+   348→- **BUG:** `update_status_active()` actually sets status to BLOCK, and `update_status_block()` sets status to ACTIVE (logic reversed in Users_model)
+   349→
+   350→### Method: `profile_view()`
+   351→- **GET param:** `id` (user ID)
+   352→- Loads: doctor profile, doctor average rating, receptionist data
+   353→- **View:** `hospital/doctor/view_profile`
+   354→
+   355→### Method: `schedule()`
+   356→- Gets schedule files: `schedule->get_by_hospital($user_data->id)`
+   357→- **View:** `hospital/upload_schedule`
+   358→
+   359→### Method: `schedule_upload()`
+   360→- **FILE POST handler**
+   361→- Uploads PDF to `upload/schedule_docs/` with naming: `{date}_{hospital_name}`
+   362→- Creates record in `schedule_pdf` table with hospital_id and file_name
+   363→
+   364→### Method: `remove_file($id)`
+   365→- **BUG:** References `$scheduleData['upload_error']` which is undefined (should be a string message)
+   366→- Deletes file from disk via `unlink()`
+   367→- Deletes DB record via `schedule->remove_by_id($id)`
+   368→
+   369→### View: `hospital/doctor/view_doctor.php`
+   370→
+   371→**Structure:** DataTable with columns: No, Name, Email, Mobile, Role, Status, Action
+   372→
+   373→**Action Buttons:**
+   374→- View (eye icon) → `hospital/doctor/profile_view?id=$key->id`
+   375→- Edit (edit icon) → `hospital/doctor/edit/$key->id`
+   376→- Delete (trash icon) → `admin/doctor/distroy?id=$key->id` (HIDDEN, and wrong URL - points to admin)
+   377→
+   378→**Status Toggle:** Clickable label → `hospital/doctor/update_status?id=$key->id&st=$key->status` (toggles ACTIVE/BLOCK)
+   379→
+   380→**JavaScript:** `confirm_delete()` function using SweetAlert - references `admin/doctor/distroy` (wrong URL for hospital context)
+   381→
+   382→### View: `hospital/doctor/add_doctor.php`
+   383→
+   384→**Form:** POST (multipart) to `hospital/doctor/create`
+   385→
+   386→**Fields:**
+   387→| Row | Field | Type | Required | Notes |
+   388→|---|---|---|---|---|
+   389→| 1 | Name | text | Yes | |
+   390→| 1 | Gender | select | No | Male/female (lowercase "female" - inconsistent) |
+   391→| 1 | User Id | number | No | Auto-generated 4-digit random, READONLY |
+   392→| 2 | Email | text | Yes | |
+   393→| 2 | Password | text | Yes | |
+   394→| 3 | Doctor Type | select | Yes | From `$doctype` |
+   395→| 3 | Fees | text | Yes | |
+   396→| 3 | Hospital Contact Number | text | No | |
+   397→| 4 | Latitude | text | No | |
+   398→| 4 | Longitude | text | No | |
+   399→| 5 | Address | textarea | Yes | |
+   400→| 6 | Description | textarea | Yes | |
+   401→| 7 | Disease Specialization | checkboxes | No | From `$dis_name`, multi-select |
+   402→| 8 | Award And Recognition | textarea | No | |
+   403→| 9 | Eduction | textarea | Yes | (typo: should be "Education") |
+   404→| 10 | Experience | textarea | No | |
+   405→| 11 | Registration Detail | textarea | No | |
+   406→
+   407→**JavaScript:** `CreateRandomNumber()` auto-generates 4-digit random number on document ready, sets as mobile_no
+   408→
+   409→**SECURITY ISSUES:**
+   410→- Auto-generated 4-digit "User Id" used as mobile_no - too short for real mobile numbers
+   411→- Password in plain text input
+   412→
+   413→### View: `hospital/doctor/edit_doctor.php`
+   414→
+   415→**Form:** POST to `hospital/doctor/update/$profile->user_id`
+   416→
+   417→**Same fields as add, pre-filled from `$profile`**
+   418→- Mobile field: DISABLED (cannot change)
+   419→- Specialization checkboxes: decoded from JSON, pre-checked
+   420→- Doctor type select: pre-selected by matching `$profile->doctor_type == $type->type`
+   421→
+   422→### View: `hospital/doctor/view_profile.php`
+   423→
+   424→**Layout:** 2-column (3+9)
+   425→
+   426→**Left Column (col-md-3):**
+   427→- Profile image, name (Dr. prefix), doctor type
+   428→- Rating: `$doctor_average_rating/5`
+   429→- Contact details: Fees (Rs.), Address, Hospital Location, Phone, Mobile (+91 prefix), Email, Registration Date
+   430→
+   431→**Right Column (col-md-9):**
+   432→- Tabbed interface (tabs: Personal Detail, Receptionist - hidden)
+   433→- **Personal Detail tab:** About Me (description), Specialization (labels from JSON), Eduction, Experience, Award & Recognition, Registration Detail
+   434→- **Receptionist tab:** Hidden via inline style, shows receptionist profile if assigned
+   435→
+   436→### Model Queries Used
+   437→- **Doctors_model::get_by_hospital($hid)** → Raw SQL join `doctors + users` where `hospital_id=$hid`
+   438→- **Doctors_model::get_one_by_user($user_id)** → `SELECT * FROM doctors WHERE user_id=$id`
+   439→- **Doctors_model::get_profile($id)** → Join `doctors + users` where `doctors.user_id = users.id` and `doctors.user_id = $id`
+   440→- **Users_model::count_doctor_by_hospital($id)** → `SELECT COUNT(*) FROM doctors WHERE hospital_id=$id`
+   441→- **Schedule_pdf_model::get_by_hospital($id)** → `SELECT * FROM schedule_pdf WHERE hospital_id=$id`
+   442→- **Schedule_pdf_model::get_by_id($id)** → `SELECT * FROM schedule_pdf WHERE id=$id`
+   443→- **Schedule_pdf_model::remove_by_id($id)** → `DELETE FROM schedule_pdf WHERE id=$id`
+   444→- **Doctor_rating_model::get_average_rating($id)** (not read, returns average rating)
+   445→- **Receptionist_model::get_receptionist_by_doctor($id)** (not read, returns receptionist data)
+   446→- **Disease_model::get_all()** (not read, returns all diseases for checkboxes)
+   447→- **Doctor_type_model::get_all()** (not read, returns all doctor types for dropdown)
+   448→
+   449→### Connections
+   450→- Connects to Disease, Doctor_type, Doctor_rating, Receptionist models
+   451→- Schedule upload connects to Schedule_pdf_model
+   452→- Profile view links to receptionist data
+   453→- Hospital can create doctors directly (dual-table insert to users + doctors)
+   454→
+   455→---
+   456→
+   457→## 4.4 Income Summary
+   458→
+   459→### Controller: `controllers/hospital/Income.php`
+   460→
+   461→**Models loaded:** Doctors_model (doctor), Users_model (user), Hospital_model (hospital), Receptionist_model (receptionist), Disease_model (disease), Booking_model (booking)
+   462→
+   463→### Method: `index()`
+   464→- **GET params:** `doctor`, `fromdate`, `todate` (all optional)
+   465→- Gets hospital doctors: `hospital->get_doctor_by_hospital($user->id)` (joins doctors+users)
+   466→- For each doctor, gets income: `booking->get_income_by_doc_and_hspital($doc->user_id, $fromdate, $todate)`
+   467→- **BUG:** `if ($doc->total=$income)` uses assignment (=) instead of comparison (==)
+   468→- **View:** `hospital/income_summary`
+   469→
+   470→### View: `hospital/income_summary.php`
+   471→
+   472→**Filter Form (GET):**
+   473→- From Date (date input)
+   474→- To Date (date input, label says "From Date" - BUG)
+   475→- Doctor (select dropdown from `$doctorcharge`)
+   476→- Filter button
+   477→
+   478→**Table Columns:** No, Image (40px), Doctor Name, Email, Mobile, Charges (Rs.)
+   479→- Shows `0 Rs.` if total is empty
+   480→
+   481→**DataTable:** Uses `#example1` with DataTables plugin
+   482→
+   483→### Model Queries Used
+   484→- **Hospital_model::get_doctor_by_hospital($id)** → `SELECT doctors.*, users.name, users.email, users.mobile_no, users.status, users.profile_img, users.id as did FROM doctors, users WHERE doctors.user_id=users.id AND doctors.hospital_id=$id`
+   485→- **Booking_model::get_income_by_doc_and_hspital($did, $from, $to)** → `SUM(appointment_charge) as total` from booking, VISITED status, optional date range, grouped by doctor_id
+   486→
+   487→### Connections
+   488→- Also accessible from `Appoinment::charges_income()` which uses different query (`get_doctor_wise_charges`)
+   489→- Depends on VISITED status bookings only
+   490→
+   491→---
+   492→
+   493→## 4.5 Hospital Profile
+   494→
+   495→### Controller: `controllers/hospital/Profile.php`
+   496→
+   497→**Models loaded:** Posts_model (blog - unused), Users_model (user), Hospital_model (hospital), State_model (state), City_model (city)
+   498→
+   499→### Method: `index()`
+   500→- **View:** `hospital/common/profile_update`
+   501→- **BUG:** Does not load `userdetail` or `hospitaldetil` which the view expects - will cause errors
+   502→
+   503→### Method: `update_profile()`
+   504→- Loads: user detail, all states, hospital detail
+   505→- **View:** `hospital/common/profile_update`
+   506→
+   507→### Method: `update_validate()`
+   508→- **POST handler** - Validation rule: `hospital_profile`
+   509→- Updates `users` table: name, gender, updated_at (email unset/disabled)
+   510→- Updates `hospital` table: hospital_name, address, state, city, contact_no, lat, longi, user_id
+   511→
+   512→### Method: `upload_profile_img()`
+   513→- **FILE POST handler**
+   514→- Uploads to `upload/profile/` with naming: `{date}_{user_id}`
+   515→- Deletes old profile image if not `default.png`
+   516→- Updates `users.profile_img`
+   517→
+   518→### Method: `change_password()`
+   519→- **POST handler** - Validation rule: `change_password`
+   520→- Custom validation callback: `valid_current_password()` - hashes input with SHA256 and checks against DB
+   521→- Updates password: `hash("sha256", $new_pass)`
+   522→
+   523→### Method: `valid_current_password($str)`
+   524→- Custom validation callback for change_password form
+   525→- Hashes input and checks against DB via `user->checkCurrentPassword()`
+   526→
+   527→### Method: `city_by_state()`
+   528→- **AJAX endpoint** (POST)
+   529→- Returns JSON of cities for a given state name
+   530→- Calls `city->get_city_by_state_name($state)`
+   531→
+   532→### View: `hospital/common/profile_update.php`
+   533→
+   534→**Layout:** 2-column (3+9)
+   535→
+   536→**Left Column (col-md-3): Profile Image Upload**
+   537→- Shows current profile image (`100x100`, circular)
+   538→- File input + Change button
+   539→- Form: POST (multipart) to `hospital/profile/upload_profile_img`
+   540→
+   541→**Right Column (col-md-9): Profile Tab**
+   542→- **Form:** POST to `hospital/profile/update_validate`
+   543→- **Fields:**
+   544→  | Field | Type | Editable | Notes |
+   545→  |---|---|---|---|
+   546→  | Name | text | Yes | |
+   547→  | Email | text | No (disabled) | |
+   548→  | Contact Number | text | No (disabled) | Maxlength 10 |
+   549→  | Gender | select | Yes | Male/Female only |
+   550→  | hospital_id | hidden | - | For update reference |
+   551→  | Hospital Name | text | Yes | |
+   552→  | Address | textarea | Yes | |
+   553→  | State | select | Yes | From `$state`, triggers `loadCity()` |
+   554→  | City | select | Yes | Populated via AJAX |
+   555→  | Latitude | text | Yes | |
+   556→  | Longitude | text | Yes | |
+   557→  | Hospital Contact | text | Yes | |
+   558→
+   559→**Change Password Section (below, full width):**
+   560→- Form: POST to `hospital/profile/change_password`
+   561→- Fields: Current Password, New Password, Confirm Password
+   562→- Submit button inline with current password field
+   563→
+   564→**JavaScript (in layout):**
+   565→- `loadCity()` posts state to `hospital/profile/city_by_state`, populates city dropdown
+   566→- Auto-selects current city on page load
+   567→
+   568→### Model Queries Used
+   569→- **Users_model::get_by_id($id)** → `SELECT * FROM users WHERE id=$id`
+   570→- **Users_model::update($id, $data)** → `UPDATE users SET ... WHERE id=$id`
+   571→- **Users_model::checkCurrentPassword($id, $str)** → `SELECT * FROM users WHERE id=$id AND password=SHA256($str)`
+   572→- **Hospital_model::get_one_by_user($user_id)** → `SELECT * FROM hospital WHERE user_id=$id`
+   573→- **Hospital_model::update_profile($id, $data)** → `UPDATE hospital SET ... WHERE id=$id`
+   574→- **State_model::get_all()** (not read, returns all states)
+   575→- **City_model::get_city_by_state_name($state)** (not read, returns cities by state)
+   576→
+   577→### Connections
+   578→- City dropdown depends on State/City models via AJAX
+   579→- Profile image stored in `upload/profile/` directory
+   580→- Password hashing: SHA256 (weak by modern standards)
+   581→
+   582→---
+   583→
+   584→## 4.6 Blog Management
+   585→
+   586→### Controller: `controllers/hospital/Blog.php`
+   587→
+   588→**Models loaded:** Posts_model (blog), Users_model (user)
+   589→
+   590→### Method: `index()`
+   591→- Gets all posts: `blog->get_all_by_user($user_data->id)`
+   592→- **View:** `hospital/post/blog_view`
+   593→
+   594→### Method: `add()`
+   595→- **View:** `hospital/post/blog_add`
+   596→
+   597→### Method: `add_validate()`
+   598→- **POST handler** - Validation rule: `blog`
+   599→- Handles optional image upload to `upload/blog/`
+   600→- Sets: status=PUBLISHED, type=BLOG, user_id, paramalink (slug)
+   601→- Removes `_wysihtml5_mode` from post data
+   602→- If no image: still creates post without image
+   603→
+   604→### Method: `update_status()`
+   605→- **GET params:** `id`, `st`
+   606→- Toggles between PUBLISHED and HIDE (Draft)
+   607→
+   608→### Method: `update()`
+   609→- **GET params:** `id`, `uid`
+   610→- Loads post: `blog->get_one_by_user($id, $user_id)`
+   611→- **View:** `hospital/post/blog_edit`
+   612→
+   613→### Method: `update_validate($id)`
+   614→- **POST handler** - Validation rule: `blog`
+   615→- Optional image upload (deletes old image if replaced)
+   616→- Sets: type=BLOG, paramalink (regenerated)
+   617→- **BUG on error:** References `hospital/blog_edit` instead of `hospital/post/blog_edit`
+   618→
+   619→### Method: `distroy()`
+   620→- **GET params:** `id`, `uid`
+   621→- Calls `blog->destroy($id, $uid)`
+   622→- **BUG:** Method name `_alertwarningResponce` (lowercase 'w') - should be `_alertWarningResponce`
+   623→
+   624→### Method: `generateUrl($str)`
+   625→- Recursive slug generator
+   626→- Uses `_generateSeoURL($str)` from parent
+   627→- Checks uniqueness in `posts` table via `paramalink`
+   628→- Appends random number (1-99) if duplicate
+   629→
+   630→### View: `hospital/post/blog_view.php`
+   631→
+   632→**Table Columns:** No, Title (unlinked), Type, Date, User (email), Status (toggleable label), Action
+   633→
+   634→**Status Toggle:** Clickable label → `hospital/blog/update_status?id=&st=` (toggles Published/Draft)
+   635→- Green = Published, Red = Draft
+   636→
+   637→**Actions:**
+   638→- Edit (warning icon) → `hospital/blog/update?id=&uid=`
+   639→- Delete (danger icon) → `hospital/blog/distroy?id=&uid=` with confirm dialog
+   640→
+   641→### View: `hospital/post/blog_add.php`
+   642→
+   643→**Form:** POST (multipart) to `hospital/blog/add_validate`
+   644→
+   645→**Fields:**
+   646→| Field | Type | Required | Notes |
+   647→|---|---|---|---|
+   648→| Title | text | Yes | |
+   649→| Post/Content | textarea (CKEditor `#editor1`) | Yes | |
+   650→| Video Link | text | No | Optional, placeholder shows YouTube embed example |
+   651→| Image | file | No | Optional, error shown if upload fails |
+   652→
+   653→### View: `hospital/post/blog_edit.php`
+   654→
+   655→**Same as add, pre-filled:**
+   656→- Title: pre-filled from `$post->title`
+   657→- Content: pre-filled from `$post->content`
+   658→- Video Link: pre-filled from `$post->video_link`
+   659→- Image: shows current image (200x200), optional replacement
+   660→- Submit button text: "UPDATE"
+   661→
+   662→### Model Queries Used
+   663→- **Posts_model::get_all_by_user($user_id)** (not read, returns posts by user)
+   664→- **Posts_model::get_one_by_user($id, $user_id)** (not read, returns single post)
+   665→- **Posts_model::get_by_id($id)** (not read, returns post by ID)
+   666→- **Posts_model::create($data)** (not read, inserts to `posts` table)
+   667→- **Posts_model::update($id, $data)** (not read, updates `posts` table)
+   668→- **Posts_model::destroy($id, $uid)** (not read, deletes from `posts` table)
+   669→
+   670→### Connections
+   671→- CKEditor 4.11.1 loaded in master layout for `#editor1`
+   672→- WysiHTML5 as fallback
+   673→- Images stored in `upload/blog/`
+   674→- Slug uniqueness checked against `posts` table
+   675→
+   676→---
+   677→
+   678→## 4.7 Patient Registration
+   679→
+   680→### Controller: `controllers/hospital/Registration.php`
+   681→
+   682→**Models loaded:** None in constructor (uses `$this->user` which is NOT loaded - **BUG**: relies on parent/base not loading it)
+   683→- Actually, looking more closely: the parent `Hospital_contoller` does NOT load user model. But `Registration` uses `$this->user->create()` in `submit()` - this will fail unless loaded elsewhere. **However**, since the Registration controller is typically called after the appointment_add page (which loads Users_model), this might work if CodeIgniter's model registry persists across requests in the same session. **This is a potential runtime bug.**
+   684→
+   685→### Method: `index()`
+   686→- **View:** `hospital/registration/index`
+   687→
+   688→### Method: `submit()`
+   689→- **POST handler** - Validation rule: `receptionist_patient_registration`
+   690→- Sets: `role=PATIENT`, `status=ACTIVE`, `password=SHA256`
+   691→- Removes `c_pass`
+   692→- Sends SMS welcome message with mobile as account ID and plaintext password
+   693→- Sets flash: `mobileno` (for pre-filling appointment form), `alert_msg`, `alert_class`
+   694→- Redirects to `hospital/appoinment/add`
+   695→
+   696→**SECURITY ISSUES:**
+   697→- Password sent in plaintext SMS
+   698→- No email verification (commented out)
+   699→- Uses same validation rule as receptionist registration
+   700→
+   701→### View: `hospital/registration/index.php`
+   702→
+   703→**Form:** POST (multipart) to `hospital/registration/submit`
+   704→
+   705→**Fields:**
+   706→| Row | Field | Type | Required |
+   707→|---|---|---|---|
+   708→| 1 | Name | text | Yes |
+   709→| 1 | Email | email | Yes |
+   710→| 2 | Mobile | text | Yes | Maxlength 10 |
+   711→| 2 | Gender | select | Yes | Male/Female/Other |
+   712→| 3 | Password | password | Yes | |
+   713→| 3 | Confirm Password | password | Yes | |
+   714→
+   715→### Connections
+   716→- Registration redirect to appointment add (flash mobile number)
+   717→- Embedded in appointment_add.php as modal
+   718→- Also accessible standalone at `hospital/registration`
+   719→
+   720→---
+   721→
+   722→## 4.8 Upload Schedule
+   723→
+   724→**NOTE:** No dedicated `Upload_schedule.php` controller exists. Schedule functionality is handled within `Doctor.php` controller.
+   725→
+   726→### Controller Methods (in `Doctor.php`):
+   727→
+   728→**`schedule()`** - Lists schedule files
+   729→- Gets: `schedule->get_by_hospital($user_data->id)`
+   730→- **View:** `hospital/upload_schedule`
+   731→
+   732→**`schedule_upload()`** - Uploads new schedule PDF
+   733→- Upload path: `upload/schedule_docs/`
+   734→- File naming: `{Y-m-d}_{hospital_name}`
+   735→- Creates record: `schedule_pdf` table (hospital_id, file_name)
+   736→
+   737→**`remove_file($id)`** - Deletes schedule file
+   738→- Deletes from disk: `unlink('./upload/schedule_docs/' . $file_name)`
+   739→- Deletes from DB: `schedule->remove_by_id($id)`
+   740→
+   741→### View: `hospital/upload_schedule.php`
+   742→
+   743→**Two sections:**
+   744→
+   745→**Section 1: Upload Form**
+   746→- File input for PDF upload
+   747→- Form: POST (multipart) to `hospital/doctor/schedule_upload`
+   748→- Submit button with double-click prevention
+   749→- Back link to `hospital/appoinment`
+   750→
+   751→**Section 2: File List Table**
+   752→- Columns: No, Date (created_at), Action
+   753→- View button: opens PDF in new tab (`upload/schedule_docs/{file_name}`)
+   754→- Delete button: `hospital/doctor/remove_file/{id}`
+   755→
+   756→### Model Queries Used
+   757→- **Schedule_pdf_model::create($data)** → `INSERT INTO schedule_pdf (hospital_id, file_name, created_at)`
+   758→- **Schedule_pdf_model::get_by_hospital($id)** → `SELECT * FROM schedule_pdf WHERE hospital_id=$id`
+   759→- **Schedule_pdf_model::get_by_id($id)** → `SELECT * FROM schedule_pdf WHERE id=$id`
+   760→- **Schedule_pdf_model::remove_by_id($id)** → `DELETE FROM schedule_pdf WHERE id=$id`
+   761→
+   762→### Connections
+   763→- Sidebar link: `hospital/doctor/schedule`
+   764→- Files stored in `upload/schedule_docs/`
+   765→
+   766→---
+   767→
+   768→## Database Tables Used
+   769→
+   770→| Table | Used By | Operations |
+   771→|---|---|---|
+   772→| `users` | All controllers | CRUD, auth, status toggle |
+   773→| `doctors` | Doctor, Dashboard, Income | CRUD, joins with users |
+   774→| `hospital` | Profile, Doctor, Dashboard, Income | Read, update profile |
+   775→| `booking` | Appointment, Dashboard, Income | CRUD, status updates, aggregations |
+   776→| `posts` | Blog | CRUD, status toggle |
+   777→| `schedule_pdf` | Doctor (schedule) | Create, read, delete |
+   778→| `notifications` | Appointment | Create |
+   779→| `booking_chat` | Appointment (chat) | Create, read |
+   780→| `config` | Appointment | Read (admin_charge) |
+   781→| `doctor_rating` | Doctor | Read (average) |
+   782→| `disease` | Doctor | Read (all) |
+   783→| `doctor_type` | Doctor | Read (all) |
+   784→| `receptionist` | Doctor (profile view) | Read |
+   785→| `states` | Profile | Read (all) |
+   786→| `cities` | Profile | Read (by state) |
+   787→
+   788→---
+   789→
+   790→## Complete Bug & Issue Registry
+   791→
+   792→### Critical Bugs
+   793→1. **`Doctor::create()` line 81**: Semicolon after `if` makes doctor creation always execute regardless of user creation result
+   794→2. **`Registration` controller**: Does not load `Users_model` but uses `$this->user->create()` - likely runtime error
+   795→3. **`Doctor::remove_file()`**: References undefined `$scheduleData['upload_error']`
+   796→4. **`Users_model::update_status_active()`**: Sets status to BLOCK (logic reversed with `update_status_block()`)
+   797→5. **`Booking_model::get_hospital_appointment_all()`**: Contains `var_dump($this->db->last_query()); exit();` - debug code left in
+   798→6. **`Profile::index()`**: Does not load `$userdetail` or `$hospitaldetil` which the view requires
+   799→
+   800→### Security Issues
+   801→1. **Hardcoded default password "123456"** in patient registration modal
+   802→2. **SHA256 password hashing** (no salt, weak by modern standards)
+   803→3. **Plaintext password sent via SMS** after registration
+   804→4. **SQL injection risk**: `Doctors_model::get_by_hospital()` uses raw SQL with unsanitized `$hid`
+   805→5. **No CSRF protection** on forms
+   806→6. **No XSS protection** visible on chat messages
+   807→7. **`createRandomNumber()`** generates credentials (mobile/email) - potential for impersonation
+   808→8. **`Hospital_model::get_search_hospital()`**: Raw `$keyword` and `$city` in LIKE clauses - SQL injection
+   809→
+   810→### UI/UX Bugs
+   811→1. **Sidebar Dashboard link** points to `admin/dashboard` instead of `hospital/dashboard`
+   812→2. **Income summary form**: "From Date" label used twice (second should be "To Date")
+   813→3. **Delete button in view_doctor** links to `admin/doctor/distroy` (wrong module)
+   814→4. **`Blog::update_validate()` error view** references `hospital/blog_edit` instead of `hospital/post/blog_edit`
+   815→5. **`Blog::distroy()`** calls `_alertwarningResponce` (lowercase 'w') - likely fatal error
+   816→6. **`CreateRandomNumber()`** in global layout fires on every page load, may cause JS errors when `#mobile_no` doesn't exist
+   817→7. **Gender select in add_doctor**: "female" lowercase while other options are capitalized
+   818→8. **Typo**: "Eduction" throughout (should be "Education")
+   819→9. **Typo**: "Appoinment" in controller name and URLs
+   820→10. **Typo**: "Hospital_contoller" class name
+   821→11. **Chat system**: `placehold.it` images used for avatars (external dependency)
+   822→
+   823→### Logic Issues
+   824→1. **`Income::index()`**: Assignment `=` instead of comparison `==` in `if ($doc->total=$income)`
+   825→2. **Appointment `add_validate()`**: SMS message references `$this->view_data['doctors'][0]->name` (first doctor, not selected doctor)
+   826→3. **`Doctor::update_status()`**: Status toggle logic relies on reversed Users_model methods
+   827→4. **`Booking_model::get_today_doctor_appointment()`**: Uses `date('Y-m-d 00:00:00')` which includes time portion unnecessarily
+   828→
+   829→---
+   830→
+   831→## Module Dependency Map
+   832→
+   833→```
+   834→Hospital Dashboard
+   835→├── Dashboard (overview + chart)
+   836→│   ├── Posts_model (post count)
+   837→│   ├── Users_model (doctor count, user data)
+   838→│   ├── Booking_model (pending/today counts)
+   839→│   ├── Doctors_model (doctor list for cards)
+   840→│   └── Hospital_model (chart data)
+   841→├── Appointment
+   842→│   ├── Booking_model (CRUD, status, chat)
+   843→│   ├── Doctors_model (doctor list/lookup)
+   844→│   ├── Users_model (patient lookup, user data)
+   845→│   ├── Config_model (admin charge)
+   846→│   ├── Notifications_model (create notifications)
+   847→│   ├── Booking_chat_model (chat messages)
+   848→│   └── Registration (patient creation)
+   849→├── Doctor Management
+   850→│   ├── Doctors_model (CRUD)
+   851→│   ├── Users_model (CRUD, auth)
+   852→│   ├── Hospital_model (hospital lookup)
+   853→│   ├── Disease_model (specialization list)
+   854→│   ├── Doctor_type_model (type list)
+   855→│   ├── Doctor_rating_model (average rating)
+   856→│   ├── Receptionist_model (receptionist data)
+   857→│   └── Schedule_pdf_model (schedule files)
+   858→├── Income Summary
+   859→│   ├── Hospital_model (doctor list)
+   860→│   └── Booking_model (income aggregation)
+   861→├── Profile
+   862→│   ├── Users_model (CRUD, password check)
+   863→│   ├── Hospital_model (profile CRUD)
+   864→│   ├── State_model (state list)
+   865→│   └── City_model (city list by state)
+   866→└── Blog
+   867→    └── Posts_model (CRUD, status toggle)
+   868→```
+   869→
+   870→---
+   871→
+   872→## File Inventory
+   873→
+   874→### Controllers (7 files, 1 missing)
+   875→| File | Class | Methods | Status |
+   876→|---|---|---|---|
+   877→| `hospital/Dashboard.php` | Dashboard | index | Complete |
+   878→| `hospital/Appoinment.php` | Appoinment | index, show, add, add_validate, generateBookingNumber, extend, approve, visited, cancel, reject, charges_income, appointment_show_detail, get_all_chat_message, send_chat_msg | Complete |
+   879→| `hospital/Doctor.php` | Doctor | index, add, create, edit, update, distroy, update_status, profile_view, schedule, schedule_upload, remove_file | Complete (schedule methods) |
+   880→| `hospital/Income.php` | Income | index | Complete |
+   881→| `hospital/Profile.php` | Profile | index, update_profile, update_validate, upload_profile_img, change_password, valid_current_password, city_by_state | Complete |
+   882→| `hospital/Blog.php` | Blog | index, add, add_validate, update_status, update, update_validate, distroy, generateUrl | Complete |
+   883→| `hospital/Registration.php` | Registration | index, submit | Complete |
+   884→| `hospital/Upload_schedule.php` | - | - | **MISSING** (functionality in Doctor.php) |
+   885→
+   886→### Views (15 files)
+   887→| File | Used By | Purpose |
+   888→|---|---|---|
+   889→| `layouts/master_page_hospital.php` | All | Master layout with sidebar, header, global JS |
+   890→| `hospital/common/dashboard.php` | Dashboard | Dashboard overview |
+   891→| `hospital/appointment.php` | Appoinment | Appointment list |
+   892→| `hospital/appointment_add.php` | Appoinment | New appointment form + registration modal |
+   893→| `hospital/appointment_show.php` | Appoinment | Appointment detail + chat |
+   894→| `hospital/doctor/view_doctor.php` | Doctor | Doctor list table |
+   895→| `hospital/doctor/add_doctor.php` | Doctor | Doctor creation form |
+   896→| `hospital/doctor/edit_doctor.php` | Doctor | Doctor edit form |
+   897→| `hospital/doctor/view_profile.php` | Doctor | Doctor profile display |
+   898→| `hospital/income_summary.php` | Income | Income/charges report |
+   899→| `hospital/common/profile_update.php` | Profile | Hospital profile + password change |
+   900→| `hospital/post/blog_view.php` | Blog | Blog list |
+   901→| `hospital/post/blog_add.php` | Blog | Blog creation form |
+   902→| `hospital/post/blog_edit.php` | Blog | Blog edit form |
+   903→| `hospital/registration/index.php` | Registration | Patient registration form |
+   904→| `hospital/upload_schedule.php` | Doctor | Schedule PDF upload/list |
+   905→
+   906→### Models (5 files reviewed)
+   907→| File | Table(s) | Hospital-specific Methods |
+   908→|---|---|---|
+   909→| `Hospital_model.php` | hospital, users | get_chart_data_month_wise, get_doctor_by_hospital, get_one_by_user, update_profile, get_search_hospital |
+   910→| `Booking_model.php` | booking | get_hospital_appointment_count_pending, get_hospital_appointment_count_today, get_appintment_by_doctor, get_doctor_wise_charges, get_income_by_doc_and_hspital |
+   911→| `Doctors_model.php` | doctors | get_by_hospital, get_hospital_doctors, get_profile |
+   912→| `Schedule_pdf_model.php` | schedule_pdf | get_by_hospital, get_by_id, remove_by_id |
+   913→| `Users_model.php` | users | count_doctor_by_hospital, get_by_mobile, checkCurrentPassword, update_status_active/block |
+   914→
+   915→### Models Referenced But Not Read
+   916→| Model | Used By | Purpose |
+   917→|---|---|---|
+   918→| Posts_model | Dashboard, Blog | Blog CRUD |
+   919→| Config_model | Appoinment | Get admin_charge setting |
+   920→| Notifications_model | Appoinment | Create notifications |
+   921→| Booking_chat_model | Appoinment | Chat messages |
+   922→| Disease_model | Doctor | Disease list |
+   923→| Doctor_type_model | Doctor | Doctor type list |
+   924→| Doctor_rating_model | Doctor | Average rating |
+   925→| Receptionist_model | Doctor | Receptionist data |
+   926→| State_model | Profile | State list |
+   927→| City_model | Profile | City list by state |
+   928→
