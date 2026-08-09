@@ -57,7 +57,6 @@ export async function GET(req: NextRequest) {
           where: { id: receptionist.doctorId },
           include: {
             user: { select: { name: true, profileImg: true } },
-            hospital: { select: { hospitalName: true, address: true, city: true, state: true, contactNo: true } },
           },
         }),
       ])
@@ -78,13 +77,13 @@ export async function GET(req: NextRequest) {
             state: doctor.state,
           }
         : null,
-      hospital: doctor?.hospital
+      hospital: doctor
         ? {
-            hospitalName: doctor.hospital.hospitalName,
-            address: doctor.hospital.address,
-            city: doctor.hospital.city,
-            state: doctor.hospital.state,
-            contactNo: doctor.hospital.contactNo,
+            hospitalName: doctor.hospitalAddress ? 'Clinic / Hospital' : '',
+            address: doctor.hospitalAddress,
+            city: doctor.city,
+            state: doctor.state,
+            contactNo: doctor.contactNo,
           }
         : null,
       todayAppointmentsList: todayAppointmentsList.map((b) => ({
