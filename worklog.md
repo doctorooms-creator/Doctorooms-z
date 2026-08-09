@@ -1259,3 +1259,44 @@ Stage Summary:
 - Critical blockers: Empty DB, missing gender in booking form, broken settings JSX, register crash, no login error toast
 - Architecture issues: 3 files over 700 lines, no server components, no Zod, duplicated code in 5 places
 - Security issues: Chat endpoint has no GET auth, session cookie is raw user ID
+
+---
+Task ID: arch-master-plan
+Agent: Main Agent (Architect Role)
+Task: Create comprehensive Architect Master Plan for entire Doctorooms platform
+
+Work Log:
+- Reviewed PATIENT-MODULE-AUDIT.md (845 lines) for bug/gap data
+- Launched exploration agent to map full project structure: 61 dashboard pages, 101 API routes, 30 DB models, 7 roles
+- Reviewed all existing module plans: Doctor (689 lines), Reception (354 lines), Hospital (427 lines), Admin (600+ lines), Assistant-Pharmacist
+- Catalogued complete tech stack: 47 production deps, 8 dev deps, Bun runtime, Next.js 16
+- Analyzed architecture patterns: custom cookie auth, TanStack Query, Zustand, shadcn/ui, Framer Motion
+- Identified systemic issues: no middleware, no Zod validation, no shared types, 100% client components, session security
+- Wrote ARCHITECT-MASTER-PLAN.md (~1,200 lines) covering:
+  - Executive Summary with quantified module completion matrix
+  - Current Architecture Assessment (diagram + what's right/wrong)
+  - Target Architecture Vision (diagram + 8 principles)
+  - 8 Architecture Decision Records (ADRs)
+  - 18-item Technical Debt Register (4 critical, 7 high, 7 medium)
+  - 37-row Module Feature Completion Matrix (all 7 roles × features)
+  - 6-Phase Development Roadmap with dependency graph
+  - Phase 0: 7 critical blocker tasks with file-level specifications
+  - Phase 1: 8 patient journey tasks with file-level specifications
+  - Phase 2: Doctor + Reception gaps (from existing plans)
+  - Phase 3: Hospital + Assistant + Pharmacist specifications
+  - Phase 4: Admin governance specifications
+  - Phase 5: Architecture hardening (security, quality, performance, UX)
+  - API Architecture Standards (template, response format, auth patterns, batch APIs)
+  - Component Architecture Standards (decomposition rule, 6 shared components, 6 custom hooks, types directory)
+  - Database Evolution Plan (3 new models, 3 modifications, 6 design principles)
+  - File Upload & Storage Architecture (abstraction layer, directories, validation)
+  - Real-Time Architecture (Socket.io event design, migration path)
+  - Deployment Architecture (dev vs prod diagrams, env vars)
+  - Risk Register (10 risks with probability/impact/mitigation)
+
+Stage Summary:
+- Produced: `/home/z/my-project/agent-ctx/ARCHITECT-MASTER-PLAN.md` (~1,200 lines)
+- Key architectural decisions: Custom cookie auth (keep), Zod validation (adopt), Socket.io (activate), Local disk storage (current), middleware.ts (add)
+- Development order: Patient → Doctor+Reception → Supporting → Admin → Hardening
+- Estimated effort: 6 phases × 2-3 sessions = 12-18 focused development sessions
+- Immediate priorities: Seed DB, fix 5 critical patient bugs, secure session cookie
