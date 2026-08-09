@@ -270,6 +270,7 @@ model DoctorRating {
   id        String   @id @default(cuid())
   patientId String
   doctorId  String
+  bookingId String?
   star      Int      @default(5)
   consultationRating Int @default(0)
   waitTimeRating    Int @default(0)

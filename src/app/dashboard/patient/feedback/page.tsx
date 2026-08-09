@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -26,6 +27,7 @@ import {
   Users,
   ThumbsUp,
   Eye,
+  ChevronDown,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -79,6 +81,10 @@ function StarRating({ value, onChange, size = 'md' }: { value: number; onChange?
 const ratingLabels = ['Poor', 'Fair', 'Good', 'Very Good', 'Excellent']
 
 export default function FeedbackPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+
   const [rateOpen, setRateOpen] = useState(false)
   const [selectedBooking, setSelectedBooking] = useState<FeedbackItem | null>(null)
   const [form, setForm] = useState({
@@ -90,7 +96,10 @@ export default function FeedbackPage() {
     wouldRecommend: true,
     isAnonymous: false,
   })
-  const queryClient = useQueryClient()
+
+  // Check for URL params from appointment detail navigation
+  const urlBookingId = searchParams.get('bookingId')
+  const urlDoctorId = searchParams.get('doctorId')
 
   const { data, isLoading } = useQuery<{
     feedback: FeedbackItem[]
@@ -100,6 +109,24 @@ export default function FeedbackPage() {
   })
 
   const feedbackList = data?.feedback || []
+
+  // Auto-open rate dialog when navigated from appointment detail with params
+  // Use useCallback for the action triggered by URL params
+  const hasAutoOpened = useRef(false)
+
+  useEffect(() => {
+    if (hasAutoOpened.current) return
+    if (!urlBookingId || !urlDoctorId || feedbackList.length === 0) return
+    const target = feedbackList.find((b) => b.id === urlBookingId)
+    if (!target || target.alreadyRated) return
+    hasAutoOpened.current = true
+    // Use microtask to avoid React's setState-in-effect rule
+    queueMicrotask(() => {
+      setSelectedBooking(target)
+      setRateOpen(true)
+      router.replace('/dashboard/patient/feedback', { scroll: false })
+    })
+  }, [urlBookingId, urlDoctorId, feedbackList, router])
 
   const submitMutation = useMutation({
     mutationFn: async () => {
@@ -227,6 +254,13 @@ export default function FeedbackPage() {
                     </span>
                   </div>
 
+                  {/* Show appointment number being rated */}
+                  {item.appointmentNo && (
+                    <p className="mt-1.5 text-[10px] text-muted-foreground/70 font-mono">
+                      {item.appointmentNo}
+                    </p>
+                  )}
+
                   <Separator className="my-4" />
 
                   {item.alreadyRated ? (
@@ -240,7 +274,7 @@ export default function FeedbackPage() {
                       onClick={() => openRateDialog(item)}
                     >
                       <Star className="mr-2 h-4 w-4" />
-                      Rate Experience
+                      Rate This Visit
                     </Button>
                   )}
                 </CardContent>
@@ -252,13 +286,13 @@ export default function FeedbackPage() {
 
       {/* Rate Dialog */}
       <Dialog open={rateOpen} onOpenChange={setRateOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Rate Your Experience</DialogTitle>
           </DialogHeader>
           {selectedBooking && (
             <div className="space-y-5">
-              {/* Doctor info */}
+              {/* Doctor info + booking context */}
               <div className="flex items-center gap-3 rounded-lg bg-muted/50 p-3">
                 <Avatar className="h-10 w-10">
                   <AvatarImage src={selectedBooking.doctorImg} />
@@ -266,10 +300,14 @@ export default function FeedbackPage() {
                     {selectedBooking.doctorName.charAt(0)}
                   </AvatarFallback>
                 </Avatar>
-                <div>
+                <div className="min-w-0 flex-1">
                   <p className="font-medium text-sm">{selectedBooking.doctorName}</p>
                   <p className="text-xs text-muted-foreground">
                     {selectedBooking.disease || 'General Consultation'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground/70 flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(selectedBooking.date), 'MMM d, yyyy')} &middot; {selectedBooking.appointmentNo}
                   </p>
                 </div>
               </div>

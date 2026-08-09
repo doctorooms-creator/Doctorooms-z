@@ -21,6 +21,7 @@ import {
   Award,
   Phone,
   Stethoscope,
+  Users,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth-store'
 import { toast } from 'sonner'
@@ -47,6 +48,7 @@ interface DoctorProfile {
   doctorType: string
   registrationDetail: string
   isEmergency: boolean
+  dailyLimit: number
 }
 
 export default function DoctorProfilePage() {
@@ -231,6 +233,19 @@ export default function DoctorProfilePage() {
               />
             </div>
 
+            <FormField
+              label="Daily OPD Limit"
+              icon={<Users className="h-3.5 w-3.5" />}
+              value={String(displayData?.dailyLimit ?? 50)}
+              onChange={(v) => {
+                const num = Math.min(200, Math.max(1, parseInt(v) || 1))
+                updateField('dailyLimit', num)
+              }}
+              editing={isEditing}
+              type="number"
+              helperText="Maximum patients you can see per day"
+            />
+
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Emergency Available</Label>
               <div className="flex items-center gap-2">
@@ -359,6 +374,7 @@ function FormField({
   editing,
   type = 'text',
   icon,
+  helperText,
 }: {
   label: string
   value: string
@@ -366,6 +382,7 @@ function FormField({
   editing: boolean
   type?: string
   icon?: React.ReactNode
+  helperText?: string
 }) {
   return (
     <div className="space-y-1.5">
@@ -373,9 +390,22 @@ function FormField({
         {icon} {label}
       </Label>
       {editing ? (
-        <Input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="h-9" />
+        <div>
+          <Input
+            type={type}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-9"
+            min={type === 'number' ? 1 : undefined}
+            max={type === 'number' ? 200 : undefined}
+          />
+          {helperText && <p className="text-[11px] text-muted-foreground mt-1">{helperText}</p>}
+        </div>
       ) : (
-        <p className="text-sm font-medium py-1.5">{value || '—'}</p>
+        <div>
+          <p className="text-sm font-medium py-1.5">{value || '—'}</p>
+          {!editing && helperText && <p className="text-[11px] text-muted-foreground">{helperText}</p>}
+        </div>
       )}
     </div>
   )

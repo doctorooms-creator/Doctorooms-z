@@ -1,14 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const user = await requireRole(request, 'admin')
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
@@ -53,12 +50,10 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || !session.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const user = await requireRole(request, 'admin')
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()
     const { title, content, type, status } = body
@@ -80,7 +75,7 @@ export async function POST(request: Request) {
         permalink,
         type: type || 'Blog',
         status: status || 'Draft',
-        authorId: session.user.id,
+        authorId: user.id,
       },
     })
 

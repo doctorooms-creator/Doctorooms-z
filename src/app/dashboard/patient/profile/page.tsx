@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { GENDERS } from '@/lib/constants'
-import { User, Mail, Phone, Camera, Save, X, Calendar, Shield } from 'lucide-react'
+import { User, Mail, Phone, Camera, Save, X, Calendar, Shield, KeyRound } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface Profile {
@@ -271,6 +271,25 @@ export default function PatientProfilePage() {
                 </div>
               )}
             </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Change Password Link */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+      >
+        <Card>
+          <CardContent className="py-4">
+            <button
+              onClick={() => window.location.href = '/dashboard/change-password'}
+              className="flex w-full items-center gap-3 rounded-lg p-2 text-sm text-muted-foreground transition-colors hover:bg-teal-50 hover:text-teal-700 dark:hover:bg-teal-950/50 dark:hover:text-teal-400"
+            >
+              <KeyRound className="h-5 w-5" />
+              <span>Change Password</span>
+            </button>
           </CardContent>
         </Card>
       </motion.div>

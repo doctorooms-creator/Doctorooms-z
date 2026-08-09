@@ -1,0 +1,710 @@
+     1→'use client'
+     2→
+     3→import { useState, useMemo, useCallback } from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Card, CardContent } from '@/components/ui/card'
+    10→import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    11→import { Progress } from '@/components/ui/progress'
+    12→import { Skeleton } from '@/components/ui/skeleton'
+    13→import {
+    14→  AlertDialog,
+    15→  AlertDialogAction,
+    16→  AlertDialogCancel,
+    17→  AlertDialogContent,
+    18→  AlertDialogDescription,
+    19→  AlertDialogFooter,
+    20→  AlertDialogHeader,
+    21→  AlertDialogTitle,
+    22→} from '@/components/ui/alert-dialog'
+    23→import {
+    24→  CalendarDays,
+    25→  CheckCircle,
+    26→  XCircle,
+    27→  Eye,
+    28→  FileText,
+    29→  Users,
+    30→  Clock,
+    31→  Video,
+    32→  MapPin,
+    33→  UserCheck,
+    34→  Play,
+    35→  Activity,
+    36→} from 'lucide-react'
+    37→import { format } from 'date-fns'
+    38→import { formatDistanceToNow } from 'date-fns'
+    39→import { cn } from '@/lib/utils'
+    40→import { toast } from 'sonner'
+    41→import Link from 'next/link'
+    42→import { useRouter } from 'next/navigation'
+    43→
+    44→// ==================== TYPES ====================
+    45→
+    46→interface Appointment {
+    47→  id: string
+    48→  appointmentNo: string
+    49→  patientName: string
+    50→  patientImg: string
+    51→  disease: string
+    52→  date: string
+    53→  status: string
+    54→  charge: number
+    55→  hasPrescription: boolean
+    56→}
+    57→
+    58→interface QueueItem {
+    59→  id: string
+    60→  appointmentNo: string
+    61→  patientName: string
+    62→  patientImg: string
+    63→  disease: string
+    64→  timeSlot: string
+    65→  bookingMode: string
+    66→  bookingType: string
+    67→  createdAt: string
+    68→  status: string
+    69→  queuePosition: number
+    70→}
+    71→
+    72→interface QueueResponse {
+    73→  date: string
+    74→  totalInQueue: number
+    75→  queue: QueueItem[]
+    76→  opdLimit: number
+    77→  opdCompletedToday: number
+    78→}
+    79→
+    80→// ==================== CONSTANTS ====================
+    81→
+    82→const statusColors: Record<string, string> = {
+    83→  Pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400',
+    84→  Approve: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400',
+    85→  Visited: 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-400',
+    86→  Canceled: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400',
+    87→  Finish: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400',
+    88→  Extend: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400',
+    89→}
+    90→
+    91→const statusLabels: Record<string, string> = {
+    92→  Approve: 'Waiting',
+    93→  Visited: 'In Consultation',
+    94→  Finish: 'Completed',
+    95→  Canceled: 'Canceled',
+    96→  Extend: 'Extended',
+    97→  Pending: 'Pending',
+    98→}
+    99→
+   100→const tabs = ["Today's Queue", 'All', 'Pending', 'Approve', 'Visited', 'Canceled', 'Finish']
+   101→
+   102→// ==================== HELPERS ====================
+   103→
+   104→function getRelativeTime(isoString: string): string {
+   105→  try {
+   106→    return formatDistanceToNow(new Date(isoString), { addSuffix: true })
+   107→  } catch {
+   108→    return ''
+   109→  }
+   110→}
+   111→
+   112→function getOpdColor(percentage: number): string {
+   113→  if (percentage < 80) return 'bg-emerald-500'
+   114→  if (percentage <= 95) return 'bg-amber-500'
+   115→  return 'bg-red-500'
+   116→}
+   117→
+   118→// ==================== SKELETONS ====================
+   119→
+   120→function QueueSkeleton() {
+   121→  return (
+   122→    <div className="space-y-4">
+   123→      {/* OPD Progress skeleton */}
+   124→      <Card>
+   125→        <CardContent className="p-4">
+   126→          <div className="flex items-center justify-between mb-2">
+   127→            <Skeleton className="h-5 w-32" />
+   128→            <Skeleton className="h-5 w-16" />
+   129→          </div>
+   130→          <Skeleton className="h-2 w-full rounded-full" />
+   131→        </CardContent>
+   132→      </Card>
+   133→      {/* Queue items skeleton */}
+   134→      {Array.from({ length: 4 }).map((_, i) => (
+   135→        <Card key={i}>
+   136→          <CardContent className="p-4">
+   137→            <div className="flex items-center gap-4">
+   138→              <Skeleton className="h-12 w-12 rounded-xl shrink-0" />
+   139→              <div className="flex-1 space-y-2">
+   140→                <Skeleton className="h-4 w-36" />
+   141→                <Skeleton className="h-3 w-24" />
+   142→              </div>
+   143→              <Skeleton className="h-8 w-20 rounded-full" />
+   144→            </div>
+   145→          </CardContent>
+   146→        </Card>
+   147→      ))}
+   148→    </div>
+   149→  )
+   150→}
+   151→
+   152→function AppointmentsSkeleton() {
+   153→  return (
+   154→    <Card>
+   155→      <CardContent className="p-0">
+   156→        <div className="divide-y divide-border">
+   157→          {Array.from({ length: 5 }).map((_, i) => (
+   158→            <div key={i} className="flex items-center gap-4 px-4 py-3">
+   159→              <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
+   160→              <div className="flex-1 space-y-1">
+   161→                <div className="h-4 w-28 animate-pulse rounded bg-muted" />
+   162→                <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+   163→              </div>
+   164→              <div className="h-6 w-16 animate-pulse rounded-full bg-muted" />
+   165→            </div>
+   166→          ))}
+   167→        </div>
+   168→      </CardContent>
+   169→    </Card>
+   170→  )
+   171→}
+   172→
+   173→// ==================== TODAY'S QUEUE TAB ====================
+   174→
+   175→function TodaysQueueTab() {
+   176→  const queryClient = useQueryClient()
+   177→  const [confirmDialog, setConfirmDialog] = useState<{
+   178→    open: boolean
+   179→    id: string
+   180→    newStatus: string
+   181→    label: string
+   182→  }>({ open: false, id: '', newStatus: '', label: '' })
+   183→
+   184→  const { data, isLoading, isError } = useQuery<QueueResponse>({
+   185→    queryKey: ['doctor-queue'],
+   186→    queryFn: () => fetch('/api/dashboard/doctor/queue').then((r) => r.json()),
+   187→    refetchInterval: 15000,
+   188→  })
+   189→
+   190→  const statusMutation = useMutation({
+   191→    mutationFn: ({ id, status }: { id: string; status: string }) =>
+   192→      fetch(`/api/dashboard/doctor/appointments/${id}/status`, {
+   193→        method: 'PUT',
+   194→        headers: { 'Content-Type': 'application/json' },
+   195→        body: JSON.stringify({ status }),
+   196→      }).then((r) => r.json()),
+   197→    onSuccess: () => {
+   198→      queryClient.invalidateQueries({ queryKey: ['doctor-queue'] })
+   199→      queryClient.invalidateQueries({ queryKey: ['doctor-appointments'] })
+   200→      toast.success('Patient status updated')
+   201→    },
+   202→    onError: () => toast.error('Failed to update status'),
+   203→  })
+   204→
+   205→  const handleStatusChange = (id: string, newStatus: string, label: string) => {
+   206→    setConfirmDialog({ open: true, id, newStatus, label })
+   207→  }
+   208→
+   209→  const confirmStatusChange = () => {
+   210→    statusMutation.mutate({ id: confirmDialog.id, status: confirmDialog.newStatus })
+   211→    setConfirmDialog({ open: false, id: '', newStatus: '', label: '' })
+   212→  }
+   213→
+   214→  const router = useRouter()
+   215→
+   216→  const videoCallMutation = useMutation({
+   217→    mutationFn: (bookingId: string) =>
+   218→      fetch('/api/dashboard/doctor/video-call', {
+   219→        method: 'POST',
+   220→        headers: { 'Content-Type': 'application/json' },
+   221→        body: JSON.stringify({ bookingId }),
+   222→      }).then((r) => r.json()),
+   223→    onSuccess: (data) => {
+   224→      if (data.success) {
+   225→        queryClient.invalidateQueries({ queryKey: ['doctor-queue'] })
+   226→        queryClient.invalidateQueries({ queryKey: ['doctor-appointments'] })
+   227→        toast.success('Video call started!')
+   228→        router.push(data.joinUrl)
+   229→      } else {
+   230→        toast.error(data.message || 'Failed to start video call')
+   231→      }
+   232→    },
+   233→    onError: () => toast.error('Failed to start video call'),
+   234→  })
+   235→
+   236→  const handleStartVideoCall = useCallback((bookingId: string) => {
+   237→    videoCallMutation.mutate(bookingId)
+   238→  }, [videoCallMutation])
+   239→
+   240→  const opdPercentage = data ? Math.round(((data.opdCompletedToday + (data.totalInQueue || 0)) / data.opdLimit) * 100) : 0
+   241→  const progressColor = getOpdColor(opdPercentage)
+   242→
+   243→  if (isLoading) return <QueueSkeleton />
+   244→
+   245→  if (isError || !data) {
+   246→    return (
+   247→      <Card>
+   248→        <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+   249→          <Activity className="h-12 w-12 mb-3 opacity-40" />
+   250→          <p className="font-medium">Failed to load queue</p>
+   251→          <p className="text-sm mt-1">Please try again later.</p>
+   252→        </CardContent>
+   253→      </Card>
+   254→    )
+   255→  }
+   256→
+   257→  return (
+   258→    <div className="space-y-4">
+   259→      {/* OPD Progress Bar */}
+   260→      <Card>
+   261→        <CardContent className="p-4">
+   262→          <div className="flex items-center justify-between mb-3">
+   263→            <div className="flex items-center gap-2">
+   264→              <Users className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   265→              <span className="text-sm font-semibold text-foreground">
+   266→                Today's OPD Progress
+   267→              </span>
+   268→            </div>
+   269→            <span className="text-sm font-bold text-foreground">
+   270→              {data.opdCompletedToday + (data.totalInQueue || 0)}{' '}
+   271→              <span className="font-normal text-muted-foreground">/ {data.opdLimit}</span>
+   272→            </span>
+   273→          </div>
+   274→          <div className="relative h-3 w-full overflow-hidden rounded-full bg-muted">
+   275→            <motion.div
+   276→              initial={{ width: 0 }}
+   277→              animate={{ width: `${Math.min(opdPercentage, 100)}%` }}
+   278→              transition={{ duration: 0.8, ease: 'easeOut' }}
+   279→              className={cn('h-full rounded-full', progressColor)}
+   280→            />
+   281→          </div>
+   282→          <div className="flex items-center justify-between mt-2 text-xs text-muted-foreground">
+   283→            <span>{data.totalInQueue} in queue</span>
+   284→            <span>{data.opdCompletedToday} completed</span>
+   285→          </div>
+   286→        </CardContent>
+   287→      </Card>
+   288→
+   289→      {/* Queue List */}
+   290→      <AnimatePresence mode="popLayout">
+   291→        {data.queue.length === 0 && (
+   292→          <motion.div
+   293→            initial={{ opacity: 0, y: 10 }}
+   294→            animate={{ opacity: 1, y: 0 }}
+   295→            exit={{ opacity: 0 }}
+   296→          >
+   297→            <Card>
+   298→              <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+   299→                <CalendarDays className="h-12 w-12 mb-3 opacity-40" />
+   300→                <p className="font-medium">No patients in queue</p>
+   301→                <p className="text-sm mt-1">
+   302→                  Approved patients will appear here automatically.
+   303→                </p>
+   304→              </CardContent>
+   305→            </Card>
+   306→          </motion.div>
+   307→        )}
+   308→
+   309→        {data.queue.map((item, index) => (
+   310→          <motion.div
+   311→            key={item.id}
+   312→            layout
+   313→            initial={{ opacity: 0, y: 20 }}
+   314→            animate={{ opacity: 1, y: 0 }}
+   315→            exit={{ opacity: 0, x: -50 }}
+   316→            transition={{ delay: index * 0.05, type: 'spring', stiffness: 300, damping: 25 }}
+   317→          >
+   318→            <Card className={cn(
+   319→              'overflow-hidden transition-all',
+   320→              item.status === 'Visited' && 'ring-2 ring-teal-500/40 bg-teal-50/50 dark:bg-teal-950/20'
+   321→            )}>
+   322→              <CardContent className="p-4">
+   323→                <div className="flex items-start gap-4">
+   324→                  {/* Queue Position Badge */}
+   325→                  <div className="shrink-0 flex flex-col items-center">
+   326→                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-teal-600 text-white text-lg font-bold shadow-md shadow-teal-600/20">
+   327→                      {item.queuePosition}
+   328→                    </div>
+   329→                    <span className="text-[10px] text-muted-foreground mt-1 font-medium">
+   330→                      {item.queuePosition === 1 ? 'Next' : `#${item.queuePosition}`}
+   331→                    </span>
+   332→                  </div>
+   333→
+   334→                  {/* Patient Info */}
+   335→                  <div className="flex-1 min-w-0">
+   336→                    <div className="flex items-center gap-2 mb-1">
+   337→                      <Avatar className="h-8 w-8">
+   338→                        <AvatarImage src={item.patientImg} />
+   339→                        <AvatarFallback className="text-xs bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300">
+   340→                          {item.patientName.charAt(0)}
+   341→                        </AvatarFallback>
+   342→                      </Avatar>
+   343→                      <p className="text-sm font-semibold truncate">{item.patientName}</p>
+   344→                    </div>
+   345→
+   346→                    {item.disease && (
+   347→                      <p className="text-xs text-muted-foreground truncate mb-2">
+   348→                        {item.disease}
+   349→                      </p>
+   350→                    )}
+   351→
+   352→                    {/* Info badges row */}
+   353→                    <div className="flex flex-wrap items-center gap-1.5">
+   354→                      {item.timeSlot && (
+   355→                        <Badge variant="outline" className="text-[11px] px-1.5 py-0 gap-1 border-border">
+   356→                          <Clock className="h-3 w-3" />
+   357→                          {item.timeSlot}
+   358→                        </Badge>
+   359→                      )}
+   360→                      <Badge
+   361→                        variant="outline"
+   362→                        className={cn(
+   363→                          'text-[11px] px-1.5 py-0 gap-1',
+   364→                          item.bookingMode === 'VideoCall'
+   365→                            ? 'border-violet-300 text-violet-600 dark:border-violet-700 dark:text-violet-400'
+   366→                            : 'border-teal-300 text-teal-600 dark:border-teal-700 dark:text-teal-400'
+   367→                        )}
+   368→                      >
+   369→                        {item.bookingMode === 'VideoCall' ? (
+   370→                          <Video className="h-3 w-3" />
+   371→                        ) : (
+   372→                          <MapPin className="h-3 w-3" />
+   373→                        )}
+   374→                        {item.bookingMode === 'VideoCall' ? 'Video Call' : 'In Person'}
+   375→                      </Badge>
+   376→                      <Badge
+   377→                        variant="outline"
+   378→                        className="text-[11px] px-1.5 py-0 gap-1 border-border"
+   379→                      >
+   380→                        {item.bookingType === 'By Self' ? (
+   381→                          <UserCheck className="h-3 w-3" />
+   382→                        ) : (
+   383→                          <Users className="h-3 w-3" />
+   384→                        )}
+   385→                        {item.bookingType === 'By Self' ? 'Online' : 'Walk-in'}
+   386→                      </Badge>
+   387→                      <span className="text-[11px] text-muted-foreground">
+   388→                        {getRelativeTime(item.createdAt)}
+   389→                      </span>
+   390→                    </div>
+   391→                  </div>
+   392→
+   393→                  {/* Status + Actions (right side) */}
+   394→                  <div className="shrink-0 flex flex-col items-end gap-2">
+   395→                    <Badge className={cn('text-[11px] px-2 py-0.5', statusColors[item.status])}>
+   396→                      {statusLabels[item.status] || item.status}
+   397→                    </Badge>
+   398→
+   399→                    <div className="flex items-center gap-1">
+   400→                      {item.status === 'Approve' && (
+   401→                        item.bookingMode === 'VideoCall' ? (
+   402→                          <Button
+   403→                            size="sm"
+   404→                            className="h-7 text-xs bg-violet-600 hover:bg-violet-700 text-white gap-1 shadow-sm"
+   405→                            onClick={() => handleStartVideoCall(item.id)}
+   406→                            disabled={videoCallMutation.isPending}
+   407→                          >
+   408→                            <Video className="h-3 w-3" />
+   409→                            <span className="hidden sm:inline">Video Call</span>
+   410→                          </Button>
+   411→                        ) : (
+   412→                          <Button
+   413→                            size="sm"
+   414→                            className="h-7 text-xs bg-teal-600 hover:bg-teal-700 text-white gap-1 shadow-sm"
+   415→                            onClick={() => handleStatusChange(item.id, 'Visited', 'Start Consultation')}
+   416→                          >
+   417→                            <Play className="h-3 w-3" />
+   418→                            <span className="hidden sm:inline">Start</span>
+   419→                          </Button>
+   420→                        )
+   421→                      )}
+   422→                      {item.status === 'Visited' && (
+   423→                        <Button
+   424→                          size="sm"
+   425→                          className="h-7 text-xs bg-blue-600 hover:bg-blue-700 text-white gap-1 shadow-sm"
+   426→                          onClick={() => handleStatusChange(item.id, 'Finish', 'Finish Consultation')}
+   427→                        >
+   428→                          <CheckCircle className="h-3 w-3" />
+   429→                          <span className="hidden sm:inline">Finish</span>
+   430→                        </Button>
+   431→                      )}
+   432→                      {(item.status === 'Approve' || item.status === 'Visited') && (
+   433→                        <Button
+   434→                          size="sm"
+   435→                          variant="ghost"
+   436→                          className="h-7 text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
+   437→                          onClick={() => handleStatusChange(item.id, 'Canceled', 'Cancel Appointment')}
+   438→                        >
+   439→                          <XCircle className="h-3 w-3" />
+   440→                        </Button>
+   441→                      )}
+   442→                    </div>
+   443→                  </div>
+   444→                </div>
+   445→              </CardContent>
+   446→            </Card>
+   447→          </motion.div>
+   448→        ))}
+   449→      </AnimatePresence>
+   450→
+   451→      {/* Confirmation dialog */}
+   452→      <AlertDialog open={confirmDialog.open} onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}>
+   453→        <AlertDialogContent>
+   454→          <AlertDialogHeader>
+   455→            <AlertDialogTitle>{confirmDialog.label}</AlertDialogTitle>
+   456→            <AlertDialogDescription>
+   457→              Are you sure you want to change this appointment status to{' '}
+   458→              <strong>{confirmDialog.newStatus}</strong>? This action cannot be undone.
+   459→            </AlertDialogDescription>
+   460→          </AlertDialogHeader>
+   461→          <AlertDialogFooter>
+   462→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   463→            <AlertDialogAction
+   464→              onClick={confirmStatusChange}
+   465→              className="bg-teal-600 hover:bg-teal-700"
+   466→            >
+   467→              Confirm
+   468→            </AlertDialogAction>
+   469→          </AlertDialogFooter>
+   470→        </AlertDialogContent>
+   471→      </AlertDialog>
+   472→    </div>
+   473→  )
+   474→}
+   475→
+   476→// ==================== APPOINTMENTS LIST TAB ====================
+   477→
+   478→function AppointmentsListTab({ activeTab }: { activeTab: string }) {
+   479→  const queryClient = useQueryClient()
+   480→  const [confirmDialog, setConfirmDialog] = useState<{
+   481→    open: boolean
+   482→    id: string
+   483→    newStatus: string
+   484→  }>({ open: false, id: '', newStatus: '' })
+   485→
+   486→  const { data, isLoading } = useQuery<{
+   487→    appointments: Appointment[]
+   488→    counts: Record<string, number>
+   489→  }>({
+   490→    queryKey: ['doctor-appointments', activeTab],
+   491→    queryFn: () =>
+   492→      fetch(`/api/dashboard/doctor/appointments?status=${activeTab}`).then((r) => r.json()),
+   493→  })
+   494→
+   495→  const statusMutation = useMutation({
+   496→    mutationFn: ({ id, status }: { id: string; status: string }) =>
+   497→      fetch(`/api/dashboard/doctor/appointments/${id}/status`, {
+   498→        method: 'PUT',
+   499→        headers: { 'Content-Type': 'application/json' },
+   500→        body: JSON.stringify({ status }),
+   501→      }).then((r) => r.json()),
+   502→    onSuccess: () => {
+   503→      queryClient.invalidateQueries({ queryKey: ['doctor-appointments'] })
+   504→      queryClient.invalidateQueries({ queryKey: ['doctor-queue'] })
+   505→      toast.success('Appointment status updated')
+   506→    },
+   507→    onError: () => toast.error('Failed to update status'),
+   508→  })
+   509→
+   510→  const handleStatusChange = (id: string, newStatus: string) => {
+   511→    setConfirmDialog({ open: true, id, newStatus })
+   512→  }
+   513→
+   514→  const confirmStatusChange = () => {
+   515→    statusMutation.mutate({ id: confirmDialog.id, status: confirmDialog.newStatus })
+   516→    setConfirmDialog({ open: false, id: '', newStatus: '' })
+   517→  }
+   518→
+   519→  return (
+   520→    <>
+   521→      <Card>
+   522→        <CardContent className="p-0">
+   523→          {isLoading && <AppointmentsSkeleton />}
+   524→
+   525→          {!isLoading && data?.appointments?.length === 0 && (
+   526→            <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+   527→              <CalendarDays className="h-12 w-12 mb-3 opacity-40" />
+   528→              <p className="font-medium">No appointments found</p>
+   529→              <p className="text-sm mt-1">
+   530→                Appointments will appear here when patients book with you.
+   531→              </p>
+   532→            </div>
+   533→          )}
+   534→
+   535→          {!isLoading && data?.appointments?.length > 0 && (
+   536→            <div className="max-h-[500px] overflow-y-auto">
+   537→              <div className="divide-y divide-border">
+   538→                {data.appointments.map((appt, i) => (
+   539→                  <motion.div
+   540→                    key={appt.id}
+   541→                    initial={{ opacity: 0, y: 5 }}
+   542→                    animate={{ opacity: 1, y: 0 }}
+   543→                    transition={{ delay: i * 0.03 }}
+   544→                    className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/50"
+   545→                  >
+   546→                    <Avatar className="h-9 w-9 shrink-0">
+   547→                      <AvatarImage src={appt.patientImg || ''} />
+   548→                      <AvatarFallback className="text-xs bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300">
+   549→                        {appt.patientName.charAt(0)}
+   550→                      </AvatarFallback>
+   551→                    </Avatar>
+   552→
+   553→                    <div className="flex-1 min-w-0">
+   554→                      <p className="text-sm font-medium truncate">{appt.patientName}</p>
+   555→                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+   556→                        <span>{format(new Date(appt.date), 'MMM d, yyyy')}</span>
+   557→                        {appt.disease && <span>· {appt.disease}</span>}
+   558→                      </div>
+   559→                    </div>
+   560→
+   561→                    <div className="hidden sm:flex items-center gap-2">
+   562→                      {appt.hasPrescription && (
+   563→                        <Link href={`/dashboard/doctor/prescriptions`}>
+   564→                          <Badge
+   565→                            variant="outline"
+   566→                            className="text-teal-600 border-teal-300 dark:text-teal-400 dark:border-teal-700 gap-1"
+   567→                          >
+   568→                            <FileText className="h-3 w-3" /> Rx
+   569→                          </Badge>
+   570→                        </Link>
+   571→                      )}
+   572→                      <Badge
+   573→                        className={cn(
+   574→                          'text-xs px-2 py-0.5',
+   575→                          statusColors[appt.status] || 'bg-gray-100 text-gray-700'
+   576→                        )}
+   577→                      >
+   578→                        {appt.status}
+   579→                      </Badge>
+   580→                    </div>
+   581→
+   582→                    {/* Actions */}
+   583→                    <div className="flex items-center gap-1 shrink-0">
+   584→                      {appt.status === 'Pending' && (
+   585→                        <>
+   586→                          <Button
+   587→                            size="icon"
+   588→                            variant="ghost"
+   589→                            className="h-8 w-8 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
+   590→                            onClick={() => handleStatusChange(appt.id, 'Approve')}
+   591→                          >
+   592→                            <CheckCircle className="h-4 w-4" />
+   593→                          </Button>
+   594→                          <Button
+   595→                            size="icon"
+   596→                            variant="ghost"
+   597→                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/30"
+   598→                            onClick={() => handleStatusChange(appt.id, 'Canceled')}
+   599→                          >
+   600→                            <XCircle className="h-4 w-4" />
+   601→                          </Button>
+   602→                        </>
+   603→                      )}
+   604→                      {appt.status === 'Approve' && (
+   605→                        <Button
+   606→                          size="icon"
+   607→                          variant="ghost"
+   608→                          className="h-8 w-8 text-teal-600 hover:text-teal-700 hover:bg-teal-50 dark:text-teal-400 dark:hover:bg-teal-900/30"
+   609→                          onClick={() => handleStatusChange(appt.id, 'Visited')}
+   610→                        >
+   611→                          <Eye className="h-4 w-4" />
+   612→                        </Button>
+   613→                      )}
+   614→                      {appt.status === 'Visited' && (
+   615→                        <Button
+   616→                          size="icon"
+   617→                          variant="ghost"
+   618→                          className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/30"
+   619→                          onClick={() => handleStatusChange(appt.id, 'Finish')}
+   620→                        >
+   621→                          <CheckCircle className="h-4 w-4" />
+   622→                        </Button>
+   623→                      )}
+   624→                    </div>
+   625→                  </motion.div>
+   626→                ))}
+   627→              </div>
+   628→            </div>
+   629→          )}
+   630→        </CardContent>
+   631→      </Card>
+   632→
+   633→      {/* Confirmation dialog */}
+   634→      <AlertDialog
+   635→        open={confirmDialog.open}
+   636→        onOpenChange={(open) => setConfirmDialog({ ...confirmDialog, open })}
+   637→      >
+   638→        <AlertDialogContent>
+   639→          <AlertDialogHeader>
+   640→            <AlertDialogTitle>Change Appointment Status</AlertDialogTitle>
+   641→            <AlertDialogDescription>
+   642→              Are you sure you want to change this appointment status to{' '}
+   643→              <strong>{confirmDialog.newStatus}</strong>? This action cannot be undone.
+   644→            </AlertDialogDescription>
+   645→          </AlertDialogHeader>
+   646→          <AlertDialogFooter>
+   647→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   648→            <AlertDialogAction
+   649→              onClick={confirmStatusChange}
+   650→              className="bg-teal-600 hover:bg-teal-700"
+   651→            >
+   652→              Confirm
+   653→            </AlertDialogAction>
+   654→          </AlertDialogFooter>
+   655→        </AlertDialogContent>
+   656→      </AlertDialog>
+   657→    </>
+   658→  )
+   659→}
+   660→
+   661→// ==================== MAIN PAGE ====================
+   662→
+   663→export default function DoctorAppointmentsPage() {
+   664→  const [activeTab, setActiveTab] = useState("Today's Queue")
+   665→
+   666→  const isQueueTab = activeTab === "Today's Queue"
+   667→
+   668→  // For the list tabs, map "Today's Queue" to empty string to avoid sending bad query
+   669→  const listTabValue = isQueueTab ? '' : activeTab
+   670→
+   671→  return (
+   672→    <div className="space-y-6">
+   673→      {/* Tabs */}
+   674→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   675→        <TabsList className="flex flex-wrap h-auto gap-1 bg-muted p-1">
+   676→          {tabs.map((tab) => (
+   677→            <TabsTrigger
+   678→              key={tab}
+   679→              value={tab}
+   680→              className={cn(
+   681→                'relative data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs sm:text-sm',
+   682→                tab === "Today's Queue" &&
+   683→                  'data-[state=active]:bg-teal-600 data-[state=active]:text-white'
+   684→              )}
+   685→            >
+   686→              {tab === "Today's Queue" && (
+   687→                <Activity className="h-3.5 w-3.5 mr-1" />
+   688→              )}
+   689→              {tab}
+   690→            </TabsTrigger>
+   691→          ))}
+   692→        </TabsList>
+   693→      </Tabs>
+   694→
+   695→      {/* Tab Content */}
+   696→      <AnimatePresence mode="wait">
+   697→        <motion.div
+   698→          key={activeTab}
+   699→          initial={{ opacity: 0, y: 8 }}
+   700→          animate={{ opacity: 1, y: 0 }}
+   701→          exit={{ opacity: 0, y: -8 }}
+   702→          transition={{ duration: 0.2 }}
+   703→        >
+   704→          {isQueueTab ? <TodaysQueueTab /> : <AppointmentsListTab activeTab={listTabValue} />}
+   705→        </motion.div>
+   706→      </AnimatePresence>
+   707→    </div>
+   708→  )
+   709→}
+   710→

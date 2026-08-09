@@ -1,4 +1,4 @@
-import { type LucideIcon, LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus } from 'lucide-react'
+import { type LucideIcon, LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus, KeyRound } from 'lucide-react'
 
 export interface SidebarItem {
   label: string
@@ -19,6 +19,7 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Blog', href: '/dashboard/admin/blog', icon: FileText },
     { label: 'Inquiries', href: '/dashboard/admin/inquiries', icon: MessageSquare },
     { label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
+    { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   doctor: [
     { label: 'Dashboard', href: '/dashboard/doctor', icon: LayoutDashboard },
@@ -29,6 +30,7 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Profile', href: '/dashboard/doctor/profile', icon: UserCircle },
     { label: 'Gallery', href: '/dashboard/doctor/gallery', icon: Images },
     { label: 'Posts', href: '/dashboard/doctor/posts', icon: PenSquare },
+    { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   patient: [
     { label: 'Dashboard', href: '/dashboard/patient', icon: LayoutDashboard },
@@ -37,11 +39,13 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Feedback', href: '/dashboard/patient/feedback', icon: MessageSquare },
     { label: 'Notifications', href: '/dashboard/patient/notifications', icon: Bell },
     { label: 'Profile', href: '/dashboard/patient/profile', icon: UserCircle },
+    { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   hospital: [
     { label: 'Dashboard', href: '/dashboard/hospital', icon: LayoutDashboard },
     { label: 'Doctors', href: '/dashboard/hospital/doctors', icon: Stethoscope },
     { label: 'Appointments', href: '/dashboard/hospital/appointments', icon: CalendarDays },
+    { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   receptionist: [
     { label: 'Dashboard', href: '/dashboard/receptionist', icon: LayoutDashboard },
@@ -49,16 +53,19 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Pending Bookings', href: '/dashboard/receptionist/pending-bookings', icon: Clock },
     { label: 'Walk-in', href: '/dashboard/receptionist/walk-in', icon: UserPlus },
     { label: 'Patients', href: '/dashboard/receptionist/patients', icon: Users },
+    { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   assistant: [
     { label: 'Dashboard', href: '/dashboard/assistant', icon: LayoutDashboard },
     { label: 'Appointments', href: '/dashboard/assistant/appointments', icon: CalendarDays },
     { label: 'Patients', href: '/dashboard/assistant/patients', icon: Users },
+    { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   pharmacist: [
     { label: 'Dashboard', href: '/dashboard/pharmacist', icon: LayoutDashboard },
     { label: 'Prescriptions', href: '/dashboard/pharmacist/prescriptions', icon: FileText },
     { label: 'Medicine List', href: '/dashboard/pharmacist/medicines', icon: Pill },
+    { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
 }
 

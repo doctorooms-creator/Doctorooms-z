@@ -1,6 +1,5 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireRole } from '@/lib/api-auth'
 import fs from 'fs'
 import path from 'path'
 
@@ -52,12 +51,55 @@ function writeSettings(settings: unknown) {
   fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8')
 }
 
-export async function GET() {
-  try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+// Allowed keys per section for input validation
+const ALLOWED_KEYS: Record<string, string[]> = {
+  general: ['siteName', 'email', 'phone', 'timezone', 'currency'],
+  appointments: ['defaultDuration', 'dailyLimit', 'autoApprove'],
+  notifications: ['emailEnabled', 'smsEnabled', 'pushEnabled', 'reminderTime'],
+  appearance: ['primaryColor', 'darkMode', 'sidebarPosition'],
+}
+
+const MAX_STRING_LENGTH = 255
+
+function sanitizeString(value: unknown): string {
+ if (typeof value === 'string') {
+   return value.trim().slice(0, MAX_STRING_LENGTH)
+ }
+ return String(value).trim().slice(0, MAX_STRING_LENGTH)
+}
+
+function validateSettings(body: unknown): Record<string, unknown> {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    throw new Error('Invalid settings payload')
+  }
+
+  const validated: Record<string, unknown> = {}
+
+  for (const [section, keys] of Object.entries(ALLOWED_KEYS)) {
+    const sectionData = (body as Record<string, unknown>)[section]
+    if (sectionData && typeof sectionData === 'object' && !Array.isArray(sectionData)) {
+      const cleanSection: Record<string, unknown> = {}
+      for (const key of keys) {
+        if (key in sectionData) {
+          const val = (sectionData as Record<string, unknown>)[key]
+          if (typeof val === 'string') {
+            cleanSection[key] = sanitizeString(val)
+          } else if (typeof val === 'number' || typeof val === 'boolean') {
+            cleanSection[key] = val
+          }
+        }
+      }
+      validated[section] = cleanSection
     }
+  }
+
+  return validated
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const user = await requireRole(req, 'admin')
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const settings = readSettings()
     return NextResponse.json(settings)
@@ -67,15 +109,14 @@ export async function GET() {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const user = await requireRole(request, 'admin')
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const body = await request.json()
-    writeSettings(body)
+    const validated = validateSettings(body)
+    writeSettings(validated)
 
     return NextResponse.json({ success: true })
   } catch (error) {

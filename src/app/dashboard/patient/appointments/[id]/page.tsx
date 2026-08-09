@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,7 +17,7 @@ import {
   Calendar,
   Clock,
   FileText,
-  Send,
+  SendHorizontal,
   Pill,
   Thermometer,
   Activity,
@@ -27,10 +27,29 @@ import {
   XCircle,
   Circle,
   Video,
+  Printer,
+  MessageSquare,
+  Star,
 } from 'lucide-react'
-import { format } from 'date-fns'
+import { format, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { PrescriptionPrintView, type PrescriptionPrintData } from '@/components/prescription/print-view'
+
+// ==================== TYPES ====================
+
+interface ChatMessage {
+  id: string
+  fromId: string
+  message: string
+  status: string
+  createdAt: string
+  sender: {
+    id: string
+    name: string
+    profileImg: string
+  }
+}
 
 const statusColors: Record<string, string> = {
   Pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400',
@@ -48,11 +67,15 @@ const timelineIcons: Record<string, typeof CheckCircle2> = {
   Canceled: XCircle,
 }
 
+const ratingLabels = ['Poor', 'Fair', 'Good', 'Very Good', 'Excellent']
+
 export default function AppointmentDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const id = params.id as string
   const [chatMessage, setChatMessage] = useState('')
+  const [printRxIndex, setPrintRxIndex] = useState<number | null>(null)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
   const { data, isLoading } = useQuery({
@@ -61,14 +84,136 @@ export default function AppointmentDetailPage() {
     enabled: !!id,
   })
 
+  // Check if this booking has been rated
+  const { data: ratingData } = useQuery({
+    queryKey: ['booking-rating', id],
+    queryFn: () => fetch(`/api/patient/feedback/check?bookingId=${id}`).then((r) => r.json()),
+    enabled: !!id && appointment?.status === 'Finish',
+  })
+  const bookingRating = ratingData?.rating
+
+  // Separate query for chat messages (polls every 10s for near-real-time)
+  const { data: chatData } = useQuery({
+    queryKey: ['booking-chat', id],
+    queryFn: () => fetch(`/api/bookings/${id}/chat`).then((r) => r.json()),
+    enabled: !!id,
+    refetchInterval: 10_000,
+  })
+
+  const chatMessages = chatData?.messages
+
+  // Scroll to bottom when messages change
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [data?.chatMessages?.length])
+  }, [chatMessages?.length])
 
-  const handleSendMessage = async () => {
+  // Send message mutation with optimistic update
+  const sendMessageMutation = useMutation({
+    mutationFn: (msg: string) =>
+      fetch(`/api/bookings/${id}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg }),
+      }).then((r) => {
+        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed to send') })
+        return r.json()
+      }),
+    onMutate: async (msg) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries({ queryKey: ['booking-chat', id] })
+      // Snapshot previous data
+      const prev = queryClient.getQueryData(['booking-chat', id])
+      // Optimistically add the message
+      queryClient.setQueryData(['booking-chat', id], (old: { messages: ChatMessage[] } | undefined) => ({
+        messages: [
+          ...(old?.messages || []),
+          {
+            id: `temp-${Date.now()}`,
+            fromId: 'me',
+            message: msg,
+            status: 'UNREAD',
+            createdAt: new Date().toISOString(),
+            sender: { id: 'me', name: 'You', profileImg: '' },
+          },
+        ],
+      }))
+      return { prev }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['booking-chat', id] })
+    },
+    onError: (_err, _msg, context) => {
+      if (context?.prev) {
+        queryClient.setQueryData(['booking-chat', id], context.prev)
+      }
+      toast.error('Failed to send message')
+    },
+    onSettled: () => {
+      setChatMessage('')
+    },
+  })
+
+  const handleSendMessage = useCallback(() => {
     if (!chatMessage.trim()) return
-    toast.info('Chat messages require WebSocket connection — coming soon!')
-    setChatMessage('')
+    sendMessageMutation.mutate(chatMessage.trim())
+  }, [chatMessage, sendMessageMutation])
+
+  const handlePrintPrescription = (index: number) => {
+    setPrintRxIndex(index)
+  }
+
+  const handleClosePrint = () => setPrintRxIndex(null)
+  const handlePrintAction = () => window.print()
+
+  const { appointment, doctor, patient, prescriptions, statusTimeline } = data || {}
+
+  const buildPrintData = (rx: {
+    id: string
+    patientName: string
+    patientAge: string
+    disease: string
+    weight: string
+    bp: string
+    temperature: string
+    description: string
+    medicines: { id?: string; medicine: string; morning: boolean; afternoon: boolean; evening: boolean; tab: number; dose: string; description?: string }[]
+    labels: { id?: string; label: string; value: string; labelUnit: string }[]
+    suggestions: { id?: string; question: string; suggestions: string }[]
+    createdAt: string
+  }): PrescriptionPrintData => {
+    return {
+      patientName: rx.patientName || appointment?.patientName || patient?.name || '',
+      patientAge: rx.patientAge || (appointment?.age ? String(appointment.age) : undefined),
+      gender: appointment?.gender || undefined,
+      bloodGroup: appointment?.bloodGroup || undefined,
+      weight: rx.weight || undefined,
+      bp: rx.bp || undefined,
+      temperature: rx.temperature || undefined,
+      disease: rx.disease || undefined,
+      description: rx.description || undefined,
+      createdAt: rx.createdAt,
+      medicines: rx.medicines.map((m) => ({
+        id: m.id,
+        medicine: m.medicine,
+        morning: m.morning,
+        afternoon: m.afternoon,
+        evening: m.evening,
+        tab: m.tab,
+        dose: m.dose,
+        description: m.description || '',
+      })),
+      labels: rx.labels,
+      suggestions: rx.suggestions,
+      doctor: {
+        name: doctor?.name,
+        specialization: doctor?.specialization,
+        city: doctor?.city,
+        hospitalAddress: doctor?.hospitalAddress,
+        phoneNo: doctor?.phone,
+        fees: doctor?.fees,
+        experience: doctor?.experience,
+      },
+    }
   }
 
   if (isLoading) {
@@ -88,8 +233,6 @@ export default function AppointmentDetailPage() {
       </div>
     )
   }
-
-  const { appointment, doctor, patient, chatMessages, prescriptions, statusTimeline } = data || {}
 
   return (
     <div className="space-y-6">
@@ -275,45 +418,149 @@ export default function AppointmentDetailPage() {
             </motion.div>
           )}
 
+          {/* Rate This Visit — shown for finished appointments */}
+          {appointment?.status === 'Finish' && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            >
+              <Card className={cn(
+                'overflow-hidden',
+                !bookingRating && 'border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50 to-amber-50 dark:from-teal-950/30 dark:to-amber-950/20'
+              )}>
+                <CardContent className="p-5">
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <div className={cn(
+                      'flex items-center justify-center h-14 w-14 rounded-2xl shrink-0',
+                      bookingRating
+                        ? 'bg-amber-100 dark:bg-amber-900/30'
+                        : 'bg-teal-600 shadow-lg shadow-teal-600/30'
+                    )}>
+                      <Star className={cn(
+                        'h-7 w-7',
+                        bookingRating
+                          ? 'fill-amber-400 text-amber-400'
+                          : 'text-white'
+                      )} />
+                    </div>
+                    <div className="flex-1 text-center sm:text-left">
+                      {bookingRating ? (
+                        <>
+                          <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                              You rated this visit
+                            </p>
+                          </div>
+                          <div className="flex items-center justify-center sm:justify-start gap-0.5">
+                            {[1, 2, 3, 4, 5].map((s) => (
+                              <Star
+                                key={s}
+                                className={cn(
+                                  'h-4 w-4',
+                                  s <= bookingRating.star
+                                    ? 'fill-amber-400 text-amber-400'
+                                    : 'fill-none text-muted-foreground/30'
+                                )}
+                              />
+                            ))}
+                            <span className="ml-2 text-xs text-muted-foreground">
+                              {ratingLabels[bookingRating.star - 1]} &middot; {format(new Date(bookingRating.createdAt), 'MMM d, yyyy')}
+                            </span>
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                            <p className="text-sm font-semibold text-teal-700 dark:text-teal-400">
+                              How was your visit?
+                            </p>
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Share your experience to help other patients
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    {!bookingRating && (
+                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                        <Button
+                          className="bg-teal-600 hover:bg-teal-700 text-white gap-2 shadow-lg shadow-teal-600/30"
+                          onClick={() => {
+                            const doctorUserId = doctor?.userId || ''
+                            router.push(`/dashboard/patient/feedback?bookingId=${id}&doctorId=${doctorUserId}`)
+                          }}
+                        >
+                          <Star className="h-4 w-4" />
+                          Rate This Visit
+                        </Button>
+                      </motion.div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           {/* Chat Section */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-semibold">Chat with Doctor</CardTitle>
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4 text-teal-500" />
+                <CardTitle className="text-base font-semibold">Chat with Doctor</CardTitle>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="max-h-72 overflow-y-auto p-4 space-y-3">
-                {chatMessages?.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">No messages yet. Start a conversation!</p>
+              <div className="max-h-[300px] overflow-y-auto p-4 space-y-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
+                {!chatMessages || chatMessages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+                    <MessageSquare className="h-8 w-8 mb-2 opacity-30" />
+                    <p className="text-sm">No messages yet</p>
+                    <p className="text-xs opacity-60">Start a conversation about your appointment</p>
+                  </div>
                 ) : (
-                  chatMessages?.map((msg: { id: string; fromId: string; message: string; createdAt: string; sender: { name: string; img: string; role: string } }) => {
-                    const isMe = msg.sender?.role === 'patient'
+                  chatMessages.map((msg: ChatMessage) => {
+                    const isMe = msg.fromId === 'me'
                     return (
                       <motion.div
                         key={msg.id}
-                        initial={{ opacity: 0, y: 5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={cn('flex gap-2', isMe ? 'flex-row-reverse' : 'flex-row')}
+                        initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                        className={cn('flex gap-2', isMe ? 'justify-end' : 'justify-start')}
                       >
-                        <Avatar className="h-7 w-7 shrink-0">
-                          <AvatarImage src={msg.sender.img} />
-                          <AvatarFallback className="text-[10px] bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300">
-                            {msg.sender.name.charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div
-                          className={cn(
-                            'max-w-[75%] rounded-xl px-3 py-2 text-sm',
-                            isMe
-                              ? 'bg-teal-500 text-white'
-                              : 'bg-muted text-foreground'
-                          )}
-                        >
+                        {!isMe && (
+                          <Avatar className="h-7 w-7 shrink-0 mt-1">
+                            <AvatarImage src={msg.sender?.profileImg} />
+                            <AvatarFallback className="text-[10px] bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                              {(msg.sender?.name || 'D').charAt(0)}
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                        <div className="max-w-[75%] space-y-0.5">
                           {!isMe && (
-                            <p className="mb-0.5 text-[10px] font-medium opacity-60">{msg.sender.name}</p>
+                            <p className="text-[10px] font-medium text-muted-foreground pl-1">
+                              {msg.sender?.name || 'Doctor'}
+                            </p>
                           )}
-                          <p>{msg.message}</p>
-                          <p className={cn('mt-1 text-[10px] opacity-50', isMe ? 'text-right' : '')}>
-                            {format(new Date(msg.createdAt), 'h:mm a')}
+                          <div
+                            className={cn(
+                              'rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
+                              isMe
+                                ? 'bg-teal-600 text-white rounded-br-md'
+                                : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100 rounded-bl-md'
+                            )}
+                          >
+                            <p>{msg.message}</p>
+                          </div>
+                          <p className={cn('text-[10px] text-muted-foreground', isMe ? 'text-right pr-1' : 'pl-1')}>
+                            {(() => {
+                              try {
+                                return formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })
+                              } catch {
+                                return ''
+                              }
+                            })()}
                           </p>
                         </div>
                       </motion.div>
@@ -333,12 +580,24 @@ export default function AppointmentDetailPage() {
                   <Textarea
                     value={chatMessage}
                     onChange={(e) => setChatMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault()
+                        handleSendMessage()
+                      }
+                    }}
                     placeholder="Type a message..."
-                    className="min-h-[40px] max-h-[100px] resize-none"
+                    className="min-h-[40px] max-h-[100px] resize-none text-sm"
                     rows={1}
+                    disabled={sendMessageMutation.isPending}
                   />
-                  <Button type="submit" size="icon" className="h-10 w-10 shrink-0 bg-teal-500 hover:bg-teal-600 text-white">
-                    <Send className="h-4 w-4" />
+                  <Button
+                    type="submit"
+                    size="icon"
+                    className="h-10 w-10 shrink-0 bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50"
+                    disabled={!chatMessage.trim() || sendMessageMutation.isPending}
+                  >
+                    <SendHorizontal className="h-4 w-4" />
                   </Button>
                 </form>
               </div>
@@ -403,10 +662,22 @@ export default function AppointmentDetailPage() {
           {prescriptions && prescriptions.length > 0 && (
             <Card>
               <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base font-semibold">
-                  <FileText className="h-4 w-4 text-teal-500" />
-                  Prescription
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                    <FileText className="h-4 w-4 text-teal-500" />
+                    Prescription
+                  </CardTitle>
+                  {prescriptions.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 gap-1.5 text-xs"
+                      onClick={() => handlePrintPrescription(0)}
+                    >
+                      <Printer className="h-3.5 w-3.5" /> Print
+                    </Button>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
                 {prescriptions.map((rx: {
@@ -512,6 +783,15 @@ export default function AppointmentDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Print preview overlay */}
+      {printRxIndex !== null && prescriptions?.[printRxIndex] && (
+        <PrescriptionPrintView
+          data={buildPrintData(prescriptions[printRxIndex])}
+          onClose={handleClosePrint}
+          onPrint={handlePrintAction}
+        />
+      )}
     </div>
   )
 }

@@ -7,9 +7,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { name, email, mobileNo, gender, password, role } = body;
 
-    if (!name || !email || !password || !role) {
+    // Security: Only allow self-registration for patient and hospital roles.
+    // Privileged roles (admin, doctor, receptionist, assistant, pharmacist) must be
+    // assigned by an admin through the dashboard, not through public registration.
+    const ALLOWED_SELF_REGISTER_ROLES = ['patient', 'hospital'];
+    const safeRole = ALLOWED_SELF_REGISTER_ROLES.includes(role) ? role : 'patient';
+
+    if (!name || !email || !password) {
       return NextResponse.json(
-        { success: false, message: 'Name, email, password, and role are required' },
+        { success: false, message: 'Name, email, and password are required' },
         { status: 400 }
       );
     }
@@ -37,7 +43,7 @@ export async function POST(req: NextRequest) {
         password: hashed,
         mobileNo: mobileNo || '',
         gender: gender || 'Male',
-        role,
+        role: safeRole,
         status: 'Active',
       },
     });

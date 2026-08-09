@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   ArrowLeft,
   Printer,
+  Download,
   Pencil,
   Save,
   X,
@@ -26,6 +27,7 @@ import {
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import Link from 'next/link'
+import { PrescriptionPrintView, type PrescriptionPrintData } from '@/components/prescription/print-view'
 
 interface Medicine {
   id: string
@@ -57,12 +59,24 @@ interface Prescription {
   createdAt: string
   medicines: Medicine[]
   labels: LabelItem[]
+  suggestions: { id: string; question: string; suggestions: string }[]
   doctor: {
+    id: string
     user: {
       name: string
       profileImg: string
       mobileNo: string
     }
+    specialization?: string
+    education?: string
+    registrationDetail?: string
+    city?: string
+    state?: string
+    address?: string
+    hospitalAddress?: string
+    phoneNo?: string
+    fees?: number
+    experience?: string
   }
 }
 
@@ -106,6 +120,7 @@ export default function ViewPrescriptionPage() {
   const id = params.id as string
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<EditData | null>(null)
+  const [showPrintView, setShowPrintView] = useState(false)
 
   const { data, isLoading } = useQuery<{ prescription: Prescription }>({
     queryKey: ['doctor-prescription', id],
@@ -157,7 +172,50 @@ export default function ViewPrescriptionPage() {
     setIsEditing(true)
   }
 
-  const handlePrint = () => window.print()
+  const getPrintData = useCallback((): PrescriptionPrintData | null => {
+    if (!rx) return null
+    return {
+      patientName: rx.patientName,
+      patientAge: rx.patientAge || undefined,
+      weight: rx.weight || undefined,
+      bp: rx.bp || undefined,
+      temperature: rx.temperature || undefined,
+      disease: rx.disease || undefined,
+      description: rx.description || undefined,
+      createdAt: rx.createdAt,
+      medicines: rx.medicines,
+      labels: rx.labels,
+      suggestions: rx.suggestions,
+      doctor: {
+        name: rx.doctor?.user?.name,
+        specialization: rx.doctor?.specialization,
+        education: rx.doctor?.education,
+        registrationDetail: rx.doctor?.registrationDetail,
+        city: rx.doctor?.city,
+        state: rx.doctor?.state,
+        address: rx.doctor?.address,
+        hospitalAddress: rx.doctor?.hospitalAddress,
+        phoneNo: rx.doctor?.phoneNo,
+        mobileNo: rx.doctor?.user?.mobileNo,
+        fees: rx.doctor?.fees,
+        experience: rx.doctor?.experience,
+      },
+    }
+  }, [rx])
+
+  const handlePrint = () => {
+    setShowPrintView(true)
+  }
+
+  const handlePrintAction = () => window.print()
+
+  const handleClosePrint = () => setShowPrintView(false)
+
+  const handleDownloadPdf = () => {
+    if (!rx) return
+    setShowPrintView(true)
+    setTimeout(() => window.print(), 200)
+  }
 
   const handleSave = () => {
     if (!editData) return
@@ -236,6 +294,20 @@ export default function ViewPrescriptionPage() {
 
   const displayMeds = isEditing && editData ? editData.medicines : rx.medicines
 
+  // Print preview overlay
+  if (showPrintView) {
+    const printData = getPrintData()
+    if (printData) {
+      return (
+        <PrescriptionPrintView
+          data={printData}
+          onClose={handleClosePrint}
+          onPrint={handlePrintAction}
+        />
+      )
+    }
+  }
+
   return (
     <div className="space-y-6 print:space-y-4">
       {/* Actions - hidden in print */}
@@ -262,6 +334,9 @@ export default function ViewPrescriptionPage() {
               </Button>
               <Button variant="outline" size="sm" onClick={handlePrint}>
                 <Printer className="mr-1 h-4 w-4" /> Print
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
+                <Download className="mr-1 h-4 w-4" /> Download PDF
               </Button>
             </>
           )}

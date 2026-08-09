@@ -1,8 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { requireRole } from '@/lib/api-auth'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const user = await requireRole(req, 'admin')
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     const [
       totalUsers,
       totalDoctors,

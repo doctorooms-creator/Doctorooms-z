@@ -23,11 +23,11 @@ export async function POST(req: NextRequest) {
     }
 
     const otp = generateOTP(email.toLowerCase());
-    // In production, send OTP via email/SMS. For demo, return it.
+    // OTP is stored server-side only. In production, send via email/SMS.
+    console.log('[DEV] OTP for', email.toLowerCase(), ':', otp);
     return NextResponse.json({
       success: true,
       message: 'OTP sent to your email',
-      otp, // Only for demo purposes
     });
   } catch (error) {
     console.error('Forgot password error:', error);

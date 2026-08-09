@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'patient') {
+    const user = await requireRole(req, 'patient')
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const completedBookings = await db.booking.findMany({
       where: {
-        userId: session.user.id,
+        userId: user.id,
         status: { in: ['Visited', 'Finish'] },
       },
       orderBy: { updatedAt: 'desc' },
@@ -25,12 +24,16 @@ export async function GET() {
       },
     })
 
+    // Check ratings by bookingId for per-visit ratings
     const existingRatings = await db.doctorRating.findMany({
-      where: { patientId: session.user.id },
-      select: { doctorId: true },
+      where: { patientId: user.id },
+      select: { bookingId: true, doctorId: true },
     })
 
-    const ratedDoctorIds = new Set(existingRatings.map((r) => r.doctorId))
+    // Map bookingId -> rated for per-visit checks
+    const ratedBookingIds = new Set(
+      existingRatings.filter((r) => r.bookingId).map((r) => r.bookingId)
+    )
 
     const feedbackList = completedBookings.map((b) => {
       const doctorUserId = b.doctor?.userId || ''
@@ -43,7 +46,7 @@ export async function GET() {
         disease: b.disease,
         date: b.bookingDate,
         status: b.status,
-        alreadyRated: ratedDoctorIds.has(doctorUserId),
+        alreadyRated: ratedBookingIds.has(b.id),
       }
     })
 
@@ -56,8 +59,8 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'patient') {
+    const user = await requireRole(req, 'patient')
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -68,21 +71,52 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Doctor and star rating are required' }, { status: 400 })
     }
 
-    const existing = await db.doctorRating.findFirst({
+    // If bookingId is provided, check for existing rating on this specific booking
+    if (bookingId) {
+      const existing = await db.doctorRating.findFirst({
+        where: {
+          patientId: user.id,
+          bookingId: bookingId,
+        },
+      })
+
+      if (existing) {
+        // Update existing rating
+        const updated = await db.doctorRating.update({
+          where: { id: existing.id },
+          data: {
+            star,
+            consultationRating: consultationRating || 0,
+            waitTimeRating: waitTimeRating || 0,
+            staffRating: staffRating || 0,
+            review: review || '',
+            wouldRecommend: wouldRecommend ?? true,
+            isAnonymous: isAnonymous ?? false,
+          },
+        })
+        return NextResponse.json(updated)
+      }
+    }
+
+    // Check if already rated this doctor without bookingId (legacy behavior)
+    const existingLegacy = await db.doctorRating.findFirst({
       where: {
-        patientId: session.user.id,
+        patientId: user.id,
         doctorId: doctorUserId,
+        bookingId: null,
       },
     })
 
-    if (existing) {
+    if (existingLegacy && !bookingId) {
       return NextResponse.json({ error: 'Already rated this doctor' }, { status: 409 })
     }
 
+    // Create new rating
     const rating = await db.doctorRating.create({
       data: {
-        patientId: session.user.id,
+        patientId: user.id,
         doctorId: doctorUserId,
+        bookingId: bookingId || null,
         star,
         consultationRating: consultationRating || 0,
         waitTimeRating: waitTimeRating || 0,

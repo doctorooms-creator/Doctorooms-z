@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
+    const user = await requireRole(req, 'doctor')
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const doctor = await db.doctor.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       include: {
         user: { select: { name: true, email: true, profileImg: true, mobileNo: true, gender: true } },
       },
@@ -44,6 +43,7 @@ export async function GET() {
         doctorType: doctor.doctorType,
         registrationDetail: doctor.registrationDetail,
         isEmergency: doctor.isEmergency,
+        dailyLimit: doctor.dailyLimit,
       },
     })
   } catch (error) {
@@ -54,8 +54,8 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
+    const user = await requireRole(req, 'doctor')
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -78,24 +78,25 @@ export async function PUT(req: NextRequest) {
       registrationDetail,
       isEmergency,
       profileImg,
+      dailyLimit,
     } = body
 
     // Update user name
     if (name) {
       await db.user.update({
-        where: { id: session.user.id },
+        where: { id: user.id },
         data: { name },
       })
     }
     if (profileImg) {
       await db.user.update({
-        where: { id: session.user.id },
+        where: { id: user.id },
         data: { profileImg },
       })
     }
 
     const updated = await db.doctor.update({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       data: {
         ...(specialization !== undefined && { specialization }),
         ...(education !== undefined && { education }),
@@ -112,6 +113,7 @@ export async function PUT(req: NextRequest) {
         ...(doctorType !== undefined && { doctorType }),
         ...(registrationDetail !== undefined && { registrationDetail }),
         ...(isEmergency !== undefined && { isEmergency }),
+        ...(dailyLimit !== undefined && { dailyLimit: Math.min(200, Math.max(1, Number(dailyLimit) || 50)) }),
       },
     })
 
