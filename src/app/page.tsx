@@ -502,7 +502,8 @@ export default function HomePage() {
           <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {doctors.slice(0, 3).map((doc, i) => (
               <FadeUpItem key={doc.id} index={i}>
-                <Card className="group transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+                <Link href={`/doctors/${doc.id}`} className="block">
+                <Card className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
                   <CardContent className="flex flex-col items-center p-6">
                     {/* Avatar */}
                     <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-emerald-100 text-xl font-bold text-teal-700 ring-4 ring-teal-200/60 dark:from-teal-900/40 dark:to-emerald-900/40 dark:text-teal-300 dark:ring-teal-800/40">
@@ -539,14 +540,24 @@ export default function HomePage() {
                       <span className="ml-1 text-sm font-normal text-gray-400">/ visit</span>
                     </div>
 
-                    <Button
-                      className="mt-5 w-full bg-gradient-to-r from-teal-600 to-emerald-500 text-white hover:from-teal-700 hover:to-emerald-600"
-                      asChild
-                    >
-                      <Link href={`/doctors/${doc.id}`}>Book Appointment</Link>
-                    </Button>
+                    <div className="mt-5 flex w-full gap-2">
+                      <Button
+                        className="flex-1 bg-gradient-to-r from-teal-600 to-emerald-500 text-white hover:from-teal-700 hover:to-emerald-600"
+                        asChild
+                      >
+                        <span>Book Appointment</span>
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="gap-1"
+                      >
+                        View Profile
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
+                </Link>
               </FadeUpItem>
             ))}
           </div>

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
 export async function GET(
@@ -8,15 +7,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'doctor')
 
     const { id } = await params
 
     const doctor = await db.doctor.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     })
     if (!doctor) {
@@ -58,14 +54,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'doctor')
 
     const { id } = await params
     const doctor = await db.doctor.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     })
     if (!doctor) {
@@ -115,7 +108,7 @@ export async function PUT(
             tab: m.tab || 1,
             dose: m.dose || '',
             description: m.description || '',
-            createdById: session.user.id,
+            createdById: user.id,
           })),
         },
         labels: {
@@ -123,7 +116,7 @@ export async function PUT(
             label: l.label || '',
             value: l.value || '',
             labelUnit: l.labelUnit || '',
-            createdById: session.user.id,
+            createdById: user.id,
           })),
         },
       },

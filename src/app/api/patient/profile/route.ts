@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'patient') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'patient')
 
-    const user = await db.user.findUnique({
-      where: { id: session.user.id },
+    const profile = await db.user.findUnique({
+      where: { id: user.id },
       select: {
         id: true,
         name: true,
@@ -23,11 +19,11 @@ export async function GET() {
       },
     })
 
-    if (!user) {
+    if (!profile) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ profile: user })
+    return NextResponse.json({ profile })
   } catch (error) {
     console.error('Patient profile error:', error)
     return NextResponse.json({ error: 'Failed to load profile' }, { status: 500 })
@@ -36,10 +32,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'patient') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'patient')
 
     const body = await req.json()
     const { name, mobileNo, gender } = body
@@ -49,7 +42,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const updated = await db.user.update({
-      where: { id: session.user.id },
+      where: { id: user.id },
       data: { name, mobileNo: mobileNo || '', gender: gender || 'Male' },
       select: { id: true, name: true, email: true, mobileNo: true, gender: true, profileImg: true },
     })

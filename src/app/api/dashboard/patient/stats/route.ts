@@ -1,16 +1,11 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'patient') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const userId = session.user.id
+    const user = await requireRole(req, 'patient')
+    const userId = user.id
 
     const [
       upcomingCount,
@@ -19,6 +14,8 @@ export async function GET() {
       totalDocuments,
       upcomingAppointments,
       recentBookings,
+      lastVisitedBooking,
+      prescriptionsCount,
     ] = await Promise.all([
       db.booking.count({
         where: {
@@ -33,10 +30,12 @@ export async function GET() {
           status: { in: ['Visited', 'Finish'] },
         },
       }),
-      db.booking.groupBy({
-        by: ['doctorId'],
-        where: { userId },
-      }).then((r) => r.length),
+      db.booking
+        .groupBy({
+          by: ['doctorId'],
+          where: { userId, status: { in: ['Visited', 'Finish'] } },
+        })
+        .then((r) => r.length),
       db.medicalDocument.count({
         where: { patientId: userId },
       }),
@@ -68,6 +67,22 @@ export async function GET() {
           },
         },
       }),
+      db.booking.findFirst({
+        where: {
+          userId,
+          status: { in: ['Visited', 'Finish'] },
+        },
+        orderBy: { bookingDate: 'desc' },
+        select: { bookingDate: true },
+      }),
+      db.prescription.count({
+        where: {
+          booking: {
+            userId,
+            status: { in: ['Visited', 'Finish'] },
+          },
+        },
+      }),
     ])
 
     return NextResponse.json({
@@ -75,6 +90,8 @@ export async function GET() {
       completedVisits: visitedCount,
       totalDoctors,
       medicalDocuments: totalDocuments,
+      lastVisitDate: lastVisitedBooking?.bookingDate || null,
+      prescriptionsReceived: prescriptionsCount,
       upcomingList: upcomingAppointments.map((b) => ({
         id: b.id,
         doctorName: b.doctor?.user?.name || 'Unknown',

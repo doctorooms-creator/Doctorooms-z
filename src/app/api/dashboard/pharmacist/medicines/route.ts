@@ -1,17 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'pharmacist') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const user = await requireRole(request, 'pharmacist')
 
     const pharmacist = await db.doctorPharmacist.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     })
 
     if (!pharmacist) {
@@ -38,15 +34,12 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'pharmacist') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const user = await requireRole(request, 'pharmacist')
 
     const pharmacist = await db.doctorPharmacist.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     })
 
     if (!pharmacist) {
@@ -74,7 +67,7 @@ export async function POST(request: Request) {
         description: description || '',
         status: status || 'Active',
         userId: pharmacist.doctorId,
-        createdById: session.user.id,
+        createdById: user.id,
       },
     })
 
@@ -85,15 +78,12 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'pharmacist') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const user = await requireRole(request, 'pharmacist')
 
     const pharmacist = await db.doctorPharmacist.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     })
 
     if (!pharmacist) {
@@ -137,15 +127,12 @@ export async function PUT(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'pharmacist') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const user = await requireRole(request, 'pharmacist')
 
     const pharmacist = await db.doctorPharmacist.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     })
 
     if (!pharmacist) {

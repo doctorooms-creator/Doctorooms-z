@@ -1,17 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const authUser = await requireRole(request, 'admin')
 
     const { id } = await params
     const body = await request.json()
@@ -27,7 +23,7 @@ export async function PUT(
     }
 
     // Prevent admin from blocking themselves
-    if (user.id === session.user.id && status === 'Block') {
+    if (user.id === authUser.id && status === 'Block') {
       return NextResponse.json({ error: 'Cannot block yourself' }, { status: 400 })
     }
 

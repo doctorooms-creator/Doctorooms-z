@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
 export async function PUT(
@@ -8,17 +7,14 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'patient') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'patient')
 
     const { id } = await params
     const body = await req.json()
     const { title, category, description } = body
 
     const doc = await db.medicalDocument.findUnique({ where: { id } })
-    if (!doc || doc.patientId !== session.user.id) {
+    if (!doc || doc.patientId !== user.id) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
@@ -35,19 +31,16 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'patient') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'patient')
 
     const { id } = await params
 
     const doc = await db.medicalDocument.findUnique({ where: { id } })
-    if (!doc || doc.patientId !== session.user.id) {
+    if (!doc || doc.patientId !== user.id) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 

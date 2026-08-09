@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
+import { Prisma } from '@prisma/client'
 
 export async function GET(
   _request: NextRequest,
@@ -32,6 +33,42 @@ export async function GET(
       _count: { star: true },
     })
 
+    // Get star distribution (count per star level)
+    const starDistribution = await db.doctorRating.groupBy({
+      by: ['star'],
+      where: { doctorId: user.id },
+      _count: { star: true },
+    })
+
+    const distributionMap: Record<number, number> = {}
+    for (let i = 1; i <= 5; i++) {
+      const found = starDistribution.find((d) => d.star === i)
+      distributionMap[i] = found ? found._count.star : 0
+    }
+
+    // Get total unique patients and total appointments
+    const [totalPatients, totalAppointments] = await Promise.all([
+      db.booking.groupBy({
+        by: ['userId'],
+        where: { doctorId: user.doctor.id, userId: { not: null }, status: { in: ['Approve', 'Visited', 'Finish'] } },
+      }).then((result) => result.length),
+      db.booking.count({
+        where: { doctorId: user.doctor.id, status: { in: ['Approve', 'Visited', 'Finish'] } },
+      }),
+    ])
+
+    // Get latest 5 reviews
+    const reviews = await db.doctorRating.findMany({
+      where: { doctorId: user.id },
+      take: 5,
+      orderBy: { createdAt: 'desc' },
+      include: {
+        patient: {
+          select: { id: true, name: true },
+        },
+      },
+    })
+
     // Get related doctors (same specialization, different doctor)
     let relatedDoctors: { id: string; name: string; profileImg: string; doctor: { specialization: string; city: string; fees: number } | null }[] = []
     if (user.doctor.specialization) {
@@ -45,7 +82,7 @@ export async function GET(
               specialization: user.doctor.specialization,
             },
           },
-          take: 5,
+          take: 3,
           select: {
             id: true,
             name: true,
@@ -76,6 +113,7 @@ export async function GET(
           city: user.doctor.city,
           address: user.doctor.address,
           state: user.doctor.state,
+          hospitalAddress: user.doctor.hospitalAddress,
           fees: user.doctor.fees,
           emergencyCharge: user.doctor.emergencyCharge,
           description: user.doctor.description,
@@ -83,11 +121,22 @@ export async function GET(
           phoneNo: user.doctor.phoneNo,
           isEmergency: user.doctor.isEmergency,
           awardAndRecognition: user.doctor.awardAndRecognition,
+          registrationDetail: user.doctor.registrationDetail,
         },
         schedules,
         avgRating: ratingAgg._avg.star || 0,
         ratingCount: ratingAgg._count.star || 0,
-        patientCount: await db.booking.count({ where: { doctorId: user.doctor.id, status: { in: ['Approve', 'Visited', 'Finish'] } } }),
+        starDistribution: distributionMap,
+        totalPatients,
+        totalAppointments,
+        reviews: reviews.map((r) => ({
+          id: r.id,
+          star: r.star,
+          review: r.review,
+          isAnonymous: r.isAnonymous,
+          patientName: r.isAnonymous ? 'Anonymous' : r.patient.name,
+          createdAt: r.createdAt,
+        })),
         relatedDoctors,
       },
     })

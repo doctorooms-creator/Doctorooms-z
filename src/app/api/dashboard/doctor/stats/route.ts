@@ -1,18 +1,14 @@
-import { NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { startOfDay, endOfDay } from 'date-fns'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'doctor')
 
     const doctor = await db.doctor.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     })
     if (!doctor) {
@@ -49,7 +45,7 @@ export async function GET() {
         },
       }),
       db.doctorRating.findMany({
-        where: { doctorId: session.user.id },
+        where: { doctorId: user.id },
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -70,7 +66,7 @@ export async function GET() {
     ])
 
     const avgRating = await db.doctorRating.aggregate({
-      where: { doctorId: session.user.id },
+      where: { doctorId: user.id },
       _avg: { star: true },
     })
 

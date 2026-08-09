@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'doctor')
 
     const doctor = await db.doctor.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     })
     if (!doctor) {
@@ -19,7 +15,7 @@ export async function GET() {
     }
 
     const holidays = await db.doctorHoliday.findMany({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       orderBy: { date: 'asc' },
     })
 
@@ -32,10 +28,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'doctor')
 
     const body = await req.json()
     const { date, remark } = body
@@ -46,7 +39,7 @@ export async function POST(req: NextRequest) {
 
     const holiday = await db.doctorHoliday.create({
       data: {
-        userId: session.user.id,
+        userId: user.id,
         date: new Date(date),
         remark: remark || '',
       },
@@ -61,10 +54,7 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'doctor')
 
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
@@ -74,7 +64,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     await db.doctorHoliday.deleteMany({
-      where: { id, userId: session.user.id },
+      where: { id, userId: user.id },
     })
 
     return NextResponse.json({ success: true })

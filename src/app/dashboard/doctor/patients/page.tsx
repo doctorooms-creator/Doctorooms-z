@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
@@ -89,45 +90,47 @@ export default function DoctorPatientsPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.04 }}
             >
-              <Card className="group transition-all hover:shadow-md hover:border-teal-300 dark:hover:border-teal-700">
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-12 w-12">
-                      <AvatarImage src={patient.img || ''} />
-                      <AvatarFallback className="bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300">
-                        {patient.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-sm truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-                        {patient.name}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        {patient.gender && <span>{patient.gender}</span>}
-                        {patient.mobile && (
-                          <>
-                            <span>·</span>
-                            <span className="flex items-center gap-0.5">
-                              <Phone className="h-3 w-3" /> {patient.mobile}
-                            </span>
-                          </>
-                        )}
+              <Link href={`/dashboard/doctor/patients/${patient.userId}`}>
+                <Card className="group transition-all hover:shadow-md hover:border-teal-300 dark:hover:border-teal-700 cursor-pointer">
+                  <CardContent className="p-5">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={patient.img || ''} />
+                        <AvatarFallback className="bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300">
+                          {patient.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-sm truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                          {patient.name}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          {patient.gender && <span>{patient.gender}</span>}
+                          {patient.mobile && (
+                            <>
+                              <span>·</span>
+                              <span className="flex items-center gap-0.5">
+                                <Phone className="h-3 w-3" /> {patient.mobile}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="mt-4 flex items-center gap-2 flex-wrap">
-                    <Badge variant="secondary" className="text-xs">
-                      <User className="mr-1 h-3 w-3" /> {patient.totalVisits} visit{patient.totalVisits !== 1 ? 's' : ''}
-                    </Badge>
-                    {patient.lastVisit && (
-                      <Badge variant="outline" className="text-xs">
-                        <Calendar className="mr-1 h-3 w-3" /> {format(new Date(patient.lastVisit), 'MMM d, yyyy')}
+                    <div className="mt-4 flex items-center gap-2 flex-wrap">
+                      <Badge variant="secondary" className="text-xs">
+                        <User className="mr-1 h-3 w-3" /> {patient.totalVisits} visit{patient.totalVisits !== 1 ? 's' : ''}
                       </Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                      {patient.lastVisit && (
+                        <Badge variant="outline" className="text-xs">
+                          <Calendar className="mr-1 h-3 w-3" /> {format(new Date(patient.lastVisit), 'MMM d, yyyy')}
+                        </Badge>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
             </motion.div>
           ))}
         </div>

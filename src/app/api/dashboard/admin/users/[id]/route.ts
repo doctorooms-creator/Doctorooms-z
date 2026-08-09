@@ -1,17 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const authUser = await requireRole(request, 'admin')
 
     const { id } = await params
 
@@ -21,7 +17,7 @@ export async function DELETE(
     }
 
     // Prevent admin from deleting themselves
-    if (user.id === session.user.id) {
+    if (user.id === authUser.id) {
       return NextResponse.json({ error: 'Cannot delete yourself' }, { status: 400 })
     }
 

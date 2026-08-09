@@ -24,9 +24,17 @@ import {
   Pill,
   Save,
   Tag,
+  FlaskConical,
+  Check,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import { ScrollArea } from '@/components/ui/scroll-area'
 
 interface AppointmentOption {
   id: string
@@ -67,6 +75,37 @@ export default function NewPrescriptionPage() {
     { medicine: '', morning: false, afternoon: false, evening: false, tab: 1, dose: '', description: '' },
   ])
   const [labels, setLabels] = useState<LabelRow[]>([])
+
+  // Fetch doctor's medicine master for quick-add
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [medSearch, setMedSearch] = useState('')
+
+  const { data: medMasterData } = useQuery<{ medicines: { id: string; name: string; dose: string; tab: number; morning: string; afternoon: string; evening: string; description: string }[] }>({
+    queryKey: ['doctor-medicine-master-quick'],
+    queryFn: () => fetch('/api/dashboard/doctor/medicines?status=Active').then((r) => r.json()),
+  })
+
+  const filteredMeds = (medMasterData?.medicines || []).filter((m) =>
+    m.name.toLowerCase().includes(medSearch.toLowerCase())
+  )
+
+  const addFromMaster = (med: typeof filteredMeds[0]) => {
+    setMedicines([
+      ...medicines,
+      {
+        medicine: med.name,
+        morning: !!med.morning,
+        afternoon: !!med.afternoon,
+        evening: !!med.evening,
+        tab: med.tab || 1,
+        dose: med.dose,
+        description: med.description,
+      },
+    ])
+    setQuickAddOpen(false)
+    setMedSearch('')
+    toast.success(`${med.name} added from medicine master`)
+  }
 
   const { data: appointmentsData } = useQuery<{ appointments: AppointmentOption[] }>({
     queryKey: ['doctor-appointments-prescription'],
@@ -248,9 +287,63 @@ export default function NewPrescriptionPage() {
                 <Pill className="h-4 w-4 text-teal-600 dark:text-teal-400" />
                 Medicines
               </CardTitle>
-              <Button type="button" variant="outline" size="sm" onClick={addMedicine}>
-                <Plus className="mr-1 h-3.5 w-3.5" /> Add Medicine
-              </Button>
+              <div className="flex gap-2">
+                <Popover open={quickAddOpen} onOpenChange={setQuickAddOpen}>
+                  <PopoverTrigger asChild>
+                    <Button type="button" variant="outline" size="sm" className="border-teal-300 dark:border-teal-700 text-teal-700 dark:text-teal-300 hover:bg-teal-50 dark:hover:bg-teal-950">
+                      <FlaskConical className="mr-1 h-3.5 w-3.5" /> Quick Add
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 p-0" align="end">
+                    <div className="p-3 border-b border-border">
+                      <p className="text-sm font-medium mb-2">Add from Medicine Master</p>
+                      <Input
+                        placeholder="Search medicines..."
+                        value={medSearch}
+                        onChange={(e) => setMedSearch(e.target.value)}
+                        className="h-8 text-sm"
+                        autoFocus
+                      />
+                    </div>
+                    <ScrollArea className="max-h-64">
+                      {filteredMeds.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-muted-foreground">
+                          <FlaskConical className="h-6 w-6 mx-auto mb-1.5 opacity-40" />
+                          {medMasterData?.medicines?.length === 0
+                            ? 'No medicines in your master list'
+                            : 'No matching medicines'}
+                        </div>
+                      ) : (
+                        <div className="p-1.5">
+                          {filteredMeds.map((med) => (
+                            <button
+                              key={med.id}
+                              type="button"
+                              onClick={() => addFromMaster(med)}
+                              className="w-full flex items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm hover:bg-accent transition-colors group"
+                            >
+                              <Pill className="h-3.5 w-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium truncate">{med.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {med.dose || 'No dose'} · {med.tab} tab{med.tab > 1 ? 's' : ''}
+                                  {[med.morning && 'M', med.afternoon && 'A', med.evening && 'E'].filter(Boolean).length > 0
+                                    ? ` · ${[med.morning && 'Morn', med.afternoon && 'Aftn', med.evening && 'Eve'].filter(Boolean).join('/')}`
+                                    : ''}
+                                </p>
+                              </div>
+                              <Plus className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </ScrollArea>
+                  </PopoverContent>
+                </Popover>
+                <Button type="button" variant="outline" size="sm" onClick={addMedicine}>
+                  <Plus className="mr-1 h-3.5 w-3.5" /> Add Blank
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {medicines.map((med, index) => (

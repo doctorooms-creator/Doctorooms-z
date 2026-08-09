@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'patient') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'patient')
 
     const { searchParams } = new URL(req.url)
     const category = searchParams.get('category')
 
-    const where: Record<string, unknown> = { patientId: session.user.id }
+    const where: Record<string, unknown> = { patientId: user.id }
     if (category && category !== 'All') {
       where.category = category
     }
@@ -25,7 +21,7 @@ export async function GET(req: NextRequest) {
       }),
       db.medicalDocument.groupBy({
         by: ['category'],
-        where: { patientId: session.user.id },
+        where: { patientId: user.id },
         _count: { category: true },
       }),
     ])
@@ -52,13 +48,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'patient') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'patient')
 
     const body = await req.json()
-    const { title, category, fileName, fileSize, mimeType, description } = body
+    const { title, category, fileUrl, fileName, fileSize, mimeType, description } = body
 
     if (!title || !category) {
       return NextResponse.json({ error: 'Title and category are required' }, { status: 400 })
@@ -66,14 +59,14 @@ export async function POST(req: NextRequest) {
 
     const document = await db.medicalDocument.create({
       data: {
-        patientId: session.user.id,
+        patientId: user.id,
         title,
         category: category || 'Other',
+        fileUrl: fileUrl || '',
         fileName: fileName || '',
         fileSize: fileSize || 0,
         mimeType: mimeType || '',
         description: description || '',
-        fileUrl: '',
       },
     })
 

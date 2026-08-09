@@ -1,17 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'doctor')
 
     const posts = await db.post.findMany({
-      where: { authorId: session.user.id },
+      where: { authorId: user.id },
       orderBy: { createdAt: 'desc' },
       include: {
         author: { select: { name: true, profileImg: true } },
@@ -27,10 +23,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'doctor')
 
     const body = await req.json()
     const { title, content, type, status, permalink } = body
@@ -46,7 +39,7 @@ export async function POST(req: NextRequest) {
         content: content || '',
         type: type || 'Blog',
         status: status || 'Draft',
-        authorId: session.user.id,
+        authorId: user.id,
       },
     })
 
@@ -59,10 +52,7 @@ export async function POST(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'doctor')
 
     const body = await req.json()
     const { id, title, content, type, status } = body
@@ -72,7 +62,7 @@ export async function PUT(req: NextRequest) {
     }
 
     const post = await db.post.update({
-      where: { id, authorId: session.user.id },
+      where: { id, authorId: user.id },
       data: {
         title,
         content: content || '',
@@ -90,10 +80,7 @@ export async function PUT(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'doctor')
 
     const { searchParams } = new URL(req.url)
     const id = searchParams.get('id')
@@ -103,7 +90,7 @@ export async function DELETE(req: NextRequest) {
     }
 
     await db.post.deleteMany({
-      where: { id, authorId: session.user.id },
+      where: { id, authorId: user.id },
     })
 
     return NextResponse.json({ success: true })

@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'patient') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const user = await requireRole(req, 'patient')
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
 
-    const where: Record<string, unknown> = { userId: session.user.id }
+    const where: Record<string, unknown> = { userId: user.id }
     if (status && status !== 'All') {
       where.status = status
     }
@@ -36,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     const statusCounts = await db.booking.groupBy({
       by: ['status'],
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       _count: { status: true },
     })
 

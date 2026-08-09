@@ -1,17 +1,13 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'receptionist') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const user = await requireRole(request, 'receptionist')
 
     const receptionist = await db.receptionist.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     })
 
     if (!receptionist) {
@@ -85,15 +81,12 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'receptionist') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const user = await requireRole(request, 'receptionist')
 
     const receptionist = await db.receptionist.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     })
 
     if (!receptionist) {
@@ -146,15 +139,12 @@ export async function POST(request: Request) {
   }
 }
 
-export async function PATCH(request: Request) {
+export async function PATCH(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session || session.user.role !== 'receptionist') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-    }
+    const user = await requireRole(request, 'receptionist')
 
     const receptionist = await db.receptionist.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
     })
 
     if (!receptionist) {
