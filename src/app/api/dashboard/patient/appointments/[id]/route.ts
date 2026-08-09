@@ -87,6 +87,7 @@ export async function GET(
         weight: booking.weight,
         height: booking.height,
         status: booking.status,
+        doctorId: booking.doctorId,
         charge: booking.appointmentCharge,
         bookingType: booking.bookingType,
         createdAt: booking.createdAt,

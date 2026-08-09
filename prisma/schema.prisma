@@ -21,6 +21,7 @@ model User {
   mobileNo        String   @default("")
   mobileVerifiedAt DateTime?
   emailVerifiedAt DateTime?
+  settingsJson     String   @default("{}") // JSON: {"emailNotifications":true,"bookingReminders":true,"marketingEmails":false}
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 

@@ -1,0 +1,653 @@
+    60→    60→
+    61→    61→interface ScheduleData {
+    62→    62→  doctorId: string
+    63→    63→  userId: string
+    64→    64→  fees: number
+    65→    65→  emergencyCharge: number
+    66→    66→  dailyLimit: number
+    67→    67→  bookingDays: number
+    68→    68→  schedules: ScheduleEntry[]
+    69→    69→  holidays: { date: string; remark: string }[]
+    70→    70→}
+    71→    71→
+    72→    72→interface SlotAvailability {
+    73→    73→  slot: string
+    74→    74→  available: boolean
+    75→    75→  loading: boolean
+    76→    76→}
+    77→    77→
+    78→    78→// ── Constants ───────────────────────────────────────────
+    79→    79→const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    80→    80→
+    81→    81→const fadeIn = {
+    82→    82→  initial: { opacity: 0, y: 12 },
+    83→    83→  animate: { opacity: 1, y: 0 },
+    84→    84→  transition: { duration: 0.3 },
+    85→    85→}
+    86→    86→
+    87→    87→// ── Component ─────────────────────────────────────────
+    88→    88→export default function PatientBookDoctorPage() {
+    89→    89→  const params = useParams()
+    90→    90→  const router = useRouter()
+    91→    91→  const queryClient = useQueryClient()
+    92→    92→  const doctorId = params.doctorId as string
+    93→    93→
+    94→    94→  // State
+    95→    95→  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+    96→    96→  const [selectedSlot, setSelectedSlot] = useState<string | null>(null)
+    97→    97→  const [bookingMode, setBookingMode] = useState<'InPerson' | 'VideoCall'>('InPerson')
+    98→    98→  const [disease, setDisease] = useState('')
+    99→    99→  const [description, setDescription] = useState('')
+   100→   100→  const [showBookingForm, setShowBookingForm] = useState(false)
+   101→   101→  const [slotStatuses, setSlotStatuses] = useState<SlotAvailability[]>([])
+   102→   102→
+   103→   103→  // ── Fetch doctor info ──
+   104→   104→  const {
+   105→   105→    data: doctorData,
+   106→   106→    isLoading: doctorLoading,
+   107→   107→  } = useQuery({
+   108→   108→    queryKey: ['doctor-info', doctorId],
+   109→   109→    queryFn: () => fetch(`/api/doctors/${doctorId}`).then((r) => r.json()),
+   110→   110→    enabled: !!doctorId,
+   111→   111→  })
+   112→   112→
+   113→   113→  const doctor: DoctorInfo | null = doctorData?.doctor || null
+   114→   114→
+   115→   115→  // ── Fetch doctor schedule (public, no auth) ──
+   116→   116→  const {
+   117→   117→    data: scheduleData,
+   118→   118→    isLoading: scheduleLoading,
+   119→   119→  } = useQuery<ScheduleData>({
+   120→   120→    queryKey: ['doctor-schedule', doctorId],
+   121→   121→    queryFn: () => fetch(`/api/doctors/${doctorId}/schedule`).then((r) => r.json()),
+   122→   122→    enabled: !!doctorId,
+   123→   123→  })
+   124→   124→
+   125→   125→  const fees = doctor?.doctor?.fees ?? scheduleData?.fees ?? 0
+   126→   126→
+   127→   127→  // ── Determine available days for the selected date ──
+   128→   128→  const scheduleForSelectedDay = useMemo(() => {
+   129→   129→    if (!selectedDate || !scheduleData?.schedules) return null
+   130→   130→    const dayName = format(selectedDate, 'EEEE')
+   131→   131→    return scheduleData.schedules.find((s) => s.day === dayName) || null
+   132→   132→  }, [selectedDate, scheduleData])
+   133→   133→
+   134→   134→  const timeSlots = useMemo(() => {
+   135→   135→    if (!scheduleForSelectedDay) return []
+   136→   136→    return scheduleForSelectedDay.timeSlots
+   137→   137→  }, [scheduleForSelectedDay])
+   138→   138→
+   139→   139→  // ── Check if selected date is a holiday ──
+   140→   140→  const isHoliday = useMemo(() => {
+   141→   141→    if (!selectedDate || !scheduleData?.holidays) return false
+   142→   142→    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+   143→   143→    return scheduleData.holidays.some((h) => h.date === dateStr)
+   144→   144→  }, [selectedDate, scheduleData])
+   145→   145→
+   146→   146→  // ── Check individual slot availability ──
+   147→   147→  const checkSlotAvailabilities = useCallback(async () => {
+   148→   148→    if (!selectedDate || timeSlots.length === 0) {
+   149→   149→      setSlotStatuses([])
+   150→   150→      return
+   151→   151→    }
+   152→   152→
+   153→   153→    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+   154→   154→    const currentDoctorId = scheduleData?.doctorId
+   155→   155→    const initial: SlotAvailability[] = timeSlots.map((slot) => ({
+   156→   156→      slot,
+   157→   157→      available: true,
+   158→   158→      loading: true,
+   159→   159→    }))
+   160→   160→    setSlotStatuses(initial)
+   161→   161→
+   162→   162→    // Check all slots in parallel
+   163→   163→    const results = await Promise.all(
+   164→   164→      timeSlots.map(async (slot) => {
+   165→   165→        try {
+   166→   166→          const res = await fetch(
+   167→   167→            `/api/patient/bookings/check-slot?doctorId=${currentDoctorId}&date=${dateStr}&timeSlot=${encodeURIComponent(slot)}`
+   168→   168→          )
+   169→   169→          const data = await res.json()
+   170→   170→          return { slot, available: data.available !== false, loading: false }
+   171→   171→        } catch {
+   172→   172→          return { slot, available: true, loading: false }
+   173→   173→        }
+   174→   174→      })
+   175→   175→    )
+   176→   176→
+   177→   177→    setSlotStatuses(results)
+   178→   178→  }, [selectedDate, timeSlots, scheduleData])
+   179→   179→
+   180→   180→  // When date changes, reset slot and re-check availability
+   181→   181→  const handleDateSelect = useCallback(
+   182→   182→    (date: Date | undefined) => {
+   183→   183→      setSelectedDate(date)
+   184→   184→      setSelectedSlot(null)
+   185→   185→      setShowBookingForm(false)
+   186→   186→      if (date) {
+   187→   187→        // Small delay to allow scheduleForSelectedDay to compute
+   188→   188→        setTimeout(() => checkSlotAvailabilities(), 50)
+   189→   189→      } else {
+   190→   190→        setSlotStatuses([])
+   191→   191→      }
+   192→   192→    },
+   193→   193→    [checkSlotAvailabilities]
+   194→   194→  )
+   195→   195→
+   196→   196→  // ── Booking mutation ──
+   197→   197→  const bookMutation = useMutation({
+   198→   198→    mutationFn: (body: Record<string, unknown>) =>
+   199→   199→      fetch('/api/patient/bookings', {
+   200→   200→        method: 'POST',
+   201→   201→        headers: { 'Content-Type': 'application/json' },
+   202→   202→        body: JSON.stringify(body),
+   203→   203→      }).then((r) => {
+   204→   204→        if (!r.ok) return r.json().then((d) => Promise.reject(new Error(d.error || 'Booking failed')))
+   205→   205→        return r.json()
+   206→   206→      }),
+   207→   207→    onSuccess: () => {
+   208→   208→      toast.success('Appointment booked successfully! Waiting for confirmation.')
+   209→   209→      queryClient.invalidateQueries({ queryKey: ['patient-appointments'] })
+   210→   210→      queryClient.invalidateQueries({ queryKey: ['patient-stats'] })
+   211→   211→      router.push('/dashboard/patient/appointments')
+   212→   212→    },
+   213→   213→    onError: (err: Error) => {
+   214→   214→      toast.error(err.message || 'Failed to book appointment')
+   215→   215→    },
+   216→   216→  })
+   217→   217→
+   218→   218→  // ── Handlers ──
+   219→   219→  const handleSlotClick = (slot: string) => {
+   220→   220→    const status = slotStatuses.find((s) => s.slot === slot)
+   221→   221→    if (status && !status.available) return
+   222→   222→    setSelectedSlot(slot === selectedSlot ? null : slot)
+   223→   223→    setShowBookingForm(slot !== selectedSlot || showBookingForm)
+   224→   224→  }
+   225→   225→
+   226→   226→  const handleBook = () => {
+   227→   227→    if (!selectedDate || !selectedSlot || !disease.trim()) {
+   228→   228→      toast.error('Please fill in all required fields')
+   229→   229→      return
+   230→   230→    }
+   231→   231→
+   232→   232→    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+   233→   233→    bookMutation.mutate({
+   234→   234→      doctorId: scheduleData?.doctorId || doctorId,
+   235→   235→      bookingDate: dateStr,
+   236→   236→      timeSlot: selectedSlot,
+   237→   237→      bookingMode,
+   238→   238→      disease: disease.trim(),
+   239→   239→      description: description.trim(),
+   240→   240→    })
+   241→   241→  }
+   242→   242→
+   243→   243→  // ── Calendar disabled dates ──
+   244→   244→  const disablePastDates = (date: Date) => {
+   245→   245→    return isBefore(startOfDay(date), startOfDay(new Date()))
+   246→   246→  }
+   247→   247→
+   248→   248→  const disableNonScheduleDays = (date: Date) => {
+   249→   249→    if (!scheduleData?.schedules) return false // Allow all if no schedule loaded yet
+   250→   250→    const dayName = format(date, 'EEEE')
+   251→   251→    const hasSchedule = scheduleData.schedules.some((s) => s.day === dayName)
+   252→   252→    return !hasSchedule
+   253→   253→  }
+   254→   254→
+   255→   255→  // ── Loading state ──
+   256→   256→  if (doctorLoading || scheduleLoading) {
+   257→   257→    return <BookingPageSkeleton />
+   258→   258→  }
+   259→   259→
+   260→   260→  if (!doctor) {
+   261→   261→    return (
+   262→   262→      <div className="flex flex-col items-center justify-center py-20 text-center">
+   263→   263→        <AlertCircle className="h-12 w-12 text-muted-foreground/40 mb-4" />
+   264→   264→        <h2 className="text-xl font-bold mb-2">Doctor Not Found</h2>
+   265→   265→        <p className="text-sm text-muted-foreground mb-6">The doctor you are looking for does not exist.</p>
+   266→   266→        <Button variant="outline" className="text-teal-600 border-teal-200 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400" asChild>
+   267→   267→          <Link href="/doctors">
+   268→   268→            <ChevronLeft className="h-4 w-4 mr-1" />
+   269→   269→            Browse Doctors
+   270→   270→          </Link>
+   271→   271→        </Button>
+   272→   272→      </div>
+   273→   273→    )
+   274→   274→  }
+   275→   275→
+   276→   276→  const doc = doctor.doctor
+   277→   277→  const initials = doctor.name
+   278→   278→    .split(' ')
+   279→   279→    .map((n) => n[0])
+   280→   280→    .join('')
+   281→   281→    .slice(0, 2)
+   282→   282→    .toUpperCase()
+   283→   283→
+   284→   284→  return (
+   285→   285→    <div className="max-w-4xl mx-auto space-y-6">
+   286→   286→      {/* Breadcrumb */}
+   287→   287→      <motion.div {...fadeIn} className="flex items-center gap-2 text-sm text-muted-foreground">
+   288→   288→        <Link href="/dashboard/patient" className="hover:text-teal-600 transition-colors">Dashboard</Link>
+   289→   289→        <span>/</span>
+   290→   290→        <Link href="/dashboard/patient/appointments" className="hover:text-teal-600 transition-colors">Appointments</Link>
+   291→   291→        <span>/</span>
+   292→   292→        <span className="text-foreground font-medium truncate">Book Appointment</span>
+   293→   293→      </motion.div>
+   294→   294→
+   295→   295→      {/* Doctor Info Card */}
+   296→   296→      <motion.div {...fadeIn} transition={{ delay: 0.05 }}>
+   297→   297→        <Card className="border-teal-200/50 dark:border-teal-800/30 overflow-hidden">
+   298→   298→          <div className="bg-gradient-to-r from-teal-500 to-emerald-500 h-2" />
+   299→   299→          <CardContent className="p-5 md:p-6">
+   300→   300→            <div className="flex items-center gap-4">
+   301→   301→              <Avatar className="h-16 w-16 border-2 border-teal-200 dark:border-teal-800 shrink-0">
+   302→   302→                <AvatarImage src={doctor.profileImg !== 'default.png' ? doctor.profileImg : ''} />
+   303→   303→                <AvatarFallback className="bg-gradient-to-br from-teal-100 to-teal-200 text-teal-700 font-bold text-xl">
+   304→   304→                  {initials}
+   305→   305→                </AvatarFallback>
+   306→   306→              </Avatar>
+   307→   307→              <div className="flex-1 min-w-0">
+   308→   308→                <div className="flex items-center gap-2 flex-wrap">
+   309→   309→                  <h2 className="text-xl font-bold">{doctor.name}</h2>
+   310→   310→                  <ShieldCheck className="h-5 w-5 text-teal-500 shrink-0" />
+   311→   311→                  {doc?.isEmergency && (
+   312→   312→                    <Badge variant="destructive" className="text-[10px] px-1.5">Emergency</Badge>
+   313→   313→                  )}
+   314→   314→                </div>
+   315→   315→                <p className="text-teal-600 dark:text-teal-400 font-medium text-sm mt-0.5">
+   316→   316→                  {doc?.specialization || 'General Physician'}
+   317→   317→                </p>
+   318→   318→                <div className="flex items-center gap-4 mt-1.5 text-xs text-muted-foreground flex-wrap">
+   319→   319→                  {doc?.experience && <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{doc.experience}</span>}
+   320→   320→                  {doc?.city && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{doc.city}</span>}
+   321→   321→                  <span className="flex items-center gap-1 font-semibold text-teal-700 dark:text-teal-400">
+   322→   322→                    <IndianRupee className="h-3 w-3" />{fees} consultation
+   323→   323→                  </span>
+   324→   324→                </div>
+   325→   325→              </div>
+   326→   326→              <Button variant="outline" size="icon" className="shrink-0 h-8 w-8" asChild>
+   327→   327→                <Link href={`/doctors/${doctorId}`}>
+   328→   328→                  <ChevronLeft className="h-4 w-4" />
+   329→   329→                  <span className="sr-only">Back to profile</span>
+   330→   330→                </Link>
+   331→   331→              </Button>
+   332→   332→            </div>
+   333→   333→          </CardContent>
+   334→   334→        </Card>
+   335→   335→      </motion.div>
+   336→   336→
+   337→   337→      {/* Main booking area */}
+   338→   338→      <div className="grid gap-6 lg:grid-cols-5">
+   339→   339→        {/* Left: Calendar + Slots */}
+   340→   340→        <div className="lg:col-span-3 space-y-6">
+   341→   341→          {/* Step 1: Select Date */}
+   342→   342→          <motion.div {...fadeIn} transition={{ delay: 0.1 }}>
+   343→   343→            <Card>
+   344→   344→              <CardHeader className="pb-3">
+   345→   345→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   346→   346→                  <CalendarDays className="h-5 w-5 text-teal-500" />
+   347→   347→                  <span className="flex items-center gap-2">
+   348→   348→                    Step 1: Select Date
+   349→   349→                    <Badge variant="secondary" className="text-[10px] font-normal">Required</Badge>
+   350→   350→                  </span>
+   351→   351→                </CardTitle>
+   352→   352→              </CardHeader>
+   353→   353→              <CardContent>
+   354→   354→                <div className="flex justify-center">
+   355→   355→                  <Calendar
+   356→   356→                    mode="single"
+   357→   357→                    selected={selectedDate}
+   358→   358→                    onSelect={handleDateSelect}
+   359→   359→                    disabled={(date) => disablePastDates(date) || disableNonScheduleDays(date)}
+   360→   360→                    className="rounded-xl border p-3 pointer-events-auto"
+   361→   361→                    classNames={{
+   362→   362→                      day_selected: 'bg-teal-500 text-white hover:bg-teal-600 hover:text-white focus:bg-teal-500 focus:text-white',
+   363→   363→                      day_today: 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-300',
+   364→   364→                      day_disabled: 'text-muted-foreground/30 line-through',
+   365→   365→                    }}
+   366→   366→                  />
+   367→   367→                </div>
+   368→   368→
+   369→   369→                {/* Holiday notice */}
+   370→   370→                <AnimatePresence>
+   371→   371→                  {selectedDate && isHoliday && (
+   372→   372→                    <motion.div
+   373→   373→                      initial={{ opacity: 0, height: 0 }}
+   374→   374→                      animate={{ opacity: 1, height: 'auto' }}
+   375→   375→                      exit={{ opacity: 0, height: 0 }}
+   376→   376→                      className="mt-3"
+   377→   377→                    >
+   378→   378→                      <div className="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-sm text-amber-700 dark:text-amber-400">
+   379→   379→                        <AlertCircle className="h-4 w-4 shrink-0" />
+   380→   380→                        <span>Doctor is on holiday on this date.</span>
+   381→   381→                      </div>
+   382→   382→                    </motion.div>
+   383→   383→                  )}
+   384→   384→                </AnimatePresence>
+   385→   385→              </CardContent>
+   386→   386→            </Card>
+   387→   387→          </motion.div>
+   388→   388→
+   389→   389→          {/* Step 2: Select Slot + Mode */}
+   390→   390→          <motion.div {...fadeIn} transition={{ delay: 0.15 }}>
+   391→   391→            <Card>
+   392→   392→              <CardHeader className="pb-3">
+   393→   393→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   394→   394→                  <Clock className="h-5 w-5 text-teal-500" />
+   395→   395→                  <span className="flex items-center gap-2">
+   396→   396→                    Step 2: Select Slot & Mode
+   397→   397→                    {!selectedDate && <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground">Select date first</Badge>}
+   398→   398→                  </span>
+   399→   399→                </CardTitle>
+   400→   400→              </CardHeader>
+   401→   401→              <CardContent>
+   402→   402→                {selectedDate && scheduleForSelectedDay ? (
+   403→   403→                  <div className="space-y-4">
+   404→   404→                    {/* Schedule info */}
+   405→   405→                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
+   406→   406→                      <span>
+   407→   407→                        <strong className="text-foreground">{scheduleForSelectedDay.day}</strong>
+   408→   408→                        {' · '}
+   409→   409→                        {scheduleForSelectedDay.startTime}–{scheduleForSelectedDay.endTime}
+   410→   410→                        {' · '}
+   411→   411→                        {scheduleForSelectedDay.slotDuration}min slots
+   412→   412→                      </span>
+   413→   413→                      {scheduleData?.dailyLimit && (
+   414→   414→                        <span className="ml-auto">
+   415→   415→                          Max {scheduleData.dailyLimit} patients/day
+   416→   416→                        </span>
+   417→   417→                      )}
+   418→   418→                    </div>
+   419→   419→
+   420→   420→                    {/* Mode toggle */}
+   421→   421→                    <div className="flex gap-2">
+   422→   422→                      <Button
+   423→   423→                        type="button"
+   424→   424→                        size="sm"
+   425→   425→                        variant={bookingMode === 'InPerson' ? 'default' : 'outline'}
+   426→   426→                        className={
+   427→   427→                          bookingMode === 'InPerson'
+   428→   428→                            ? 'bg-teal-500 hover:bg-teal-600 text-white'
+   429→   429→                            : 'border-border text-muted-foreground hover:text-foreground'
+   430→   430→                        }
+   431→   431→                        onClick={() => setBookingMode('InPerson')}
+   432→   432→                      >
+   433→   433→                        <Building2 className="h-3.5 w-3.5 mr-1.5" />
+   434→   434→                        In Person
+   435→   435→                      </Button>
+   436→   436→                      <Button
+   437→   437→                        type="button"
+   438→   438→                        size="sm"
+   439→   439→                        variant={bookingMode === 'VideoCall' ? 'default' : 'outline'}
+   440→   440→                        className={
+   441→   441→                          bookingMode === 'VideoCall'
+   442→   442→                            ? 'bg-teal-500 hover:bg-teal-600 text-white'
+   443→   443→                            : 'border-border text-muted-foreground hover:text-foreground'
+   444→   444→                        }
+   445→   445→                        onClick={() => setBookingMode('VideoCall')}
+   446→   446→                      >
+   447→   447→                        <Video className="h-3.5 w-3.5 mr-1.5" />
+   448→   448→                        Video Call
+   449→   449→                      </Button>
+   450→   450→                    </div>
+   451→   451→
+   452→   452→                    <Separator />
+   453→   453→
+   454→   454→                    {/* Time slots grid */}
+   455→   455→                    {slotStatuses.length > 0 ? (
+   456→   456→                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-72 overflow-y-auto">
+   457→   457→                        {slotStatuses.map((status) => {
+   458→   458→                          const isSelected = selectedSlot === status.slot
+   459→   459→                          const isUnavailable = !status.available
+   460→   460→
+   461→   461→                          return (
+   462→   462→                            <motion.button
+   463→   463→                              key={status.slot}
+   464→   464→                              type="button"
+   465→   465→                              whileTap={{ scale: 0.97 }}
+   466→   466→                              onClick={() => handleSlotClick(status.slot)}
+   467→   467→                              disabled={status.loading || isUnavailable}
+   468→   468→                              className={`relative py-2.5 px-2 text-xs font-medium rounded-lg border transition-all duration-200
+   469→   469→                                ${
+   470→   470→                                  isSelected
+   471→   471→                                    ? 'bg-teal-500 text-white border-teal-500 shadow-md shadow-teal-500/20'
+   472→   472→                                    : isUnavailable
+   473→   473→                                      ? 'bg-muted/50 text-muted-foreground/40 border-border cursor-not-allowed line-through'
+   474→   474→                                      : 'hover:bg-teal-50 dark:hover:bg-teal-950/30 hover:border-teal-300 border-border text-foreground'
+   475→   475→                                }
+   476→   476→                              `}
+   477→   477→                            >
+   478→   478→                              {status.loading ? (
+   479→   479→                                <Loader2 className="h-3 w-3 animate-spin mx-auto" />
+   480→   480→                              ) : (
+   481→   481→                                status.slot
+   482→   482→                              )}
+   483→   483→                              {isSelected && (
+   484→   484→                                <Check className="h-3 w-3 absolute top-0.5 right-0.5" />
+   485→   485→                              )}
+   486→   486→                            </motion.button>
+   487→   487→                          )
+   488→   488→                        })}
+   489→   489→                      </div>
+   490→   490→                    ) : (
+   491→   491→                      <div className="flex items-center justify-center py-8">
+   492→   492→                        <Loader2 className="h-5 w-5 animate-spin text-teal-500 mr-2" />
+   493→   493→                        <span className="text-sm text-muted-foreground">Loading slots...</span>
+   494→   494→                      </div>
+   495→   495→                    )}
+   496→   496→
+   497→   497→                    {slotStatuses.length > 0 && slotStatuses.every((s) => !s.available) && (
+   498→   498→                      <div className="text-center py-3 text-sm text-muted-foreground">
+   499→   499→                        All slots are booked for this date. Try a different date.
+   500→   500→                      </div>
+   501→   501→                    )}
+   502→   502→                  </div>
+   503→   503→                ) : selectedDate && !scheduleForSelectedDay ? (
+   504→   504→                  <div className="flex flex-col items-center justify-center py-10 text-center">
+   505→   505→                    <CalendarDays className="h-10 w-10 text-muted-foreground/30 mb-3" />
+   506→   506→                    <p className="text-sm text-muted-foreground">
+   507→   507→                      Doctor is not available on {format(selectedDate, 'EEEE')}.
+   508→   508→                    </p>
+   509→   509→                    <p className="text-xs text-muted-foreground/70 mt-1">
+   510→   510→                      Please select a different date.
+   511→   511→                    </p>
+   512→   512→                  </div>
+   513→   513→                ) : (
+   514→   514→                  <div className="flex flex-col items-center justify-center py-10 text-center">
+   515→   515→                    <CalendarDays className="h-10 w-10 text-muted-foreground/30 mb-3" />
+   516→   516→                    <p className="text-sm text-muted-foreground">
+   517→   517→                      Select a date to see available time slots.
+   518→   518→                    </p>
+   519→   519→                    <p className="text-xs text-muted-foreground/70 mt-1">
+   520→   520→                      Disabled dates indicate the doctor is not scheduled.
+   521→   521→                    </p>
+   522→   522→                  </div>
+   523→   523→                )}
+   524→   524→              </CardContent>
+   525→   525→            </Card>
+   526→   526→          </motion.div>
+   527→   527→        </div>
+   528→   528→
+   529→   529→        {/* Right: Booking Summary / Form */}
+   530→   530→        <div className="lg:col-span-2">
+   531→   531→          <motion.div {...fadeIn} transition={{ delay: 0.2 }}>
+   532→   532→            <Card className="sticky top-6">
+   533→   533→              <CardHeader className="pb-3">
+   534→   534→                <CardTitle className="text-base font-semibold flex items-center gap-2">
+   535→   535→                  {selectedSlot ? (
+   536→   536→                    <>
+   537→   537→                      <Check className="h-5 w-5 text-teal-500" />
+   538→   538→                      Confirm Booking
+   539→   539→                    </>
+   540→   540→                  ) : (
+   541→   541→                    'Booking Summary'
+   542→   542→                  )}
+   543→   543→                </CardTitle>
+   544→   544→              </CardHeader>
+   545→   545→              <CardContent className="space-y-4">
+   546→   546→                {/* Summary */}
+   547→   547→                <div className="space-y-2 text-sm">
+   548→   548→                  <div className="flex justify-between">
+   549→   549→                    <span className="text-muted-foreground">Doctor</span>
+   550→   550→                    <span className="font-medium truncate ml-2">{doctor.name}</span>
+   551→   551→                  </div>
+   552→   552→                  {selectedDate && (
+   553→   553→                    <div className="flex justify-between">
+   554→   554→                      <span className="text-muted-foreground">Date</span>
+   555→   555→                      <span className="font-medium">{format(selectedDate, 'MMM d, yyyy (EEEE)')}</span>
+   556→   556→                    </div>
+   557→   557→                  )}
+   558→   558→                  {selectedSlot && (
+   559→   559→                    <div className="flex justify-between">
+   560→   560→                      <span className="text-muted-foreground">Time</span>
+   561→   561→                      <span className="font-medium text-teal-600 dark:text-teal-400">{selectedSlot}</span>
+   562→   562→                    </div>
+   563→   563→                  )}
+   564→   564→                  <div className="flex justify-between">
+   565→   565→                    <span className="text-muted-foreground">Mode</span>
+   566→   566→                    <span className="font-medium flex items-center gap-1">
+   567→   567→                      {bookingMode === 'InPerson' ? (
+   568→   568→                        <><Building2 className="h-3 w-3" /> In Person</>
+   569→   569→                      ) : (
+   570→   570→                        <><Video className="h-3 w-3" /> Video Call</>
+   571→   571→                      )}
+   572→   572→                    </span>
+   573→   573→                  </div>
+   574→   574→                  <Separator />
+   575→   575→                  <div className="flex justify-between text-base">
+   576→   576→                    <span className="font-medium">Fee</span>
+   577→   577→                    <span className="font-bold text-teal-600 dark:text-teal-400">
+   578→   578→                      <IndianRupee className="h-4 w-4 inline" />{fees}
+   579→   579→                    </span>
+   580→   580→                  </div>
+   581→   581→                </div>
+   582→   582→
+   583→   583→                {/* Booking form (appears when slot selected) */}
+   584→   584→                <AnimatePresence mode="wait">
+   585→   585→                  {selectedSlot && (
+   586→   586→                    <motion.div
+   587→   587→                      key="booking-form"
+   588→   588→                      initial={{ opacity: 0, y: 8 }}
+   589→   589→                      animate={{ opacity: 1, y: 0 }}
+   590→   590→                      exit={{ opacity: 0, y: -8 }}
+   591→   591→                      transition={{ duration: 0.2 }}
+   592→   592→                      className="space-y-3"
+   593→   593→                    >
+   594→   594→                      <Separator />
+   595→   595→                      <div className="space-y-3">
+   596→   596→                        <div className="space-y-1.5">
+   597→   597→                          <Label htmlFor="disease" className="text-sm font-medium">
+   598→   598→                            Reason / Disease <span className="text-red-500">*</span>
+   599→   599→                          </Label>
+   600→   600→                          <Input
+   601→   601→                            id="disease"
+   602→   602→                            placeholder="e.g. Fever, Headache, Routine Checkup"
+   603→   603→                            value={disease}
+   604→   604→                            onChange={(e) => setDisease(e.target.value)}
+   605→   605→                            className="h-9"
+   606→   606→                          />
+   607→   607→                        </div>
+   608→   608→                        <div className="space-y-1.5">
+   609→   609→                          <Label htmlFor="description" className="text-sm font-medium">
+   610→   610→                            Additional Notes <span className="text-muted-foreground font-normal">(optional)</span>
+   611→   611→                          </Label>
+   612→   612→                          <Textarea
+   613→   613→                            id="description"
+   614→   614→                            placeholder="Brief description of your symptoms..."
+   615→   615→                            value={description}
+   616→   616→                            onChange={(e) => setDescription(e.target.value)}
+   617→   617→                            rows={2}
+   618→   618→                            className="text-sm resize-none"
+   619→   619→                          />
+   620→   620→                        </div>
+   621→   621→                      </div>
+   622→   622→
+   623→   623→                      <Button
+   624→   624→                        className="w-full bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white h-11 font-semibold"
+   625→   625→                        disabled={!disease.trim() || bookMutation.isPending}
+   626→   626→                        onClick={handleBook}
+   627→   627→                      >
+   628→   628→                        {bookMutation.isPending ? (
+   629→   629→                          <>
+   630→   630→                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+   631→   631→                            Booking...
+   632→   632→                          </>
+   633→   633→                        ) : (
+   634→   634→                          <>
+   635→   635→                            <Check className="h-4 w-4 mr-2" />
+   636→   636→                            Confirm & Book
+   637→   637→                          </>
+   638→   638→                        )}
+   639→   639→                      </Button>
+   640→   640→                    </motion.div>
+   641→   641→                  )}
+   642→   642→                </AnimatePresence>
+   643→   643→
+   644→   644→                {/* No slot selected hint */}
+   645→   645→                {!selectedSlot && (
+   646→   646→                  <p className="text-xs text-center text-muted-foreground pt-2">
+   647→   647→                    Select a date and time slot to proceed with booking.
+   648→   648→                  </p>
+   649→   649→                )}
+   650→   650→              </CardContent>
+   651→   651→            </Card>
+   652→   652→          </motion.div>
+   653→   653→        </div>
+   654→   654→      </div>
+   655→   655→    </div>
+   656→   656→  )
+   657→   657→}
+   658→   658→
+   659→   659→// ── Skeleton ──────────────────────────────────────────
+   660→   660→function BookingPageSkeleton() {
+   661→   661→  return (
+   662→   662→    <div className="max-w-4xl mx-auto space-y-6">
+   663→   663→      <Skeleton className="h-5 w-48" />
+   664→   664→      <Card>
+   665→   665→        <CardContent className="p-5">
+   666→   666→          <div className="flex items-center gap-4">
+   667→   667→            <Skeleton className="h-16 w-16 rounded-full shrink-0" />
+   668→   668→            <div className="flex-1 space-y-2">
+   669→   669→              <Skeleton className="h-6 w-48" />
+   670→   670→              <Skeleton className="h-4 w-32" />
+   671→   671→              <Skeleton className="h-4 w-56" />
+   672→   672→            </div>
+   673→   673→          </div>
+   674→   674→        </CardContent>
+   675→   675→      </Card>
+   676→   676→      <div className="grid gap-6 lg:grid-cols-5">
+   677→   677→        <div className="lg:col-span-3 space-y-6">
+   678→   678→          <Card>
+   679→   679→            <CardContent className="p-5">
+   680→   680→              <Skeleton className="h-6 w-36 mb-4" />
+   681→   681→              <div className="flex justify-center">
+   682→   682→                <Skeleton className="h-72 w-72 rounded-xl" />
+   683→   683→              </div>
+   684→   684→            </CardContent>
+   685→   685→          </Card>
+   686→   686→          <Card>
+   687→   687→            <CardContent className="p-5">
+   688→   688→              <Skeleton className="h-6 w-40 mb-4" />
+   689→   689→              <div className="grid grid-cols-5 gap-2">
+   690→   690→                {Array.from({ length: 10 }).map((_, i) => (
+   691→   691→                  <Skeleton key={i} className="h-10 rounded-lg" />
+   692→   692→                ))}
+   693→   693→              </div>
+   694→   694→            </CardContent>
+   695→   695→          </Card>
+   696→   696→        </div>
+   697→   697→        <div className="lg:col-span-2">
+   698→   698→          <Card>
+   699→   699→            <CardContent className="p-5 space-y-3">
+   700→   700→              <Skeleton className="h-6 w-32" />
+   701→   701→              <Skeleton className="h-4 w-full" />
+   702→   702→              <Skeleton className="h-4 w-full" />
+   703→   703→              <Skeleton className="h-4 w-full" />
+   704→   704→              <Skeleton className="h-11 w-full rounded-lg" />
+   705→   705→            </CardContent>
+   706→   706→          </Card>
+   707→   707→        </div>
+   708→   708→      </div>
+   709→   709→    </div>
+   710→   710→  )
+   711→   711→}
+   712→   712→

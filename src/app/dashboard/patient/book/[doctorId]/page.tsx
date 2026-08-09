@@ -97,6 +97,8 @@ export default function PatientBookDoctorPage() {
   const [bookingMode, setBookingMode] = useState<'InPerson' | 'VideoCall'>('InPerson')
   const [disease, setDisease] = useState('')
   const [description, setDescription] = useState('')
+  const [bookingState, setBookingState] = useState('')
+  const [bookingCity, setBookingCity] = useState('')
   const [showBookingForm, setShowBookingForm] = useState(false)
   const [slotStatuses, setSlotStatuses] = useState<SlotAvailability[]>([])
 
@@ -237,6 +239,8 @@ export default function PatientBookDoctorPage() {
       bookingMode,
       disease: disease.trim(),
       description: description.trim(),
+      state: bookingState.trim(),
+      city: bookingCity.trim(),
     })
   }
 
@@ -604,6 +608,32 @@ export default function PatientBookDoctorPage() {
                             onChange={(e) => setDisease(e.target.value)}
                             className="h-9"
                           />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="state" className="text-sm font-medium">
+                              State <span className="text-muted-foreground font-normal">(optional)</span>
+                            </Label>
+                            <Input
+                              id="state"
+                              placeholder="e.g. Maharashtra"
+                              value={bookingState}
+                              onChange={(e) => setBookingState(e.target.value)}
+                              className="h-9"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="city" className="text-sm font-medium">
+                              City <span className="text-muted-foreground font-normal">(optional)</span>
+                            </Label>
+                            <Input
+                              id="city"
+                              placeholder="e.g. Mumbai"
+                              value={bookingCity}
+                              onChange={(e) => setBookingCity(e.target.value)}
+                              className="h-9"
+                            />
+                          </div>
                         </div>
                         <div className="space-y-1.5">
                           <Label htmlFor="description" className="text-sm font-medium">

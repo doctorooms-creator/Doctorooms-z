@@ -21,7 +21,14 @@ import {
   User,
   Settings,
   LogOut,
+  CheckCheck,
 } from 'lucide-react'
+import { formatDistanceToNow } from 'date-fns'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 
 interface DashboardHeaderProps {
   onMenuClick: () => void
@@ -54,6 +61,7 @@ const routeTitles: Record<string, string> = {
   '/dashboard/patient/feedback': 'Feedback',
   '/dashboard/patient/notifications': 'Notifications',
   '/dashboard/patient/profile': 'Profile',
+  '/dashboard/patient/settings': 'Settings',
   '/dashboard/hospital': 'Hospital Dashboard',
   '/dashboard/hospital/doctors': 'Doctors',
   '/dashboard/hospital/appointments': 'Appointments',
@@ -89,6 +97,8 @@ export function DashboardHeader({ onMenuClick, onLogout }: DashboardHeaderProps)
   const { user } = useAuthStore()
   const [searchOpen, setSearchOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [notifications, setNotifications] = useState<{id: string, title: string, message: string, status: string, createdAt: string}[]>([])
+  const [bellOpen, setBellOpen] = useState(false)
 
   const role = user?.role || 'patient'
   const pageTitle = getPageTitle(pathname)
@@ -98,11 +108,22 @@ export function DashboardHeader({ onMenuClick, onLogout }: DashboardHeaderProps)
 
   useEffect(() => {
     if (role !== 'patient') return
-    fetch('/api/patient/notifications')
+    fetch('/api/patient/notifications?limit=5')
       .then((r) => r.json())
-      .then((data) => setUnreadCount(data?.unreadCount || 0))
+      .then((data) => {
+        setUnreadCount(data?.unreadCount || 0)
+        setNotifications(data?.notifications || [])
+      })
       .catch(() => {})
   }, [role])
+
+  const markAllRead = async () => {
+    try {
+      await fetch('/api/patient/notifications/read-all', { method: 'PATCH' })
+      setUnreadCount(0)
+      setNotifications((prev) => prev.map((n) => ({ ...n, status: 'READ' })))
+    } catch {}
+  }
 
   const handleSearch = useCallback(
     (e: React.FormEvent<HTMLFormElement>) => {
@@ -142,15 +163,58 @@ export function DashboardHeader({ onMenuClick, onLogout }: DashboardHeaderProps)
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="ghost" size="icon" className="relative" onClick={() => router.push(`/dashboard/${role}/notifications`)}>
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </span>
-          )}
-          <span className="sr-only">Notifications</span>
-        </Button>
+        <Popover open={bellOpen} onOpenChange={setBellOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="ghost" size="icon" className="relative">
+              <Bell className="h-5 w-5" />
+              {unreadCount > 0 && (
+                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </span>
+              )}
+              <span className="sr-only">Notifications</span>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 p-0" align="end">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <h3 className="text-sm font-semibold">Notifications</h3>
+              {unreadCount > 0 && (
+                <button onClick={markAllRead} className="flex items-center gap-1 text-xs text-teal-600 hover:text-teal-700 dark:text-teal-400">
+                  <CheckCheck className="h-3.5 w-3.5" />
+                  Mark all read
+                </button>
+              )}
+            </div>
+            {/* List */}
+            <div className="max-h-72 overflow-y-auto">
+              {notifications.length === 0 ? (
+                <div className="flex flex-col items-center py-6 text-muted-foreground">
+                  <Bell className="h-8 w-8 mb-2 opacity-30" />
+                  <p className="text-sm">No notifications</p>
+                </div>
+              ) : (
+                notifications.map((n) => (
+                  <div key={n.id} className={`flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b last:border-b-0 ${n.status === 'UNREAD' ? 'bg-teal-50/50 dark:bg-teal-950/20' : ''}`}>
+                    <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${n.status === 'UNREAD' ? 'bg-teal-500' : 'bg-transparent'}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium leading-tight line-clamp-2">{n.title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {n.createdAt ? formatDistanceToNow(new Date(n.createdAt), { addSuffix: true }) : ''}
+                      </p>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            {/* Footer */}
+            <div className="border-t px-4 py-2">
+              <button onClick={() => { setBellOpen(false); router.push(`/dashboard/${role}/notifications`) }} className="w-full text-center text-xs font-medium text-teal-600 hover:text-teal-700 dark:text-teal-400 py-1">
+                View all notifications
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

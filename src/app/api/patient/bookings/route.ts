@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { doctorId, bookingDate, timeSlot, bookingMode, disease, description, gender, age, bloodGroup, weight, relationWithMe } = body
+    const { doctorId, bookingDate, timeSlot, bookingMode, disease, description, gender, age, bloodGroup, weight, relationWithMe, state, city } = body
 
     if (!doctorId || !bookingDate || !bookingMode || !disease || !gender) {
       return NextResponse.json(
@@ -120,6 +120,8 @@ export async function POST(req: NextRequest) {
         bloodGroup: bloodGroup || '',
         weight: weight ?? 0,
         relationWithMe: relationWithMe || '',
+        state: state || '',
+        city: city || '',
         status: 'Pending',
         appointmentCharge: doctor.fees || 0,
         patientName: user.name,
@@ -134,6 +136,33 @@ export async function POST(req: NextRequest) {
         message: `Booking request sent to Dr. ${doctor.user.name}. Waiting for reception to confirm.`,
       },
     })
+
+    // Notify doctor
+    if (doctor?.userId) {
+      await db.notification.create({
+        data: {
+          userId: doctor.userId,
+          title: 'New Appointment Booked',
+          message: `${user.name} has booked an appointment for ${booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'a future date'}.`,
+          status: 'UNREAD',
+        },
+      })
+    }
+
+    // Notify receptionist if exists
+    const receptionist = await db.receptionist.findFirst({
+      where: { doctorId: booking.doctorId },
+    })
+    if (receptionist) {
+      await db.notification.create({
+        data: {
+          userId: receptionist.userId,
+          title: 'New Appointment Booked',
+          message: `${user.name} has booked an appointment with your doctor for ${booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'a future date'}.`,
+          status: 'UNREAD',
+        },
+      })
+    }
 
     return NextResponse.json({ booking }, { status: 201 })
   } catch (error) {

@@ -42,6 +42,7 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Feedback', href: '/dashboard/patient/feedback', icon: MessageSquare },
     { label: 'Notifications', href: '/dashboard/patient/notifications', icon: Bell },
     { label: 'Profile', href: '/dashboard/patient/profile', icon: UserCircle },
+    { label: 'Settings', href: '/dashboard/patient/settings', icon: Settings },
     { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   hospital: [

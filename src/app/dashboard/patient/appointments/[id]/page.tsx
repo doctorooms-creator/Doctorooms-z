@@ -30,6 +30,7 @@ import {
   Printer,
   MessageSquare,
   Star,
+  CalendarPlus,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -374,6 +375,16 @@ export default function AppointmentDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Quick Re-book */}
+          {(appointment?.status === 'Visited' || appointment?.status === 'Finish') && appointment?.doctorId && (
+            <Button asChild className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-md shadow-teal-500/20">
+              <Link href={`/dashboard/patient/book/${appointment.doctorId}`}>
+                <CalendarPlus className="mr-2 h-4 w-4" />
+                Book Again with Dr. {doctor?.name}
+              </Link>
+            </Button>
+          )}
 
           {/* Join Video Call - shown when doctor has started a video consultation */}
           {appointment?.bookingMode === 'VideoCall' && appointment?.status === 'Visited' && appointment?.videoRoomId && (
