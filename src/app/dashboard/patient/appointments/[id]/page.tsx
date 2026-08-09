@@ -26,6 +26,7 @@ import {
   CheckCircle2,
   XCircle,
   Circle,
+  Video,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -230,6 +231,49 @@ export default function AppointmentDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Join Video Call - shown when doctor has started a video consultation */}
+          {appointment?.bookingMode === 'VideoCall' && appointment?.status === 'Visited' && appointment?.videoRoomId && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            >
+              <Card className="overflow-hidden border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/30 dark:to-emerald-950/30">
+                <CardContent className="p-5">
+                  <div className="flex flex-col sm:flex-row items-center gap-4">
+                    <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-teal-600 shadow-lg shadow-teal-600/30 shrink-0">
+                      <Video className="h-7 w-7 text-white" />
+                    </div>
+                    <div className="flex-1 text-center sm:text-left">
+                      <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+                        <span className="relative flex h-2.5 w-2.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+                        </span>
+                        <p className="text-sm font-semibold text-teal-700 dark:text-teal-400">
+                          Doctor has started the call — Join Now
+                        </p>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Your video consultation with {doctor?.name || 'your doctor'} is ready.
+                      </p>
+                    </div>
+                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                      <Button
+                        size="lg"
+                        className="bg-teal-600 hover:bg-teal-700 text-white gap-2 shadow-lg shadow-teal-600/30 text-base px-6 h-12"
+                        onClick={() => router.push(`/dashboard/video-call/${appointment.videoRoomId}`)}
+                      >
+                        <Video className="h-5 w-5" />
+                        Join Video Call
+                      </Button>
+                    </motion.div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {/* Chat Section */}
           <Card>

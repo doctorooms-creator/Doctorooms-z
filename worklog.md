@@ -740,3 +740,140 @@ Created the Receptionist Pending Bookings page and wired it into the navigation 
 - `src/lib/sidebar-config.ts` — Added Pending Bookings entry
 - `src/components/dashboard/dashboard-header.tsx` — Added route title
 - `src/app/dashboard/receptionist/page.tsx` — Added quick action button
+---
+Task ID: C2
+Agent: Doctor Schedule Slots Agent
+Task: Doctor schedule manual time slot management
+
+Work Log:
+- Fixed auth in doctor schedule API (getServerSession → requireRole)
+- Created /api/dashboard/doctor/schedule/slots for manual slot CRUD
+- Updated doctor schedule page UI with manual slot management (add/remove chips)
+- Updated public schedule API to prefer manual slots over auto-generated
+- Updated schedule POST to support timeSlots array
+
+Stage Summary:
+- Doctors can now manually add/remove time slots per day
+- Public booking page uses manual slots when available
+- All doctor APIs now use unified api-auth.ts
+
+---
+Task ID: C3
+Agent: Doctor Queue View Agent
+Task: Doctor today's queue view with live patient management
+
+Work Log:
+- Created /api/dashboard/doctor/queue API (today's FCFS queue)
+- Fixed doctor appointments API auth (getServerSession → requireRole)
+- Fixed doctor appointments status API auth (getServerSession → requireRole)
+- Updated doctor appointments page with "Today's Queue" tab
+- Queue shows patient position, actions (Start/Finish/Cancel)
+- Auto-refresh every 15 seconds
+- OPD progress bar with color coding (green/amber/red)
+- Staggered framer-motion animations on queue cards
+- Skeleton loading states for queue and list views
+
+Stage Summary:
+- Doctor can now see live queue of today's patients
+- Can manage patient flow: Approve → Visited → Finish
+- Queue position calculated FCFS per date
+- All doctor appointment APIs now use unified api-auth.ts
+
+---
+Task ID: C4
+Agent: Walk-in Registration Agent
+Task: Receptionist walk-in patient registration with direct queue entry
+
+Work Log:
+- Created /api/dashboard/receptionist/walk-in API (POST + GET)
+- Walk-in creates booking with Approve status directly
+- OPD limit and slot conflict validation
+- Holiday check before registration
+- Patient lookup by mobile number (auto-links if found)
+- Notifications sent to patient (if found) and doctor
+- Created walk-in registration page with quick form (compact, fast-fill design)
+- Real-time today's queue view with auto-refresh every 15s
+- Available time slots fetched from doctor schedule API
+- Added sidebar entry for receptionist (Walk-in with UserPlus icon)
+- Framer Motion animations for queue items and form
+- OPD progress bar visual indicator
+
+Stage Summary:
+- Receptionist can register walk-in patients in 1-2 clicks
+- Walk-in patients enter queue immediately (skip Pending)
+- Queue view shows real-time positions with auto-refresh
+- Form is compact and optimized for receptionist speed
+---
+Task ID: D1
+Agent: Video Call Integration Agent
+Task: Jitsi Meet video call integration for video consultations
+
+Work Log:
+- Created /api/dashboard/doctor/video-call API (start call, create room, notify)
+- Created /dashboard/video-call/[roomId] full-screen video call page
+- Updated patient appointment detail with Join Video Call button
+- Updated doctor queue with Start Video Call action
+- Jitsi Meet embedded via iframe
+
+Stage Summary:
+- Doctor can start video calls from queue for VideoCall bookings
+- Patient gets notification and can join the call
+- Full-screen Jitsi Meet interface with timer and end call
+
+---
+Task ID: C2-D1 (CTO Session)
+Agent: Main CTO Agent
+Task: Complete remaining Patient Booking Module features (C2, C3, C4, D1)
+
+Work Log:
+- Analyzed project state: Phase A (7 APIs) and Phase B (3 frontend pages) already complete
+- Launched 4 parallel subagents to build C2, C3, C4, D1 simultaneously
+- C2: Fixed doctor schedule API auth (getServerSession → requireRole from api-auth.ts)
+- C2: Created manual time slot management API + UI (Switch toggle, add/remove chips per day)
+- C2: Updated public schedule API to prefer manual slots over auto-generated
+- C3: Created /api/dashboard/doctor/queue API (today's FCFS queue with positions)
+- C3: Fixed doctor appointments API auth
+- C3: Updated doctor appointments page with "Today's Queue" tab (OPD progress bar, Start/Finish/Cancel actions)
+- C4: Created /api/dashboard/receptionist/walk-in API (POST=register, GET=today's queue)
+- C4: Created walk-in registration page (compact form + live queue view)
+- C4: Added Walk-in to receptionist sidebar
+- D1: Created /api/dashboard/doctor/video-call API (start call, create Jitsi room, notify)
+- D1: Created /dashboard/video-call/[roomId] full-screen video call page
+- D1: Updated patient appointment detail with "Join Video Call" button
+- D1: Updated doctor queue with "Start Video Call" action for VideoCall bookings
+- Fixed: Seeded receptionist-doctor link (Meera Joshi → Dr. Rajesh Sharma)
+- Fixed: Time slot format (HH:MM → HH:MM AM/PM) for all 18 schedule records
+
+Verification Results (curl E2E):
+- Patient Login → 200 ✅
+- Doctor Schedule (auth fixed) → 200 with schedules + manualSlots ✅
+- Doctor Queue → {date, totalInQueue, queue:[], opdLimit:40} ✅
+- Doctor Schedule Slots → {schedules with manualSlots array} ✅
+- Receptionist Walk-in POST → {success:true, queuePosition:1, status:"Approve"} ✅
+- Receptionist Walk-in GET → {date, totalInQueue, queue:[...]} ✅
+- Doctor Queue after walk-in → {totalInQueue:1, queue:[{patientName:"Walk-in Patient 1", queuePosition:1}]} ✅
+
+Browser QA (agent-browser):
+- Homepage → renders with 8 sections, 3 doctor cards ✅
+- Login Page → renders with 7 demo credential buttons ✅
+- Login API (JS eval) → {success:true, user:{role:"patient"}} + cookie set ✅
+- Patient Dashboard → renders with sidebar, 4 stat cards, notification badge ✅
+- Doctors Page → renders with 3 doctors, search, Book Appointment buttons ✅
+- ESLint → 0 errors ✅
+
+Stage Summary:
+- All 4 phases (A/B/C/D) of Patient Booking Module are now COMPLETE
+- 16+ API routes built for the booking system
+- Complete end-to-end flow: Patient Books → Reception Approves → Queue → Doctor Consults → Prescription
+- Walk-in patients bypass Pending and go directly to queue
+- Video call integration ready (Jitsi Meet embedded)
+- Doctor has live queue management with OPD progress tracking
+
+Remaining Work (Future Phases):
+- Real-time updates (WebSocket) for queue changes
+- Prescription print/download
+- File upload for medical documents
+- Password change for patient
+- Feedback per-visit (currently per-doctor)
+- Mobile app PWA support
+- Push notifications

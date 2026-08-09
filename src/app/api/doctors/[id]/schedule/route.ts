@@ -69,15 +69,22 @@ export async function GET(
       orderBy: { date: 'asc' },
     })
 
-    // Generate time slots for each schedule
-    const schedulesWithSlots = schedules.map((s) => ({
-      id: s.id,
-      day: s.day,
-      startTime: s.startTime,
-      endTime: s.endTime,
-      slotDuration: s.slotDuration,
-      timeSlots: generateTimeSlots(s.startTime, s.endTime, s.slotDuration),
-    }))
+    // Generate time slots for each schedule — prefer manual slots over auto-generated
+    const schedulesWithSlots = schedules.map((s) => {
+      const parsedManual = JSON.parse(s.timeSlots || '[]') as string[]
+      // If manual slots exist and are non-empty, use them; otherwise auto-generate
+      const useManual = Array.isArray(parsedManual) && parsedManual.length > 0
+      return {
+        id: s.id,
+        day: s.day,
+        startTime: s.startTime,
+        endTime: s.endTime,
+        slotDuration: s.slotDuration,
+        timeSlots: useManual
+          ? parsedManual
+          : generateTimeSlots(s.startTime, s.endTime, s.slotDuration),
+      }
+    })
 
     return NextResponse.json({
       doctorId: doctor.id,

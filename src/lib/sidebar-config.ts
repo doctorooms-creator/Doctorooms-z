@@ -1,4 +1,4 @@
-import { type LucideIcon, LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell } from 'lucide-react'
+import { type LucideIcon, LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus } from 'lucide-react'
 
 export interface SidebarItem {
   label: string
@@ -47,6 +47,7 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Dashboard', href: '/dashboard/receptionist', icon: LayoutDashboard },
     { label: 'Appointments', href: '/dashboard/receptionist/appointments', icon: CalendarDays },
     { label: 'Pending Bookings', href: '/dashboard/receptionist/pending-bookings', icon: Clock },
+    { label: 'Walk-in', href: '/dashboard/receptionist/walk-in', icon: UserPlus },
     { label: 'Patients', href: '/dashboard/receptionist/patients', icon: Users },
   ],
   assistant: [

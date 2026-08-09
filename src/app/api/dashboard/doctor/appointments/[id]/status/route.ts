@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
 export async function PUT(
@@ -8,21 +7,21 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
+    const user = await requireRole(req, 'doctor')
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { id } = await params
     const { status } = await req.json()
 
-    const validStatuses = ['Pending', 'Approve', 'Visited', 'Canceled', 'Finish', 'Extend']
+    const validStatuses = ['Visited', 'Finish', 'Extend', 'Canceled']
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     }
 
     const doctor = await db.doctor.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     })
     if (!doctor) {

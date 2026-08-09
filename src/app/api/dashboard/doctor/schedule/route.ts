@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
+    const user = await requireRole(req, 'doctor')
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const doctor = await db.doctor.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     })
     if (!doctor) {
@@ -34,13 +33,13 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user?.id || session.user.role !== 'doctor') {
+    const user = await requireRole(req, 'doctor')
+    if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const doctor = await db.doctor.findUnique({
-      where: { userId: session.user.id },
+      where: { userId: user.id },
       select: { id: true },
     })
     if (!doctor) {
@@ -49,7 +48,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json()
     const { schedules: newSchedules } = body as {
-      schedules: { day: string; startTime: string; endTime: string; slotDuration: number }[]
+      schedules: { day: string; startTime: string; endTime: string; slotDuration: number; timeSlots?: string[] }[]
     }
 
     // Upsert each day's schedule
@@ -61,11 +60,23 @@ export async function POST(req: NextRequest) {
         if (existing) {
           return db.doctorSchedule.update({
             where: { id: existing.id },
-            data: { startTime: s.startTime, endTime: s.endTime, slotDuration: s.slotDuration },
+            data: {
+              startTime: s.startTime,
+              endTime: s.endTime,
+              slotDuration: s.slotDuration,
+              ...(s.timeSlots !== undefined && { timeSlots: JSON.stringify(s.timeSlots) }),
+            },
           })
         }
         return db.doctorSchedule.create({
-          data: { doctorId: doctor.id, day: s.day, startTime: s.startTime, endTime: s.endTime, slotDuration: s.slotDuration },
+          data: {
+            doctorId: doctor.id,
+            day: s.day,
+            startTime: s.startTime,
+            endTime: s.endTime,
+            slotDuration: s.slotDuration,
+            timeSlots: s.timeSlots ? JSON.stringify(s.timeSlots) : '[]',
+          },
         })
       })
     )
