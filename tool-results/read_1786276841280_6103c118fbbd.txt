@@ -1,0 +1,1284 @@
+     1→# Phase 9: Cross-Cutting Concerns
+     2→
+     3→## 9.1 API Endpoints
+     4→
+     5→### 9.1.1 Api Controller (`/application/controllers/Api.php`)
+     6→- **Extends**: `Guest_controller` (public, no auth required)
+     7→- **Models loaded**: `Doctor_rating_model` (aliased as `doctor_rating`)
+     8→- **Endpoints**:
+     9→
+    10→| Method | URI | Auth | Description |
+    11→|--------|-----|------|-------------|
+    12→| POST | `api/rate_us` | PATIENT role only | Rate a doctor (1-5 stars). Upserts: if patient already rated this doctor, updates; otherwise creates new. |
+    13→
+    14→### 9.1.2 Inline AJAX Endpoints (within other controllers)
+    15→
+    16→| Controller | Method | URI Pattern | Auth | Description |
+    17→|------------|--------|-------------|------|-------------|
+    18→| `Appointment` (patient) | `get_all_chat_message()` | `appointment/get_all_chat_message` | Patient | Returns JSON chat messages for a booking |
+    19→| `Appointment` (patient) | `send_chat_msg()` | `appointment/send_chat_msg` | Patient | Sends chat message (POST: appointId, msg) |
+    20→| `receptionist/Appointment` | `get_all_chat_message()` | `receptionist/appointment/get_all_chat_message` | Receptionist | Returns JSON chat messages |
+    21→| `receptionist/Appointment` | `send_chat_msg()` | `receptionist/appointment/send_chat_msg` | Receptionist | Sends chat message |
+    22→| `hospital/Appoinment` | `get_all_chat_message()` | `hospital/appoinment/get_all_chat_message` | Hospital | Returns JSON chat messages |
+    23→| `hospital/Appoinment` | `send_chat_msg()` | `hospital/appoinment/send_chat_msg` | Hospital | Sends chat message |
+    24→| `doctor/Appointment` | `get_branch()` | `doctor/appointment/get_branch` | Doctor | Returns JSON medicine list for autocomplete |
+    25→| `doctor/Appointment` | `get_medi_list()` | `doctor/appointment/get_medi_list` | Doctor | Returns all medicine list for doctor |
+    26→| `doctor/AjaxPrescription` | `ajax_insert_co()` | `doctor/AjaxPrescription/ajax_insert_co` | Doctor | AJAX insert complaints/observations |
+    27→| `doctor/AjaxPrescription` | `ajax_insert_labels()` | `doctor/AjaxPrescription/ajax_insert_labels` | Doctor | AJAX insert labels |
+    28→| `doctor/AjaxPrescription` | `ajax_insert_medi_list()` | `doctor/AjaxPrescription/ajax_insert_medi_list` | Doctor | AJAX insert medicine list |
+    29→| `doctor/AjaxPrescription` | `ajax_insert_suggestion()` | `doctor/AjaxPrescription/ajax_insert_suggestion` | Doctor | AJAX insert suggestions |
+    30→| `doctor/AjaxPrescription` | `get_saggestion()` | `doctor/AjaxPrescription/get_saggestion` | Doctor | AJAX load suggestion tab |
+    31→| `assistant/AjaxPrescription` | (same 5 methods) | `assistant/AjaxPrescription/*` | Assistant | Mirrors doctor endpoints |
+    32→
+    33→### 9.1.3 Security Issues in API
+    34→- **No CSRF protection** on any AJAX endpoint
+    35→- **No rate limiting** on rating endpoint
+    36→- **No input sanitization** on chat messages (XSS risk)
+    37→- `Api.php` sets `Content-Type: application/json` but other AJAX endpoints in controllers do not consistently set headers
+    38→- Patient rating requires POST but no authentication token validation beyond session role check
+    39→
+    40→---
+    41→
+    42→## 9.2 Cron Jobs
+    43→
+    44→### 9.2.1 Crownjob Controller (`/application/controllers/Crownjob.php`)
+    45→- **Extends**: `Guest_controller`
+    46→- **Model loaded**: `Users_model` (aliased as `user`)
+    47→
+    48→#### `birthReminder()`
+    49→- **Purpose**: Sends birthday SMS to patients whose birthday is today
+    50→- **Data source**: `Users_model->get_today_birthday()` which joins `users`, `booking`, and `users AS docusers` to find patients who booked with doctors, filtered by `date_of_birth = today`
+    51→- **Message format**: "Happy Birthday Dear {name} Stay Healthy... From Dr.{doctor_name} (DOCTOROOMS) (https://doctorooms.com)"
+    52→- **SMS Provider**: `sms.soft-techsolutions.com` via HTTP GET with hardcoded API key
+    53→- **Issues**:
+    54→  - Hardcoded SMS API credentials in source code (security risk)
+    55→  - Indian phone prefix `+91` hardcoded (not internationalized)
+    56→  - Returns after first birthday (loop has early `return` instead of `continue`)
+    57→  - No logging of sent/failed messages
+    58→  - URL-encodes spaces but other special chars may break
+    59→  - The `date_of_birth` column on `booking` table is used (not on `users`), meaning only patients who have booked appointments are eligible
+    60→
+    61→---
+    62→
+    63→## 9.3 Notification System
+    64→
+    65→### 9.3.1 Notifications_model (`/application/models/Notifications_model.php`)
+    66→- **Table**: `notifications`
+    67→- **Columns**: id, user_id, title, body, status (READ/UNREAD), created_at, updated_at
+    68→- **Methods**:
+    69→  - `create($data)` - Creates notification with auto-timestamps
+    70→  - `update($user_id, $data)` - Updates ALL notifications for a user (design flaw: should update by notification id)
+    71→  - `get_all_by_user($user_id, $limit)` - All notifications ordered by created_at DESC
+    72→  - `get_all_by_user_by_status($user_id, $limit)` - Unread notifications only
+    73→  - `get_count_by_user($user_id)` - Count of unread notifications
+    74→
+    75→### 9.3.2 Notification Triggers (Cross-Module)
+    76→
+    77→Every appointment status change triggers notifications to both the patient AND the doctor's receptionist (if one exists):
+    78→
+    79→| Trigger Event | Controller | Notify: Patient | Notify: Receptionist |
+    80→|---------------|------------|-----------------|---------------------|
+    81→| New booking created | `Book.php` | Yes | Yes |
+    82→| Booking canceled by patient | `Appointment.php` (patient) | - | Yes (to doctor) |
+    83→| Doctor extends appointment | `doctor/Appointment.php` | Yes | Yes |
+    84→| Doctor approves appointment | `doctor/Appointment.php` | Yes | Yes |
+    85→| Doctor marks visited | `doctor/Appointment.php` | Yes | Yes |
+    86→| Doctor cancels/rejects | `doctor/Appointment.php` | Yes | Yes |
+    87→| Receptionist approves | `receptionist/Appointment.php` | Yes | Yes |
+    88→| Receptionist extends | `receptionist/Appointment.php` | Yes | Yes |
+    89→| Receptionist marks visited | `receptionist/Appointment.php` | Yes | Yes |
+    90→| Receptionist rejects | `receptionist/Appointment.php` | Yes | Yes |
+    91→| Hospital creates booking | `hospital/Appoinment.php` | Yes | Yes |
+    92→| Hospital approves | `hospital/Appoinment.php` | Yes | Yes (commented out) |
+    93→| Assistant approves | `assistant/Appointment.php` | Yes | Yes |
+    94→
+    95→### 9.3.3 Notification Content Pattern
+    96→Every notification contains:
+    97→- `title`: Always "Appointment updated"
+    98→- `body`: HTML string with clickable link to the appointment detail page (role-specific URL)
+    99→- `user_id`: Target user's ID (always a `users.id` reference)
+   100→- Notification bodies include `<b>`, `<a href>` tags (stored as HTML, potential XSS)
+   101→
+   102→### 9.3.4 Notification Views
+   103→- **Patient**: `views/front/patient/notifications.php` - Uses Tabler UI, Bootstrap table, `format_date_time()` helper, `UNREAD` highlighted with `table-warning`
+   104→- **Doctor**: `views/doctor/notifications.php` - Uses AdminLTE UI, `warning` class for unread, `format_date_time()` helper
+   105→- **Receptionist, Assistant, Hospital, Pharmacist**: Each has their own Notifications controller under their respective view directories
+   106→
+   107→### 9.3.5 Notification Architecture Issues
+   108→- No notification channel system (only in-app, no email/push)
+   109→- `update()` method updates ALL notifications for a user instead of a single one
+   110→- No bulk mark-as-read
+   111→- No notification preferences/settings
+   112→- Notifications are never deleted, only marked READ/UNREAD
+   113→
+   114→---
+   115→
+   116→## 9.4 Chat System
+   117→
+   118→### 9.4.1 Booking_chat_model
+   119→- **Table**: `booking_chat`
+   120→- **Schema**: id, booking_id, from_id (users.id), to_id (users.id), message (text), status (READ/UNREAD), created_at
+   121→- **Methods**:
+   122→  - `create($data)` - Creates chat message with auto-timestamp
+   123→  - `update($id, $data)` - Updates a chat message
+   124→  - `getByAppointment($booking_id)` - Returns all messages for a booking with JOINs to `users` (as `fuser` and `tuser`) for `from_name` and `to_name`
+   125→
+   126→### 9.4.2 Chat Flow Architecture
+   127→```
+   128→Patient ----AJAX POST----> appointment/send_chat_msg
+   129→                               |
+   130→                               v
+   131→                    Booking_chat_model->create()
+   132→                    (from_id=patient, to_id=receptionist_user_id)
+   133→                               |
+   134→                               v
+   135→                    DB: booking_chat table
+   136→                               ^
+   137→                               | (5-second polling)
+   138→                    get_all_chat_message() <-----AJAX POST---- Patient UI
+   139→                    get_all_chat_message() <-----AJAX POST---- Receptionist UI
+   140→```
+   141→
+   142→### 9.4.3 Chat Participants
+   143→- **Patient <-> Receptionist**: Chat is enabled between patient and the doctor's assigned receptionist
+   144→- Chat is conditionally enabled: only if `$isCheckBoxEnable` is true (i.e., the doctor has a receptionist)
+   145→- Chat is disabled when appointment status is `VISITED` or `REJECTED`/`Canceled`
+   146→- **Doctor does NOT have chat** - The doctor appointment show view has no chat UI
+   147→- **Hospital can also chat** via `hospital/Appoinment` controller
+   148→- **Assistant does NOT have chat endpoints** (no `Booking_chat_model` loaded)
+   149→
+   150→### 9.4.4 Chat UI Implementation
+   151→All three chat UIs (patient, receptionist, hospital) are nearly identical:
+   152→- jQuery `$.post()` for sending and receiving
+   153→- 5-second `setInterval` polling loop
+   154→- Renders messages as left/right-aligned bubbles with placeholder avatars from `placehold.it`
+   155→- Auto-scrolls to bottom on new messages
+   156→- No typing indicator, no read receipts, no file attachments
+   157→- No WebSocket/Server-Sent Events (pure polling)
+   158→
+   159→### 9.4.5 Chat Security Issues
+   160→- Messages stored in plain text
+   161→- No message length limits
+   162→- No spam protection
+   163→- Status field exists but is never updated (all messages stay UNREAD)
+   164→- Bug in `receptionist/Appointment.php` show view: there's a stray `DGKPM4300J` text on line 229
+   165→
+   166→---
+   167→
+   168→## 9.5 Rating System
+   169→
+   170→### 9.5.1 Doctor_rating_model
+   171→- **Table**: `doctor_rating`
+   172→- **Schema**: id (bigint), patient_id (int), doctor_id (int), star (int 1-5)
+   173→- **Methods**:
+   174→  - `create($data)` - Insert new rating
+   175→  - `update($id, $data)` - Update existing rating
+   176→  - `get_by_doctor_total_count($doctor_id)` - Total number of ratings
+   177→  - `get_average_rating($doctor_id)` - Calculates weighted average (5 separate COUNT queries, one per star level)
+   178→  - `get_by_patient_doctor($doctor_id, $patient_id)` - Check if patient already rated this doctor
+   179→
+   180→### 9.5.2 Rating Consumers (controllers using Doctor_rating_model)
+   181→| Controller | Alias | Usage |
+   182→|-----------|-------|-------|
+   183→| `Api.php` | `doctor_rating` | POST endpoint for patient rating |
+   184→| `Doctors.php` | `doctor_rating` | Display doctor profile with rating |
+   185→| `Book.php` | `doctor_rating` | Show doctor rating on booking page |
+   186→| `doctor/Dashboard.php` | `doctor_rating` | Show own rating on dashboard |
+   187→| `assistant/Dashboard.php` | `doctor_rating` | Show doctor's rating on assistant dashboard |
+   188→| `receptionist/Dashboard.php` | `doctor_rating` | Show doctor's rating on receptionist dashboard |
+   189→| `hospital/Doctor.php` | `doctor_rating` | Show doctor rating in hospital doctor list |
+   190→| `pharmacist/Pharmacist.php` | `doctor_rating` | Show doctor rating in pharmacist view |
+   191→| `admin/Doctor.php` | `rating` | Show doctor rating in admin panel |
+   192→
+   193→### 9.5.3 Rating Issues
+   194→- `get_average_rating()` uses 5 separate COUNT queries instead of a single GROUP BY
+   195→- No decimal precision handling in the star field (no half-star support)
+   196→- No review text field, only numeric star rating
+   197→- `Api.php` rate_us endpoint: no validation that star value is 1-5
+   198→- Rating is per patient-doctor pair (one rating per patient per doctor, updatable)
+   199→
+   200→---
+   201→
+   202→## 9.6 Search System
+   203→
+   204→### 9.6.1 Search Controller (`/application/controllers/Search.php`)
+   205→- **Extends**: `Guest_controller` (public access)
+   206→- **Models loaded**: `Doctors_model`, `Hospital_model`, `City_model`, `Doctor_type_model`
+   207→- **Parameters**: `q` (query string), `city` (filter), `type` (specialization filter)
+   208→- **Methods**:
+   209→  - `get_search_users($q, $city, $type)` - Full-text-like search on doctors
+   210→  - `get_search_hospital($q, $city)` - Search hospitals by name
+   211→- Searches both doctors AND hospitals simultaneously
+   212→- Results rendered in `views/front/doctor/search.php`
+   213→
+   214→---
+   215→
+   216→## 9.7 Prescription System (Shared Across Roles)
+   217→
+   218→### 9.7.1 Two Prescription Subsystems
+   219→
+   220→The system has **two separate prescription mechanisms** that coexist:
+   221→
+   222→#### A. Legacy Prescription (`Prescriptions_model`)
+   223→- **Table**: `prescriptions`
+   224→- **Schema**: id, booking_id, disease_description (text), medicine_details (JSON text: `[{Name, Description, Tab}]`), remark (text), created_by, user_id (doctor_id)
+   225→- **Used by**: `doctor/Appointment` (create_prescription, store_prescription, edit_prescription, update_prescription)
+   226→- **Simple structure**: One record per booking with JSON-encoded medicine list
+   227→
+   228→#### B. Ajax Prescription System (`Ajaxprescription_model` + 6 sub-models)
+   229→- **Table**: `prescription` (singular)
+   230→- **Schema**: id, doc_id, patient_id, booking_id, next_visit (date), status, created_by, created_at, updated_at
+   231→- **Sub-tables** (all linked via `p_id` → `prescription.id`):
+   232→  - `p_cos` - Complaints/Observations (category, question, question_code)
+   233→  - `p_labels` - Custom labels with values and units
+   234→  - `p_medicine` - Individual medicine records (morning, afternoon, evening, tab, doz, description)
+   235→  - `p_suggestions` - Suggestions per question
+   236→  - `p_digno_table` - Diagnostic table configurations (rows, cols, header/footer labels)
+   237→  - `p_other_settings` - Per-doctor prescription print settings (logo, time, header)
+   238→
+   239→### 9.7.2 Prescription Wizard (6-Step Flow)
+   240→
+   241→The Ajax Prescription UI is a 6-step wizard:
+   242→
+   243→```
+   244→Step 1: Category Details (CO)     [Stethoscope icon]
+   245→  → Select checkboxes from complaints/observations grouped by CO code
+   246→  → POST: ajax_insert_co {cos: [[co_code, question, question_code]], pre_id}
+   247→
+   248→Step 2: Diagnosis Table           [File icon]
+   249→  → Table master configuration (dynamic rows/cols)
+   250→
+   251→Step 3: Medicine Details          [Table icon]
+   252→  → Add medicines with autocomplete from doctor_medicine_list
+   253→  → Fields: name, doz, morning, afternoon, evening, tab, description
+   254→  → POST: ajax_insert_medi_list {lists: [[name,morning,afternoon,evening,tab,doz,desc]], pre_id}
+   255→
+   256→Step 4: Suggestion Details        [List icon]
+   257→  → Checkboxes for predefined suggestions per question
+   258→  → Extra text field for custom suggestions
+   259→  → Next visit date picker
+   260→  → POST: ajax_insert_suggestion {sug: [[question, suggestion]], pre_id, next_date}
+   261→
+   262→Step 5: Finish                    [Check icon]
+   263→  → Success animation
+   264→  → "Go Appointment" / "Print Prescription" buttons
+   265→```
+   266→
+   267→### 9.7.3 Prescription Role Access
+   268→
+   269→| Role | Legacy Prescription | Ajax Prescription | Print |
+   270→|------|--------------------|--------------------|-------|
+   271→| Doctor | Create/Edit/Store | Full 6-step wizard | Yes |
+   272→| Assistant | No | Full 6-step wizard (mirrored) | Yes |
+   273→| Patient | View only | View only (print_prescription via Appointment) | Yes |
+   274→| Pharmacist | View list | View detail per prescription | No (via controller) |
+   275→| Receptionist | No | No | No |
+   276→| Hospital | No | No | No |
+   277→| Admin | No | No | No |
+   278→
+   279→### 9.7.4 Prescription Cross-Role Sharing
+   280→- The `doctor/AjaxPrescription/print_prescription` view is shared by Patient for printing (patient `Appointment.php` line 146 loads `doctor/AjaxPrescription/print_prescription`)
+   281→- Doctor and Assistant have near-identical AjaxPrescription views with only the URL prefix differing (`/doctor/` vs `/assistant/`)
+   282→- The AjaxPrescription controllers for doctor and assistant are functionally identical
+   283→- Pharmacist accesses via `pharmacist/Pharmacist.php` which loads all P_* models
+   284→
+   285→### 9.7.5 Prescription Voice Input
+   286→- The Ajax Prescription views include **Web Speech API** integration
+   287→- Voice recognition activates on focus of medicine name input fields
+   288→- Uses `webkitSpeechRecognition` / `SpeechRecognition` API
+   289→- Animated GIF indicators (voice_on.gif / voice_off.gif)
+   290→- Recognition stops on input blur
+   291→- **Browser support**: Chrome only (no fallback)
+   292→
+   293→### 9.7.6 Prescription Medicine Autocomplete
+   294→- Medicine data pre-loaded as PHP JSON into JavaScript (`<?= $list ?>` and `<?= $list_detail ?>`)
+   295→- Uses jQuery UI Autocomplete
+   296→- On selection, auto-fills: morning, afternoon, evening, tab, doz, description
+   297→- Source: `doctor_medicine_list` table (per-doctor medicine master)
+   298→
+   299→---
+   300→
+   301→## 9.8 Form Validation Rules
+   302→
+   303→### 9.8.1 Config File: `/application/config/form_validation.php`
+   304→
+   305→**22 validation rule groups defined:**
+   306→
+   307→| Group Name | Fields Validated | Key Rules |
+   308→|-----------|-----------------|-----------|
+   309→| `register` | name, email, password, c_pass, mobile_no, terms | email unique in users, mobile unique, password min 6, terms required |
+   310→| `receptionist_patient_registration` | name, email, password, c_pass, mobile_no | Same as register but no terms field |
+   311→| `login` | email, password | Required only |
+   312→| `contry` | country_name | Required |
+   313→| `state` | state_name, county_id | Required |
+   314→| `city` | state_id, city_name | Required |
+   315→| `type` | type | Required |
+   316→| `disease` | dis_name | Required |
+   317→| `blog` | title, content, video_link | Required title/content, valid_url for video |
+   318→| `profile` | name, email, mobile_no, password, doctor_type, fees, address, description, eduction | Email/mobile unique, fees >= 2 and numeric |
+   319→| `doctor_profile` | name, doctor_type, fees, address, description, eduction | Same as profile minus email/mobile/password |
+   320→| `change_password` | current_pass, new_pass, conform_pass | Callback for current password verification, new matches conform |
+   321→| `patient_profile` | name, gender, mobile_no | Mobile unique |
+   322→| `register_receptionist` | name, email, password, c_pass, mobile_no | Same pattern as register |
+   323→| `register_receptionist_update` | name, password, c_pass | Password min 6, optional |
+   324→| `register_assistant` | name, email, password, c_pass, mobile_no | Same as register |
+   325→| `register_assistant_update` | name, password, c_pass | Same as receptionist_update |
+   326→| `admin_doctor` | name, password, mobile_no | Mobile unique |
+   327→| `receptionist_profile` | name | Required only |
+   328→| `assistant_profile` | name | Required only |
+   329→| `booking_by_patient` | petient_name, booking_date, age, description | Age numeric, description max 300 |
+   330→| `booking_by_receptionist` | mobile, petient_name, booking_date, age, description | Mobile optional, age numeric, description max 300 |
+   331→| `booking_by_hospital` | petient_name, booking_date, age, doctor_id, description | Doctor_id required, age numeric |
+   332→| `hospital_profile` | name | Required |
+   333→| `hospital_inquiry` | hospital_name, hospital_cotanct_no, email, contact_person_name, contact_person_mobile, address, city, state | All required, various max_length |
+   334→| `contact_us` | name, email, subject, message | All required, valid_email, various length ranges |
+   335→| `medicine` | name, morning, afternoon, evening, tab, doz[] | All required, doz is array |
+   336→| `co` | co_code | Required |
+   337→| `questions` | question, co_id, question_code | All required |
+   338→| `label` | label_title | Required |
+   339→| `register_pharmacist` | name, email, password, c_pass, mobile_no | Same as register |
+   340→| `register_pharmacist_update` | name, password, c_pass | Same as receptionist_update |
+   341→| `pharmacist_profile` | name | Required only |
+   342→
+   343→### 9.8.2 Validation Issues
+   344→- **Typo**: `county_id` instead of `country_id` in state validation
+   345→- **Typo**: `contry` instead of `country` as group name
+   346→- **Typo**: `petient_name` instead of `patient_name` (throughout entire codebase)
+   347→- **Typo**: `eduction` instead of `education` (throughout entire codebase)
+   348→- **Typo**: `conform_pass` instead of `confirm_pass` (throughout entire codebase)
+   349→- **Typo**: `cotanct_no` instead of `contact_no` (in hospital_inquiry)
+   350→- No CSRF token validation in any form
+   351→- `is_unique[users.email]` and `is_unique[users.mobile_no]` will fail on profile update (no exclusion for current user ID)
+   352→
+   353→---
+   354→
+   355→## 9.9 Helper Functions
+   356→
+   357→### 9.9.1 date_formater_helper.php
+   358→
+   359→| Function | Signature | Output Format | Usage |
+   360→|----------|-----------|---------------|-------|
+   361→| `format_date()` | `format_date($date)` | `d-m-Y` | Used in all appointment views, notification views |
+   362→| `format_date_time()` | `format_date_time($date_time)` | `d-m-Y H:i:s` | Used in all notification views |
+   363→
+   364→### 9.9.2 Helpers Used
+   365→- `base_url()` - CodeIgniter built-in
+   366→- `format_date()` / `format_date_time()` - Custom date formatting
+   367→- `form_error()` - CodeIgniter form validation error display
+   368→- `set_value()` - CodeIgniter form repopulation
+   369→
+   370→---
+   371→
+   372→## 9.10 Common UI Patterns
+   373→
+   374→### 9.10.1 JavaScript Libraries
+   375→| Library | Usage | Files |
+   376→|---------|-------|-------|
+   377→| jQuery 2.1.3 | Core DOM manipulation, AJAX | All views with chat, AjaxPrescription |
+   378→| jQuery UI | Autocomplete (medicine search) | AjaxPrescription views |
+   379→| PNotify | Notification popups (success/error) | AjaxPrescription views |
+   380→| Web Speech API | Voice input for medicine names | AjaxPrescription views |
+   381→| SweetAlert (implied) | Alert dialogs via `_alertInfoResponce()` | All AdminLTE-based controllers |
+   382→
+   383→### 9.10.2 UI Framework Usage
+   384→
+   385→| UI Framework | Used By |
+   386→|-------------|---------|
+   387→| **Tabler** (Bootstrap 4 based) | Patient front-end views |
+   388→| **AdminLTE 2** (Bootstrap 3 based) | Doctor, Receptionist, Assistant, Hospital, Pharmacist, Admin |
+   389→| **Plain Bootstrap** | Some guest/public pages |
+   390→
+   391→### 9.10.3 CSS Icon Libraries
+   392→| Library | Used By |
+   393→|---------|---------|
+   394→| **Feather Icons** (`fe fe-*`) | Patient front-end (Tabler) |
+   395→| **Font Awesome** (`fa fa-*`) | AdminLTE panels (Doctor, Receptionist, etc.) |
+   396→| **Glyphicons** (`glyphicon glyphicon-*`) | Chat UI, AdminLTE panels |
+   397→
+   398→### 9.10.4 Common UI Components
+   399→- **DataTables**: Referenced via `dttable` CSS class but not explicitly initialized in the files read
+   400→- **Wizard/Stepper**: Custom CSS wizard in AjaxPrescription (6-step tab navigation)
+   401→- **Accordion**: Custom CSS accordion for CO categories in prescription
+   402→- **Chat bubbles**: Custom CSS left/right aligned chat messages
+   403→- **Status badges**: `tag-*` (Tabler) and `label-*` (AdminLTE) for appointment status
+   404→- **Autocomplete**: jQuery UI autocomplete for medicine names
+   405→
+   406→---
+   407→
+   408→# Phase 10: Module Connection Map
+   409→
+   410→## 10.1 Database ER Diagram (Text-Based)
+   411→
+   412→```
+   413→┌─────────────────────────────────────────────────────────────────────────┐
+   414→│                        CENTRAL TABLE: users                            │
+   415→│  id(PK), name, gender, role, status, email, password, mobile_no,       │
+   416→│  profile_img, created_at, updated_at, mobile_verified_at,               │
+   417→│  email_verified_at                                                     │
+   418→└──────┬──────────┬──────────┬──────────┬──────────┬──────────┬──────────┘
+   419→       │          │          │          │          │          │
+   420→       │ 1:1      │ 1:1      │ 1:N      │ 1:1      │ 1:1      │ 1:N
+   421→       ▼          ▼          ▼          ▼          ▼          ▼
+   422→┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+   423→│ doctors  │ │hospital  │ │receptionist│ │doctor_   │ │doctor_   │ │doctor_   │
+   424→│          │ │          │ │          │ │assistants│ │pharmacist│ │rating   │
+   425→│user_id→ │ │user_id→ │ │user_id→ │ │user_id→ │ │user_id→ │ │patient_id│
+   426→│users.id  │ │users.id  │ │users.id  │ │users.id  │ │users.id  │ │doctor_id │
+   427→│          │ │          │ │doctor_id→│ │doctor_id→│ │doctor_id→│ │→users.id│
+   428→│hospital_ │ │          │ │users.id  │ │users.id  │ │users.id  │ └──────────┘
+   429→│id→users  │ └──────────┘ └──────────┘ └──────────┘ └──────────┘
+   430→│.id       │
+   431→│doctor_   │       ┌──────────────────────────────────────────────────┐
+   432→│type→     │       │              BOOKING: booking                     │
+   433→│doctor_   │       │ id, appointment_no, doctor_id→users.id,          │
+   434→│type_mstr │       │ user_id→users.id, booking_date, petient_name,    │
+   435→│          │       │ disease, description, gender, date_of_birth,     │
+   436→└──────────┘       │ age, relation_with_me, blood_group, weight,      │
+   437→       │          │ height, physical_handicape, status, booking_type,  │
+   438→       │          │ appointment_charge, created_at, updated_at        │
+   439→       │          └──────┬───────────────────┬────────────────────────┘
+   440→       │                 │                   │
+   441→       │                 │ 1:N               │ 1:1
+   442→       │                 ▼                   ▼
+   443→       │    ┌──────────────────┐  ┌──────────────────────┐
+   444→       │    │   booking_chat   │  │ prescriptions         │
+   445→       │    │ booking_id→      │  │ booking_id→booking.id │
+   446→       │    │ booking.id       │  │ user_id→users.id     │
+   447→       │    │ from_id→users.id │  │ (doctor_id)          │
+   448→       │    │ to_id→users.id   │  │ disease_description  │
+   449→       │    │ message, status  │  │ medicine_details     │
+   450→       │    │ created_at       │  │ (JSON), remark       │
+   451→       │    └──────────────────┘  └──────────────────────┘
+   452→       │
+   453→       │          AJAX PRESCRIPTION SYSTEM
+   454→       │                 │
+   455→       │                 ▼
+   456→       │    ┌──────────────────────────────────────────┐
+   457→       │    │        prescription (singular)           │
+   458→       │    │ id, doc_id→users.id, patient_id→users.id,  │
+   459→       │    │ booking_id→booking.id, next_visit, status, │
+   460→       │    │ created_by, created_at, updated_at        │
+   461→       │    └────┬──────┬──────┬──────┬──────┬──────────┘
+   462→       │         │      │      │      │      │
+   463→       │         │1:N   │1:N   │1:N   │1:N   │1:N
+   464→       │         ▼      ▼      ▼      ▼      ▼
+   465→       │    ┌────────┐┌────────┐┌────────┐┌────────┐┌────────────┐
+   466→       │    │ p_cos  ││p_labels││p_medi- ││p_sugges││p_digno_   │
+   467→       │    │ p_id→  ││ p_id→  ││cine    ││tions   ││table      │
+   468→       │    │presc.  ││presc.  ││ p_id→  ││ p_id→  ││ p_id→     │
+   469→       │    │id      ││id      ││presc.id││presc.id││presc.id   │
+   470→       │    │co,ques-││label,  ││medi-   ││question,││rows,cols, │
+   471→       │    │tion,   ││l_value,││cine,   ││sugges- ││header/    │
+   472→       │    │code    ││unit    ││morning,││tions   ││footer_lbl │
+   473→       │    └────────┘│        ││after_  │└────────┘└────────────┘
+   474→       │             └────────┘│noon,   │
+   475→       │                        │evening,│
+   476→       │                        │tab,doz │
+   477→       │                        └────────┘
+   478→       │
+   479→       │    DOCTOR MASTER DATA (per doctor)
+   480→       │    ┌─────────────────────────────────────────────────────┐
+   481→       │    │ co_master (created_by→users.id, doctor_id→users.id) │
+   482→       │    │ questions_master (co_id→co_master.id)              │
+   483→       │    │ suggestions_master (question_id→questions_master.id)│
+   484→       │    │ label_master (created_by→users.id, doctor_id→users.id)│
+   485→       │    │ doctor_medicine_list (user_id→users.id)            │
+   486→       │    │ table_master (doctor_id→users.id)                  │
+   487→       │    │ doctor_holiday_schedule (user_id→users.id)          │
+   488→       │    │ p_other_settings (doctor_id→users.id)               │
+   489→       │    └─────────────────────────────────────────────────────┘
+   490→       │
+   491→       │    OTHER TABLES
+   492→       │    ┌──────────────────┐ ┌──────────────────┐
+   493→       │    │  notifications   │ │  reset_password  │
+   494→       │    │ user_id→users.id │ │  email, token    │
+   495→       │    │ title, body,     │ │  created_at      │
+   496→       │    │ status(READ/     │ └──────────────────┘
+   497→       │    │ UNREAD)          │ ┌──────────────────┐
+   498→       │    └──────────────────┘ │ hospital_inquiry │
+   499→       │                        │ (standalone, no  │
+   500→       │    ┌──────────────────┐ │  FK to users)    │
+   501→       │    │  posts          │ └──────────────────┘
+   502→       │    │ user_id→users.id │ ┌──────────────────┐
+   503→       │    │ title, content, │ │  config          │
+   504→       │    │ type(Blog/news), │ │  admin_charge    │
+   505→       │    │ status          │ │  (single row)    │
+   506→       │    └──────────────────┘ └──────────────────┘
+   507→       │
+   508→       │    LOCALIZATION
+   509→       │    ┌──────────┐     ┌──────────┐
+   510→       │    │country_  │1:N │state_   │1:N │city_  │
+   511→       │    │mstr      │────→│mstr     │────→│mstr   │
+   512→       │    └──────────┘     │county_id│    │state_id│
+   513→       │                      └──────────┘    └────────┘
+   514→       │
+   515→       │    LOOKUP TABLES
+   516→       │    ┌──────────────────┐ ┌──────────────────┐
+   517→       │    │ doctor_type_mstr │ │  disease_master   │
+   518→       │    │ type, status     │ │  dis_name, status │
+   519→       │    └──────────────────┘ └──────────────────┘
+   520→       │    ┌──────────────────┐ ┌──────────────────┐
+   521→       │    │     slider        │ │  schedule_pdf     │
+   522→       │    │ slider_image,    │ │  hospital_id,     │
+   523→       │    │ position, status │ │  file_name        │
+   524→       │    └──────────────────┘ └──────────────────┘
+   525→```
+   526→
+   527→---
+   528→
+   529→## 10.2 Table Relationships
+   530→
+   531→### Explicit Foreign Keys (column naming convention `*_id`)
+   532→
+   533→| Child Table | Column | Parent Table | Relationship |
+   534→|------------|--------|-------------|--------------|
+   535→| `doctors` | `user_id` | `users` | 1:1 (doctor profile) |
+   536→| `doctors` | `hospital_id` | `users` | N:1 (doctor belongs to hospital) |
+   537→| `doctors` | `doctor_type` | `doctor_type_mstr.type` | N:1 (implicit, string match) |
+   538→| `hospital` | `user_id` | `users` | 1:1 (hospital profile) |
+   539→| `receptionist` | `user_id` | `users` | 1:1 (receptionist profile) |
+   540→| `receptionist` | `doctor_id` | `users` | N:1 (receptionist works for doctor) |
+   541→| `doctor_assistants` | `user_id` | `users` | 1:1 (assistant profile) |
+   542→| `doctor_assistants` | `doctor_id` | `users` | N:1 (assistant works for doctor) |
+   543→| `doctor_pharmacist` | `user_id` | `users` | 1:1 (pharmacist profile) |
+   544→| `doctor_pharmacist` | `doctor_id` | `users` | N:1 (pharmacist works for doctor) |
+   545→| `doctor_rating` | `patient_id` | `users` | N:1 (rater) |
+   546→| `doctor_rating` | `doctor_id` | `users` | N:1 (rated doctor) |
+   547→| `booking` | `doctor_id` | `users` | N:1 (booking with doctor) |
+   548→| `booking` | `user_id` | `users` | N:1 (patient who booked, nullable) |
+   549→| `booking_chat` | `booking_id` | `booking` | N:1 (chat belongs to booking) |
+   550→| `booking_chat` | `from_id` | `users` | N:1 (message sender) |
+   551→| `booking_chat` | `to_id` | `users` | N:1 (message receiver) |
+   552→| `notifications` | `user_id` | `users` | N:1 (notification target) |
+   553→| `prescription` | `doc_id` | `users` | N:1 (prescribing doctor) |
+   554→| `prescription` | `patient_id` | `users` | N:1 (patient) |
+   555→| `prescription` | `booking_id` | `booking` | 1:1 (one prescription per booking) |
+   556→| `prescriptions` | `booking_id` | `booking` | 1:1 (legacy prescription per booking) |
+   557→| `prescriptions` | `user_id` | `users` | N:1 (prescribing doctor) |
+   558→| `p_cos` | `p_id` | `prescription` | N:1 (COs for prescription) |
+   559→| `p_labels` | `p_id` | `prescription` | N:1 (labels for prescription) |
+   560→| `p_medicine` | `p_id` | `prescription` | N:1 (medicines for prescription) |
+   561→| `p_suggestions` | `p_id` | `prescription` | N:1 (suggestions for prescription) |
+   562→| `p_digno_table` | `p_id` | `prescription` | N:1 (diag table for prescription) |
+   563→| `p_other_settings` | `doctor_id` | `users` | N:1 (per-doctor settings) |
+   564→| `co_master` | `created_by` | `users` | N:1 (creator) |
+   565→| `co_master` | `doctor_id` | `users` | N:1 (owner doctor) |
+   566→| `questions_master` | `co_id` | `co_master` | N:1 (question belongs to CO) |
+   567→| `questions_master` | `doctor_id` | `users` | N:1 (owner doctor) |
+   568→| `suggestions_master` | `question_id` | `questions_master` | N:1 (suggestion for question) |
+   569→| `suggestions_master` | `doctor_id` | `users` | N:1 (owner doctor) |
+   570→| `label_master` | `doctor_id` | `users` | N:1 (owner doctor) |
+   571→| `doctor_medicine_list` | `user_id` | `users` | N:1 (owner doctor) |
+   572→| `doctor_holiday_schedule` | `user_id` | `users` | N:1 (doctor's holidays) |
+   573→| `table_master` | `doctor_id` | `users` | N:1 (owner doctor) |
+   574→| `posts` | `user_id` | `users` | N:1 (post author) |
+   575→| `state_mstr` | `county_id` | `country_mstr` | N:1 |
+   576→| `city_mstr` | `state_id` | `state_mstr` | N:1 |
+   577→| `schedule_pdf` | `hospital_id` | `users` | N:1 |
+   578→
+   579→### No Foreign Key Constraints in Database
+   580→**CRITICAL**: The SQL schema has ZERO `FOREIGN KEY` constraints. All relationships are implicit via column naming conventions only. No referential integrity at the database level.
+   581→
+   582→---
+   583→
+   584→## 10.3 Controller-Model Dependencies
+   585→
+   586→### Complete Dependency Map
+   587→
+   588→```
+   589→Guest_controller (public)
+   590→├── Api.php → Doctor_rating_model
+   591→├── Auth.php → Users_model, Reset_password_model
+   592→├── Book.php → Booking_model, Doctors_model, Users_model, Notifications_model,
+   593→│              Doctor_rating_model, Receptionist_model, Config_model,
+   594→│              City_model, State_model, Hospital_model, Doctor_holiday_schedule_model
+   595→├── Blog.php → Posts_model
+   596→├── Contactus.php → (unknown)
+   597→├── Doctors.php → Doctors_model, Hospital_model, Doctor_rating_model
+   598→├── Home.php → Doctors_model, Hospital_model, Posts_model, Slider_model
+   599→├── Hospitals.php → Hospital_model, Doctors_model, Schedule_pdf_model
+   600→├── Inquiry.php → Hospital_inquiry_model
+   601→├── Post.php → Posts_model
+   602→├── Profile.php → User_model (patient profile)
+   603→├── Search.php → Doctors_model, Hospital_model, City_model, Doctor_type_model
+   604→└── Crownjob.php → Users_model
+   605→
+   606→Patient_contoller (patient role)
+   607→├── Appointment.php → Booking_model, Notifications_model, Receptionist_model,
+   608→│                     Booking_chat_model, Prescriptions_model, Ajaxprescription_model,
+   609→│                     P_Co_model, P_Label_model, P_digno_model, P_medicine_model,
+   610→│                     P_Suggestion_model, P_other_setting_model, Doctors_model, Users_model
+   611→└── Notifications.php → (inherited from MY_Controller)
+   612→
+   613→Doctor_controller (doctor role)
+   614→├── Appointment.php → Booking_model, Notifications_model, Prescriptions_model,
+   615→│                     Receptionist_model, Doctor_medicine_list_model, P_medicine_model
+   616→├── AjaxPrescription.php → Ajaxprescription_model, Booking_model, Users_model,
+   617→│                          Co_model, Questions_model, Suggestions_model,
+   618→│                          Label_model, Doctor_medicine_list_model,
+   619→│                          P_Co_model, P_Label_model, P_digno_model,
+   620→│                          P_medicine_model, P_Suggestion_model, P_other_setting_model
+   621→├── Assistant.php → Doctor_assistants_model
+   622→├── Co.php → Co_model, Questions_model
+   623→├── Dashboard.php → Booking_model, Doctors_model, Doctor_rating_model, Posts_model
+   624→├── Gallery.php → (unknown)
+   625→├── Notifications.php → (inherited)
+   626→├── Pharmacist.php → Doctor_pharmacist_model
+   627→├── Post.php → Posts_model
+   628→├── Profile.php → Doctors_model, City_model, State_model
+   629→├── Questions.php → Questions_model
+   630→├── Receptionist.php → Receptionist_model, Users_model
+   631→├── Report.php → Booking_model, Disease_model
+   632→├── Schedule.php → Doctor_holiday_schedule_model
+   633→├── Suggestions.php → Questions_model, Suggestions_model
+   634→├── Table_master.php → Table_master_model
+   635→└── P_other_setting.php → P_other_setting_model
+   636→
+   637→Assistant_controller
+   638→├── Appointment.php → Booking_model, Notifications_model, Receptionist_model,
+   639→│                     Booking_chat_model (not loaded - BUG), Prescriptions_model,
+   640→│                     Doctor_assistants_model, Doctor_holiday_schedule_model,
+   641→│                     Doctors_model, Config_model, Users_model
+   642→├── AjaxPrescription.php → (mirrors doctor/AjaxPrescription.php models)
+   643→├── Dashboard.php → Booking_model, Doctors_model, Doctor_rating_model
+   644→├── Notifications.php → (inherited)
+   645→├── Post.php → Posts_model
+   646→└── Profile.php → Users_model
+   647→
+   648→Reception_contoller (receptionist role)
+   649→├── Appointment.php → Booking_model, Notifications_model, Booking_chat_model,
+   650→│                     Doctor_assistants_model, Doctor_holiday_schedule_model,
+   651→│                     Doctors_model, Receptionist_model, Config_model, Users_model
+   652→├── Dashboard.php → Booking_model, Doctors_model, Hospital_model,
+   653→│                     Doctor_rating_model, Receptionist_model, Posts_model
+   654→├── Medicinemaster.php → Receptionist_model, Doctor_medicine_list_model
+   655→├── Notifications.php → (inherited)
+   656→├── Post.php → Posts_model
+   657→├── Profile.php → Receptionist_model, Users_model
+   658→├── Registration.php → (unknown)
+   659→└── Schedule.php → Doctor_holiday_schedule_model, Doctors_model, Receptionist_model
+   660→
+   661→Hospital_contoller
+   662→├── Appoinment.php → Booking_model, Doctors_model, Notifications_model,
+   663→│                    Booking_chat_model, Config_model, Users_model
+   664→├── Blog.php → Posts_model, Users_model
+   665→├── Dashboard.php → Booking_model, Doctors_model, Hospital_model,
+   666→│                    Posts_model, Users_model
+   667→├── Doctor.php → Doctors_model, Doctor_rating_model, Disease_model,
+   668→│               Doctor_type_model, Hospital_model, Receptionist_model,
+   669→│               Schedule_pdf_model, Users_model
+   670→├── Income.php → Booking_model, Doctors_model, Disease_model,
+   671→│               Hospital_model, Receptionist_model, Users_model
+   672→├── Profile.php → City_model, Hospital_model, Posts_model, State_model, Users_model
+   673→└── Registration.php → (unknown)
+   674→
+   675→Admin_contoller
+   676→├── Appointment.php → Booking_model, Users_model
+   677→├── Assistant.php → Doctor_assistants_model, Users_model
+   678→├── Blog.php → Posts_model, Users_model
+   679→├── Config.php → Config_model, Users_model
+   680→├── Dashboard.php → Posts_model, Booking_model, Users_model
+   681→├── Disease_master.php → Disease_model, Users_model
+   682→├── Doctor.php → Doctors_model, City_model, Disease_model, Doctor_type_model,
+   683→│               Doctor_rating_model, Receptionist_model, State_model, Users_model
+   684→├── Hospital.php → Hospital_model, City_model, State_model, Users_model
+   685→├── Inquiry.php → Hospital_inquiry_model
+   686→├── Localization.php → Country_model, State_model, City_model, Users_model
+   687→├── Patient.php → Patient_model, Users_model
+   688→├── Post.php → Posts_model, Users_model
+   689→├── Receptionist.php → Receptionist_model, Users_model
+   690→├── Report.php → Booking_model, Users_model
+   691→├── Slider.php → Slider_model, Users_model
+   692→└── Type_master.php → Doctor_type_model, Users_model
+   693→
+   694→Pharmacist_contoller
+   695→├── Pharmacist.php → Booking_model, Doctors_model, Doctor_rating_model,
+   696→│                    Ajaxprescription_model, Prescriptions_model, Co_model,
+   697→│                    Questions_model, Suggestions_model, Label_model,
+   698→│                    Doctor_medicine_list_model, Doctor_pharmacist_model,
+   699→│                    Hospital_model, P_Co_model, P_Label_model, P_digno_model,
+   700→│                    P_medicine_model, P_Suggestion_model, P_other_setting_model,
+   701→│                    Users_model, Table_master_model
+   702→└── Profile.php → Doctor_pharmacist_model, Users_model
+   703→```
+   704→
+   705→### Most-Used Models (by number of controllers)
+   706→
+   707→| Rank | Model | Used By Count | Controllers |
+   708→|------|-------|--------------|-------------|
+   709→| 1 | `Users_model` | 20+ | Almost every controller |
+   710→| 2 | `Booking_model` | 10+ | Appointment, Dashboard, Report, Admin |
+   711→| 3 | `Notifications_model` | 6 | All Appointment controllers, Book |
+   712→| 4 | `Doctors_model` | 10+ | Dashboard, Search, Doctor management |
+   713→| 5 | `Doctor_rating_model` | 7 | Dashboard controllers, API, Search |
+   714→| 6 | `Receptionist_model` | 7 | Doctor/Receptionist/Hospital Appointment, Profile |
+   715→| 7 | `Posts_model` | 6 | Blog, Dashboard, Post controllers |
+   716→| 8 | `Prescriptions_model` | 4 | Doctor/Assistant/Patient/Pharmacist Appointment |
+   717→| 9 | `Booking_chat_model` | 3 | Patient/Receptionist/Hospital Appointment |
+   718→| 10 | `Hospital_model` | 5 | Dashboard, Search, Profile, Doctor |
+   719→
+   720→---
+   721→
+   722→## 10.4 Cross-Module Data Flows
+   723→
+   724→### 10.4.1 Booking Lifecycle Data Flow
+   725→
+   726→```
+   727→[Patient/Guest/Hospital/Receptionist]
+   728→         │
+   729→         ▼
+   730→    ┌─────────────┐
+   731→    │  Book.php   │──→ Booking_model->create()  ──→ DB: booking (status: Pending)
+   732→    │  (or others)│──→ Notifications_model->create() ──→ DB: notifications
+   733→    └─────────────┘         │                                    (to doctor + receptionist)
+   734→                            │
+   735→                   ┌────────┴────────┐
+   736→                   ▼                 ▼
+   737→            [Doctor]          [Receptionist]
+   738→                │                   │
+   739→                ▼                   ▼
+   740→        approve/extend/     approve/extend/
+   741→        visited/cancel      visited/reject
+   742→                │                   │
+   743→                ▼                   ▼
+   744→        Booking_model->    Booking_model->
+   745→        update(status)      update(status)
+   746→                │                   │
+   747→                ▼                   ▼
+   748→        Notifications_      Notifications_
+   749→        model->create()      model->create()
+   750→        (to patient +       (to patient +
+   751→         receptionist)        doctor)
+   752→                │                   │
+   753→                ▼                   │
+   754→        [If VISITED]              │
+   755→            │                     │
+   756→            ▼                     │
+   757→    ┌───────────────────┐        │
+   758→    │ Create Prescription│        │
+   759→    │ (Legacy or Ajax)  │        │
+   760→    └───────┬───────────┘        │
+   761→            │                     │
+   762→            ▼                     │
+   763→    prescription/prescriptions   │
+   764→    + p_cos, p_medicine, etc.    │
+   765→            │                     │
+   766→            ▼                     │
+   767→    [Patient views prescription]│
+   768→    [Pharmacist views prescription]
+   769→```
+   770→
+   771→### 10.4.2 Chat Data Flow
+   772→
+   773→```
+   774→[Patient]                    [Receptionist/Hospital]
+   775→    │                              │
+   776→    │  $.post(send_chat_msg)       │
+   777→    │  {appointId, msg}            │
+   778→    ▼                              │
+   779→Appointment.php                   │
+   780→send_chat_msg()                   │
+   781→    │                              │
+   782→    ├─→ Look up receptionist       │
+   783→    │   for this doctor            │
+   784→    │                              │
+   785→    ├─→ Booking_chat_model->       │
+   786→    │   create({                   │
+   787→    │     booking_id,              │
+   788→    │     from_id: patient,        │
+   789→    │     to_id: receptionist,     │
+   790→    │     message,                 │
+   791→    │     status: UNREAD           │
+   792→    │   })                         │
+   793→    │                              │
+   794→    ▼                              ▼
+   795→                DB: booking_chat
+   796→                     │
+   797→       ┌─────────┴─────────┐
+   798→       │ (5-sec polling)   │
+   799→       ▼                   ▼
+   800→  get_all_chat_msg() get_all_chat_msg()
+   801→  (patient)            (receptionist)
+   802→       │                   │
+   803→       ▼                   ▼
+   804→  [Patient UI]        [Receptionist UI]
+   805→  (chat bubbles)      (chat bubbles)
+   806→```
+   807→
+   808→### 10.4.3 Rating Data Flow
+   809→
+   810→```
+   811→[Patient on Doctor Profile]
+   812→         │
+   813→         ▼
+   814→    Api.php::rate_us() POST {patient, doctor, star}
+   815→         │
+   816→         ├─→ Check if existing: Doctor_rating_model->get_by_patient_doctor()
+   817→         │
+   818→         ├─→ [EXISTS] → Doctor_rating_model->update(star)
+   819→         │
+   820→         └─→ [NEW] → Doctor_rating_model->create({patient_id, doctor_id, star})
+   821→                      │
+   822→                      ▼
+   823→              DB: doctor_rating
+   824→                      │
+   825→                      ▼
+   826→    Doctor_rating_model->get_average_rating() ← Used by 7+ dashboard/detail views
+   827→    Doctor_rating_model->get_by_doctor_total_count() ← Used by profile views
+   828→```
+   829→
+   830→### 10.4.4 Prescription Data Flow
+   831→
+   832→```
+   833→[Doctor or Assistant]
+   834→         │
+   835→         ▼
+   836→    AjaxPrescription::create?booking_id=X&user_id=Y
+   837→         │
+   838→         ├─→ Ajaxprescription_model->check_doctor_booking()
+   839→         │
+   840→         ├─→ Ajaxprescription_model->check_user_prescription()
+   841→         │   │
+   842→         │   ├─→ [EXISTS] → Load existing prescription
+   843→         │   │
+   844→         │   └─→ [NEW] → Ajaxprescription_model->create_prescription()
+   845→         │                  → Booking_model->update(status: VISITED)
+   846→         │
+   847→         ▼
+   848→    [6-Step Wizard UI]
+   849→         │
+   850→         ├─ Step 1: ajax_insert_co → P_Co_model (delete old + insert_batch)
+   851→         ├─ Step 2: p_digno_table → P_digno_model (create or check)
+   852→         ├─ Step 3: ajax_insert_medi_list → P_medicine_model (delete old + insert_batch)
+   853→         ├─ Step 4: ajax_insert_suggestion → P_Suggestion_model (delete old + insert_batch)
+   854→         └─ Step 5: ajax_insert_labels → P_Label_model (delete old + insert_batch)
+   855→                    │
+   856→                    ▼
+   857→    print_prescription → Aggregates ALL sub-tables into print view
+   858→                    │
+   859→                    ▼
+   860→    [Patient prints via Appointment::print_prescription]
+   861→    → Reuses doctor/AjaxPrescription/print_prescription view
+   862→```
+   863→
+   864→### 10.4.5 Notification Cascade Pattern
+   865→
+   866→Every status change follows this pattern:
+   867→
+   868→```
+   869→Action (approve/extend/visited/cancel)
+   870→         │
+   871→         ├─ 1. Lookup appointment
+   872→         ├─ 2. Check status transition is valid
+   873→         ├─ 3. Update booking status
+   874→         ├─ 4. Build notification for USER A (with HTML link)
+   875→         ├─ 5. Notifications_model->create() for USER A
+   876→         ├─ 6. Lookup receptionist for this doctor
+   877→         ├─ 7. If receptionist exists:
+   878→         │      Build notification for receptionist
+   879→         │      Notifications_model->create() for receptionist
+   880→         └─ 8. Redirect with flash message
+   881→```
+   882→
+   883→### 10.4.6 Authentication & Password Reset Flow
+   884→
+   885→```
+   886→[User Login]
+   887→    │
+   888→    ▼
+   889→Auth.php::login()
+   890→    │
+   891→    ├─→ Users_model->check_auth() [supports email OR mobile login]
+   892→    │   │
+   893→    │   ├─→ [is_numeric] → match mobile_no + password
+   894→    │   └─→ [else] → match email + password
+   895→    │
+   896→    ├─→ Set session: id, name, email, role, status, mobile_no, profile_img
+   897→    └─→ Redirect by role
+   898→
+   899→[Forgot Password]
+   900→    │
+   901→    ▼
+   902→Auth.php::forgot()
+   903→    │
+   904→    ├─→ Users_model->get_by_email_for_forgot_password() or
+   905→    │   Users_model->get_by_mobile_for_forgot_password()
+   906→    │
+   907→    ├─→ Generate token
+   908→    │
+   909→    ├─→ Reset_password_model->create({email, token})
+   910→    │
+   911→    ├─→ Send email with reset link
+   912→    │
+   913→    └─→ [User clicks link]
+   914→         │
+   915→         ▼
+   916→    Auth.php::reset_password()
+   917→         │
+   918→         ├─→ Reset_password_model->get_by_email_token()
+   919→         │
+   920→         ├─→ Users_model->update(new_password)
+   921→         │
+   922→         └─→ Reset_password_model->destroy(email)
+   923→```
+   924→
+   925→---
+   926→
+   927→## 10.5 State Machines
+   928→
+   929→### 10.5.1 Booking Status State Machine
+   930→
+   931→```
+   932→                    ┌──────────────────────┐
+   933→                    │                      │
+   934→         ┌─────────│      PENDING          │
+   935→         │         │   (Initial State)     │
+   936→         │         │                      │
+   937→         │         └──────────┬───────────┘
+   938→         │                    │
+   939→         │         ┌─────────┼──────────┐
+   940→         │         │         │          │
+   941→         │         ▼         │          ▼
+   942→         │  ┌─────────────┐  │   ┌─────────────┐
+   943→         │  │   EXTEND    │  │   │  APPROVE    │
+   944→         │  │             │  │   │             │
+   945→         │  └──────┬──────┘  │   └──────┬──────┘
+   946→         │         │         │          │
+   947→         │         │         │   ┌──────┼──────┐
+   948→         │         │         │   │      │      │
+   949→         │         │         │   ▼      │      ▼
+   950→         │         │         │┌────────┐ │ ┌─────────┐
+   951→         │         │         ││VISITED │ │ │CANCELED │
+   952→         │         │         ││(Final) │ │ │(Final)  │
+   953→         │         │         │└────────┘ │ └─────────┘
+   954→         │         │         │           │
+   955→         │         └─────────┤           │
+   956→         │                   │           │
+   957→    ┌────┴────┐              │           │
+   958→    │ CANCELED │◄─────────────┘           │
+   959→    │ (Final)  │◄─────────────────────────┘
+   960→    └──────────┘
+   961→
+   962→TERMINAL STATES: VISITED, CANCELED
+   963→
+   964→Valid Transitions:
+   965→  PENDING  → APPROVE   (by doctor, receptionist, hospital, assistant)
+   966→  PENDING  → EXTEND    (by doctor, receptionist)
+   967→  PENDING  → CANCELED  (by patient [cancel], doctor [cancel], receptionist [reject])
+   968→  EXTEND   → APPROVE   (by doctor, receptionist)
+   969→  EXTEND   → CANCELED  (by doctor [cancel], receptionist [reject])
+   970→  APPROVE  → VISITED   (by doctor, receptionist)
+   971→  APPROVE  → CANCELED  (by doctor [cancel], receptionist [reject])
+   972→
+   973→Invalid Transitions (blocked in code):
+   974→  VISITED → * (any further change blocked)
+   975→  CANCELED → * (any further change blocked)
+   976→  APPROVE → EXTEND (not allowed)
+   977→  APPROVE → PENDING (not allowed)
+   978→
+   979→Special: Prescription creation sets status to VISITED (via AjaxPrescription controller)
+   980→```
+   981→
+   982→### 10.5.2 User Status State Machine
+   983→
+   984→```
+   985→    ┌─────────────┐
+   986→    │   PENDING   │  ← New registration (except admin)
+   987→    │  (Initial)  │
+   988→    └──────┬──────┘
+   989→           │
+   990→           │ (admin activates via admin/Doctor or admin/Patient)
+   991→           ▼
+   992→    ┌─────────────┐
+   993→    │   ACTIVE    │◄─────┐
+   994→    │             │      │
+   995→    └──────┬──────┘      │
+   996→           │             │
+   997→           │ (admin blocks)│
+   998→           ▼             │
+   999→    ┌─────────────┐      │
+  1000→    │    BLOCK    │──────┘
+  1001→    │             │  (admin unblocks)
+  1002→    └─────────────┘
+  1003→
+  1004→NOTE: Users_model has confusing method names:
+  1005→  - update_status_active($id) actually sets status to BLOCK
+  1006→  - update_status_block($id) actually sets status to ACTIVE
+  1007→  (This is a BUG - method names are swapped)
+  1008→
+  1009→Special Cases:
+  1010→  - Admin user is created with ACTIVE status (no approval needed)
+  1011→  - Patient email check: forgot_email_exits() checks for PENDING status
+  1012→  - Patient login: check_auth_after_login() blocks login if status = BLOCK
+  1013→```
+  1014→
+  1015→### 10.5.3 Notification Status Machine
+  1016→
+  1017→```
+  1018→    ┌─────────────┐
+  1019→    │   UNREAD    │  ← All new notifications
+  1020→    └──────┬──────┘
+  1021→           │
+  1022→           │ (user views notifications page - implicitly read via display)
+  1023→           ▼
+  1024→    ┌─────────────┐
+  1025→    │    READ     │
+  1026→    └─────────────┘
+  1027→
+  1028→NOTE: No explicit mark-as-read action exists in the code.
+  1029→The Notifications_model->update() method takes user_id (not notification_id),
+  1030→which would update ALL notifications for a user at once.
+  1031→```
+  1032→
+  1033→### 10.5.4 Post/Blog Status Machine
+  1034→
+  1035→```
+  1036→    ┌─────────────┐
+  1037→    │  Published   │  ← Created as published
+  1038→    └──────┬──────┘
+  1039→           │
+  1040→           │ (toggle)
+  1041→           ▼
+  1042→    ┌─────────────┐
+  1043→    │    Draft     │
+  1044→    └─────────────┘
+  1045→```
+  1046→
+  1047→---
+  1048→
+  1049→## 10.6 Shared Components
+  1050→
+  1051→### 10.6.1 Models Used by Multiple Controllers
+  1052→
+  1053→| Model | Controllers Using It |
+  1054→|-------|----------------------|
+  1055→| `Users_model` | Auth, Crownjob, Profile (all roles), Dashboard (all), Admin (all), Search, Book, Appointment (all), Doctor management, Pharmacist |
+  1056→| `Booking_model` | Appointment (patient/doctor/receptionist/hospital/assistant), Dashboard (admin/doctor/receptionist/hospital), Report (admin/doctor), Book |
+  1057→| `Notifications_model` | Appointment (patient/doctor/receptionist/hospital/assistant), Book |
+  1058→| `Doctor_rating_model` | Api, Doctors, Book, Dashboard (doctor/assistant/receptionist), Hospital/Doctor, Pharmacist, admin/Doctor |
+  1059→| `Receptionist_model` | Appointment (patient/doctor/receptionist/hospital), Doctor/Receptionist management, admin/Doctor, Medicinemaster |
+  1060→| `Doctors_model` | Search, Doctors, Home, Hospitals, Dashboard (doctor/receptionist/hospital), Appointment (receptionist/hospital/assistant), Income, Pharmacist |
+  1061→| `Prescriptions_model` | Appointment (patient/doctor/assistant), Pharmacist |
+  1062→| `Ajaxprescription_model` | Appointment (patient for print), AjaxPrescription (doctor/assistant), Pharmacist |
+  1063→| `P_Co_model` | AjaxPrescription (doctor/assistant), Appointment (patient for print), Pharmacist |
+  1064→| `P_Label_model` | AjaxPrescription (doctor/assistant), Appointment (patient for print), Pharmacist |
+  1065→| `P_medicine_model` | AjaxPrescription (doctor/assistant), Appointment (patient for print), Pharmacist, doctor/Appointment |
+  1066→| `P_Suggestion_model` | AjaxPrescription (doctor/assistant), Appointment (patient for print), Pharmacist |
+  1067→| `P_digno_model` | AjaxPrescription (doctor/assistant), Appointment (patient for print), Pharmacist |
+  1068→| `P_other_setting_model` | AjaxPrescription (doctor/assistant), Appointment (patient for print), Pharmacist, doctor/P_other_setting |
+  1069→| `Posts_model` | Blog, Dashboard (admin/doctor/receptionist/hospital), Post (all), Home |
+  1070→| `Hospital_model` | Search, Doctors, Home, Hospitals, Dashboard (receptionist/hospital), Doctor/Income/Profile (hospital), admin/Hospital |
+  1071→| `Config_model` | Book, Appointment (receptionist/hospital/assistant), admin/Config |
+  1072→| `City_model` | Search, Book, admin/Doctor, admin/Hospital, doctor/Profile, hospital/Profile |
+  1073→| `State_model` | Search, Book, admin/Doctor, admin/Hospital, doctor/Profile, hospital/Profile |
+  1074→| `Booking_chat_model` | Appointment (patient/receptionist/hospital) |
+  1075→| `Doctor_medicine_list_model` | doctor/Appointment, doctor/AjaxPrescription, receptionist/Medicinemaster, Pharmacist |
+  1076→
+  1077→### 10.6.2 Views Shared Between Roles
+  1078→
+  1079→| View Path | Used By |
+  1080→|-----------|---------|
+  1081→| `doctor/AjaxPrescription/print_prescription.php` | Patient (Appointment::print_prescription), Doctor, Assistant (implied) |
+  1082→| `doctor/AjaxPrescription/index.php` | Doctor (near-identical copy at `assistant/AjaxPrescription/index.php`) |
+  1083→| `layouts/master_page_doctors.php` | All doctor sub-controllers |
+  1084→| `layouts/master_page_front.php` | All patient/guest controllers |
+  1085→
+  1086→### 10.6.3 Layout Files
+  1087→
+  1088→| Layout | Base Controller | Used By Roles |
+  1089→|--------|----------------|--------------|
+  1090→| `layouts/master_page_front.php` | Guest_controller, Patient_contoller | Public, Patient |
+  1091→| `layouts/master_page_doctors.php` | Doctor_controller | Doctor |
+  1092→| AdminLTE layout | Reception_contoller, Assistant_controller, Hospital_contoller, Admin_contoller, Pharmacist_contoller | Receptionist, Assistant, Hospital, Admin, Pharmacist |
+  1093→
+  1094→### 10.6.4 Controller Inheritance Hierarchy
+  1095→
+  1096→```
+  1097→CI_Controller
+  1098→└── MY_Controller
+  1099→    ├── Guest_controller         → Public pages (Home, Search, Doctors, Hospitals, Blog, Auth, API, Crownjob)
+  1100→    ├── Patient_contoller       → Patient dashboard (Appointment, Profile, Notifications, Post)
+  1101→    ├── Doctor_controller       → Doctor dashboard (Appointment, AjaxPrescription, Co, Questions, etc.)
+  1102→    ├── Reception_contoller     → Receptionist dashboard (Appointment, Dashboard, Schedule, etc.)
+  1103→    ├── Assistant_controller    → Assistant dashboard (Appointment, AjaxPrescription, Dashboard, etc.)
+  1104→    ├── Hospital_contoller      → Hospital dashboard (Doctor, Appoinment, Income, Blog, etc.)
+  1105→    ├── Admin_contoller         → Admin panel (Doctor, Hospital, Patient, Dashboard, Config, etc.)
+  1106→    └── Pharmacist_contoller    → Pharmacist panel (Pharmacist, Profile)
+  1107→```
+  1108→
+  1109→### 10.6.5 Auto-Loaded Models in Base Controllers
+  1110→
+  1111→| Base Controller | Auto-loaded Models |
+  1112→|----------------|-------------------|
+  1113→| `MY_Controller` | None (common helper methods) |
+  1114→| `Doctor_controller` | `Users_model` (as `user`), `Notifications_model` (as `notification`), `Receptionist_model` (as `receptionist`), `Doctors_model` (as `doctor`) |
+  1115→| `Patient_contoller` | `Users_model` (as `user`), `Notifications_model` (as `notification`) |
+  1116→| `Reception_contoller` | `Users_model` (as `user`), `Notifications_model` (as `notification`) |
+  1117→| `Assistant_controller` | `Users_model` (as `user`), `Notifications_model` (as `notification`) |
+  1118→| `Hospital_contoller` | `Users_model` (as `user`), `Notifications_model` (as `notification`) |
+  1119→| `Admin_contoller` | `Users_model` (as `user`), `Notifications_model` (as `notification`) |
+  1120→| `Pharmacist_contoller` | `Users_model` (as `user`), `Notifications_model` (as `notification`) |
+  1121→
+  1122→---
+  1123→
+  1124→## 10.7 Complete Feature Dependency Graph
+  1125→
+  1126→```
+  1127→╔══════════════════════════════════════════════════════════════════════╗
+  1128→║                    DOCTOROOMS FEATURE DEPENDENCY GRAPH              ║
+  1129→╚══════════════════════════════════════════════════════════════════════╝
+  1130→
+  1131→                    ┌─────────────────┐
+  1132→                    │  users (TABLE)   │ ◄── CORE: Everything depends on this
+  1133→                    └────────┬────────┘
+  1134→                             │
+  1135→          ┌──────────────────┼──────────────────┐
+  1136→          │                  │                  │
+  1137→          ▼                  ▼                  ▼
+  1138→   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+  1139→   │   doctors    │  │   hospital   │  │  role-based  │
+  1140→   │   profile    │  │   profile    │  │  sub-tables  │
+  1141→   └──────┬───────┘  └──────┬───────┘  │ (receptionist│
+  1142→          │                 │          │  assistants,  │
+  1143→          │                 │          │  pharmacist) │
+  1144→          │                 │          └──────┬───────┘
+  1145→          │                 │                 │
+  1146→          └────────┬────────┘                 │
+  1147→                   │                          │
+  1148→                   ▼                          │
+  1149→          ┌─────────────────┐                 │
+  1150→          │    BOOKING      │◄────────────────┘
+  1151→          │  (appointment)  │  All sub-tables depend on booking
+  1152→          └───┬────┬────┬───┘
+  1153→              │    │    │
+  1154→     ┌────────┘    │    └────────┐
+  1155→     ▼             ▼             ▼
+  1156→┌──────────┐ ┌──────────┐ ┌──────────────┐
+  1157→│ CHAT     │ │ NOTIFICA-│ │  PRESCRIPTION │
+  1158→│(booking_ │ │ TIONS    │ │  (2 systems)  │
+  1159→│ chat)    │ │          │ │              │
+  1160→│          │ │          │ ├─ prescriptions │
+  1161→│ Depends  │ │ Depends  │ │  (legacy)     │
+  1162→│ on:      │ │ on:      │ │              │
+  1163→│ booking  │ │ booking  │ ├─ prescription  │
+  1164→│ users x2 │ │ users    │ │  (ajax)       │
+  1165→│          │ │          │ │              │
+  1166→│ Used by:│ │ Used by:│ │ Depends on:   │
+  1167→│ Patient  │ │ ALL      │ │  booking      │
+  1168→│ Recept.  │ │ appoint- │ │  users (doc+  │
+  1169→│ Hospital │ │ ment     │ │  patient)     │
+  1170→│          │ │ control- │ │              │
+  1171→│ NOT used:│ │ lers     │ │ Sub-tables:   │
+  1172→│ Doctor   │ │          │ │  p_cos        │
+  1173→│ Assistant│ │          │ │  p_labels     │
+  1174→│ Pharmacist│ │          │ │  p_medicine   │
+  1175→│          │ │          │ │  p_suggestions│
+  1176→└──────────┘ │          │ │  p_digno_table│
+  1177→             │          │ │              │
+  1178→             │          │ │ Master data:  │
+  1179→             │          │ │  co_master    │
+  1180→             │          │ │  questions_m  │
+  1181→             │          │ │  suggestions_m│
+  1182→             │          │ │  label_master │
+  1183→             │          │ │  table_master │
+  1184→             │          │ │  doctor_medi- │
+  1185→             │          │ │  cine_list    │
+  1186→             │          │ │              │
+  1187→             │          │ │ Used by:     │
+  1188→             │          │ │  Doctor       │
+  1189→             │          │ │  Assistant    │
+  1190→             │          │ │  Patient(view)│
+  1191→             │          │ │  Pharmacist   │
+  1192→             │          │ └──────────────┘
+  1193→             │          │
+  1194→             │          │ ┌──────────────┐
+  1195→             │          │ │  RATING      │
+  1196→             │          │ │(doctor_rating)│
+  1197→             │          │ │              │
+  1198→             │          │ │ Depends on:  │
+  1199→             │          │ │  users (pat+  │
+  1200→             │          │ │  doctor)     │
+  1201→             │          │ │              │
+  1202→             │          │ │ Used by:     │
+  1203→             │          │ │  API          │
+  1204→             │          │ │  7 Dashboard  │
+  1205→             │          │ │  controllers  │
+  1206→             │          │ │  Search       │
+  1207→             │          │ └──────────────┘
+  1208→             │          │
+  1209→             │          │ ┌──────────────┐
+  1210→             │          │ │  SEARCH      │
+  1211→             │          │ │              │
+  1212→             │          │ │ Depends on:  │
+  1213→             │          │ │  doctors      │
+  1214→             │          │ │  hospital     │
+  1215→             │          │ │  city, type   │
+  1216→             │          │ └──────────────┘
+  1217→             │          │
+  1218→             │          │ ┌──────────────┐
+  1219→             │          │ │  CMS/CONTENT │
+  1220→             │          │ │              │
+  1221→             │          │ │ Depends on:  │
+  1222→             │          │ │  users        │
+  1223→             │          │ │  posts        │
+  1224→             │          │ │  slider       │
+  1225→             │          │ │  blog/news    │
+  1226→             │          │ └──────────────┘
+  1227→             │          │
+  1228→             │          │ ┌──────────────┐
+  1229→             │          │ │  LOCALIZATION│
+  1230→             │          │ │              │
+  1231→             │          │ │ Depends on:  │
+  1232→             │          │ │  country_mstr │
+  1233→             │          │ │  state_mstr   │
+  1234→             │          │ │  city_mstr    │
+  1235→             │          │ └──────────────┘
+  1236→             │          │
+  1237→             │          │ ┌──────────────┐
+  1238→             │          │ │  AUTH/PASSWD │
+  1239→             │          │ │              │
+  1240→             │          │ │ Depends on:  │
+  1241→             │          │ │  users        │
+  1242→             │          │ │  reset_password│
+  1243→             │          │ └──────────────┘
+  1244→             │          │
+  1245→             │          │ ┌──────────────┐
+  1246→             │          │ │  CRON/JOBS   │
+  1247→             │          │ │              │
+  1248→             │          │ │ Depends on:  │
+  1249→             │          │ │  users        │
+  1250→             │          │ │  booking      │
+  1251→             │          │ │  (birthday)   │
+  1252→             │          │ │  External SMS │
+  1253→             │          │ │  API          │
+  1254→             │          │ └──────────────┘
+  1255→             │          │
+  1256→             └──────────┘
+  1257→
+  1258→=== KEY OBSERVATIONS ===
+  1259→
+  1260→1. SINGLE TABLE INHERITANCE: The `users` table uses role-based single table inheritance.
+  1261→   All 7 roles (admin, hospital, doctor, assistant, receptionist, patient, pharmacist)
+  1262→   share one table differentiated by the `role` column.
+  1263→
+  1264→2. BOOKING IS THE HUB: The `booking` table is the central junction connecting:
+  1265→   - Users (doctor_id, user_id/patient)
+  1266→   - Chat (booking_chat.booking_id)
+  1267→   - Notifications (triggered by booking status changes)
+  1268→   - Legacy Prescription (prescriptions.booking_id)
+  1269→   - Ajax Prescription (prescription.booking_id)
+  1270→
+  1271→3. NO DATABASE-LEVEL FK CONSTRAINTS: All relationships are application-enforced only.
+  1272→
+  1273→4. TWO PARALLEL PRESCRIPTION SYSTEMS: `prescriptions` (legacy, JSON blob) and
+  1274→   `prescription` + 6 sub-tables (ajax, normalized) coexist without migration path.
+  1275→
+  1276→5. MASSIVE CODE DUPLICATION:
+  1277→   - doctor/AjaxPrescription/index.php ≈ assistant/AjaxPrescription/index.php (1279 vs 1279 lines)
+  1278→   - doctor/AjaxPrescription controller ≈ assistant/AjaxPrescription controller
+  1279→   - Chat UI duplicated across patient/receptionist/hospital views
+  1280→   - Notification creation pattern duplicated in 4+ Appointment controllers
+  1281→
+  1282→6. NOTIFICATION BROADCAST: Every booking status change creates 2 notifications
+  1283→   (one for patient, one for receptionist if assigned).
+  1284→

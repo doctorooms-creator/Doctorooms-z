@@ -1,0 +1,869 @@
+     1→# Doctorooms — Complete Research Document
+     2→
+     3→> Source: `https://github.com/Devin041/Doctorooms.git` (cloned at `/tmp/Doctorooms/`)
+     4→> Original Tech: PHP + CodeIgniter MVC + MySQL + Bootstrap + jQuery + Tabler Admin Theme
+     5→> Total Files: 527 PHP files | 7 Layouts | 37 Models | ~60 Controllers | ~160 Views | 35 DB Tables
+     6→
+     7→---
+     8→
+     9→# Phase 0: Foundation Layer
+    10→
+    11→## 0.1 Architecture Overview
+    12→
+    13→### Framework: CodeIgniter (Custom MVC)
+    14→- **Entry Point**: `index.php` → loads `system/` core → routes to `application/controllers/`
+    15→- **Routing**: `config/routes.php` — default_controller = `home`, no custom routes (all URL-based: `controller/method/param`)
+    16→- **Base Controller Hierarchy**:
+    17→
+    18→```
+    19→CI_Controller (CodeIgniter System)
+    20→  └── MY_Controller (application/core/MY_Controller.php)
+    21→        ├── Guest_controller   → Public pages (login, register, home, etc.) — optional auth
+    22→        ├── Patient_contoller  → Patient-only pages
+    23→        ├── Doctor_controller  → Doctor-only pages
+    24→        ├── Hospital_contoller → Hospital-only pages
+    25→        ├── Reception_contoller→ Receptionist-only pages
+    26→        ├── Assistant_controller→ Assistant-only pages
+    27→        ├── Admin_contoller    → Admin-only pages
+    28→        └── Pharmacist_contoller→ Pharmacist-only pages
+    29→```
+    30→
+    31→### Guard Logic (in each role controller's `__construct`):
+    32→1. Check `session->userdata('user_login')` exists → if not, redirect to `auth/login`
+    33→2. Check `role` matches the controller's role → if not, redirect to `auth/login`
+    34→3. Re-verify user not blocked via `user->check_auth_after_login()` → if blocked, logout with flash message
+    35→4. Load common data: `$view_data['user']`, `$view_data['notifications']` (last 7), `$view_data['notificationsCount']`
+    36→
+    37→### Special Case — Receptionist Controller:
+    38→- Loads additional: `receptionist` model, `doctor` model
+    39→- Sets `$this->user_data->doctor_id` from `receptionist->get_by_user_id()` — receptionist is ALWAYS linked to a doctor
+    40→- Sets `$this->doctor_data` = doctor's full profile (used in views)
+    41→
+    42→### Special Case — Guest Controller:
+    43→- Auth is OPTIONAL — loads user data if session exists, empty array if not
+    44→- Used by: Home, Doctors, Hospitals, Blog, About, Contact, Privacy, Terms, Auth, Search, etc.
+    45→
+    46→### MVC Flow Per Request:
+    47→```
+    48→URL → Router → Controller::method()
+    49→  → Load Model(s)
+    50→  → Query Database
+    51→  → Set $view_data
+    52→  → Load View (wrapped in Layout)
+    53→    → Layout includes: navbar, sidebar, content area, footer
+    54→    → Content area = specific view file
+    55→```
+    56→
+    57→---
+    58→
+    59→## 0.2 Constants & Configuration
+    60→
+    61→### All Constants (config/constants.php):
+    62→
+    63→```php
+    64→// 6 User Roles
+    65→ADMIN           = "admin"
+    66→HOSPITAL        = "hospital"
+    67→RECEPTIONIST    = "receptionist"
+    68→DOCTOR          = "doctor"
+    69→DOCTOR_ASSISTANT= "assistant"
+    70→PATIENT         = "patient"
+    71→PHARMACIST      = "pharmacist"
+    72→
+    73→// User Statuses
+    74→PENDING = "Pending"     // New user, needs mobile verification
+    75→BLOCK   = "Block"        // Blocked by admin
+    76→ACTIVE  = "Active"       // Verified and active
+    77→FINISH  = "Finish"       // Appointment finished
+    78→
+    79→// Booking Statuses
+    80→APPROVE  = "Approve"
+    81→VISITED  = "Visited"
+    82→REJECTED = "Canceled"    // Note: typo in original ("Canceled" not "Cancelled")
+    83→EXTEND   = "Extend"      // Appointment extended
+    84→
+    85→// Post/Blog Statuses
+    86→PUBLISHED = "Published"
+    87→HIDE      = "Draft"
+    88→
+    89→// Post Types
+    90→BLOG = "Blog"
+    91→NEWS = "news"
+    92→
+    93→// Booking Types (who created the appointment)
+    94→BY_SELF         = "By Self"           // Patient booked themselves
+    95→BY_RECEPTIONIST = "By Receptionist"   // Receptionist booked for patient
+    96→BY_HOSPITAL     = "By Hospital"       // Hospital booked for patient
+    97→
+    98→// Notification Statuses
+    99→READ   = "READ"
+   100→UNREAD = "UNREAD"
+   101→
+   102→// Site Config
+   103→SITE_TITLE = "Doctorooms"
+   104→BEFORE_BOOKING_DAYS = 180    // Max days in advance for booking
+   105→
+   106→// Email
+   107→EMAIL_FROM = "xyz@gmail.com"
+   108→EMAIL_NAME = "Doctorooms"
+   109→
+   110→// Encryption
+   111→ENCPT_KEY = "24e383a2026333f93739b66f5397ffde"  // AES-128-CBC key
+   112→```
+   113→
+   114→### Database Config (config/database.php):
+   115→- MySQL/MariaDB
+   116→- Host: 127.0.0.1
+   117→- DB: hospital_app_db
+   118→- Driver: mysqli
+   119→
+   120→### Form Validation (config/form_validation.php):
+   121→- Contains validation rules for: `login`, `register` forms
+   122→- Login: email (required, valid_email), password (required, min_length[6])
+   123→- Register: name, email, password (min 6), confirm_password (matches), mobile_no, gender, terms (required)
+   124→
+   125→---
+   126→
+   127→## 0.3 Helper & Utility Functions
+   128→
+   129→### Located in: `core/MY_Controller.php`
+   130→
+   131→### Alert/Response Helpers:
+   132→| Method | Purpose | Flash Keys |
+   133→|---|---|---|
+   134→| `_alertSuccessResponce($success, $msg, $fail_msg, $url)` | Success/error redirect | feedback, feedback_class (success/error) |
+   135→| `_alertInfoResponce(...)` | Info/error redirect | feedback, feedback_class (info/error) |
+   136→| `_alertWarningResponce(...)` | Warning/error redirect | feedback, feedback_class (alert/error) |
+   137→
+   138→### Encryption Helpers:
+   139→| Method | Purpose |
+   140→|---|---|
+   141→| `encrypted_text($plain)` | AES-128-CBC encrypt, URL-safe base64 (`.`, `-`, `~` replacing `+`, `=`, `/`) |
+   142→| `decrypted_text($encrypted)` | Reverse of above |
+   143→| Used for: Email verification tokens, forgot password tokens |
+   144→
+   145→### Email Helper:
+   146→| Method | Purpose |
+   147→|---|---|
+   148→| `send_mail($to, $subject, $msg)` | Send HTML email via SMTP. From: EMAIL_FROM/EMAIL_NAME. Returns true/false. |
+   149→| Email templates: Built as inline HTML strings in Auth controller |
+   150→
+   151→### File Upload Helpers:
+   152→| Method | Purpose |
+   153→|---|---|
+   154→| `_upload_files($path, $title, $control_name)` | Upload multiple images. Allowed: jpg, jpeg, gif, png. Max: 2000KB. Returns JSON array of filenames. |
+   155→| `_upload_file($path, $title, $control_name)` | Upload single image. Same restrictions. Returns `{status, file_name}` or `{status, upload_error}`. |
+   156→| `_upload_pdf($path, $title, $control_name)` | Upload PDF/XLSX/XLS. Max 2000KB. Returns same format. |
+   157→| `_generate_thumb($source_path, $target_path, $file)` | Generate 300x300 thumbnail. Returns `filename_thumb.ext`. Uses GD2 library. |
+   158→| `_generate_multiple_thumb(...)` | Loop of above for array of files. |
+   159→| File naming: `{title}_{timestamp}_{uniqid}.{ext}` |
+   160→
+   161→### Other Helpers:
+   162→| Method | Purpose |
+   163→|---|---|
+   164→| `logout()` | Unset `user_login` session, redirect to `auth/login` |
+   165→| `next_available_booking_days($days, $holidays)` | Generate array of next N available dates, excluding holidays. Used for booking date selection. |
+   166→| `sendMobileMessage($mobile, $message)` | HTTP GET to SMS gateway. URL: `sms.soft-techsolutions.com`. Sender ID: NTFSMS. |
+   167→| `_generateSeoURL($string, $wordLimit)` | Generate URL-safe slug from string. Used for blog permalinks. |
+   168→| `dump($var)` | var_dump with `<pre>` wrapper (debug) |
+   169→
+   170→### Standalone Helper: `helpers/date_formater_helper.php`
+   171→- Custom date formatting function
+   172→
+   173→---
+   174→
+   175→## 0.4 Database Schema — Complete
+   176→
+   177→### 35 Tables — Detailed Column Analysis:
+   178→
+   179→#### 1. `users` — Core user table for ALL roles
+   180→| Column | Type | Notes |
+   181→|---|---|---|
+   182→| id | int(11) PK AUTO_INCREMENT | |
+   183→| name | varchar(255) NOT NULL | |
+   184→| gender | varchar(50) NOT NULL | Male/Female |
+   185→| role | varchar(50) NOT NULL | admin/doctor/patient/hospital/receptionist/assistant/pharmacist |
+   186→| status | varchar(50) NOT NULL | Pending/Active/Block |
+   187→| email | varchar(255) NOT NULL | Unique |
+   188→| password | text NOT NULL | SHA256 hash |
+   189→| created_at | datetime | |
+   190→| updated_at | datetime | |
+   191→| profile_img | varchar(255) DEFAULT 'default.png' | Stored as filename only |
+   192→| mobile_no | varchar(50) NOT NULL | |
+   193→| mobile_verified_at | datetime DEFAULT NULL | |
+   194→| email_verified_at | datetime DEFAULT NULL | |
+   195→| **Relations** | | → doctors(user_id), hospital(user_id), receptionist(user_id), doctor_assistants(user_id), doctor_pharmacist(user_id), booking(user_id), posts(author_id), doctor_rating(patient_id) |
+   196→
+   197→#### 2. `doctors` — Doctor extended profile (1:1 with users)
+   198→| Column | Type | Notes |
+   199→|---|---|---|
+   200→| id | int(11) PK | |
+   201→| user_id | int(11) NOT NULL UNIQUE | FK → users.id |
+   202→| booking_days | int(11) | How many days in advance patients can book |
+   203→| daily_limit | int(11) | Max appointments per day |
+   204→| doctor_type | varchar(255) | FK → doctor_type_mstr.type (qualification/specialization) |
+   205→| description | text | Bio/description |
+   206→| photos | text | JSON array of photo filenames |
+   207→| address | varchar(300) | Clinic address |
+   208→| state | varchar(255) | |
+   209→| city | varchar(255) | |
+   210→| hospital_address | varchar(300) | Separate hospital address |
+   211→| fees | decimal(18,2) | Consultation fee |
+   212→| emergency_charge | decimal(18,2) | Emergency consultation fee |
+   213→| specialization | text | Specialization text |
+   214→| award_and_recognition | text | |
+   215→| eduction | text | Education details (note: typo "eduction") |
+   216→| lat | decimal(18,9) | Latitude for Google Maps |
+   217→| longi | decimal(18,9) | Longitude for Google Maps |
+   218→| hospital_id | int(11) | FK → hospital.user_id (if doctor belongs to hospital) |
+   219→| experience | text | Experience details |
+   220→| registration_detail | text | Medical registration details |
+   221→| contact_no | varchar(100) | Primary contact |
+   222→| phone_no | varchar(100) | Secondary phone |
+   223→| is_emergency | int(1) DEFAULT 0 | 0=no emergency, 1=emergency available |
+   224→
+   225→#### 3. `hospital` — Hospital profiles
+   226→| Column | Type | Notes |
+   227→|---|---|---|
+   228→| id | int(11) PK | |
+   229→| hospital_name | varchar(255) | |
+   230→| address | varchar(300) | |
+   231→| state | varchar(255) | |
+   232→| city | varchar(255) | |
+   233→| contact_no | varchar(100) | |
+   234→| gallary | text | JSON array of gallery image filenames (note: typo "gallary") |
+   235→| lat | decimal(18,9) | |
+   236→| longi | decimal(18,9) | |
+   237→| user_id | int(11) NOT NULL | FK → users.id |
+   238→
+   239→#### 4. `booking` — Appointments (core transaction table)
+   240→| Column | Type | Notes |
+   241→|---|---|---|
+   242→| id | int(11) PK | |
+   243→| appointment_no | varchar(255) UNIQUE | Auto-generated appointment number |
+   244→| doctor_id | int(11) NOT NULL | FK → doctors.id |
+   245→| user_id | int(11) | FK → users.id (patient, can be null for walk-ins) |
+   246→| state | varchar(255) | Patient's state (from form) |
+   247→| city | varchar(255) | Patient's city (from form) |
+   248→| booking_date | datetime NOT NULL | When appointment is booked |
+   249→| petient_name | varchar(255) NOT NULL | (note: typo "petient") |
+   250→| disease | varchar(255) NOT NULL | Reason for visit |
+   251→| description | text | Detailed description |
+   252→| gender | varchar(50) | Patient gender |
+   253→| date_of_birth | date | Patient DOB |
+   254→| age | int(11) | Patient age |
+   255→| relation_with_me | varchar(255) | If booking for someone else |
+   256→| blood_group | varchar(50) | |
+   257→| weight | decimal(18,3) | kg |
+   258→| height | decimal(18,3) | cm |
+   259→| physical_handicape | varchar(50) NOT NULL | (note: typo "handicape") |
+   260→| created_at | datetime | |
+   261→| updated_at | datetime | |
+   262→| status | varchar(50) NOT NULL | Pending/Approve/Visited/Canceled/Extend/Finish |
+   263→| booking_type | varchar(255) | By Self / By Receptionist / By Hospital |
+   264→| appointment_charge | decimal(18,2) | Admin commission charge |
+   265→
+   266→#### 5. `booking_chat` — Chat messages per appointment
+   267→| Column | Type | Notes |
+   268→|---|---| ---|
+   269→| id | int(11) PK | |
+   270→| booking_id | int(11) NOT NULL | FK → booking.id |
+   271→| from_id | int(11) NOT NULL | FK → users.id (sender) |
+   272→| to_id | int(11) NOT NULL | FK → users.id (receiver) |
+   273→| message | text NOT NULL | |
+   274→| status | varchar(50) NOT NULL | READ/UNREAD |
+   275→| created_at | datetime | |
+   276→
+   277→#### 6. `prescription` — Doctor prescriptions (header level)
+   278→| Column | Type | Notes |
+   279→|---|---|---|
+   280→| id | int(11) PK | |
+   281→| booking_id | int(11) NOT NULL | FK → booking.id (one prescription per appointment) |
+   282→| petient_name | varchar(255) | (note: typo) |
+   283→| petient_age | varchar(255) | (note: typo) |
+   284→| disease | varchar(255) | |
+   285→| weight | varchar(255) | |
+   286→| bp | varchar(255) | Blood pressure |
+   287→| temperature | varchar(255) | |
+   288→| description | text | Doctor's notes |
+   289→| created_at | datetime | |
+   290→| updated_at | datetime | |
+   291→
+   292→#### 7. `prescriptions` — Second prescription table (possibly alternative/legacy)
+   293→| Column | Type | Notes |
+   294→|---|---| ---|
+   295→| id | int(11) PK | |
+   296→| booking_id | int(11) NOT NULL | FK → booking.id |
+   297→| petient_name | varchar(255) | |
+   298→| petient_age | varchar(255) | |
+   299→| weight | varchar(255) | |
+   300→| bp | varchar(255) | |
+   301→| temperature | varchar(255) | |
+   302→| description | text | |
+   303→| created_at | datetime | |
+   304→| updated_at | datetime | |
+   305→
+   306→#### 8. `p_medicine` — Prescription medicines (child of prescription)
+   307→| Column | Type | Notes |
+   308→|---|---|---|
+   309→| id | int(11) PK | |
+   310→| p_id | int(11) NOT NULL | FK → prescriptions.id |
+   311→| medicine | varchar(255) | Medicine name |
+   312→| morning | int(11) | 0/1 — take in morning |
+   313→| after_noon | int(11) | 0/1 — take in afternoon |
+   314→| evning | int(11) | 0/1 — take in evening (note: typo "evning") |
+   315→| tab | int(11) | Number of tablets |
+   316→| doz | varchar(255) | Dosage (e.g., "200mg") |
+   317→| description | text | Additional instructions |
+   318→| created_by | int(11) | FK → users.id (who added) |
+   319→| created_at | datetime | |
+   320→| updated_at | datetime | |
+   321→
+   322→#### 9. `p_labels` — Prescription labels (vitals/measurements)
+   323→| Column | Type | Notes |
+   324→|---|---| ---|
+   325→| id | int(11) PK | |
+   326→| p_id | int(11) NOT NULL | FK → prescriptions.id |
+   327→| label | varchar(255) | Label name (e.g., "PULSE", "BP", "SUGER") |
+   328→| l_value | varchar(255) | Label value (e.g., "70", "100") |
+   329→| label_unit | varchar(255) | Unit (optional) |
+   330→| created_by | int(11) | |
+   331→| created_at | datetime | |
+   332→| updated_at | datetime | |
+   333→
+   334→#### 10. `p_suggestions` — Prescription suggestions (Q&A in prescription)
+   335→| Column | Type | Notes |
+   336→|---|---|---|
+   337→| id | int(11) PK | |
+   338→| p_id | int(11) NOT NULL | FK → prescriptions.id |
+   339→| question | varchar(255) | Question text |
+   340→| suggestions | varchar(255) | Doctor's suggestion/answer |
+   341→| created_by | int(11) | |
+   342→| created_at | datetime | |
+   343→| updated_at | datetime | |
+   344→
+   345→#### 11. `p_digno_table` — Custom diagnosis table in prescription
+   346→| Column | Type | Notes |
+   347→|---|---|---|
+   348→| id | int(11) PK | |
+   349→| p_id | int(11) NOT NULL | FK → prescriptions.id |
+   350→| rows | int(11) | Number of rows |
+   351→| cols | int(11) | Number of columns |
+   352→| header_label | varchar(255) | JSON array of column headers (e.g., ["Rt","Lt"]) |
+   353→| cols_label | varchar(255) | JSON array of column sub-headers |
+   354→| footer_label | varchar(255) | JSON array of footer labels |
+   355→| extra_label | varchar(255) | Extra label text |
+   356→| created_by | int(11) | |
+   357→| created_at | datetime | |
+   358→| updated_at | datetime | |
+   359→
+   360→#### 12. `p_cos` — Prescription chief complaints
+   361→| Column | Type | Notes |
+   362→|---|---|---|
+   363→| id | int(11) PK | |
+   364→| p_id | int(11) NOT NULL | FK → prescriptions.id |
+   365→| co_id | int(11) NOT NULL | FK → co_master.id |
+   366→| created_by | int(11) | |
+   367→| created_at | datetime | |
+   368→| updated_at | datetime | |
+   369→
+   370→#### 13. `p_other_settings` — Prescription print template settings (per doctor)
+   371→| Column | Type | Notes |
+   372→|---|---|---|
+   373→| id | int(11) PK | |
+   374→| doctor_id | int(11) NOT NULL | FK → users.id |
+   375→| logo | varchar(255) | Doctor's clinic logo for prescription |
+   376→| time | text | JSON: `{"morning_from":"10:15","morning_to":"12:50","evening_from":"3:15","evening_to":"4:50"}` |
+   377→| header | varchar(255) | Header text on prescription |
+   378→| full_header | text | Full header image path (when is_full_header=1) |
+   379→| is_full_header | int(1) DEFAULT 0 | 1=use full_header image, 0=use text header |
+   380→| created_by | int(11) | |
+   381→| created_at | datetime | |
+   382→| updated_at | datetime | |
+   383→
+   384→#### 14. `doctor_rating` — Doctor ratings by patients
+   385→| Column | Type | Notes |
+   386→|---|---|---|
+   387→| id | bigint(20) PK | |
+   388→| patient_id | int(11) | FK → users.id |
+   389→| doctor_id | int(11) | FK → users.id |
+   390→| star | int(11) | 1-5 stars |
+   391→
+   392→#### 15. `doctor_type_mstr` — Doctor qualification/specialization types
+   393→| Column | Type | Notes |
+   394→|---|---|---|
+   395→| id | int(11) PK | |
+   396→| type | varchar(255) NOT NULL | e.g., "DM [CARDIOLOGY]", "MS (GENERAL SURGERY)" |
+   397→| status | varchar(255) | |
+   398→| created_at | datetime | |
+   399→
+   400→#### 16. `doctor_assistants` — Doctor-Assistant mapping
+   401→| Column | Type | Notes |
+   402→|---|---|---|
+   403→| id | int(11) PK | |
+   404→| user_id | int(11) NOT NULL | FK → users.id (assistant user) |
+   405→| doctor_id | int(11) NOT NULL | FK → users.id (doctor user) |
+   406→| description | text | |
+   407→| address | varchar(1000) | |
+   408→
+   409→#### 17. `doctor_holiday_schedule` — Doctor unavailability
+   410→| Column | Type | Notes |
+   411→|---|---|---|
+   412→| id | int(11) PK | |
+   413→| user_id | int(11) NOT NULL | FK → users.id (doctor) |
+   414→| date | date NOT NULL | Holiday date |
+   415→| remark | text | Reason |
+   416→
+   417→#### 18. `doctor_medicine_list` — Doctor's personal medicine inventory
+   418→| Column | Type | Notes |
+   419→|---|---|---|
+   420→| id | int(11) PK | |
+   421→| name | varchar(2000) | Medicine name |
+   422→| morning | varchar(255) | Default morning dose |
+   423→| afternoon | varchar(255) | Default afternoon dose |
+   424→| evening | varchar(255) | Default evening dose |
+   425→| doz | varchar(255) | Default dosage |
+   426→| tab | int(255) | Default tablet count |
+   427→| description | text | |
+   428→| status | varchar(255) | Active/Block |
+   429→| created_at | datetime | |
+   430→| updated_at | datetime | |
+   431→| created_by | int(11) | |
+   432→| user_id | int(11) | FK → users.id (doctor) |
+   433→
+   434→#### 19. `doctor_pharmacist` — Doctor-Pharmacist mapping
+   435→| Column | Type | Notes |
+   436→|---|---|---|
+   437→| id | int(11) PK | |
+   438→| user_id | int(11) NOT NULL | FK → users.id (pharmacist user) |
+   439→| doctor_id | int(11) NOT NULL | FK → users.id (doctor user) |
+   440→| description | text | |
+   441→| address | varchar(500) | |
+   442→| dlno | varchar(500) | Drug license number |
+   443→| created_by | int(11) | |
+   444→| created_at | datetime | |
+   445→| updated_at | datetime | |
+   446→
+   447→#### 20. `receptionist` — Doctor-Receptionist mapping
+   448→| Column | Type | Notes |
+   449→|---|---|---|
+   450→| id | int(11) PK | |
+   451→| doctor_id | int(11) NOT NULL | FK → users.id (doctor user) |
+   452→| user_id | int(11) NOT NULL | FK → users.id (receptionist user) |
+   453→| address | varchar(255) | |
+   454→
+   455→#### 21. `posts` — Blog posts / News
+   456→| Column | Type | Notes |
+   457→|---|---|---|
+   458→| id | int(11) PK | |
+   459→| title | varchar(255) NOT NULL | |
+   460→| paramalink | varchar(255) UNIQUE | SEO-friendly URL slug |
+   461→| content | text | HTML content |
+   462→| blog_img | varchar(255) | Featured image filename |
+   463→| type | varchar(255) | Blog/News |
+   464→| status | varchar(255) | Published/Draft |
+   465→| author_id | int(11) | FK → users.id |
+   466→| created_at | datetime | |
+   467→| updated_at | datetime | |
+   468→
+   469→#### 22. `notifications` — System notifications
+   470→| Column | Type | Notes |
+   471→|---|---|---|
+   472→| id | int(11) PK | |
+   473→| user_id | int(11) NOT NULL | FK → users.id (recipient) |
+   474→| title | varchar(255) | Notification title |
+   475→| message | text | Notification body |
+   476→| status | varchar(255) | READ/UNREAD |
+   477→| created_at | datetime | |
+   478→| updated_at | datetime | |
+   479→
+   480→#### 23. `slider` — Homepage image slider
+   481→| Column | Type | Notes |
+   482→|---|---|---|
+   483→| id | int(11) PK | |
+   484→| slider_image | varchar(255) | Image filename |
+   485→| position | int(11) | Display order |
+   486→| status | varchar(50) | Active/Block |
+   487→| created_at | datetime | |
+   488→| updated_at | datetime | |
+   489→| link | varchar(1024) | Optional click-through URL |
+   490→
+   491→#### 24. `hospital_inquiry` — Contact form submissions
+   492→| Column | Type | Notes |
+   493→|---|---|---|
+   494→| id | int(11) PK | |
+   495→| name | varchar(255) | |
+   496→| email | varchar(255) | |
+   497→| phone | varchar(255) | |
+   498→| subject | varchar(255) | |
+   499→| message | text | |
+   500→| status | varchar(255) | |
+   501→| created_at | datetime | |
+   502→| updated_at | datetime | |
+   503→
+   504→#### 25. `disease_master` — Disease lookup table
+   505→| Column | Type | Notes |
+   506→|---|---|---|
+   507→| id | int(11) PK | |
+   508→| dis_name | varchar(500) NOT NULL | Disease name |
+   509→| status | varchar(255) | |
+   510→| created_at | datetime | |
+   511→
+   512→#### 26. `label_master` — Custom label templates for prescriptions
+   513→| Column | Type | Notes |
+   514→|---|---|---|
+   515→| id | int(11) PK | |
+   516→| label | varchar(255) | |
+   517→| status | varchar(255) | |
+   518→| created_by | int(11) | |
+   519→| doctor_id | int(11) | |
+   520→| created_at | datetime | |
+   521→| updated_at | datetime | |
+   522→
+   523→#### 27. `co_master` — Chief Complaints (doctor's custom list)
+   524→| Column | Type | Notes |
+   525→|---|---|---|
+   526→| id | int(11) PK | |
+   527→| co_code | varchar(255) | Short code |
+   528→| co_detail | text | Full description |
+   529→| created_by | int(11) | |
+   530→| doctor_id | int(11) | |
+   531→| status | varchar(255) | Active/Block |
+   532→| created_at | datetime | |
+   533→| updated_at | datetime | |
+   534→
+   535→#### 28. `suggestions_master` — Pre-defined suggestions for Q&A
+   536→| Column | Type | Notes |
+   537→|---|---|---|
+   538→| id | int(11) PK | |
+   539→| question_id | int(11) NOT NULL | FK → questions_master.id |
+   540→| suggestions | text | |
+   541→| created_by | int(11) | |
+   542→| doctor_id | int(11) | |
+   543→| status | varchar(255) | Active/Block |
+   544→| created_at | datetime | |
+   545→| updated_at | datetime | |
+   546→
+   547→#### 29. `questions_master` — Health Q&A questions (doctor's knowledge base)
+   548→| Column | Type | Notes |
+   549→|---|---|---|
+   550→| id | int(11) PK | |
+   551→| question | varchar(1000) NOT NULL | |
+   552→| question_code | varchar(255) | Short code |
+   553→| co_id | int(11) NOT NULL | FK → co_master.id (0 = no CO link) |
+   554→| explenations | text | Detailed explanation (note: typo "explenations") |
+   555→| created_by | int(11) | |
+   556→| doctor_id | int(11) | |
+   557→| status | varchar(255) | Active/Block |
+   558→| created_at | datetime | |
+   559→| updated_at | datetime | |
+   560→
+   561→#### 30. `table_master` — Custom table templates for diagnosis
+   562→| Column | Type | Notes |
+   563→|---|---|---|
+   564→| id | int(11) PK | |
+   565→| row | int(11) | Number of rows |
+   566→| table_column | int(11) | Number of columns |
+   567→| lable_header | text | JSON array of column headers |
+   568→| lable_footer | text | JSON array of footer labels |
+   569→| lable_row | text | JSON array of row labels |
+   570→| extra_label | varchar(255) | |
+   571→| created_by | int(11) | |
+   572→| doctor_id | int(11) | |
+   573→| status | varchar(255) | |
+   574→| created_at | datetime | |
+   575→| updated_at | datetime | |
+   576→
+   577→#### 31. `config` — Site configuration
+   578→| Column | Type | Notes |
+   579→|---|---|---|
+   580→| id | int(11) PK | |
+   581→| admin_charge | decimal(18,2) | Per-appointment commission |
+   582→
+   583→#### 32. `country_mstr` — Countries
+   584→| Column | Type | Notes |
+   585→|---|---|---|
+   586→| id | int(11) PK | |
+   587→| country_name | varchar(255) NOT NULL | |
+   588→
+   589→#### 33. `state_mstr` — States (per country)
+   590→| Column | Type | Notes |
+   591→|---|---|---|
+   592→| id | int(11) PK | |
+   593→| state_name | varchar(255) NOT NULL | |
+   594→| county_id | int(11) NOT NULL | FK → country_mstr.id |
+   595→
+   596→#### 34. `city_mstr` — Cities (per state)
+   597→| Column | Type | Notes |
+   598→|---|---|---|
+   599→| id | int(11) PK | |
+   600→| city_name | varchar(255) NOT NULL | |
+   601→| state_id | int(11) NOT NULL | FK → state_mstr.id |
+   602→
+   603→#### 35. `reset_password` — Password reset tokens
+   604→| Column | Type | Notes |
+   605→|---|---|---|
+   606→| id | int(11) PK | |
+   607→| email | varchar(255) NOT NULL | |
+   608→| token | text NOT NULL | |
+   609→| created_at | datetime | |
+   610→
+   611→### Additional: `schedule_pdf` — Hospital schedule PDF uploads
+   612→| Column | Type | Notes |
+   613→|---|---|---|
+   614→| id | int(11) PK | |
+   615→| hospital_id | int(11) NOT NULL | FK → hospital.id |
+   616→| file_name | varchar(500) | |
+   617→| created_at | datetime | |
+   618→
+   619→---
+   620→
+   621→## 0.5 Authentication Flow — Complete
+   622→
+   623→### Registration Flow:
+   624→```
+   625→1. GET /auth/register?type=dr OR ?type=patient
+   626→   → Loads register.php view
+   627→   → Only doctor and patient can self-register (other roles created by admin)
+   628→
+   629→2. POST /auth/signup?type=dr OR ?type=patient
+   630→   → Validates: name, email(unique), password(min 6), confirm_password(match), mobile_no, gender, terms
+   631→   → role = 'doctor' or 'patient' based on ?type
+   632→   → status = 'Pending' (needs mobile verification)
+   633→   → password = SHA256(password)
+   634→   → Creates user in DB
+   635→   → Sends welcome SMS with credentials
+   636→   → Redirects to /auth/login with flash message
+   637→   → NOTE: Email verification code exists but is COMMENTED OUT
+   638→```
+   639→
+   640→### Login Flow:
+   641→```
+   642→1. GET /auth/login
+   643→   → If already logged in → redirect to role-specific dashboard
+   644→   → Loads login.php view
+   645→
+   646→2. POST /auth/auth_login
+   647→   → Validates: email, password(min 6)
+   648→   → password = SHA256(password)
+   649→   → Check: user->check_auth($logData)
+   650→   → If status = 'Active':
+   651→      → Set session 'user_login' with: {id, name, email, role, status, mobile_no, profile_img}
+   652→      → Redirect by role:
+   653→         doctor → /doctor/dashboard
+   654→         patient → /home (NOTE: inconsistent — register says /home, login says /appointment)
+   655→         receptionist → /receptionist/dashboard
+   656→         hospital → /hospital/dashboard
+   657→         admin → /admin/dashboard
+   658→         assistant → /assistant/dashboard
+   659→         pharmacist → /pharmacist/pharmacist/listPrescriptions
+   660→   → If status = 'Pending':
+   661→      → Set session 'verify_data' with user data
+   662→      → Redirect to /auth/verify_mobile
+   663→   → If status = 'Block':
+   664→      → Flash error "You are Blocked"
+   665→      → Redirect to /auth/login
+   666→   → If credentials invalid:
+   667→      → Flash error "Email or Password is invalid"
+   668→      → Redirect back to login
+   669→   → Remember Me: extends session cookie to 7 days
+   670→```
+   671→
+   672→### Mobile OTP Verification Flow:
+   673→```
+   674→1. GET /auth/verify_mobile (only if session 'verify_data' exists)
+   675→   → Shows OTP input form
+   676→
+   677→2. POST /auth/sendotp_mobile_verify
+   678→   → Generates 6-digit random OTP
+   679→   → Sends SMS: "Dear User, {otp} is your Doctorooms OTP code for verification."
+   680→   → Stores in session 'mobile_verification_data': {mobile_no, otp, date}
+   681→
+   682→3. POST /auth/verify_mobile_submit
+   683→   → Checks OTP expiry: 180 seconds (3 minutes)
+   684→   → Compares OTP
+   685→   → If match:
+   686→      → Updates user: status='Active', mobile_verified_at=now()
+   687→      → Creates full session
+   688→      → Redirects to /auth/login (which then redirects to dashboard)
+   689→   → If mismatch: flash error, redirect back
+   690→   → If expired: unset sessions, flash error, redirect to login
+   691→```
+   692→
+   693→### Forgot Password Flow:
+   694→```
+   695→1. GET /auth/forgot_password → Shows mobile number form
+   696→
+   697→2. POST /auth/forgot_submit
+   698→   → Validates mobile number exists in DB
+   699→   → Stores 'forgot_data' session: {mobile, created_at}
+   700→   → Redirects to OTP verification
+   701→
+   702→3. POST /auth/forgot_password_send_otp
+   703→   → Generates OTP, sends SMS
+   704→   → Stores 'forgot_password_verification_data': {mobile_no, otp, date}
+   705→
+   706→4. POST /auth/forgot_password_mobile_verification_submit
+   707→   → Checks OTP expiry: 180 seconds
+   708→   → If match: stores 'generate_password_data', redirects to new password form
+   709→
+   710→5. GET /auth/generate_new_password → Shows new password form
+   711→
+   712→6. POST /auth/generate_new_password_submit
+   713→   → Validates: new_password(min 6), confirm_password(match)
+   714→   → Hashes new password, updates user
+   715→   → Unsets sessions, redirects to login
+   716→   → OTP valid for 300 seconds (5 minutes) at this stage
+   717→```
+   718→
+   719→---
+   720→
+   721→## 0.6 Role & Permission System
+   722→
+   723→### Role Hierarchy & Access:
+   724→| Role | Self-Register | Created By | Dashboard URL | Guard Class |
+   725→|---|---|---|---|---|
+   726→| Admin | No | Pre-seeded | /admin/dashboard | Admin_contoller |
+   727→| Doctor | Yes (?type=dr) | Self/Admin | /doctor/dashboard | Doctor_controller |
+   728→| Patient | Yes (?type=patient) | Self | /home or /appointment | Patient_contoller |
+   729→| Hospital | No | Admin | /hospital/dashboard | Hospital_contoller |
+   730→| Receptionist | No | Doctor/Admin | /receptionist/dashboard | Reception_contoller |
+   731→| Assistant | No | Doctor/Admin | /assistant/dashboard | Assistant_controller |
+   732→| Pharmacist | No | Doctor/Admin | /pharmacist/pharmacist/listPrescriptions | Pharmacist_contoller |
+   733→
+   734→### Guard Logic (per role controller):
+   735→1. Session must exist with 'user_login'
+   736→2. Role must match controller's expected role
+   737→3. User must not be blocked (re-checks DB on every request)
+   738→4. Loads notifications (last 7 days) and count
+   739→
+   740→### Shared Data in $view_data (set in constructor):
+   741→- `$view_data['user']` — Full user object from DB
+   742→- `$view_data['notifications']` — Array of recent notifications
+   743→- `$view_data['notificationsCount']` — Count of notifications
+   744→- (Receptionist only) `$view_data['doctor_data']` — Associated doctor's profile
+   745→
+   746→---
+   747→
+   748→## 0.7 Layout System (7 Layouts)
+   749→
+   750→| Layout File | Used By | Key Characteristics |
+   751→|---|---|---|
+   752→| `master_page_front.php` | Guest_controller | Public navbar (logo, Home, Doctors, Hospitals, Blog, About, Contact, Login/Register or Profile), footer, white background |
+   753→| `master_page_doctors.php` | Doctor_controller | Sidebar with: Dashboard, Appointments, Schedule, Profile, Assistants, Receptionists, Pharmacists, Posts, Gallery, Reports, Labels, CO, Questions, Suggestions, Table Master, P Other Settings, Notifications. Navbar: notifications bell, profile dropdown |
+   754→| `master_page_hospital.php` | Hospital_contoller | Sidebar: Dashboard, Appointments, Doctors, Income, Profile, Posts, Registration, Upload Schedule. Navbar with profile |
+   755→| `master_page_receptionist.php` | Reception_contoller | Sidebar: Dashboard, Appointments, Registration, Schedule, Medicine, Notifications, Posts, Profile |
+   756→| `master_page_assistant.php` | Assistant_controller | Sidebar: Dashboard, Appointments, Notifications, Posts, Profile |
+   757→| `master_page_pharmacist.php` | Pharmacist_contoller | Sidebar: Dashboard, Prescriptions, Profile |
+   758→| `master_page_admin.php` | Admin_contoller | Full sidebar: Dashboard, Users, Doctors, Hospitals, Patients, Appointments, Blog, Sliders, Assistants, Receptionists, Reports (submenu), Charges, Site Statistics, Inquiries, Profile, Master Data (submenu) |
+   759→
+   760→### Layout Structure (typical dashboard):
+   761→```
+   762→<!DOCTYPE html>
+   763→<html>
+   764→<head>
+   765→  <!-- CSS: Tabler theme, Bootstrap, plugins -->
+   766→</head>
+   767→<body>
+   768→  <div class="page">
+   769→    <!-- Navbar (top bar) -->
+   770→    <div class="page-main">
+   771→      <!-- Sidebar -->
+   772→      <div class="my-3 my-md-5">
+   773→        <div class="container">
+   774→          <!-- Page Content ($this->load->view($view, $view_data)) -->
+   775→        </div>
+   776→      </div>
+   777→    </div>
+   778→    <!-- Footer -->
+   779→  </div>
+   780→  <!-- JS: jQuery, Bootstrap, plugins -->
+   781→</body>
+   782→</html>
+   783→```
+   784→
+   785→---
+   786→
+   787→## 0.8 File Upload System
+   788→
+   789→### Upload Paths (from controllers and views):
+   790→| Type | Path | Used By |
+   791→|---|---|---|
+   792→| Profile images | `upload/profile/` | All roles |
+   793→| Blog images | `upload/blog/` | All roles with blog access |
+   794→| Slider images | `upload/slider/` | Admin |
+   795→| Gallery images | `upload/gallery/` | Doctor |
+   796→| Prescription logo | `upload/prescription_logo/` | Doctor |
+   797→| Schedule PDF | `upload/schedule/` | Hospital |
+   798→
+   799→### File Naming Convention:
+   800→- Single: `{title}_{timestamp}_{uniqid()}.{ext}`
+   801→- Multiple: Same pattern per file, returned as JSON array
+   802→- Thumbnails: `{original_name}_thumb.{ext}` (300x300)
+   803→
+   804→### Allowed File Types:
+   805→- Images: jpg, jpeg, gif, png (max 2000KB)
+   806→- Documents: pdf, xlsx, xls (max 2000KB)
+   807→
+   808→---
+   809→
+   810→---
+   811→
+   812→# Phase 1: Frontend (Public-Facing) Module
+   813→
+   814→> STATUS: ⏳ PENDING RESEARCH
+   815→
+   816→---
+   817→
+   818→# Phase 2: Authentication & User Management Module
+   819→
+   820→> STATUS: ⏳ PENDING RESEARCH (Phase 0.5 covers auth flow; this phase will cover User Model queries, session data, admin user management)
+   821→
+   822→---
+   823→
+   824→# Phase 3: Doctor Dashboard Module
+   825→
+   826→> STATUS: ⏳ PENDING RESEARCH
+   827→
+   828→---
+   829→
+   830→# Phase 4: Hospital Dashboard Module
+   831→
+   832→> STATUS: ⏳ PENDING RESEARCH
+   833→
+   834→---
+   835→
+   836→# Phase 5: Receptionist Dashboard Module
+   837→
+   838→> STATUS: ⏳ PENDING RESEARCH
+   839→
+   840→---
+   841→
+   842→# Phase 6: Assistant Dashboard Module
+   843→
+   844→> STATUS: ⏳ PENDING RESEARCH
+   845→
+   846→---
+   847→
+   848→# Phase 7: Pharmacist Dashboard Module
+   849→
+   850→> STATUS: ⏳ PENDING RESEARCH
+   851→
+   852→---
+   853→
+   854→# Phase 8: Admin Dashboard Module
+   855→
+   856→> STATUS: ⏳ PENDING RESEARCH
+   857→
+   858→---
+   859→
+   860→# Phase 9: Cross-Cutting Concerns
+   861→
+   862→> STATUS: ⏳ PENDING RESEARCH
+   863→
+   864→---
+   865→
+   866→# Phase 10: Module Connection Map
+   867→
+   868→> STATUS: ⏳ PENDING RESEARCH (Initial map in RESEARCH-PLAN.md Phase 10)
+   869→
