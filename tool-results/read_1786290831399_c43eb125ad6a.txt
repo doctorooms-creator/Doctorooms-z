@@ -1,0 +1,910 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useMemo, useRef } from 'react'
+     4→import { useParams, useRouter } from 'next/navigation'
+     5→import { motion, useInView } from 'framer-motion'
+     6→import Link from 'next/link'
+     7→import { format } from 'date-fns'
+     8→import {
+     9→  Star,
+    10→  MapPin,
+    11→  IndianRupee,
+    12→  ShieldCheck,
+    13→  Clock,
+    14→  Users,
+    15→  Award,
+    16→  GraduationCap,
+    17→  Share2,
+    18→  Calendar,
+    19→  Check,
+    20→  ChevronLeft,
+    21→  ArrowRight,
+    22→  Phone,
+    23→  Briefcase,
+    24→  ArrowLeft,
+    25→  MessageSquare,
+    26→  CheckCircle2,
+    27→  AlertCircle,
+    28→  Building2,
+    29→  Video,
+    30→} from 'lucide-react'
+    31→import { Button } from '@/components/ui/button'
+    32→import { Badge } from '@/components/ui/badge'
+    33→import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+    34→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    35→import { Separator } from '@/components/ui/separator'
+    36→import { Skeleton } from '@/components/ui/skeleton'
+    37→import { toast } from 'sonner'
+    38→import { useAuthStore } from '@/lib/auth-store'
+    39→import { PublicLayout } from '@/components/layout/public-layout'
+    40→import { cn } from '@/lib/utils'
+    41→
+    42→// ── Types ────────────────────────────────────────────────────────────────────
+    43→
+    44→interface Schedule {
+    45→  id: string
+    46→  day: string
+    47→  startTime: string
+    48→  endTime: string
+    49→  slotDuration: number
+    50→}
+    51→
+    52→interface Review {
+    53→  id: string
+    54→  star: number
+    55→  review: string
+    56→  isAnonymous: boolean
+    57→  patientName: string
+    58→  createdAt: string
+    59→}
+    60→
+    61→interface DoctorData {
+    62→  id: string
+    63→  name: string
+    64→  email: string
+    65→  profileImg: string
+    66→  gender: string
+    67→  createdAt: string
+    68→  doctor: {
+    69→    specialization: string
+    70→    education: string
+    71→    experience: string
+    72→    city: string
+    73→    address: string
+    74→    state: string
+    75→    hospitalAddress: string
+    76→    fees: number
+    77→    emergencyCharge: number
+    78→    description: string
+    79→    contactNo: string
+    80→    phoneNo: string
+    81→    isEmergency: boolean
+    82→    awardAndRecognition: string
+    83→    registrationDetail: string
+    84→  } | null
+    85→  schedules: Schedule[]
+    86→  avgRating: number
+    87→  ratingCount: number
+    88→  starDistribution: Record<number, number>
+    89→  totalPatients: number
+    90→  totalAppointments: number
+    91→  reviews: Review[]
+    92→  relatedDoctors: {
+    93→    id: string
+    94→    name: string
+    95→    profileImg: string
+    96→    doctor: { specialization: string; city: string; fees: number } | null
+    97→  }[]
+    98→}
+    99→
+   100→// ── Helpers ──────────────────────────────────────────────────────────────────
+   101→
+   102→function formatCurrency(amount: number): string {
+   103→  return new Intl.NumberFormat('en-IN', {
+   104→    style: 'currency',
+   105→    currency: 'INR',
+   106→    minimumFractionDigits: 0,
+   107→  }).format(amount)
+   108→}
+   109→
+   110→function formatTime(timeStr: string): string {
+   111→  const [h, m] = timeStr.split(':').map(Number)
+   112→  const period = h >= 12 ? 'PM' : 'AM'
+   113→  const hour = h % 12 || 12
+   114→  return `${hour}:${m.toString().padStart(2, '0')} ${period}`
+   115→}
+   116→
+   117→function parseAwards(str: string): string[] {
+   118→  if (!str) return []
+   119→  try {
+   120→    const parsed = JSON.parse(str)
+   121→    if (Array.isArray(parsed)) return parsed.filter(Boolean)
+   122→  } catch {
+   123→    // not JSON, treat as newline/comma-separated
+   124→    return str.split(/[\n,]/).map((s) => s.trim()).filter(Boolean)
+   125→  }
+   126→  return []
+   127→}
+   128→
+   129→// ── Animation components ─────────────────────────────────────────────────────
+   130→
+   131→function FadeUpSection({
+   132→  children,
+   133→  className,
+   134→  delay = 0,
+   135→}: {
+   136→  children: React.ReactNode
+   137→  className?: string
+   138→  delay?: number
+   139→}) {
+   140→  const ref = useRef<HTMLDivElement>(null)
+   141→  const inView = useInView(ref, { once: true, margin: '-60px' })
+   142→  return (
+   143→    <motion.div
+   144→      ref={ref}
+   145→      initial={{ opacity: 0, y: 30 }}
+   146→      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+   147→      transition={{ duration: 0.6, delay, ease: 'easeOut' }}
+   148→      className={className}
+   149→    >
+   150→      {children}
+   151→    </motion.div>
+   152→  )
+   153→}
+   154→
+   155→const fadeIn = {
+   156→  initial: { opacity: 0, y: 20 },
+   157→  animate: { opacity: 1, y: 0 },
+   158→  transition: { duration: 0.4 },
+   159→}
+   160→
+   161→const staggerContainer = {
+   162→  animate: { transition: { staggerChildren: 0.08 } },
+   163→}
+   164→
+   165→// ── Constants ─────────────────────────────────────────────────────────────────
+   166→
+   167→const DAYS_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+   168→const DAY_SHORT = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+   169→
+   170→// ═══════════════════════════════════════════════════════════════════════════════
+   171→// MAIN PAGE
+   172→// ═══════════════════════════════════════════════════════════════════════════════
+   173→
+   174→export default function DoctorDetailPage() {
+   175→  const params = useParams()
+   176→  const router = useRouter()
+   177→  const { isAuthenticated, user } = useAuthStore()
+   178→  const id = params.id as string
+   179→  const [doctor, setDoctor] = useState<DoctorData | null>(null)
+   180→  const [loading, setLoading] = useState(true)
+   181→
+   182→  useEffect(() => {
+   183→    async function fetchDoctor() {
+   184→      try {
+   185→        const res = await fetch(`/api/doctors/${id}`)
+   186→        if (!res.ok) throw new Error('Not found')
+   187→        const data = await res.json()
+   188→        setDoctor(data.doctor)
+   189→      } catch {
+   190→        setDoctor(null)
+   191→      } finally {
+   192→        setLoading(false)
+   193→      }
+   194→    }
+   195→    if (id) fetchDoctor()
+   196→  }, [id])
+   197→
+   198→  // ── Derived data ──────────────────────────────────────────────────────────
+   199→
+   200→  const todayName = useMemo(() => {
+   201→    const dayIndex = new Date().getDay()
+   202→    return DAYS_ORDER[dayIndex === 0 ? 6 : dayIndex - 1]
+   203→  }, [])
+   204→
+   205→  const activeDays = useMemo(() => {
+   206→    if (!doctor?.schedules) return []
+   207→    return doctor.schedules
+   208→      .sort((a, b) => DAYS_ORDER.indexOf(a.day) - DAYS_ORDER.indexOf(b.day))
+   209→  }, [doctor?.schedules])
+   210→
+   211→  const awards = useMemo(() => {
+   212→    if (!doctor?.doctor?.awardAndRecognition) return []
+   213→    return parseAwards(doctor.doctor.awardAndRecognition)
+   214→  }, [doctor?.doctor?.awardAndRecognition])
+   215→
+   216→  const handleShare = async () => {
+   217→    try {
+   218→      await navigator.clipboard.writeText(window.location.href)
+   219→      toast.success('Profile link copied to clipboard!')
+   220→    } catch {
+   221→      toast.error('Failed to copy link')
+   222→    }
+   223→  }
+   224→
+   225→  // ── Loading skeleton ──────────────────────────────────────────────────────
+   226→
+   227→  if (loading) {
+   228→    return (
+   229→      <PublicLayout>
+   230→        <div className="container mx-auto px-4 py-8">
+   231→          <Skeleton className="h-6 w-32 mb-6" />
+   232→          <div className="grid lg:grid-cols-3 gap-8">
+   233→            <div className="lg:col-span-2 space-y-6">
+   234→              <Card>
+   235→                <CardContent className="p-6">
+   236→                  <div className="flex gap-6">
+   237→                    <Skeleton className="h-28 w-28 rounded-full shrink-0" />
+   238→                    <div className="flex-1 space-y-3">
+   239→                      <Skeleton className="h-7 w-3/4" />
+   240→                      <Skeleton className="h-5 w-1/2" />
+   241→                      <Skeleton className="h-5 w-1/3" />
+   242→                    </div>
+   243→                  </div>
+   244→                </CardContent>
+   245→              </Card>
+   246→              <Skeleton className="h-64 w-full rounded-xl" />
+   247→              <Skeleton className="h-48 w-full rounded-xl" />
+   248→              <Skeleton className="h-72 w-full rounded-xl" />
+   249→            </div>
+   250→            <div className="space-y-6">
+   251→              <Skeleton className="h-80 w-full rounded-xl" />
+   252→              <Skeleton className="h-64 w-full rounded-xl" />
+   253→            </div>
+   254→          </div>
+   255→        </div>
+   256→      </PublicLayout>
+   257→    )
+   258→  }
+   259→
+   260→  // ── Not found state ───────────────────────────────────────────────────────
+   261→
+   262→  if (!doctor) {
+   263→    return (
+   264→      <PublicLayout>
+   265→        <div className="container mx-auto px-4 py-20 text-center">
+   266→          <AlertCircle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+   267→          <h2 className="text-2xl font-bold mb-2">Doctor Not Found</h2>
+   268→          <p className="text-muted-foreground mb-6">The doctor you are looking for does not exist or is no longer active.</p>
+   269→          <Button variant="outline" className="border-teal-200 text-teal-700 hover:bg-teal-50" asChild>
+   270→            <Link href="/">
+   271→              <ArrowLeft className="h-4 w-4 mr-2" />
+   272→              Back to Home
+   273→            </Link>
+   274→          </Button>
+   275→        </div>
+   276→      </PublicLayout>
+   277→    )
+   278→  }
+   279→
+   280→  const doc = doctor.doctor
+   281→
+   282→  return (
+   283→    <PublicLayout>
+   284→      <div className="container mx-auto px-4 py-6 sm:py-8">
+   285→        {/* ── Breadcrumb ────────────────────────────────────────────────── */}
+   286→        <motion.div {...fadeIn} className="flex items-center gap-2 text-sm text-muted-foreground mb-6">
+   287→          <Link href="/" className="hover:text-teal-600 transition-colors">
+   288→            Home
+   289→          </Link>
+   290→          <ChevronLeft className="h-3 w-3 rotate-180" />
+   291→          <Link href="/doctors" className="hover:text-teal-600 transition-colors">
+   292→            Doctors
+   293→          </Link>
+   294→          <ChevronLeft className="h-3 w-3 rotate-180" />
+   295→          <span className="text-foreground font-medium truncate max-w-[200px] sm:max-w-none">{doctor.name}</span>
+   296→        </motion.div>
+   297→
+   298→        <div className="grid lg:grid-cols-3 gap-8">
+   299→          {/* ══════════════════════════════════════════════════════════════ */}
+   300→          {/* LEFT COLUMN                                                     */}
+   301→          {/* ══════════════════════════════════════════════════════════════ */}
+   302→          <div className="lg:col-span-2 space-y-6">
+   303→            {/* ── A. HERO / HEADER SECTION ───────────────────────────────── */}
+   304→            <motion.div {...fadeIn}>
+   305→              <Card className="overflow-hidden">
+   306→                <CardContent className="p-6 md:p-8">
+   307→                  <div className="flex flex-col sm:flex-row gap-6">
+   308→                    {/* Avatar with online indicator */}
+   309→                    <div className="relative mx-auto sm:mx-0 shrink-0">
+   310→                      <Avatar className="h-[120px] w-[120px] border-3 border-teal-100 dark:border-teal-900">
+   311→                        <AvatarImage
+   312→                          src={doctor.profileImg !== 'default.png' ? doctor.profileImg : ''}
+   313→                          alt={doctor.name}
+   314→                        />
+   315→                        <AvatarFallback className="bg-gradient-to-br from-teal-100 to-emerald-200 text-teal-700 font-bold text-3xl">
+   316→                          {doctor.name
+   317→                            .split(' ')
+   318→                            .map((n) => n[0])
+   319→                            .join('')
+   320→                            .slice(0, 2)
+   321→                            .toUpperCase()}
+   322→                        </AvatarFallback>
+   323→                      </Avatar>
+   324→                      {/* Green online indicator */}
+   325→                      <span className="absolute bottom-1 right-1 h-5 w-5 rounded-full border-2 border-white bg-emerald-500 dark:border-card" />
+   326→                    </div>
+   327→
+   328→                    <div className="flex-1 text-center sm:text-left">
+   329→                      <div className="flex items-center gap-2 justify-center sm:justify-start flex-wrap">
+   330→                        <h1 className="text-2xl md:text-3xl font-bold">{doctor.name}</h1>
+   331→                        <ShieldCheck className="h-6 w-6 text-teal-500" />
+   332→                      </div>
+   333→
+   334→                      {/* Specialization badge + location */}
+   335→                      <div className="flex items-center gap-2 mt-2 justify-center sm:justify-start flex-wrap">
+   336→                        <Badge className="bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-900/40 dark:text-teal-300">
+   337→                          {doc?.specialization || 'General Physician'}
+   338→                        </Badge>
+   339→                        {doc?.city && (
+   340→                          <span className="flex items-center gap-1 text-sm text-muted-foreground">
+   341→                            <MapPin className="h-3.5 w-3.5" />
+   342→                            {doc.city}{doc.state ? `, ${doc.state}` : ''}
+   343→                          </span>
+   344→                        )}
+   345→                      </div>
+   346→
+   347→                      {/* Rating display */}
+   348→                      <div className="flex items-center gap-1.5 mt-3 justify-center sm:justify-start">
+   349→                        <div className="flex items-center">
+   350→                          {Array.from({ length: 5 }, (_, i) => (
+   351→                            <Star
+   352→                              key={i}
+   353→                              className={cn(
+   354→                                'h-4 w-4',
+   355→                                i < Math.round(doctor.avgRating)
+   356→                                  ? 'fill-amber-400 text-amber-400'
+   357→                                  : 'text-muted-foreground/30'
+   358→                              )}
+   359→                            />
+   360→                          ))}
+   361→                        </div>
+   362→                        <span className="text-sm font-semibold">{doctor.avgRating.toFixed(1)}</span>
+   363→                        <span className="text-sm text-muted-foreground">
+   364→                          ({doctor.ratingCount} review{doctor.ratingCount !== 1 ? 's' : ''})
+   365→                        </span>
+   366→                      </div>
+   367→
+   368→                      {/* Badges row */}
+   369→                      <div className="flex flex-wrap gap-2 mt-4 justify-center sm:justify-start">
+   370→                        {doc?.isEmergency && (
+   371→                          <Badge variant="destructive" className="gap-1">
+   372→                            <Phone className="h-3 w-3" /> Emergency Available
+   373→                          </Badge>
+   374→                        )}
+   375→                        {doc?.experience && (
+   376→                          <Badge variant="secondary" className="gap-1">
+   377→                            <Briefcase className="h-3 w-3" /> {doc.experience}
+   378→                          </Badge>
+   379→                        )}
+   380→                        <Badge variant="secondary" className="gap-1 text-emerald-700 bg-emerald-50 dark:text-emerald-300 dark:bg-emerald-900/30">
+   381→                          <CheckCircle2 className="h-3 w-3" /> Verified
+   382→                        </Badge>
+   383→                      </div>
+   384→
+   385→                      {/* Fee display */}
+   386→                      <div className="mt-4 flex items-center gap-2 justify-center sm:justify-start">
+   387→                        <span className="text-lg font-bold text-teal-600 dark:text-teal-400">
+   388→                          {formatCurrency(doc?.fees || 0)}
+   389→                        </span>
+   390→                        <span className="text-sm text-muted-foreground">consultation fee</span>
+   391→                      </div>
+   392→
+   393→                      {/* CTA buttons */}
+   394→                      <div className="flex flex-wrap gap-3 mt-5 justify-center sm:justify-start">
+   395→                        <Button
+   396→                          size="lg"
+   397→                          className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white font-semibold shadow-lg shadow-teal-500/20"
+   398→                          asChild
+   399→                        >
+   400→                          <Link href={`/dashboard/patient/appointments?action=book&doctorId=${doctor.id}`}>
+   401→                            <Calendar className="h-5 w-5 mr-2" />
+   402→                            Book Appointment
+   403→                          </Link>
+   404→                        </Button>
+   405→                        <Button
+   406→                          variant="outline"
+   407→                          size="lg"
+   408→                          className="gap-2"
+   409→                          onClick={handleShare}
+   410→                        >
+   411→                          <Share2 className="h-4 w-4" />
+   412→                          Share
+   413→                        </Button>
+   414→                      </div>
+   415→                    </div>
+   416→                  </div>
+   417→                </CardContent>
+   418→              </Card>
+   419→            </motion.div>
+   420→
+   421→            {/* ── B. ABOUT SECTION ────────────────────────────────────────── */}
+   422→            {doc?.description && (
+   423→              <FadeUpSection>
+   424→                <Card>
+   425→                  <CardHeader>
+   426→                    <CardTitle className="flex items-center gap-2">
+   427→                      <MessageSquare className="h-5 w-5 text-teal-500" />
+   428→                      About
+   429→                    </CardTitle>
+   430→                  </CardHeader>
+   431→                  <CardContent>
+   432→                    <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-line">
+   433→                      {doc.description}
+   434→                    </p>
+   435→                  </CardContent>
+   436→                </Card>
+   437→              </FadeUpSection>
+   438→            )}
+   439→
+   440→            {/* Key Details Grid */}
+   441→            <FadeUpSection delay={0.1}>
+   442→              <Card>
+   443→                <CardHeader>
+   444→                  <CardTitle className="flex items-center gap-2">
+   445→                    <CheckCircle2 className="h-5 w-5 text-teal-500" />
+   446→                    Key Details
+   447→                  </CardTitle>
+   448→                </CardHeader>
+   449→                <CardContent>
+   450→                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+   451→                    {doc?.experience && (
+   452→                      <div className="flex items-start gap-3">
+   453→                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-900/30">
+   454→                          <Briefcase className="h-5 w-5 text-teal-500" />
+   455→                        </div>
+   456→                        <div>
+   457→                          <p className="text-xs text-muted-foreground uppercase tracking-wider">Experience</p>
+   458→                          <p className="text-sm font-medium mt-0.5">{doc.experience}</p>
+   459→                        </div>
+   460→                      </div>
+   461→                    )}
+   462→                    {doc?.education && (
+   463→                      <div className="flex items-start gap-3">
+   464→                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-900/30">
+   465→                          <GraduationCap className="h-5 w-5 text-teal-500" />
+   466→                        </div>
+   467→                        <div>
+   468→                          <p className="text-xs text-muted-foreground uppercase tracking-wider">Education</p>
+   469→                          <p className="text-sm font-medium mt-0.5">{doc.education}</p>
+   470→                        </div>
+   471→                      </div>
+   472→                    )}
+   473→                    {doc?.registrationDetail && (
+   474→                      <div className="flex items-start gap-3">
+   475→                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-900/30">
+   476→                          <ShieldCheck className="h-5 w-5 text-teal-500" />
+   477→                        </div>
+   478→                        <div>
+   479→                          <p className="text-xs text-muted-foreground uppercase tracking-wider">Registration</p>
+   480→                          <p className="text-sm font-medium mt-0.5">{doc.registrationDetail}</p>
+   481→                        </div>
+   482→                      </div>
+   483→                    )}
+   484→                    {awards.length > 0 && (
+   485→                      <div className="flex items-start gap-3">
+   486→                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-900/30">
+   487→                          <Award className="h-5 w-5 text-amber-500" />
+   488→                        </div>
+   489→                        <div>
+   490→                          <p className="text-xs text-muted-foreground uppercase tracking-wider">Awards & Recognition</p>
+   491→                          <ul className="mt-0.5 space-y-0.5">
+   492→                            {awards.slice(0, 3).map((award, i) => (
+   493→                              <li key={i} className="text-sm font-medium">{award}</li>
+   494→                            ))}
+   495→                          </ul>
+   496→                        </div>
+   497→                      </div>
+   498→                    )}
+   499→                    {(doc?.city || doc?.state) && (
+   500→                      <div className="flex items-start gap-3">
+   501→                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-900/30">
+   502→                          <MapPin className="h-5 w-5 text-teal-500" />
+   503→                        </div>
+   504→                        <div>
+   505→                          <p className="text-xs text-muted-foreground uppercase tracking-wider">City / State</p>
+   506→                          <p className="text-sm font-medium mt-0.5">
+   507→                            {[doc?.city, doc?.state].filter(Boolean).join(', ')}
+   508→                          </p>
+   509→                        </div>
+   510→                      </div>
+   511→                    )}
+   512→                    {doc?.hospitalAddress && (
+   513→                      <div className="flex items-start gap-3 sm:col-span-2">
+   514→                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-900/30">
+   515→                          <Building2 className="h-5 w-5 text-teal-500" />
+   516→                        </div>
+   517→                        <div>
+   518→                          <p className="text-xs text-muted-foreground uppercase tracking-wider">Hospital Address</p>
+   519→                          <p className="text-sm font-medium mt-0.5">{doc.hospitalAddress}</p>
+   520→                        </div>
+   521→                      </div>
+   522→                    )}
+   523→                  </div>
+   524→                </CardContent>
+   525→              </Card>
+   526→            </FadeUpSection>
+   527→
+   528→            {/* ── C. SCHEDULE SECTION ──────────────────────────────────────── */}
+   529→            <FadeUpSection delay={0.2}>
+   530→              <Card>
+   531→                <CardHeader>
+   532→                  <CardTitle className="flex items-center gap-2">
+   533→                    <Clock className="h-5 w-5 text-teal-500" />
+   534→                    Weekly Schedule
+   535→                  </CardTitle>
+   536→                </CardHeader>
+   537→                <CardContent>
+   538→                  {/* Day pills row */}
+   539→                  <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+   540→                    {DAYS_ORDER.map((day, i) => {
+   541→                      const schedule = activeDays.find((s) => s.day === day)
+   542→                      const isToday = day === todayName
+   543→                      return (
+   544→                        <div
+   545→                          key={day}
+   546→                          className={cn(
+   547→                            'flex flex-col items-center p-2 sm:p-3 rounded-xl border text-center transition-colors',
+   548→                            schedule
+   549→                              ? 'bg-teal-50 border-teal-200 dark:bg-teal-950/30 dark:border-teal-800'
+   550→                              : 'bg-muted/30 border-border opacity-40'
+   551→                          )}
+   552→                        >
+   553→                          <span className={cn(
+   554→                            'text-xs font-medium',
+   555→                            schedule ? 'text-teal-700 dark:text-teal-300' : 'text-muted-foreground'
+   556→                          )}>
+   557→                            {DAY_SHORT[i]}
+   558→                          </span>
+   559→                          {schedule ? (
+   560→                            <span className="text-[10px] sm:text-xs text-teal-600 dark:text-teal-400 mt-1 font-medium">
+   561→                              {formatTime(schedule.startTime)}
+   562→                            </span>
+   563→                          ) : (
+   564→                            <span className="text-[10px] text-muted-foreground mt-1">Off</span>
+   565→                          )}
+   566→                          {isToday && (
+   567→                            <span className={cn(
+   568→                              'mt-1 text-[9px] px-1.5 py-0.5 rounded-full font-semibold',
+   569→                              schedule
+   570→                                ? 'bg-teal-500 text-white'
+   571→                                : 'bg-muted text-muted-foreground'
+   572→                            )}>
+   573→                              Today
+   574→                            </span>
+   575→                          )}
+   576→                        </div>
+   577→                      )
+   578→                    })}
+   579→                  </div>
+   580→
+   581→                  {/* Consolidated time ranges */}
+   582→                  {activeDays.length > 0 && (
+   583→                    <div className="mt-4 space-y-2">
+   584→                      {activeDays.map((s) => (
+   585→                        <div key={s.id} className="flex items-center gap-2 text-sm">
+   586→                          <Badge
+   587→                            variant="outline"
+   588→                            className={cn(
+   589→                              'font-medium',
+   590→                              s.day === todayName
+   591→                                ? 'border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-700 dark:bg-teal-950/30 dark:text-teal-300'
+   592→                                : ''
+   593→                            )}
+   594→                          >
+   595→                            {DAY_SHORT[DAYS_ORDER.indexOf(s.day)]}
+   596→                            {s.day === todayName && (
+   597→                              <span className="ml-1.5 text-[9px] px-1 py-0 rounded bg-teal-500 text-white">Today</span>
+   598→                            )}
+   599→                          </Badge>
+   600→                          <span className="text-muted-foreground">
+   601→                            {formatTime(s.startTime)} – {formatTime(s.endTime)}
+   602→                          </span>
+   603→                          <span className="text-xs text-muted-foreground">({s.slotDuration} min slots)</span>
+   604→                        </div>
+   605→                      ))}
+   606→                    </div>
+   607→                  )}
+   608→                </CardContent>
+   609→              </Card>
+   610→            </FadeUpSection>
+   611→
+   612→            {/* ── D. REVIEWS SECTION ──────────────────────────────────────── */}
+   613→            <FadeUpSection delay={0.3}>
+   614→              <Card>
+   615→                <CardHeader>
+   616→                  <CardTitle className="flex items-center gap-2">
+   617→                    <Star className="h-5 w-5 text-amber-500" />
+   618→                    Patient Reviews
+   619→                  </CardTitle>
+   620→                </CardHeader>
+   621→                <CardContent>
+   622→                  {doctor.ratingCount === 0 ? (
+   623→                    /* Empty state */
+   624→                    <div className="py-12 text-center">
+   625→                      <MessageSquare className="h-12 w-12 text-muted-foreground/30 mx-auto mb-3" />
+   626→                      <p className="text-muted-foreground font-medium">No reviews yet</p>
+   627→                      <p className="text-sm text-muted-foreground/70 mt-1">
+   628→                        Be the first to share your experience with {doctor.name}
+   629→                      </p>
+   630→                    </div>
+   631→                  ) : (
+   632→                    <div className="grid md:grid-cols-[240px_1fr] gap-8">
+   633→                      {/* Left: rating summary + distribution */}
+   634→                      <div className="space-y-4">
+   635→                        <div className="text-center">
+   636→                          <p className="text-5xl font-bold text-foreground">{doctor.avgRating.toFixed(1)}</p>
+   637→                          <div className="flex items-center justify-center gap-0.5 mt-2">
+   638→                            {Array.from({ length: 5 }, (_, i) => (
+   639→                              <Star
+   640→                                key={i}
+   641→                                className={cn(
+   642→                                  'h-5 w-5',
+   643→                                  i < Math.round(doctor.avgRating)
+   644→                                    ? 'fill-amber-400 text-amber-400'
+   645→                                    : 'text-muted-foreground/30'
+   646→                                )}
+   647→                              />
+   648→                            ))}
+   649→                          </div>
+   650→                          <p className="text-sm text-muted-foreground mt-1">
+   651→                            Based on {doctor.ratingCount} review{doctor.ratingCount !== 1 ? 's' : ''}
+   652→                          </p>
+   653→                        </div>
+   654→
+   655→                        <Separator />
+   656→
+   657→                        {/* Star distribution bars */}
+   658→                        <div className="space-y-2">
+   659→                          {[5, 4, 3, 2, 1].map((star) => {
+   660→                            const count = doctor.starDistribution[star] || 0
+   661→                            const pct = doctor.ratingCount > 0 ? (count / doctor.ratingCount) * 100 : 0
+   662→                            return (
+   663→                              <div key={star} className="flex items-center gap-2 text-sm">
+   664→                                <span className="w-3 text-right font-medium text-muted-foreground">{star}</span>
+   665→                                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+   666→                                <div className="flex-1 h-2.5 rounded-full bg-muted overflow-hidden">
+   667→                                  <div
+   668→                                    className="h-full rounded-full bg-amber-400 transition-all duration-500"
+   669→                                    style={{ width: `${pct}%` }}
+   670→                                  />
+   671→                                </div>
+   672→                                <span className="w-8 text-right text-xs text-muted-foreground">{count}</span>
+   673→                              </div>
+   674→                            )
+   675→                          })}
+   676→                        </div>
+   677→                      </div>
+   678→
+   679→                      {/* Right: individual reviews */}
+   680→                      <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
+   681→                        {doctor.reviews.length === 0 ? (
+   682→                          <p className="text-sm text-muted-foreground text-center py-8">
+   683→                            Detailed reviews are not available yet.
+   684→                          </p>
+   685→                        ) : (
+   686→                          doctor.reviews.map((review) => (
+   687→                            <div
+   688→                              key={review.id}
+   689→                              className="rounded-xl border p-4 transition-colors hover:bg-muted/30"
+   690→                            >
+   691→                              <div className="flex items-start justify-between gap-3">
+   692→                                <div className="flex items-center gap-3">
+   693→                                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-emerald-100 text-sm font-semibold text-teal-700 dark:from-teal-900/40 dark:to-emerald-900/40 dark:text-teal-300">
+   694→                                    {review.isAnonymous
+   695→                                      ? '?'
+   696→                                      : review.patientName
+   697→                                          .split(' ')
+   698→                                          .map((n) => n[0])
+   699→                                          .join('')
+   700→                                          .slice(0, 2)
+   701→                                          .toUpperCase()}
+   702→                                  </div>
+   703→                                  <div>
+   704→                                    <p className="text-sm font-semibold">{review.patientName}</p>
+   705→                                    <p className="text-xs text-muted-foreground">
+   706→                                      {format(new Date(review.createdAt), 'd MMM yyyy')}
+   707→                                    </p>
+   708→                                  </div>
+   709→                                </div>
+   710→                                <div className="flex items-center gap-0.5">
+   711→                                  {Array.from({ length: 5 }, (_, i) => (
+   712→                                    <Star
+   713→                                      key={i}
+   714→                                      className={cn(
+   715→                                        'h-3.5 w-3.5',
+   716→                                        i < review.star
+   717→                                          ? 'fill-amber-400 text-amber-400'
+   718→                                          : 'text-muted-foreground/30'
+   719→                                      )}
+   720→                                    />
+   721→                                  ))}
+   722→                                </div>
+   723→                              </div>
+   724→                              {review.review && (
+   725→                                <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
+   726→                                  {review.review}
+   727→                                </p>
+   728→                              )}
+   729→                            </div>
+   730→                          ))
+   731→                        )}
+   732→                      </div>
+   733→                    </div>
+   734→                  )}
+   735→                </CardContent>
+   736→              </Card>
+   737→            </FadeUpSection>
+   738→          </div>
+   739→
+   740→          {/* ══════════════════════════════════════════════════════════════ */}
+   741→          {/* RIGHT COLUMN (SIDEBAR)                                         */}
+   742→          {/* ══════════════════════════════════════════════════════════════ */}
+   743→          <div className="space-y-6">
+   744→            {/* Stats Cards */}
+   745→            <motion.div variants={staggerContainer} initial="initial" animate="animate" className="grid grid-cols-2 gap-4">
+   746→              <motion.div variants={fadeIn}>
+   747→                <Card className="border-teal-200 dark:border-teal-800">
+   748→                  <CardContent className="p-4 text-center">
+   749→                    <Users className="h-6 w-6 text-teal-500 mx-auto mb-2" />
+   750→                    <p className="text-2xl font-bold text-teal-600 dark:text-teal-400">
+   751→                      {doctor.totalPatients.toLocaleString('en-IN')}
+   752→                    </p>
+   753→                    <p className="text-xs text-muted-foreground">Patients</p>
+   754→                  </CardContent>
+   755→                </Card>
+   756→              </motion.div>
+   757→              <motion.div variants={fadeIn}>
+   758→                <Card className="border-amber-200 dark:border-amber-800">
+   759→                  <CardContent className="p-4 text-center">
+   760→                    <Star className="h-6 w-6 text-amber-500 mx-auto mb-2" />
+   761→                    <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+   762→                      {doctor.avgRating.toFixed(1)}
+   763→                    </p>
+   764→                    <p className="text-xs text-muted-foreground">Rating</p>
+   765→                  </CardContent>
+   766→                </Card>
+   767→              </motion.div>
+   768→              <motion.div variants={fadeIn}>
+   769→                <Card className="border-emerald-200 dark:border-emerald-800">
+   770→                  <CardContent className="p-4 text-center">
+   771→                    <Calendar className="h-6 w-6 text-emerald-500 mx-auto mb-2" />
+   772→                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
+   773→                      {doctor.totalAppointments.toLocaleString('en-IN')}
+   774→                    </p>
+   775→                    <p className="text-xs text-muted-foreground">Appointments</p>
+   776→                  </CardContent>
+   777→                </Card>
+   778→              </motion.div>
+   779→              <motion.div variants={fadeIn}>
+   780→                <Card className="border-violet-200 dark:border-violet-800">
+   781→                  <CardContent className="p-4 text-center">
+   782→                    <IndianRupee className="h-6 w-6 text-violet-500 mx-auto mb-2" />
+   783→                    <p className="text-2xl font-bold text-violet-600 dark:text-violet-400">
+   784→                      {formatCurrency(doc?.fees || 0)}
+   785→                    </p>
+   786→                    <p className="text-xs text-muted-foreground">Consultation</p>
+   787→                  </CardContent>
+   788→                </Card>
+   789→              </motion.div>
+   790→            </motion.div>
+   791→
+   792→            {/* Book CTA Card */}
+   793→            <motion.div {...fadeIn} transition={{ delay: 0.2 }}>
+   794→              <Card className="overflow-hidden">
+   795→                <div className="bg-gradient-to-r from-teal-500 to-teal-600 p-6 text-white text-center">
+   796→                  <p className="text-sm text-teal-100">Consultation Fee</p>
+   797→                  <p className="text-4xl font-bold mt-1">
+   798→                    {formatCurrency(doc?.fees || 0)}
+   799→                  </p>
+   800→                  {doc?.emergencyCharge && doc.emergencyCharge > 0 && (
+   801→                    <p className="text-xs text-teal-100 mt-1">
+   802→                      Emergency: {formatCurrency(doc.emergencyCharge)}
+   803→                    </p>
+   804→                  )}
+   805→                </div>
+   806→                <CardContent className="p-6 space-y-3">
+   807→                  <Button
+   808→                    className="w-full bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white h-12 text-base font-semibold"
+   809→                    asChild
+   810→                  >
+   811→                    <Link href={`/dashboard/patient/appointments?action=book&doctorId=${doctor.id}`}>
+   812→                      <Calendar className="h-5 w-5 mr-2" />
+   813→                      Book Appointment
+   814→                    </Link>
+   815→                  </Button>
+   816→                  <div className="flex gap-2">
+   817→                    <Button
+   818→                      variant="outline"
+   819→                      className="flex-1 gap-2"
+   820→                      onClick={handleShare}
+   821→                    >
+   822→                      <Share2 className="h-4 w-4" />
+   823→                      Share
+   824→                    </Button>
+   825→                    <Button variant="outline" className="flex-1 gap-2" asChild>
+   826→                      <Link href={`/dashboard/patient/book/${doctor.id}`}>
+   827→                        <Video className="h-4 w-4" />
+   828→                        Video Call
+   829→                      </Link>
+   830→                    </Button>
+   831→                  </div>
+   832→                </CardContent>
+   833→              </Card>
+   834→            </motion.div>
+   835→
+   836→            {/* Contact Info */}
+   837→            {(doc?.contactNo || doc?.phoneNo) && (
+   838→              <motion.div {...fadeIn} transition={{ delay: 0.25 }}>
+   839→                <Card>
+   840→                  <CardContent className="p-4">
+   841→                    <div className="flex items-center gap-3">
+   842→                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-teal-50 dark:bg-teal-900/30">
+   843→                        <Phone className="h-5 w-5 text-teal-500" />
+   844→                      </div>
+   845→                      <div>
+   846→                        <p className="text-xs text-muted-foreground uppercase tracking-wider">Contact</p>
+   847→                        <p className="text-sm font-medium mt-0.5">{doc.contactNo || doc.phoneNo}</p>
+   848→                      </div>
+   849→                    </div>
+   850→                  </CardContent>
+   851→                </Card>
+   852→              </motion.div>
+   853→            )}
+   854→
+   855→            {/* ── E. RELATED DOCTORS ──────────────────────────────────────── */}
+   856→            {doctor.relatedDoctors && doctor.relatedDoctors.length > 0 && (
+   857→              <motion.div {...fadeIn} transition={{ delay: 0.3 }}>
+   858→                <Card>
+   859→                  <CardHeader className="pb-3">
+   860→                    <CardTitle className="text-base flex items-center gap-2">
+   861→                      <Users className="h-4 w-4 text-teal-500" />
+   862→                      Related Doctors
+   863→                    </CardTitle>
+   864→                  </CardHeader>
+   865→                  <CardContent className="space-y-3">
+   866→                    {doctor.relatedDoctors.map((rd) => (
+   867→                      <Link key={rd.id} href={`/doctors/${rd.id}`}>
+   868→                        <div className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors group">
+   869→                          <Avatar className="h-10 w-10">
+   870→                            <AvatarImage
+   871→                              src={rd.profileImg !== 'default.png' ? rd.profileImg : ''}
+   872→                              alt={rd.name}
+   873→                            />
+   874→                            <AvatarFallback className="bg-teal-50 text-teal-700 text-sm font-medium">
+   875→                              {rd.name
+   876→                                .split(' ')
+   877→                                .map((n) => n[0])
+   878→                                .join('')
+   879→                                .slice(0, 2)
+   880→                                .toUpperCase()}
+   881→                            </AvatarFallback>
+   882→                          </Avatar>
+   883→                          <div className="flex-1 min-w-0">
+   884→                            <p className="text-sm font-medium truncate group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+   885→                              {rd.name}
+   886→                            </p>
+   887→                            <p className="text-xs text-muted-foreground">
+   888→                              {rd.doctor?.specialization || 'General Physician'}
+   889→                            </p>
+   890→                            {rd.doctor?.city && (
+   891→                              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+   892→                                <MapPin className="h-3 w-3" />{rd.doctor.city}
+   893→                              </p>
+   894→                            )}
+   895→                          </div>
+   896→                          <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+   897→                        </div>
+   898→                      </Link>
+   899→                    ))}
+   900→                  </CardContent>
+   901→                </Card>
+   902→              </motion.div>
+   903→            )}
+   904→          </div>
+   905→        </div>
+   906→      </div>
+   907→    </PublicLayout>
+   908→  )
+   909→}
+   910→
