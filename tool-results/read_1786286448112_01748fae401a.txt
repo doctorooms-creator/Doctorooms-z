@@ -1,0 +1,689 @@
+     1→     1→# Doctor Module — Comprehensive Development Plan (Updated)
+     2→     2→
+     3→     3→> **Last Updated:** Research phase complete — all existing code audited, PHP reference analyzed, gaps identified.
+     4→     4→
+     5→     5→---
+     6→     6→
+     7→     7→## 1. Current Status
+     8→     8→
+     9→     9→### Already Built ✅ (Phase 0 — Previous Sprint)
+    10→    10→
+    11→    11→| # | Page | File | Lines | Status |
+    12→    12→|---|------|------|-------|--------|
+    13→    13→| 1 | Dashboard | `src/app/dashboard/doctor/page.tsx` | ~350 | ✅ Built (missing emergency toggle, hospital card) |
+    14→    14→| 2 | Appointments | `src/app/dashboard/doctor/appointments/page.tsx` | ~600 | ✅ Built (missing detail page, extend action, history search) |
+    15→    15→| 3 | Patients | `src/app/dashboard/doctor/patients/page.tsx` | ~200 | ✅ Built |
+    16→    16→| 4 | Prescription | `src/app/dashboard/doctor/prescription/page.tsx` | ~500 | ✅ Built (missing C/O section, next visit date, print settings) |
+    17→    17→| 5 | Prescription Edit | `src/app/dashboard/doctor/prescription/[id]/page.tsx` | ~700 | ✅ Built (missing nextVisit, status update to Visited) |
+    18→    18→| 6 | Gallery | `src/app/dashboard/doctor/gallery/page.tsx` | ~250 | ✅ Built (URL-only, no file upload) |
+    19→    19→| 7 | Blog | `src/app/dashboard/doctor/blog/page.tsx` | ~300 | ✅ Built (no image upload, no video link) |
+    20→    20→| 8 | Blog Edit | `src/app/dashboard/doctor/blog/[id]/page.tsx` | ~400 | ✅ Built |
+    21→    21→| 9 | Profile | `src/app/dashboard/doctor/profile/page.tsx` | ~350 | ✅ Built (no photo upload, no doctor type dropdown, no state/city cascade) |
+    22→    22→| 10 | Change Password | `src/app/dashboard/doctor/change-password/page.tsx` | ~150 | ✅ Built |
+    23→    23→| 11 | Schedule | `src/app/dashboard/doctor/schedule/page.tsx` | ~200 | ✅ Built |
+    24→    24→| 12 | Holidays | `src/app/dashboard/doctor/holidays/page.tsx` | ~180 | ✅ Built |
+    25→    25→| 13 | Settings | `src/app/dashboard/doctor/settings/page.tsx` | ~200 | ✅ Built |
+    26→    26→| 14 | Medicine Master | `src/app/dashboard/doctor/medicine/page.tsx` | ~300 | ✅ Built |
+    27→    27→
+    28→    28→### API Routes Built ✅
+    29→    29→
+    30→    30→| # | Endpoint | Methods | Auth | Description |
+    31→    31→|---|----------|---------|------|-------------|
+    32→    32→| 1 | `/api/dashboard/doctor/stats` | GET | `requireRole('doctor')` | Dashboard stats — **may have syntax issue (BUG-1)** |
+    33→    33→| 2 | `/api/dashboard/doctor/patients` | GET | `requireRole('doctor')` | Patient list with search |
+    34→    34→| 3 | `/api/dashboard/doctor/appointments` | GET, POST, PATCH | `requireRole('doctor')` | CRUD + status filter + date range |
+    35→    35→| 4 | `/api/dashboard/doctor/prescriptions` | GET, POST, PUT, DELETE | `requireRole('doctor')` | Prescription CRUD |
+    36→    36→| 5 | `/api/dashboard/doctor/gallery` | GET, POST, PUT, DELETE | `requireRole('doctor')` | Gallery CRUD (URL-only — **BUG-4**) |
+    37→    37→| 6 | `/api/dashboard/doctor/blogs` | GET, POST, PUT, DELETE | `requireRole('doctor')` | Blog CRUD |
+    38→    38→| 7 | `/api/dashboard/doctor/medicines` | GET, POST, PUT, DELETE | `requireRole('doctor')` | Medicine master CRUD |
+    39→    39→| 8 | `/api/dashboard/doctor/schedule` | GET | `requireRole('doctor')` | Doctor schedule read |
+    40→    40→| 9 | `/api/dashboard/doctor/schedule/[id]` | PUT, DELETE | `requireRole('doctor')` | Schedule update/delete |
+    41→    41→| 10 | `/api/dashboard/doctor/holidays` | GET, POST, DELETE | `requireRole('doctor')` | Holiday CRUD |
+    42→    42→| 11 | `/api/dashboard/doctor/settings` | GET, PUT | `requireRole('doctor')` | Doctor settings |
+    43→    43→| 12 | `/api/doctor/profile` | GET, PUT | `requireRole('doctor')` | Profile CRUD |
+    44→    44→| 13 | `/api/doctor/appointments/[id]` | GET | `requireRole('doctor')` | Single appointment fetch |
+    45→    45→| 14 | `/api/doctor/prescriptions/[id]` | GET, PUT, DELETE | `requireRole('doctor')` | Single prescription CRUD |
+    46→    46→| 15 | `/api/doctor/gallery/[id]` | GET, PUT, DELETE | `requireRole('doctor')` | Single gallery item CRUD |
+    47→    47→| 16 | `/api/doctor/blogs/[id]` | GET, PUT, DELETE | `requireRole('doctor')` | Single blog CRUD |
+    48→    48→| 17 | `/api/doctor/medicines/[id]` | GET, PUT, DELETE | `requireRole('doctor')` | Single medicine CRUD |
+    49→    49→| 18 | `/api/doctor/blogs/[id]/toggle-status` | PATCH | `requireRole('doctor')` | Blog publish/unpublish toggle |
+    50→    50→
+    51→    51→### Sidebar Entries (Current — 11 items)
+    52→    52→Dashboard, Appointments, Patients, Prescription, Gallery, Blog, Schedule, Holidays, Medicine, Settings, Profile, Change Password
+    53→    53→
+    54→    54→### Sidebar Entries (Required — 20 items)
+    55→    55→Dashboard, Appointments, **Appointment History**, **Notifications**, Patients, Prescription, **Prescription Settings** (treeview: C/O Categories, Questions, Suggestions, Labels, Table Master, Print Settings), Gallery, Blog, Schedule, Holidays, Medicine, **Assistant**, **Receptionist**, **Pharmacist**, **Reports**, Settings, Profile, Change Password
+    56→    56→
+    57→    57→---
+    58→    58→
+    59→    59→## 2. Design Standards
+    60→    60→
+    61→    61→- **Color**: Teal primary (`teal-500/600`), Amber for warnings, Emerald for success, Violet for pending, Red for errors/canceled
+    62→    62→- **Components**: shadcn/ui (New York style) + Lucide icons + Framer Motion
+    63→    63→- **Data**: TanStack Query (`useQuery`/`useMutation`/`useQueryClient`) for all data fetching
+    64→    64→- **Toast**: `sonner` library
+    65→    65→- **Auth**: `requireRole(req, 'doctor')` for all doctor API routes
+    66→    66→- **Layout**: Responsive mobile-first with breakpoints sm/md/lg/xl
+    67→    67→- **Loading**: Skeleton components with `animate-pulse`
+    68→    68→- **Empty states**: Icon + message pattern
+    69→    69→- **Status colors**: Pending=amber, Approve=emerald, Visited=teal, Canceled=red, Finish=blue, Extend=violet
+    70→    70→- **Currency**: ₹ (INR) with `toLocaleString('en-IN')`
+    71→    71→- **File uploads**: Accept images via `<input type="file">` → server upload to `/public/uploads/` or cloud storage, return URL
+    72→    72→
+    73→    73→---
+    74→    74→
+    75→    75→## 3. Identified Issues (Bugs)
+    76→    76→
+    77→    77→### 🔴 Critical
+    78→    78→
+    79→    79→| # | Bug | File | Description |
+    80→    80→|---|-----|------|-------------|
+    81→    81→| BUG-1 | Stats API syntax issue | `src/app/api/dashboard/doctor/stats/route.ts` | May have unclosed braces or syntax error — verify and fix |
+    82→    82→| BUG-2 | Header bell empty for doctor | `src/components/dashboard/dashboard-header.tsx` | Bell dropdown only loads notifications for `patient` role — `if (role !== 'patient') return` blocks doctor role |
+    83→    83→| BUG-3 | "View all notifications" 404 | Header bell dropdown link | Links to `/dashboard/doctor/notifications` which does not exist |
+    84→    84→| BUG-4 | Gallery URL-only upload | `src/app/dashboard/doctor/gallery/page.tsx` | Gallery form only accepts image URL string — no file upload input |
+    85→    85→| BUG-5 | Prescription doesn't update booking status | `src/app/api/dashboard/doctor/prescriptions/route.ts` | When prescription is created, the linked Booking status should auto-update to `Visited` — currently not happening |
+    86→    86→| BUG-6 | No Extend action | `src/app/dashboard/doctor/appointments/page.tsx` | Only Approve/Reject/Visited actions available — missing Extend status action for Pending appointments |
+    87→    87→| BUG-7 | No appointment detail page | — | No route at `appointments/[id]` — clicking appointment has nowhere to navigate for full detail view |
+    88→    88→| BUG-8 | No appointment history search | `src/app/dashboard/doctor/appointments/page.tsx` | Appointments page has no search-by-patient, no history browsing beyond date filter |
+    89→    89→
+    90→    90→### 🟡 Medium
+    91→    91→
+    92→    92→| # | Bug | File | Description |
+    93→    93→|---|-----|------|-------------|
+    94→    94→| BUG-9 | Blog no image upload | `src/app/dashboard/doctor/blog/[id]/page.tsx` | Blog form lacks image upload — only text content + optional URL field |
+    95→    95→| BUG-10 | Blog no video link | `src/app/dashboard/doctor/blog/[id]/page.tsx` | Video link field missing from blog form |
+    96→    96→| BUG-11 | Profile no photo upload | `src/app/dashboard/doctor/profile/page.tsx` | Doctor profile photo cannot be uploaded — only displays existing avatar |
+    97→    97→| BUG-12 | Prescription missing nextVisit | `src/app/dashboard/doctor/prescription/[id]/page.tsx` | No next visit date field on prescription form — Prisma model also missing this field |
+    98→    98→| BUG-13 | Profile no doctor type dropdown | `src/app/dashboard/doctor/profile/page.tsx` | Doctor type is a text input instead of dropdown from `DoctorTypeMaster` table |
+    99→    99→| BUG-14 | Profile no state/city cascade | `src/app/dashboard/doctor/profile/page.tsx` | State and city are free-text — should cascade from master data |
+   100→   100→| BUG-15 | No notification on status change | Various API routes | When appointment status changes (Approve, Visited, etc.), no notification is created for the patient |
+   101→   101→
+   102→   102→### 🟢 Low
+   103→   103→
+   104→   104→| # | Bug | File | Description |
+   105→   105→|---|-----|------|-------------|
+   106→   106→| BUG-16 | No emergency toggle on dashboard | `src/app/dashboard/doctor/page.tsx` | Dashboard has no emergency mode toggle |
+   107→   107→| BUG-17 | Prescription print missing C/O | Prescription print template | Print template does not include Chief Complaints section |
+   108→   108→
+   109→   109→---
+   110→   110→
+   111→   111→## 4. Gap Analysis vs Original PHP Doctorooms
+   112→   112→
+   113→   113→### 🔴 HIGH PRIORITY — Pages Completely Missing
+   114→   114→
+   115→   115→| # | Page | Route | Description |
+   116→   116→|---|------|-------|-------------|
+   117→   117→| GAP-1 | **Notification List** | `/dashboard/doctor/notifications` | Full notification center with mark-read, delete, filter by read/unread |
+   118→   118→| GAP-2 | **Appointment Detail** | `/dashboard/doctor/appointments/[id]` | Full appointment view with patient info, prescription history, status timeline |
+   119→   119→| GAP-3 | **Appointment History** | `/dashboard/doctor/appointments/history` | Searchable appointment history with patient name, date range, status filters |
+   120→   120→| GAP-4 | **Assistant Management** | `/dashboard/doctor/assistant` | CRUD for assistant staff (create, edit, toggle active, delete) |
+   121→   121→| GAP-5 | **Receptionist Management** | `/dashboard/doctor/receptionist` | CRUD for receptionist staff (create, edit, toggle active, delete) |
+   122→   122→| GAP-6 | **Pharmacist Management** | `/dashboard/doctor/pharmacist` | CRUD for pharmacist staff (create, edit, toggle active, delete) |
+   123→   123→| GAP-7 | **C/O Categories** | `/dashboard/doctor/prescription-settings/co-categories` | Chief Complaints category master management |
+   124→   124→| GAP-8 | **Questions Master** | `/dashboard/doctor/prescription-settings/questions` | Prescription questions master management |
+   125→   125→| GAP-9 | **Suggestions Master** | `/dashboard/doctor/prescription-settings/suggestions` | Prescription suggestions master management |
+   126→   126→| GAP-10 | **Labels Master** | `/dashboard/doctor/prescription-settings/labels` | Prescription labels master management |
+   127→   127→| GAP-11 | **Table Master** | `/dashboard/doctor/prescription-settings/table-master` | Prescription table layout master management |
+   128→   128→| GAP-12 | **Print Settings** | `/dashboard/doctor/prescription-settings/print-settings` | Prescription print configuration (header, footer, layout, C/O toggle) |
+   129→   129→| GAP-13 | **Reports Page** | `/dashboard/doctor/reports` | Daily/weekly/monthly reports with stats cards, charts, export |
+   130→   130→
+   131→   131→### 🟡 MEDIUM PRIORITY — Features Missing from Existing Pages
+   132→   132→
+   133→   133→| # | Feature | Current Gap |
+   134→   134→|---|---------|-------------|
+   135→   135→| GAP-14 | **Notification on status change** | No notification created when doctor changes appointment status |
+   136→   136→| GAP-15 | **Extend status action** | Missing Extend button on Pending appointments |
+   137→   137→| GAP-16 | **Appointment detail prescription section** | No prescription history shown in appointment detail |
+   138→   138→| GAP-17 | **Rich blog with image upload** | Blog only has text — needs image upload + video link fields |
+   139→   139→| GAP-18 | **Gallery file upload** | Gallery only accepts URL — needs file drag-and-drop upload |
+   140→   140→| GAP-19 | **Profile photo upload** | Doctor cannot upload/change profile photo |
+   141→   141→| GAP-20 | **Next visit date on prescriptions** | Prescription form missing nextVisit field |
+   142→   142→| GAP-21 | **Doctor type dropdown** | Profile doctor type is free text instead of dropdown |
+   143→   143→| GAP-22 | **State/City cascading dropdowns** | Profile location is free text instead of cascading selects |
+   144→   144→| GAP-23 | **Prescription print settings** | No print configuration UI |
+   145→   145→| GAP-24 | **C/O section in prescription print** | Print template omits Chief Complaints |
+   146→   146→| GAP-25 | **Emergency toggle on dashboard** | Dashboard has no emergency mode indicator |
+   147→   147→
+   148→   148→### 🟢 LOW PRIORITY — Nice-to-Have
+   149→   149→
+   150→   150→| # | Feature | Current Gap |
+   151→   151→|---|---------|-------------|
+   152→   152→| GAP-26 | Appointment auto-refresh | No `refetchInterval` on appointments query |
+   153→   153→| GAP-27 | Prescription print preview | No preview before printing |
+   154→   154→| GAP-28 | Blog SEO permalink auto-generation | Slug generation from title |
+   155→   155→| GAP-29 | Gallery drag-and-drop reorder | No drag reorder capability |
+   156→   156→
+   157→   157→### ➕ Prisma Models Available but No UI
+   158→   158→
+   159→   159→| # | Model | Purpose | Status |
+   160→   160→|---|-------|---------|--------|
+   161→   161→| M-1 | `CoMaster` | Chief Complaints categories | ❌ No page |
+   162→   162→| M-2 | `QuestionsMaster` | Prescription questions bank | ❌ No page |
+   163→   163→| M-3 | `SuggestionsMaster` | Prescription suggestions bank | ❌ No page |
+   164→   164→| M-4 | `LabelMaster` | Prescription labels | ❌ No page |
+   165→   165→| M-5 | `PDignoTable` | Prescription diagnosis table | ❌ No page |
+   166→   166→| M-6 | `POtherSetting` | Prescription other settings | ❌ No page |
+   167→   167→| M-7 | `DoctorTypeMaster` | Doctor type reference | ❌ Not used in dropdown |
+   168→   168→| M-8 | `DiseaseMaster` | Disease reference list | ❌ Not used in dropdown |
+   169→   169→
+   170→   170→### ➕ Prisma Schema Additions Needed
+   171→   171→
+   172→   172→| # | Model | Field to Add | Type | Purpose |
+   173→   173→|---|-------|-------------|------|---------|
+   174→   174→| S-1 | `Prescription` | `status` | `String @default("active")` | Active/archived/deleted status |
+   175→   175→| S-2 | `Prescription` | `nextVisit` | `DateTime?` | Next visit date for patient |
+   176→   176→| S-3 | `Prescription` | `chiefComplaints` | `String?` | C/O text for prescription |
+   177→   177→
+   178→   178→---
+   179→   179→
+   180→   180→## 5. Development Phases
+   181→   181→
+   182→   182→### Phase A — Bug Fixes (Critical)
+   183→   183→> Fix existing bugs before adding new features. No new pages — stabilize what's built.
+   184→   184→
+   185→   185→- [**A1**](./6-A-Doctor-Bug-Fixes-Agent.md) — Verify and fix stats API syntax issue (BUG-1)
+   186→   186→- [**A2**](./6-A-Doctor-Bug-Fixes-Agent.md) — Fix header bell to load notifications for doctor role (BUG-2)
+   187→   187→- [**A3**](./6-A-Doctor-Bug-Fixes-Agent.md) — Fix "View all notifications" link 404 by creating redirect/fallback (BUG-3)
+   188→   188→- [**A4**](./6-A-Doctor-Bug-Fixes-Agent.md) — Convert gallery upload from URL-only to file-based upload (BUG-4)
+   189→   189→- [**A5**](./6-A-Doctor-Bug-Fixes-Agent.md) — Auto-update booking status to Visited when prescription is created (BUG-5)
+   190→   190→
+   191→   191→### Phase B — Notifications (Page + API)
+   192→   192→> Build the full notification system for the doctor module.
+   193→   193→
+   194→   194→- [**B1**](./6-B-Doctor-Notifications-Agent.md) — Create notifications API route (`GET /api/doctor/notifications`, `PATCH /api/doctor/notifications/[id]`, `DELETE /api/doctor/notifications/[id]`)
+   195→   195→- [**B2**](./6-B-Doctor-Notifications-Agent.md) — Create notification list page (`/dashboard/doctor/notifications`) with mark-read, delete, filter by read/unread
+   196→   196→- [**B3**](./6-B-Doctor-Notifications-Agent.md) — Create notification on appointment status change (Approve, Visited, Extend, Cancel)
+   197→   197→- [**B4**](./6-B-Doctor-Notifications-Agent.md) — Add sidebar entry + header route title for Notifications
+   198→   198→- [**B5**](./6-B-Doctor-Notifications-Agent.md) — Fix "View all notifications" link to point to new page
+   199→   199→
+   200→   200→### Phase C — Appointment Enhancements
+   201→   201→> Add detail page, history search, extend action, and notification triggers.
+   202→   202→
+   203→   203→- [**C1**](./6-C-Doctor-Appointments-Agent.md) — Create appointment detail page (`/dashboard/doctor/appointments/[id]`) with patient info, status timeline, prescription history
+   204→   204→- [**C2**](./6-C-Doctor-Appointments-Agent.md) — Create appointment history page (`/dashboard/doctor/appointments/history`) with search by patient name, date range, status filters, pagination
+   205→   205→- [**C3**](./6-C-Doctor-Appointments-Agent.md) — Add Extend action button on Pending appointments (status change to Extend)
+   206→   206→- [**C4**](./6-C-Doctor-Appointments-Agent.md) — Add generic status update API (`PATCH /api/doctor/appointments/[id]/status`)
+   207→   207→- [**C5**](./6-C-Doctor-Appointments-Agent.md) — Add sidebar entries for Appointment History
+   208→   208→- [**C6**](./6-C-Doctor-Appointments-Agent.md) — Wire appointment detail link from appointments list page
+   209→   209→
+   210→   210→### Phase D — Staff Management (Assistant, Receptionist, Pharmacist)
+   211→   211→> CRUD pages for managing doctor's support staff.
+   212→   212→
+   213→   213→- [**D1**](./6-D-Doctor-Staff-Management-Agent.md) — Create staff management API routes (`GET/POST/PUT/DELETE /api/doctor/staff/assistant`, `/api/doctor/staff/receptionist`, `/api/doctor/staff/pharmacist`)
+   214→   214→- [**D2**](./6-D-Doctor-Staff-Management-Agent.md) — Create Assistant management page (`/dashboard/doctor/assistant`) with create dialog, edit dialog, toggle active, delete
+   215→   215→- [**D3**](./6-D-Doctor-Staff-Management-Agent.md) — Create Receptionist management page (`/dashboard/doctor/receptionist`) with same CRUD pattern
+   216→   216→- [**D4**](./6-D-Doctor-Staff-Management-Agent.md) — Create Pharmacist management page (`/dashboard/doctor/pharmacist`) with same CRUD pattern
+   217→   217→- [**D5**](./6-D-Doctor-Staff-Management-Agent.md) — Add sidebar entries + header route titles for all three staff pages
+   218→   218→- [**D6**](./6-D-Doctor-Staff-Management-Agent.md) — Consistent empty state, loading skeleton, and optimistic delete pattern across all three pages
+   219→   219→
+   220→   220→### Phase E — Prescription Settings (6 Sub-Pages)
+   221→   221→> Build the Prescription Settings treeview section with 6 sub-pages backed by existing Prisma models.
+   222→   222→
+   223→   223→- [**E1**](./6-E-Doctor-Prescription-Settings-Agent.md) — Create Prescription Settings API routes for all 6 masters (CoMaster, QuestionsMaster, SuggestionsMaster, LabelMaster, PDignoTable, POtherSetting)
+   224→   224→- [**E2**](./6-E-Doctor-Prescription-Settings-Agent.md) — Create C/O Categories page (`/dashboard/doctor/prescription-settings/co-categories`) — CRUD for `CoMaster`
+   225→   225→- [**E3**](./6-E-Doctor-Prescription-Settings-Agent.md) — Create Questions Master page (`/dashboard/doctor/prescription-settings/questions`) — CRUD for `QuestionsMaster`
+   226→   226→- [**E4**](./6-E-Doctor-Prescription-Settings-Agent.md) — Create Suggestions Master page (`/dashboard/doctor/prescription-settings/suggestions`) — CRUD for `SuggestionsMaster`
+   227→   227→- [**E5**](./6-E-Doctor-Prescription-Settings-Agent.md) — Create Labels Master page (`/dashboard/doctor/prescription-settings/labels`) — CRUD for `LabelMaster`
+   228→   228→- [**E6**](./6-E-Doctor-Prescription-Settings-Agent.md) — Create Table Master page (`/dashboard/doctor/prescription-settings/table-master`) — CRUD for `PDignoTable`
+   229→   229→- [**E7**](./6-E-Doctor-Prescription-Settings-Agent.md) — Create Print Settings page (`/dashboard/doctor/prescription-settings/print-settings`) — Configure header, footer, layout, C/O toggle in print, store in `POtherSetting`
+   230→   230→- [**E8**](./6-E-Doctor-Prescription-Settings-Agent.md) — Add Prescription Settings treeview sidebar entry with 6 sub-items
+   231→   231→- [**E9**](./6-E-Doctor-Prescription-Settings-Agent.md) — Add header route titles for all 6 sub-pages
+   232→   232→
+   233→   233→### Phase F — Profile & Blog Enhancements
+   234→   234→> Add missing upload features and enrich existing pages.
+   235→   235→
+   236→   236→- [**F1**](./6-F-Doctor-Profile-Blog-Agent.md) — Add profile photo upload to profile page (file input → upload API → update avatar URL)
+   237→   237→- [**F2**](./6-F-Doctor-Profile-Blog-Agent.md) — Convert gallery from URL-only to file-based upload with drag-and-drop
+   238→   238→- [**F3**](./6-F-Doctor-Profile-Blog-Agent.md) — Add image upload field to blog create/edit form
+   239→   239→- [**F4**](./6-F-Doctor-Profile-Blog-Agent.md) — Add video link field to blog create/edit form
+   240→   240→- [**F5**](./6-F-Doctor-Profile-Blog-Agent.md) — Create file upload API endpoint (`POST /api/doctor/upload`) supporting images
+   241→   241→
+   242→   242→### Phase G — Reports & Dashboard
+   243→   243→> Build reports page and enhance dashboard with missing features.
+   244→   244→
+   245→   245→- [**G1**](./6-G-Doctor-Reports-Dashboard-Agent.md) — Create Reports page (`/dashboard/doctor/reports`) with date range picker, summary stat cards, appointment breakdown table, daily/weekly/monthly toggle
+   246→   246→- [**G2**](./6-G-Doctor-Reports-Dashboard-Agent.md) — Create Reports API route (`GET /api/doctor/reports`) with aggregation queries
+   247→   247→- [**G3**](./6-G-Doctor-Reports-Dashboard-Agent.md) — Add emergency toggle to dashboard (visual indicator + persists to `POtherSetting`)
+   248→   248→- [**G4**](./6-G-Doctor-Reports-Dashboard-Agent.md) — Add auto-refresh to dashboard stats (30s refetchInterval)
+   249→   249→- [**G5**](./6-G-Doctor-Reports-Dashboard-Agent.md) — Add sidebar entry + header route title for Reports
+   250→   250→
+   251→   251→### Phase H — Polish (Dropdowns, Next Visit, Print)
+   252→   252→> Final polish pass: cascading dropdowns, prescription enhancements, print improvements.
+   253→   253→
+   254→   254→- [**H1**](./6-H-Doctor-Polish-Agent.md) — Replace doctor type text input with dropdown from `DoctorTypeMaster` table
+   255→   255→- [**H2**](./6-H-Doctor-Polish-Agent.md) — Replace state/city free text with cascading dropdown selects on profile page
+   256→   256→- [**H3**](./6-H-Doctor-Polish-Agent.md) — Add `nextVisit` date field to prescription form (add Prisma field `nextVisit DateTime?`)
+   257→   257→- [**H4**](./6-H-Doctor-Polish-Agent.md) — Add `status` and `chiefComplaints` fields to Prescription Prisma model
+   258→   258→- [**H5**](./6-H-Doctor-Polish-Agent.md) — Include C/O section in prescription print template
+   259→   259→- [**H6**](./6-H-Doctor-Polish-Agent.md) — Add prescription print preview before printing
+   260→   260→- [**H7**](./6-H-Doctor-Polish-Agent.md) — Use `DiseaseMaster` dropdown in appointment/prescription disease field
+   261→   261→- [**H8**](./6-H-Doctor-Polish-Agent.md) — Add appointment auto-refresh (10s refetchInterval)
+   262→   262→
+   263→   263→---
+   264→   264→
+   265→   265→## 6. Prisma Schema — Relevant Models
+   266→   266→
+   267→   267→```prisma
+   268→   268→// Doctor — main entity
+   269→   269→model Doctor {
+   270→   270→  id          String   @id @default(cuid())
+   271→   271→  userId      String   @unique  // → User table
+   272→   272→  name        String
+   273→   273→  email       String
+   274→   274→  phone       String?
+   275→   275→  gender      String?
+   276→   276→  dob         DateTime?
+   277→   277→  bloodGroup  String?
+   278→   278→  address     String?
+   279→   279→  state       String?
+   280→   280→  city        String?
+   281→   281→  degree      String?
+   282→   282→  specialization String?
+   283→   283→  doctorType  String?           // → DoctorTypeMaster reference
+   284→   284→  clinicName  String?
+   285→   285→  clinicAddress String?
+   286→   286→  appointmentCharge Int        @default(0)
+   287→   287→  status      String   @default("active")
+   288→   288→  createdAt   DateTime @default(now())
+   289→   289→  updatedAt   DateTime @updatedAt
+   290→   290→  user        User     @relation(fields: [userId], references: [id])
+   291→   291→}
+   292→   292→
+   293→   293→// Booking — appointment records
+   294→   294→model Booking {
+   295→   295→  id               String   @id @default(cuid())
+   296→   296→  appointmentNo    String   @unique
+   297→   297→  doctorId         String
+   298→   298→  userId           String?  // null for walk-ins
+   299→   299→  patientName      String
+   300→   300→  disease          String
+   301→   301→  bookingDate      DateTime
+   302→   302→  status           String   // Pending, Approve, Visited, Canceled, Extend, Finish
+   303→   303→  timeSlot         String
+   304→   304→  bookingMode      String   // InPerson, VideoCall
+   305→   305→  bookingType      String   // By Self, By Receptionist, By Hospital
+   306→   306→  appointmentCharge Int
+   307→   307→  age              String?
+   308→   308→  gender           String?
+   309→   309→  bloodGroup       String?
+   310→   310→  weight           String?
+   311→   311→  description      String?
+   312→   312→  createdAt        DateTime @default(now())
+   313→   313→  updatedAt        DateTime @updatedAt
+   314→   314→  doctor           Doctor   @relation(fields: [doctorId], references: [id])
+   315→   315→}
+   316→   316→
+   317→   317→// Prescription — **needs new fields: status, nextVisit, chiefComplaints**
+   318→   318→model Prescription {
+   319→   319→  id               String   @id @default(cuid())
+   320→   320→  doctorId         String
+   321→   321→  bookingId        String
+   322→   322→  patientName      String
+   323→   323→  disease          String?
+   324→   324→  bp               String?
+   325→   325→  pulse            String?
+   326→   326→  temperature      String?
+   327→   327→  weight           String?
+   328→   328→  height           String?
+   329→   329→  medicineJson     String?  // JSON array of medicines
+   330→   330→  advice           String?
+   331→   331→  note             String?
+   332→   332→  followUpDate     DateTime?
+   333→   333→  status           String?  @default("active")  // ← TO ADD
+   334→   334→  nextVisit        DateTime?                     // ← TO ADD
+   335→   335→  chiefComplaints  String?                       // ← TO ADD
+   336→   336→  createdAt        DateTime @default(now())
+   337→   337→  updatedAt        DateTime @updatedAt
+   338→   338→  doctor           Doctor   @relation(fields: [doctorId], references: [id])
+   339→   339→  booking          Booking  @relation(fields: [bookingId], references: [id])
+   340→   340→}
+   341→   341→
+   342→   342→// Notification
+   343→   343→model Notification {
+   344→   344→  id        String   @id @default(cuid())
+   345→   345→  userId    String
+   346→   346→  title     String
+   347→   347→  message   String
+   348→   348→  type      String?  // appointment, prescription, system
+   349→   349→  status    String   // UNREAD, READ
+   350→   350→  createdAt DateTime @default(now())
+   351→   351→}
+   352→   352→
+   353→   353→// C/O Master — Chief Complaints categories
+   354→   354→model CoMaster {
+   355→   355→  id        String   @id @default(cuid())
+   356→   356→  doctorId  String
+   357→   357→  name      String
+   358→   358→  status    String   @default("active")
+   359→   359→  createdAt DateTime @default(now())
+   360→   360→  updatedAt DateTime @updatedAt
+   361→   361→}
+   362→   362→
+   363→   363→// Questions Master
+   364→   364→model QuestionsMaster {
+   365→   365→  id        String   @id @default(cuid())
+   366→   366→  doctorId  String
+   367→   367→  question  String
+   368→   368→  status    String   @default("active")
+   369→   369→  createdAt DateTime @default(now())
+   370→   370→  updatedAt DateTime @updatedAt
+   371→   371→}
+   372→   372→
+   373→   373→// Suggestions Master
+   374→   374→model SuggestionsMaster {
+   375→   375→  id          String   @id @default(cuid())
+   376→   376→  doctorId    String
+   377→   377→  suggestion  String
+   378→   378→  status      String   @default("active")
+   379→   379→  createdAt   DateTime @default(now())
+   380→   380→  updatedAt   DateTime @updatedAt
+   381→   381→}
+   382→   382→
+   383→   383→// Label Master
+   384→   384→model LabelMaster {
+   385→   385→  id        String   @id @default(cuid())
+   386→   386→  doctorId  String
+   387→   387→  name      String
+   388→   388→  status    String   @default("active")
+   389→   389→  createdAt DateTime @default(now())
+   390→   390→  updatedAt DateTime @updatedAt
+   391→   391→}
+   392→   392→
+   393→   393→// Prescription Diagnosis Table
+   394→   394→model PDignoTable {
+   395→   395→  id          String   @id @default(cuid())
+   396→   396→  doctorId    String
+   397→   397→  name        String
+   398→   398→  description String?
+   399→   399→  status      String   @default("active")
+   400→   400→  createdAt   DateTime @default(now())
+   401→   401→  updatedAt   DateTime @updatedAt
+   402→   402→}
+   403→   403→
+   404→   404→// Prescription Other Settings (print config)
+   405→   405→model POtherSetting {
+   406→   406→  id          String   @id @default(cuid())
+   407→   407→  doctorId    String
+   408→   408→  key         String
+   409→   409→  value       String?
+   410→   410→  createdAt   DateTime @default(now())
+   411→   411→  updatedAt   DateTime @updatedAt
+   412→   412→}
+   413→   413→
+   414→   414→// Doctor Type Master
+   415→   415→model DoctorTypeMaster {
+   416→   416→  id        String   @id @default(cuid())
+   417→   417→  name      String   @unique
+   418→   418→  status    String   @default("active")
+   419→   419→  createdAt DateTime @default(now())
+   420→   420→}
+   421→   421→
+   422→   422→// Disease Master
+   423→   423→model DiseaseMaster {
+   424→   424→  id        String   @id @default(cuid())
+   425→   425→  name      String
+   426→   426→  status    String   @default("active")
+   427→   427→  createdAt DateTime @default(now())
+   428→   428→}
+   429→   429→
+   430→   430→// Gallery
+   431→   431→model Gallery {
+   432→   432→  id        String   @id @default(cuid())
+   433→   433→  doctorId  String
+   434→   434→  title     String
+   435→   435→  imageUrl  String
+   436→   436→  status    String   @default("active")
+   437→   437→  createdAt DateTime @default(now())
+   438→   438→  updatedAt DateTime @updatedAt
+   439→   439→}
+   440→   440→
+   441→   441→// Blog
+   442→   442→model Blog {
+   443→   443→  id          String   @id @default(cuid())
+   444→   444→  userId      String
+   445→   445→  title       String
+   446→   446→  slug        String   @unique
+   447→   447→  content     String
+   448→   448→  videoLink   String?
+   449→   449→  blogImage   String?
+   450→   450→  status      String   @default("draft")
+   451→   451→  createdAt   DateTime @default(now())
+   452→   452→  updatedAt   DateTime @updatedAt
+   453→   453→}
+   454→   454→
+   455→   455→// Medicine
+   456→   456→model Medicine {
+   457→   457→  id            String   @id @default(cuid())
+   458→   458→  doctorId      String
+   459→   459→  name          String
+   460→   460→  morningDose   String?
+   461→   461→  afternoonDose String?
+   462→   462→  eveningDose   String?
+   463→   463→  dosage        String?
+   464→   464→  tabCount      Int?
+   465→   465→  description   String?
+   466→   466→  status        String   @default("active")
+   467→   467→  createdAt     DateTime @default(now())
+   468→   468→  updatedAt     DateTime @updatedAt
+   469→   469→}
+   470→   470→```
+   471→   471→
+   472→   472→---
+   473→   473→
+   474→   474→## 7. File Structure Overview (After All Phases)
+   475→   475→
+   476→   476→```
+   477→   477→src/app/dashboard/doctor/
+   478→   478→├── page.tsx                          ✅ Dashboard (enhanced in G3/G4)
+   479→   479→├── appointments/
+   480→   480→│   ├── page.tsx                      ✅ Appointments list (enhanced in C3/C4)
+   481→   481→│   ├── [id]/
+   482→   482→│   │   └── page.tsx                  🆕 C1 — Appointment detail
+   483→   483→│   └── history/
+   484→   484→│       └── page.tsx                  🆕 C2 — Appointment history search
+   485→   485→├── notifications/
+   486→   486→│   └── page.tsx                      🆕 B2 — Notification list
+   487→   487→├── patients/
+   488→   488→│   └── page.tsx                      ✅ Patients
+   489→   489→├── prescription/
+   490→   490→│   ├── page.tsx                      ✅ Prescription list (enhanced in H3/H5)
+   491→   491→│   └── [id]/
+   492→   492→│       └── page.tsx                  ✅ Prescription edit (enhanced in H3/H4)
+   493→   493→├── prescription-settings/
+   494→   494→│   ├── co-categories/
+   495→   495→│   │   └── page.tsx                  🆕 E2 — C/O Categories
+   496→   496→│   ├── questions/
+   497→   497→│   │   └── page.tsx                  🆕 E3 — Questions Master
+   498→   498→│   ├── suggestions/
+   499→   499→│   │   └── page.tsx                  🆕 E4 — Suggestions Master
+   500→   500→│   ├── labels/
+   501→   501→│   │   └── page.tsx                  🆕 E5 — Labels Master
+   502→   502→│   ├── table-master/
+   503→   503→│   │   └── page.tsx                  🆕 E6 — Table Master
+   504→   504→│   └── print-settings/
+   505→   505→│       └── page.tsx                  🆕 E7 — Print Settings
+   506→   506→├── gallery/
+   507→   507→│   └── page.tsx                      ✅ Gallery (enhanced in F2)
+   508→   508→├── blog/
+   509→   509→│   ├── page.tsx                      ✅ Blog list (enhanced in F3/F4)
+   510→   510→│   └── [id]/
+   511→   511→│       └── page.tsx                  ✅ Blog edit (enhanced in F3/F4)
+   512→   512→├── schedule/
+   513→   513→│   └── page.tsx                      ✅ Schedule
+   514→   514→├── holidays/
+   515→   515→│   └── page.tsx                      ✅ Holidays
+   516→   516→├── medicine/
+   517→   517→│   └── page.tsx                      ✅ Medicine Master
+   518→   518→├── assistant/
+   519→   519→│   └── page.tsx                      🆕 D2 — Assistant management
+   520→   520→├── receptionist/
+   521→   521→│   └── page.tsx                      🆕 D3 — Receptionist management
+   522→   522→├── pharmacist/
+   523→   523→│   └── page.tsx                      🆕 D4 — Pharmacist management
+   524→   524→├── reports/
+   525→   525→│   └── page.tsx                      🆕 G1 — Reports
+   526→   526→├── settings/
+   527→   527→│   └── page.tsx                      ✅ Settings
+   528→   528→├── profile/
+   529→   529→│   └── page.tsx                      ✅ Profile (enhanced in F1/H1/H2)
+   530→   530→└── change-password/
+   531→   531→    └── page.tsx                      ✅ Change Password
+   532→   532→```
+   533→   533→
+   534→   534→**API Routes (New):**
+   535→   535→```
+   536→   536→src/app/api/doctor/
+   537→   537→├── notifications/
+   538→   538→│   ├── route.ts                      🆕 B1 — GET (list), DELETE (bulk)
+   539→   539→│   └── [id]/
+   540→   540→│       └── route.ts                  🆕 B1 — PATCH (mark read), DELETE
+   541→   541→├── appointments/
+   542→   542→│   └── [id]/
+   543→   543→│       └── status/
+   544→   544→│           └── route.ts              🆕 C4 — PATCH (generic status update)
+   545→   545→├── staff/
+   546→   546→│   ├── assistant/
+   547→   547→│   │   ├── route.ts                  🆕 D1 — GET (list), POST (create)
+   548→   548→│   │   └── [id]/
+   549→   549→│   │       └── route.ts              🆕 D1 — PUT (update), DELETE
+   550→   550→│   ├── receptionist/
+   551→   551→│   │   ├── route.ts                  🆕 D1 — GET (list), POST (create)
+   552→   552→│   │   └── [id]/
+   553→   553→│   │       └── route.ts              🆕 D1 — PUT (update), DELETE
+   554→   554→│   └── pharmacist/
+   555→   555→│       ├── route.ts                  🆕 D1 — GET (list), POST (create)
+   556→   556→│       └── [id]/
+   557→   557→│           └── route.ts              🆕 D1 — PUT (update), DELETE
+   558→   558→├── prescription-settings/
+   559→   559→│   ├── co-categories/
+   560→   560→│   │   ├── route.ts                  🆕 E1 — GET, POST
+   561→   561→│   │   └── [id]/
+   562→   562→│   │       └── route.ts              🆕 E1 — PUT, DELETE
+   563→   563→│   ├── questions/
+   564→   564→│   │   ├── route.ts                  🆕 E1 — GET, POST
+   565→   565→│   │   └── [id]/
+   566→   566→│   │       └── route.ts              🆕 E1 — PUT, DELETE
+   567→   567→│   ├── suggestions/
+   568→   568→│   │   ├── route.ts                  🆕 E1 — GET, POST
+   569→   569→│   │   └── [id]/
+   570→   570→│   │       └── route.ts              🆕 E1 — PUT, DELETE
+   571→   571→│   ├── labels/
+   572→   572→│   │   ├── route.ts                  🆕 E1 — GET, POST
+   573→   573→│   │   └── [id]/
+   574→   574→│   │       └── route.ts              🆕 E1 — PUT, DELETE
+   575→   575→│   ├── table-master/
+   576→   576→│   │   ├── route.ts                  🆕 E1 — GET, POST
+   577→   577→│   │   └── [id]/
+   578→   578→│   │       └── route.ts              🆕 E1 — PUT, DELETE
+   579→   579→│   └── print-settings/
+   580→   580→│       └── route.ts                  🆕 E1 — GET, PUT
+   581→   581→├── reports/
+   582→   582→│   └── route.ts                      🆕 G2 — GET (aggregated stats)
+   583→   583→└── upload/
+   584→   584→    └── route.ts                      🆕 F5 — POST (file upload)
+   585→   585→```
+   586→   586→
+   587→   587→---
+   588→   588→
+   589→   589→## 8. Completion Checklist
+   590→   590→
+   591→   591→### Phase A — Bug Fixes
+   592→   592→- [ ] BUG-1: Stats API syntax verified and fixed
+   593→   593→- [ ] BUG-2: Header bell loads notifications for doctor role
+   594→   594→- [ ] BUG-3: "View all notifications" link points to valid page (redirect pending until B2)
+   595→   595→- [ ] BUG-4: Gallery supports file-based upload (drag-and-drop)
+   596→   596→- [ ] BUG-5: Prescription creation auto-updates booking status to Visited
+   597→   597→- [ ] ESLint: 0 errors, 0 warnings
+   598→   598→- [ ] Agent-browser verification
+   599→   599→
+   600→   600→### Phase B — Notifications
+   601→   601→- [ ] Notifications API routes (GET, PATCH, DELETE)
+   602→   602→- [ ] Notifications list page with filters and actions
+   603→   603→- [ ] Notification created on appointment status change
+   604→   604→- [ ] Sidebar entry + header route title added
+   605→   605→- [ ] "View all notifications" link fixed
+   606→   606→- [ ] ESLint: 0 errors, 0 warnings
+   607→   607→- [ ] Agent-browser verification
+   608→   608→
+   609→   609→### Phase C — Appointment Enhancements
+   610→   610→- [ ] Appointment detail page (`/appointments/[id]`) with patient info + prescription section
+   611→   611→- [ ] Appointment history page with search, date range, status filter
+   612→   612→- [ ] Extend action button on Pending appointments
+   613→   613→- [ ] Generic status update API endpoint
+   614→   614→- [ ] Sidebar entry for Appointment History
+   615→   615→- [ ] Appointment list links to detail page
+   616→   616→- [ ] ESLint: 0 errors, 0 warnings
+   617→   617→- [ ] Agent-browser verification
+   618→   618→
+   619→   619→### Phase D — Staff Management
+   620→   620→- [ ] Staff API routes (assistant, receptionist, pharmacist — full CRUD)
+   621→   621→- [ ] Assistant management page with create/edit/toggle/delete
+   622→   622→- [ ] Receptionist management page with create/edit/toggle/delete
+   623→   623→- [ ] Pharmacist management page with create/edit/toggle/delete
+   624→   624→- [ ] Sidebar entries + header route titles for all three
+   625→   625→- [ ] Consistent empty states, loading skeletons, optimistic deletes
+   626→   626→- [ ] ESLint: 0 errors, 0 warnings
+   627→   627→- [ ] Agent-browser verification
+   628→   628→
+   629→   629→### Phase E — Prescription Settings
+   630→   630→- [ ] Prescription Settings API routes (6 masters + print settings)
+   631→   631→- [ ] C/O Categories page with CRUD
+   632→   632→- [ ] Questions Master page with CRUD
+   633→   633→- [ ] Suggestions Master page with CRUD
+   634→   634→- [ ] Labels Master page with CRUD
+   635→   635→- [ ] Table Master page with CRUD
+   636→   636→- [ ] Print Settings page with configuration UI
+   637→   637→- [ ] Prescription Settings treeview in sidebar with 6 sub-items
+   638→   638→- [ ] Header route titles for all 6 sub-pages
+   639→   639→- [ ] ESLint: 0 errors, 0 warnings
+   640→   640→- [ ] Agent-browser verification
+   641→   641→
+   642→   642→### Phase F — Profile & Blog Enhancements
+   643→   643→- [ ] Profile photo upload works end-to-end
+   644→   644→- [ ] Gallery file upload replaces URL input
+   645→   645→- [ ] Blog form has image upload field
+   646→   646→- [ ] Blog form has video link field
+   647→   647→- [ ] File upload API endpoint created
+   648→   648→- [ ] ESLint: 0 errors, 0 warnings
+   649→   649→- [ ] Agent-browser verification
+   650→   650→
+   651→   651→### Phase G — Reports & Dashboard
+   652→   652→- [ ] Reports page with date picker, stats cards, table, period toggle
+   653→   653→- [ ] Reports API with aggregation queries
+   654→   654→- [ ] Emergency toggle on dashboard
+   655→   655→- [ ] Dashboard auto-refresh (30s)
+   656→   656→- [ ] Sidebar entry + header route title for Reports
+   657→   657→- [ ] ESLint: 0 errors, 0 warnings
+   658→   658→- [ ] Agent-browser verification
+   659→   659→
+   660→   660→### Phase H — Polish
+   661→   661→- [ ] Doctor type dropdown from DoctorTypeMaster
+   662→   662→- [ ] State/City cascading dropdowns on profile
+   663→   663→- [ ] Next visit date field on prescription form
+   664→   664→- [ ] Prescription Prisma model updated (status, nextVisit, chiefComplaints)
+   665→   665→- [ ] C/O section included in prescription print
+   666→   666→- [ ] Prescription print preview before printing
+   667→   667→- [ ] DiseaseMaster dropdown in disease fields
+   668→   668→- [ ] Appointment auto-refresh (10s)
+   669→   669→- [ ] ESLint: 0 errors, 0 warnings
+   670→   670→- [ ] Agent-browser verification
+   671→   671→
+   672→   672→---
+   673→   673→
+   674→   674→## 9. Total Scope Summary
+   675→   675→
+   676→   676→| Category | Count |
+   677→   677→|----------|-------|
+   678→   678→| Existing pages | 14 |
+   679→   679→| New pages to build | 13 (notifications, appointment detail, history, assistant, receptionist, pharmacist, 6 prescription settings, reports) |
+   680→   680→| Existing APIs | 18 |
+   681→   681→| New APIs to build | ~22 (notifications, status, 3 staff × 4, 6 prescription settings × 4, print settings × 2, reports, upload) |
+   682→   682→| Prisma schema additions | 3 fields (Prescription.status, Prescription.nextVisit, Prescription.chiefComplaints) |
+   683→   683→| Sidebar entries to add | 9 (history, notifications, assistant, receptionist, pharmacist, reports, prescription settings treeview + 6 sub-items counted as 1) |
+   684→   684→| Critical bugs to fix | 8 |
+   685→   685→| Medium bugs to fix | 7 |
+   686→   686→| Low bugs to fix | 2 |
+   687→   687→| **Total phases** | **8 (A through H)** |
+   688→   688→| **Estimated new files** | **~45 page + API files** |
+   689→   689→

@@ -1,0 +1,528 @@
+   301→   301→| `resetpass($id)` | Resets password to '123456' SHA256. **SECURITY ISSUE**. | redirect |
+   302→   302→
+   303→   303→#### View: `admin/patient_view.php`
+   304→   304→- DataTable: #, Name, Email, Mobile, Role, Status (non-clickable label), Actions (edit-hidden, trash-empty-link)
+   305→   305→- Edit button has `class="hidden"` — dead feature
+   306→   306→- Trash link has empty `href=""` — dead link
+   307→   307→
+   308→   308→#### View: `admin/patient_edit.php`
+   309→   309→- Form POST to `admin/patient/edit_validate?id=`
+   310→   310→- Fields: Name, Gender (select), Role (disabled select), Email (readonly), Password (with Reset link), Mobile (disabled)
+   311→   311→- Reset → `admin/patient/resetpass/{id}`
+   312→   312→
+   313→   313→#### Connections
+   314→   314→- `Patient_model::get_by_id_user($id)`
+   315→   315→- `Users_model::get_patient_user()`, `update()`, `update_status_active()`, `update_status_block()`
+   316→   316→
+   317→   317→---
+   318→   318→
+   319→   319→## 8.6 Blog Management
+   320→   320→#### Controller: `admin/Blog.php`
+   321→   321→
+   322→   322→**Models Loaded**: Posts_model (`blog`), Users_model (`user`)
+   323→   323→
+   324→   324→| Method | Logic | View |
+   325→   325→|--------|-------|------|
+   326→   326→| `index()` | Lists all posts | `admin/blog_view` |
+   327→   327→| `update_status()` | Toggles PUBLISHED/HIDE | redirect |
+   328→   328→| `add()` | Shows add form | `admin/blog_add` |
+   329→   329→| `add_validate()` | POST. Validates with `blog` rule. Uploads image to `upload/blog/` (optional). Sets status=PUBLISHED, type=BLOG, generates permalink via `generateUrl()` (recursive unique check), user_id=current admin. | redirect |
+   330→   330→| `distroy()` | GET `?id=&uid=`. Deletes post | redirect |
+   331→   331→| `update($id)` | Loads single post for editing | `admin/blog_edit` |
+   332→   332→| `update_validate($id)` | POST. Validates, optionally uploads new image (deletes old), updates permalink. | redirect |
+   333→   333→| `generateUrl($str)` | Recursive function — generates SEO URL, checks uniqueness in `posts` table, appends random number if duplicate | — |
+   334→   334→| `post_view($paramalink)` | Shows single blog post + latest 5 posts | `admin/blog_view_single` |
+   335→   335→
+   336→   336→#### View: `admin/blog_view.php`
+   337→   337→- ADD button → `admin/blog/add`
+   338→   338→- DataTable: #, Title (link to `admin/blog/post_view/{paramalink}`), Type, Date, User (email), Status (toggle), Actions (edit, delete)
+   339→   339→
+   340→   340→#### View: `admin/blog_view_single.php`
+   341→   341→- Full blog display: title, optional image, optional video iframe (YouTube embed), content (HTML), date, author name
+   342→   342→- AddToAny social sharing buttons (Facebook, Twitter, Google+, WhatsApp, Copy Link)
+   343→   343→- Disqus comments thread (`#disqus_thread`) — **external dependency**
+   344→   344→
+   345→   345→#### View: `admin/blog_add.php`
+   346→   346→- Form POST to `admin/blog/add_validate` (multipart)
+   347→   347→- Fields: Title, Content (textarea id=`editor1` → CKEditor), Video Link (optional), Image (optional file)
+   348→   348→- CKEditor initialized on `editor1` from layout
+   349→   349→
+   350→   350→#### View: `admin/blog_edit.php`
+   351→   351→- Form POST to `admin/blog/update_validate/{id}` (multipart)
+   352→   352→- Same fields as add, pre-populated. Shows current image thumbnail.
+   353→   353→- CKEditor on `editor1`
+   354→   354→
+   355→   355→#### Connections
+   356→   356→- `Posts_model::get_all()`, `get_by_id($id)`, `create($data)`, `update($id, $data)`, `destroy($id, $uid)`, `get_single_post($paramalink)`, `get_latest_post(5)`
+   357→   357→
+   358→   358→---
+   359→   359→
+   360→   360→## 8.7 Slider Management
+   361→   361→#### Controller: `admin/Slider.php`
+   362→   362→
+   363→   363→**Models Loaded**: Slider_model (`slider`), Users_model (`user`)
+   364→   364→
+   365→   365→| Method | Logic | View |
+   366→   366→|--------|-------|------|
+   367→   367→| `index()` | Lists all sliders | `admin/slider_view` |
+   368→   368→| `add()` | Shows add form | `admin/slider_add` |
+   369→   369→| `add_slide_validate()` | Upload config: path=`upload/slider`, types=gif/jpg/png/jpeg, max_size=2MB, max_width=1900, max_height=1220. Saves slider_image, position, link, status=ACTIVE, timestamps. | redirect |
+   370→   370→| `update_status()` | Toggles ACTIVE/BLOCK via slider model | redirect |
+   371→   371→| `distroy()` | GET `?id=`. Deletes slider. **BUG**: Calls `_alertWarningResponce` (correct) but also has a fallback `_alertWarningResponce` (missing 'n' — potential fatal error) | redirect |
+   372→   372→
+   373→   373→#### View: `admin/slider_view.php`
+   374→   374→- NEW button → `admin/slider/add`
+   375→   375→- DataTable: #, Photo (thumbnail 100px), Position, Date, Status (toggle), Action (delete)
+   376→   376→- Images from `upload/slider/`
+   377→   377→
+   378→   378→#### View: `admin/slider_add.php`
+   379→   379→- Form POST to `admin/slider/add_slide_validate` (multipart)
+   380→   380→- Fields: Image (file), Position (text), Link (text)
+   381→   381→
+   382→   382→#### Connections
+   383→   383→- `Slider_model::get_slider()`, `create_slider($data)`, `update_status_active($id)`, `update_status_block($id)`, `destroy($id)`
+   384→   384→
+   385→   385→---
+   386→   386→
+   387→   387→## 8.8 Assistant Management
+   388→   388→#### Controller: `admin/Assistant.php`
+   389→   389→
+   390→   390→**Models Loaded**: Doctor_assistants_model (`assistant`), Users_model (`users`)
+   391→   391→
+   392→   392→| Method | Logic | View |
+   393→   393→|--------|-------|------|
+   394→   394→| `index()` | Lists assistants via `$users->get_assistant_user()` | `admin/assistant_list` |
+   395→   395→| `hide_unhide($id)` | Toggles ACTIVE/BLOCK | redirect |
+   396→   396→| `profile_view()` | GET `?id=`. Gets assistant details. **BUG**: Uses `$this->user` (not loaded — alias is `users`). Will crash. | `admin/profile_view_assistant` |
+   397→   397→| `edit()` | GET `?id=`. Loads assistant user | `admin/assistant_edit` |
+   398→   398→| `edit_validate()` | GET `?id=`. POST. Inline rules: name (required), gender (required), mobile (required, is_unique). Unsets mobile_no. **BUG**: Uses `$this->user` (not loaded). | redirect |
+   399→   399→
+   400→   400→#### View: `admin/assistant_list.php`
+   401→   401→- DataTable: #, Name, Email, Mobile, Status (toggle link), Actions (view, edit)
+   402→   402→
+   403→   403→#### View: `admin/assistant_edit.php`
+   404→   404→- Form POST to `admin/assistant/edit_validate?id=`
+   405→   405→- Fields: Name, Gender (select), Role (disabled select — includes ASSISTANT option but with duplicate PATIENT value), Email (readonly), Mobile (disabled)
+   406→   406→
+   407→   407→#### View: `admin/profile_view_assistant.php`
+   408→   408→- **Left sidebar**: Profile image (`ass_profile_img`), name, link to parent doctor
+   409→   409→- **Contact box**: Address, Mobile, Email, Registration Date
+   410→   410→- **Right content** — "Personal Detail" tab: Description
+   411→   411→- Uses `$profile->ass_name`, `$profile->ass_profile_img`, `$profile->ass_mobile_no`, `$profile->ass_email` — fields from `doctor_assistants` table
+   412→   412→
+   413→   413→#### Connections
+   414→   414→- `Doctor_assistants_model::get_assistant_details($id)`
+   415→   415→- `Users_model::get_assistant_user()`, `get_by_id()`, `update()`
+   416→   416→
+   417→   417→---
+   418→   418→
+   419→   419→## 8.9 Receptionist Management
+   420→   420→#### Controller: `admin/Receptionist.php`
+   421→   421→
+   422→   422→**Models Loaded**: Receptionist_model (`receptionist`), Users_model (`user`)
+   423→   423→
+   424→   424→| Method | Logic | View |
+   425→   425→|--------|-------|------|
+   426→   426→| `index()` | Lists receptionists via `$user->get_receptionist_user()` | `admin/receptionist_view` |
+   427→   427→| `update_status()` | Toggles ACTIVE/BLOCK | redirect |
+   428→   428→| `edit()` | GET `?id=`. Gets receptionist via `$receptionist->get_by_id_user($id)` | `admin/receptionist_edit` |
+   429→   429→| `edit_validate()` | GET `?id=`. POST. Validates with `admin_doctor` rule. Hashes password. | redirect |
+   430→   430→
+   431→   431→#### View: `admin/receptionist_view.php`
+   432→   432→- DataTable: #, Name, Email, Mobile, Role, Status (toggle), Actions (edit, trash-empty)
+   433→   433→- Trash link has empty `href=""`
+   434→   434→- Note: Receptionist link is **commented out** in sidebar navigation
+   435→   435→
+   436→   436→#### View: `admin/receptionist_edit.php`
+   437→   437→- Form POST to `admin/receptionist/edit_validate?id=`
+   438→   438→- Fields: Name, Gender (select), Role (select — **not disabled**, can change role!), Email (editable, not readonly), Password (editable, shows hash), Mobile (editable)
+   439→   439→- **SECURITY BUG**: Password shown as plain text hash in editable field. Role is changeable.
+   440→   440→
+   441→   441→#### Connections
+   442→   442→- `Receptionist_model::get_by_id_user($id)`
+   443→   443→- `Users_model::get_receptionist_user()`, `update()`, `update_status_active()`, `update_status_block()`
+   444→   444→
+   445→   445→---
+   446→   446→
+   447→   447→## 8.10 Reports
+   448→   448→#### Controller: `admin/Report.php`
+   449→   449→
+   450→   450→**Models Loaded**: Users_model (`user`), Booking_model (`booking`), Hospital_model (`hospital`), Doctors_model (`doctor`)
+   451→   451→
+   452→   452→| Method | Logic | View |
+   453→   453→|--------|-------|------|
+   454→   454→| `index()` | Shows report links page | `admin/report_list` |
+   455→   455→| `view_user()` | Pagination (20/page). Filters: fromdate, todate, usertype. | `admin/report_user` |
+   456→   456→| `view_appointment()` | Filters: fromdate, todate, status, patientmobile. | `admin/report_appoinment` |
+   457→   457→| `view_doctor()` | Filters: fromdate, todate. | `admin/report_doctor` |
+   458→   458→| `view_hospital()` | Filters: fromdate, todate. | `admin/report_hospital` |
+   459→   459→| `view_patient()` | Filters: fromdate, todate. | `admin/report_patient` |
+   460→   460→| `view_income()` | Filters: fromdate, todate, doctor. Shows all doctors + hospitals for dropdowns. | `admin/report_income` |
+   461→   461→| `site_statistics()` | Same 4 count boxes as dashboard | `admin/site_statestics` |
+   462→   462→| `view_income_hospital()` | Filters: hospital, fromdate, todate. Gets doctors by hospital, calculates income per doctor. **BUG**: Assignment `$doc->total = $income` is always truthy, then overwrites with `$income[0]->total`. Will crash if `$income` is empty. | `admin/report_income_hospital` |
+   463→   463→| `income_chart_hospital()` | Gets hospital doctors, monthly chart data. Renders charts. | `admin/charts` |
+   464→   464→| `income_chart_doctor()` | Gets doctor monthly chart data. Renders charts. | `admin/charts` |
+   465→   465→
+   466→   466→#### View: `admin/report_list.php`
+   467→   467→- 4-column link grid:
+   468→   468→  - General Report: User Report, Site Statistics (empty link)
+   469→   469→  - Doctor Report: User Report (wrong label)
+   470→   470→  - Hospital Report: User Report (wrong label)
+   471→   471→  - Patient Report: User Report (wrong label)
+   472→   472→  - Appointment Report
+   473→   473→  - Income Report: Admin Income, Hospital Wise Income
+   474→   474→  - Chart Report: chart link
+   475→   475→
+   476→   476→#### View: `admin/report_user.php`
+   477→   477→- Filter form: From Date, To Date, User Type (select: HOSPITAL/RECEPTIONIST/DOCTOR/PATIENT)
+   478→   478→- DataTable with pagination: #, Image, Name, Email, Role, Status (toggle), Date
+   479→   479→- Custom DataTable init (paging disabled, searching enabled)
+   480→   480→- SweetAlert confirm_delete (unused)
+   481→   481→
+   482→   482→#### View: `admin/report_appoinment.php`
+   483→   483→- Filter: From Date, To Date, Status (select), Patient Mobile (number input), Filter button
+   484→   484→- Same appointment table as appointment_view
+   485→   485→
+   486→   486→#### View: `admin/report_doctor.php`
+   487→   487→- Filter: From Date, To Date
+   488→   488→- DataTable: #, Name (Dr.), Email, Mobile, Role, Status, Date
+   489→   489→- SweetAlert with same buggy `person.fullName()` reference
+   490→   490→
+   491→   491→#### View: `admin/report_hospital.php`
+   492→   492→- Filter: From Date, To Date
+   493→   493→- DataTable: #, Name, Email, Mobile, Role, Status, Date
+   494→   494→
+   495→   495→#### View: `admin/report_patient.php`
+   496→   496→- Filter: From Date, To Date
+   497→   497→- DataTable: #, Name, Email, Mobile, Role, Status, Date
+   498→   498→
+   499→   499→#### View: `admin/report_income.php`
+   500→   500→- Filter: From Date, To Date, Doctor (select from all doctors)
+   501→   501→- DataTable: #, Image, Doctor Name, Email, Mobile, Charges (Rs.)
+   502→   502→- **BUG**: To Date input pre-fills with fromdate value
+   503→   503→
+   504→   504→#### View: `admin/report_income_hospital.php`
+   505→   505→- Filter: From Date, To Date, Hospital (select)
+   506→   506→- Same table as report_income
+   507→   507→- **JS**: DataTable footerCallback for column 4 totals (page total + grand total)
+   508→   508→- **BUG**: Column index 4 is Mobile, not Charges (should be 5)
+   509→   509→
+   510→   510→#### View: `admin/site_statestics.php`
+   511→   511→- 4 info boxes: Doctors, Patients, Receptionists, Hospitals (dynamic counts)
+   512→   512→- **8 more info boxes** with **HARDCODED** values: Messages (1,410), Bookmarks (410), Uploads (13,648), Likes (93,139) — duplicated twice (16 boxes total, 8 are fake data)
+   513→   513→- **BUG**: All statistics below the first row are hardcoded placebo data
+   514→   514→
+   515→   515→#### View: `admin/charts.php`
+   516→   516→- Two bar charts: Hospital Income Growth + Doctor Income Growth
+   517→   517→- Each has a filter form (hospital/doctor select + filter button)
+   518→   518→- Charts rendered by Morris.Bar in layout (PHP `$chartdata` and `$chartdatadoctor`)
+   519→   519→
+   520→   520→#### Connections
+   521→   521→- `Users_model::get_all_user_report()`, `get_doctor_user_report()`, `get_hospital_user_report()`, `get_patient_user_report()`, `get_doctor_user()`, `get_hospital_user()`, `count_users()`, `count_doctors()`, `count_patient()`, `count_receptionist()`, `count_hospital()`
+   522→   522→- `Booking_model::get_doctor_appointment_all_report()`, `charges_count_for_admin_report()`, `get_income_by_doc_and_hspital()`
+   523→   523→- `Hospital_model::get_doctor_by_hospital()`, `get_chart_data_month_wise()`
+   524→   524→- `Doctors_model::get_by_hospital()`, `get_chart_data_month_wise()`
+   525→   525→
+   526→   526→---
+   527→   527→
+   528→   528→## 8.11 Config (Admin Charges)
+   529→   529→#### Controller: `admin/Config.php`
+   530→   530→
+   531→   531→**Models Loaded**: Config_model (`configcharge`), Users_model (`user`)
+   532→   532→
+   533→   533→| Method | Logic | View |
+   534→   534→|--------|-------|------|
+   535→   535→| `index()` | Gets single config record | `admin/charges` |
+   536→   536→| `update($id)` | POST. Updates config record | redirect |
+   537→   537→
+   538→   538→#### View: `admin/charges.php`
+   539→   539→- Single field form: Admin Charge (text input) → POST to `admin/config/update/{id}`
+   540→   540→- Update button
+   541→   541→
+   542→   542→#### Model: `Config_model`
+   543→   543→- Table: `config`
+   544→   544→- `get_one()` → single row
+   545→   545→- `update($id, $data)` → where id, update, returns affected_rows
+   546→   546→
+   547→   547→---
+   548→   548→
+   549→   549→## 8.12 Doctor Type Master
+   550→   550→#### Controller: `admin/Type_master.php`
+   551→   551→
+   552→   552→**Models Loaded**: Doctor_type_model (`type`), Users_model (`user`)
+   553→   553→
+   554→   554→| Method | Logic | View |
+   555→   555→|--------|-------|------|
+   556→   556→| `index()` | Lists all types | `admin/type_master_add` |
+   557→   557→| `add_validate()` | Validates with `type` rule. On fail: flash 'fail', reload. On success: insert, flash 'success', reload. | `admin/type_master_add` |
+   558→   558→| `destroy($id)` | POST. Deletes type | redirect |
+   559→   559→
+   560→   560→#### View: `admin/type_master_add.php`
+   561→   561→- Add form: Doctor Type (text input) → POST to `admin/type_master/add_validate`
+   562→   562→- Flash message alerts (success/fail)
+   563→   563→- Table: #, Name (type), Action (delete with confirm)
+   564→   564→- Table header says "View Country" — **BUG**: wrong header text
+   565→   565→
+   566→   566→#### Model: `Doctor_type_model`
+   567→   567→- Table: `doctor_type_mstr`
+   568→   568→- `create($data)` → insert
+   569→   569→- `get_all()` → all rows
+   570→   570→- `destroy($id)` → delete by id
+   571→   571→- `get_by_id()`, `get_active()` — empty stubs
+   572→   572→
+   573→   573→---
+   574→   574→
+   575→   575→## 8.13 Disease Master
+   576→   576→#### Controller: `admin/Disease_master.php`
+   577→   577→
+   578→   578→**Models Loaded**: Disease_model (`disease`), Users_model (`user`)
+   579→   579→
+   580→   580→| Method | Logic | View |
+   581→   581→|--------|-------|------|
+   582→   582→| `index()` | Lists all diseases | `admin/disease_master_add` |
+   583→   583→| `add_validate()` | Validates with `disease` rule. Same flash pattern. On fail **BUG**: view set to `admin/Disease_master` (wrong case). | `admin/disease_master_add` |
+   584→   584→| `destroy($id)` | POST. Deletes disease | redirect |
+   585→   585→
+   586→   586→#### View: `admin/disease_master_add.php`
+   587→   587→- Add form: Disease Type (text input `dis_name`) → POST to `admin/disease_master/add_validate`
+   588→   588→- Table: #, Name (dis_name), Action (delete with confirm)
+   589→   589→- Table header says "View Country" — **BUG**: copy-paste error
+   590→   590→
+   591→   591→#### Model: `Disease_model`
+   592→   592→- Table: `disease_master`
+   593→   593→- `create($data)` → insert
+   594→   594→- `get_all()` → ordered by id desc
+   595→   595→- `destroy($id)` → delete by id
+   596→   596→- `get_by_id()`, `get_active()` — empty stubs
+   597→   597→
+   598→   598→---
+   599→   599→
+   600→   600→## 8.14 Localization (Country/State/City)
+   601→   601→#### Controller: `admin/Localization.php`
+   602→   602→
+   603→   603→**Models Loaded**: Users_model (`user`), City_model (`city`), State_model (`state`), Country_model (`country`)
+   604→   604→
+   605→   605→| Method | Logic | View |
+   606→   606→|--------|-------|------|
+   607→   607→| `index()` | Duplicate of Dashboard::index — loads same 4 counts, renders `admin/dashboard` | `admin/dashboard` |
+   608→   608→| `user_view()` | Duplicate of Dashboard::user_view | `admin/user_view` |
+   609→   609→| `country()` | Shows empty country form | `admin/country_add` |
+   610→   610→| `country_add()` | Validates with `contry` rule. Creates country. Redirects to HTTP_REFERER. | redirect |
+   611→   611→| `country_view()` | Lists all countries | `admin/country_add` |
+   612→   612→| `delete_country($id)` | Deletes country | redirect |
+   613→   613→| `state_view()` | Lists countries + states | `admin/state_add` |
+   614→   614→| `state_add()` | Validates with `state` rule. Creates state. Redirects to state_view. | redirect |
+   615→   615→| `delete_state($id)` | Deletes state | redirect |
+   616→   616→| `city_view()` | Lists states + cities | `admin/city_add` |
+   617→   617→| `city_add()` | Validates with `city` rule. Creates city. **BUG**: Redirects to `admin/dashboard/city_view` (wrong, should be `admin/localization/city_view`). | redirect |
+   618→   618→| `update_status()` | Duplicate of Dashboard::update_status | redirect |
+   619→   619→| `update_admin_profile()` | Duplicate of Dashboard::update_admin_profile | `admin/admin_profile_setting` |
+   620→   620→| `update_validate()` | Duplicate of Dashboard::update_validate (but doesn't unset email/mobile_no — **inconsistency**) | redirect |
+   621→   621→| `upload_profile_img()` | Upload profile image. **BUG**: No empty check on file, always tries to unlink even if upload fails. | redirect |
+   622→   622→| `change_password()` | Duplicate of Dashboard::change_password | redirect |
+   623→   623→| `valid_current_password()` | Duplicate of Dashboard validator | — |
+   624→   624→
+   625→   625→#### View: `admin/country_add.php`
+   626→   626→- Add form: Country Name → POST to `admin/localization/country_add`
+   627→   627→- Table: #, Name (country_name), Action (delete)
+   628→   628→
+   629→   629→#### View: `admin/state_add.php`
+   630→   630→- Add form: Country (select from all countries), State Name → POST to `admin/localization/state_add`
+   631→   631→- Table: #, Country, State, Action (delete)
+   632→   632→
+   633→   633→#### View: `admin/city_add.php`
+   634→   634→- Add form: State (select from all states), City Name → POST to `admin/localization/city_add`
+   635→   635→- Table: #, State (state_name), City (city_name), Action (delete)
+   636→   636→
+   637→   637→#### Connections
+   638→   638→- `Country_model::get_all_country()`, `create_country($data)`, `destroy_country($id)`
+   639→   639→- `State_model::get_all_state()`, `create_state($data)`, `destroy_state($id)`, `get_all()`
+   640→   640→- `City_model::get_all_city()`, `create_city($data)`, `destroy_city($id)`, `get_city_by_state_name($state_name)`
+   641→   641→
+   642→   642→---
+   643→   643→
+   644→   644→## 8.15 Hospital Inquiry
+   645→   645→#### Controller: `admin/Inquiry.php`
+   646→   646→
+   647→   647→**Models Loaded**: Hospital_inquiry_model (`inquiry`)
+   648→   648→
+   649→   649→| Method | Logic | View |
+   650→   650→|--------|-------|------|
+   651→   651→| `index()` | Lists all inquiries | `admin/hospital_inquiry` |
+   652→   652→| `destroy()` | GET `?id=`. Deletes inquiry | redirect |
+   653→   653→
+   654→   654→#### View: `admin/hospital_inquiry.php`
+   655→   655→- DataTable: #, Hospital Name, Contact No, Email, Contact Person, Mobile No., Address, Detail, Date, Action (delete with confirm)
+   656→   656→
+   657→   657→#### Model: `Hospital_inquiry_model`
+   658→   658→- Table: `hospital_inquiry`
+   659→   659→- `create($data)` — auto-sets timestamps
+   660→   660→- `getall()` — ordered by id desc
+   661→   661→- `destroy($id, $user_id)` — deletes by id (and optionally user_id)
+   662→   662→- `update($id, $data)` — updates with auto timestamp
+   663→   663→
+   664→   664→---
+   665→   665→
+   666→   666→## 8.16 Post (Duplicate/Alternative Blog)
+   667→   667→#### Controller: `admin/Post.php`
+   668→   668→
+   669→   669→**Models Loaded**: Posts_model (`post`), Users_model (`user`)
+   670→   670→
+   671→   671→| Method | Logic | View |
+   672→   672→|--------|-------|------|
+   673→   673→| `index()` | Lists all posts | `post/index` (**missing view file**) |
+   674→   674→| `hide_unhide($id)` | Toggles PUBLISHED/HIDE. Checks ownership via `get_one_by_user()`. | redirect |
+   675→   675→| `create()` | Shows add form | `post/add` (**missing view file**) |
+   676→   676→| `store()` | POST. Validates with `blog` rule. Creates post. No image upload. | redirect |
+   677→   677→| `delete($id)` | Ownership check, then destroy | redirect |
+   678→   678→| `edit($id)` | Loads post for editing | `post/edit` (**missing view file**) |
+   679→   679→| `update($id)` | POST. **BUG**: Uses `$this->user_data->id` instead of `$id` for the update where clause. | redirect |
+   680→   680→
+   681→   681→**NOTE**: This controller references `post/index`, `post/add`, `post/edit` views which do NOT exist in the views directory. This entire controller appears to be a dead/unused duplicate of Blog.php.
+   682→   682→
+   683→   683→---
+   684→   684→
+   685→   685→## Shared Models Detail
+   686→   686→
+   687→   687→### Config_model → Table: `config`
+   688→   688→- `get_one()` — `SELECT * FROM config` (single row)
+   689→   689→- `update($id, $data)` — update by id
+   690→   690→
+   691→   691→### City_model → Table: `city_mstr`
+   692→   692→- `create_city($data)` — insert
+   693→   693→- `get_all_city()` — raw SQL join with state_mstr, order by id desc
+   694→   694→- `destroy_city($id)` — delete by id
+   695→   695→- `get_city_by_state_name($state_name)` — 2-step: find state by name, then get cities by state_id
+   696→   696→
+   697→   697→### State_model → Table: `state_mstr`
+   698→   698→- `create_state($data)` — insert
+   699→   699→- `get_all()` — all states
+   700→   700→- `get_all_state()` — raw SQL join with country_mstr, order by id desc
+   701→   701→- `destroy_state($id)` — delete by id
+   702→   702→
+   703→   703→### Country_model → Table: `country_mstr`
+   704→   704→- `create_country($data)` — insert
+   705→   705→- `get_all_country()` — all countries
+   706→   706→- `destroy_country($id)` — delete by id
+   707→   707→- `get_all()` — **BUG**: Returns all `users` instead of countries
+   708→   708→- `update()`, `get_by_id()`, `destroy()` — empty stubs
+   709→   709→
+   710→   710→### Disease_model → Table: `disease_master`
+   711→   711→- `create($data)` — insert
+   712→   712→- `get_all()` — ordered by id desc
+   713→   713→- `destroy($id)` — delete by id
+   714→   714→- `get_by_id()`, `get_active()` — empty stubs
+   715→   715→
+   716→   716→### Doctor_type_model → Table: `doctor_type_mstr`
+   717→   717→- `create($data)` — insert
+   718→   718→- `get_all()` — all types
+   719→   719→- `destroy($id)` — delete by id
+   720→   720→- `get_by_id()`, `get_active()` — empty stubs
+   721→   721→
+   722→   722→### Slider_model → Table: `slider`
+   723→   723→- `create_slider($data)` — insert
+   724→   724→- `get_slider()` — ordered by position desc
+   725→   725→- `get_slider_active()` — where status=ACTIVE, ordered by position desc
+   726→   726→- `update($id, $data)` — update by id
+   727→   727→- `update_status_active($id)` — sets to BLOCK (**names swapped**)
+   728→   728→- `update_status_block($id)` — sets to ACTIVE (**names swapped**)
+   729→   729→- `destroy($id)` — delete by id
+   730→   730→
+   731→   731→### Receptionist_model → Table: `receptionist`
+   732→   732→- `create($data)` — insert, returns insert_id
+   733→   733→- `update($user_id, $data)` — update where user_id
+   734→   734→- `get_by_user_id($user_id)` — single row by user_id
+   735→   735→- `get_receptionist_by_doctor($doctor_id)` — single row by doctor_id
+   736→   736→
+   737→   737→### Hospital_inquiry_model → Table: `hospital_inquiry`
+   738→   738→- `create($data)` — auto timestamps
+   739→   739→- `getall()` — ordered by id desc
+   740→   740→- `destroy($id, $user_id)` — conditional delete
+   741→   741→- `update($id, $data)` — update with auto timestamp
+   742→   742→
+   743→   743→---
+   744→   744→
+   745→   745→## Database Tables Referenced
+   746→   746→
+   747→   747→| Table | Used By |
+   748→   748→|-------|---------|
+   749→   749→| `users` | All controllers (central auth/user table) |
+   750→   750→| `posts` | Blog, Post, Dashboard |
+   751→   751→| `booking` | Appointment, Report |
+   752→   752→| `config` | Config |
+   753→   753→| `doctor_type_mstr` | Type_master, Doctor |
+   754→   754→| `disease_master` | Disease_master, Doctor |
+   755→   755→| `slider` | Slider |
+   756→   756→| `receptionist` | Receptionist, Doctor, Assistant |
+   757→   757→| `hospital_inquiry` | Inquiry |
+   758→   758→| `country_mstr` | Localization, Country_model |
+   759→   759→| `state_mstr` | Localization, State_model |
+   760→   760→| `city_mstr` | Localization, City_model |
+   761→   761→| `doctors` | Doctor (profile data) |
+   762→   762→| `hospital` (profiles) | Hospital |
+   763→   763→| `doctor_assistants` | Assistant |
+   764→   764→| `doctor_ratings` | Doctor (rating) |
+   765→   765→
+   766→   766→---
+   767→   767→
+   768→   768→## Critical Bugs Summary
+   769→   769→
+   770→   770→| # | Severity | Location | Description |
+   771→   771→|---|----------|----------|-------------|
+   772→   772→| 1 | **CRITICAL** | `Admin_contoller::__construct()` | Admin blocked-user check result is ignored; blocked admin can still access panel |
+   773→   773→| 2 | **CRITICAL** | `admin/Hospital.php::resetpass()` | Hardcoded password '123456' — accessible via URL, no auth confirmation |
+   774→   774→| 3 | **CRITICAL** | `admin/Patient.php::resetpass()` | Same hardcoded password issue |
+   775→   775→| 4 | **HIGH** | `admin/Doctor.php::distroy()` | No null check before deleting user; calls distroy_profile result ignored |
+   776→   776→| 5 | **HIGH** | `admin/Doctor.php::edit()` | No null check on $rec_data before using ->user_id |
+   777→   777→| 6 | **HIGH** | `admin/Assistant.php` | Uses `$this->user` (not loaded — alias is `users`) — will crash on profile_view and edit_validate |
+   778→   778→| 7 | **HIGH** | `admin/Receptionist.php::edit_validate()` | Password shown as hash in editable field; role is changeable |
+   779→   779→| 8 | **HIGH** | `admin/Doctor.php::edit_validate()` | Password shown as hash in readonly but visible HTML |
+   780→   780→| 9 | **HIGH** | `admin/Post.php` | All views (post/index, post/add, post/edit) are missing — entire controller is dead |
+   781→   781→| 10 | **HIGH** | `admin/Report.php::view_income_hospital()` | `$doc->total = $income` is always truthy; crashes if $income is empty |
+   782→   782→| 11 | **MEDIUM** | `Slider_model` | `update_status_active()` sets BLOCK, `update_status_block()` sets ACTIVE — names swapped |
+   783→   783→| 12 | **MEDIUM** | `Country_model::get_all()` | Returns `users` table instead of `country_mstr` |
+   784→   784→| 13 | **MEDIUM** | `admin/Appointment.php` | extend/approve/visited redirect to `doctor/appointment` instead of `admin/appointment` |
+   785→   785→| 14 | **MEDIUM** | `admin/Localization.php` | Duplicates most Dashboard methods with inconsistencies; city_add redirects to wrong URL |
+   786→   786→| 15 | **MEDIUM** | `admin/Localization.php::upload_profile_img()` | No empty file check before unlink — crashes if no file uploaded |
+   787→   787→| 16 | **MEDIUM** | `admin/site_statestics.php` | 8 of 12 info boxes have hardcoded fake data |
+   788→   788→| 17 | **MEDIUM** | `admin/profile_view_hospital.php` | Gallery shows same image 3x; HTML is truncated (missing closing divs) |
+   789→   789→| 18 | **MEDIUM** | `admin/report_income.php` | To Date input pre-fills with From Date value |
+   790→   790→| 19 | **MEDIUM** | `admin/report_income_hospital.php` JS | DataTable footer total references wrong column index (4 instead of 5) |
+   791→   791→| 20 | **LOW** | `admin/doctor_view.php` JS | SweetAlert references undefined `person.fullName()` |
+   792→   792→| 21 | **LOW** | `admin/Dashboard.php::valid_current_password()` | Missing closing parenthesis in `if` condition — syntax error |
+   793→   793→| 22 | **LOW** | `master_page_admin.php` | Missing `});` for second Morris.Bar chart (doctor income) |
+   794→   794→| 23 | **LOW** | Type/Disease master views | Table header says "View Country" — copy-paste error |
+   795→   795→| 24 | **LOW** | `admin/Slider.php::distroy()` | Calls non-existent `_alertWarningResponce` (typo) in fallback |
+   796→   796→| 25 | **LOW** | `admin/Blog.php::update_validate()` | Always sets status=PUBLISHED on update (overwrites any Draft status) |
+   797→   797→| 26 | **LOW** | Password hashing | Uses SHA256 (weak) instead of bcrypt/password_hash |
+   798→   798→
+   799→   799→---
+   800→   800→
+   801→   801→## Feature Inventory
+   802→   802→
+   803→   803→- Dashboard with real-time counts
+   804→   804→- Full CRUD for Hospitals (including detail/profile)
+   805→   805→- Doctor listing, profile view, edit (user + profile separately)
+   806→   806→- Patient listing and edit (limited — no add, no delete)
+   807→   807→- Receptionist listing and edit (limited)
+   808→   808→- Assistant listing, profile view, edit (limited)
+   809→   809→- Appointment management (view, status changes)
+   810→   810→- Blog/Post management (add, edit, delete, status toggle, SEO permalinks)
+   811→   811→- Slider management (add, delete, status toggle)
+   812→   812→- Hospital Inquiry (view, delete only)
+   813→   813→- Localization (Country/State/City CRUD)
+   814→   814→- Master data (Doctor Types, Disease Types)
+   815→   815→- Admin Charges configuration
+   816→   816→- Reports: User, Doctor, Hospital, Patient, Appointment, Income, Hospital-wise Income, Charts
+   817→   817→- Site Statistics
+   818→   818→- Admin Profile settings (name, gender, mobile, profile image, password change)
+   819→   819→- User status management (Active/Block toggle)
+   820→   820→- DataTables with export (CSV, Excel, PDF, Print)
+   821→   821→- CKEditor for rich text
+   822→   822→- Morris.js bar charts for income visualization
+   823→   823→- PNotify for flash notifications
+   824→   824→- SweetAlert for confirmations (partially implemented)
+   825→   825→- Google Analytics tracking
+   826→   826→- Disqus comments on blog posts
+   827→   827→- AddToAny social sharing
+   828→   828→
