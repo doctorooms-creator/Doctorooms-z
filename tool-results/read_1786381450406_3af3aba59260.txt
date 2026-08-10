@@ -1466,4 +1466,229 @@
   1466→- BONUS: Added user-visible toast errors instead of silent console logging
   1467→- Files changed: src/app/login/page.tsx (toast errors)
   1468→- Database re-seeded: 15 patients, 8 doctors, 3 receptionists, 2 hospitals, 2 assistants, 2 pharmacists, 1 admin
-  1469→
+  1469→---
+  1470→Task ID: 13
+  1471→Agent: Architect Audit Agent
+  1472→Task: Comprehensive codebase audit for doctor-centric scoping
+  1473→
+  1474→Work Log:
+  1475→- Read full worklog.md (12 previous tasks) and dev.log (last 50 lines) for context
+  1476→- Read and analyzed prisma/schema.prisma (547 lines, 22 models)
+  1477→- Read and analyzed prisma/seed.ts (1087 lines) — verified doctor-receptionist-assistant-pharmacist mappings
+  1478→- Read and analyzed src/lib/api-auth.ts — dev mode auth flow, mock user fallback
+  1479→- Read src/app/api/dev-login/route.ts — sets real DB user ID in session cookie
+  1480→- Tested Prisma 6.11.1 findUnique behavior on non-unique fields — CONFIRMED it throws
+  1481→- Audited ALL 85 API routes across 7 roles
+  1482→- Audited dashboard page structure (46 pages across 7 role dashboards)
+  1483→- Traced complete booking lifecycle: Patient books → Receptionist approves → Doctor sees queue → Creates prescription → Marks Visited/Finish
+  1484→
+  1485→Stage Summary:
+  1486→
+  1487→## 1. SCHEMA ANALYSIS
+  1488→
+  1489→### Relations (CORRECT)
+  1490→- `DoctorAssistant.userId` → User, `DoctorAssistant.doctorId` → Doctor ✅
+  1491→- `DoctorPharmacist.userId` → User, `DoctorPharmacist.doctorId` → Doctor ✅
+  1492→- `Receptionist.userId` → User, `Receptionist.doctorId` → Doctor ✅
+  1493→- `Booking.doctorId` → Doctor, `Booking.userId` → Patient (nullable for walk-ins) ✅
+  1494→- `Prescription.doctorId` → Doctor, `Prescription.bookingId` → Booking ✅
+  1495→- `DoctorMedicine.userId` → Doctor.id (naming is confusing but relation is correct) ✅
+  1496→
+  1497→### CRITICAL: Missing @unique Constraints
+  1498→- `Receptionist.userId` — NOT unique (causes findUnique to throw in Prisma 6.x)
+  1499→- `DoctorAssistant.userId` — NOT unique (same issue)
+  1500→- `DoctorPharmacist.userId` — NOT unique (same issue)
+  1501→- PROVEN: `node -e` test confirms Prisma 6.11.1 throws: "Argument where needs at least one of id arguments"
+  1502→
+  1503→### Schema Naming Confusion
+  1504→- `DoctorMedicine.userId` stores `Doctor.id` (NOT the doctor's User.id). The field should be named `doctorId`.
+  1505→- `DoctorHoliday.userId` also stores `Doctor.userId` (the actual User ID) — inconsistent with DoctorMedicine.
+  1506→- `SuggestionsMaster.doctorId` is a plain String without a Prisma relation to Doctor.
+  1507→
+  1508→### Missing in Schema
+  1509→- No `Rejected` status in Booking comment (but used in approve route code)
+  1510→- No prescription fulfillment tracking field
+  1511→- No queue position field (calculated dynamically)
+  1512→
+  1513→## 2. PER-ROLE API AUDIT
+  1514→
+  1515→### CRITICAL BUG #1: findUnique on non-unique fields (19 routes BROKEN)
+  1516→Every route that uses `db.receptionist.findUnique({ where: { userId: user.id } })`, `db.doctorAssistant.findUnique(...)`, or `db.doctorPharmacist.findUnique(...)` will throw a Prisma error at runtime. The catch blocks swallow these and return 500.
+  1517→
+  1518→**Receptionist routes affected (14):**
+  1519→- `api/receptionist/profile` GET+PUT
+  1520→- `api/receptionist/medicines` GET+POST
+  1521→- `api/receptionist/medicines/[id]` GET+PUT+DELETE
+  1522→- `api/receptionist/medicines/[id]/toggle` PATCH
+  1523→- `api/receptionist/booking-days` GET+PUT
+  1524→- `api/dashboard/receptionist/appointments` GET+POST+PATCH
+  1525→- `api/dashboard/receptionist/stats` GET
+  1526→- `api/dashboard/receptionist/patients` GET
+  1527→- `api/dashboard/receptionist/patients/register` POST
+  1528→- `api/dashboard/receptionist/schedule` GET
+  1529→- `api/dashboard/receptionist/reports` GET
+  1530→- `api/dashboard/receptionist/pending-bookings` GET
+  1531→
+  1532→**Assistant routes affected (3):**
+  1533→- `api/dashboard/assistant/appointments` GET
+  1534→- `api/dashboard/assistant/stats` GET
+  1535→- `api/dashboard/assistant/patients` GET
+  1536→
+  1537→**Pharmacist routes affected (3):**
+  1538→- `api/dashboard/pharmacist/prescriptions` GET
+  1539→- `api/dashboard/pharmacist/medicines` GET+POST+PUT+DELETE
+  1540→- `api/dashboard/pharmacist/stats` GET
+  1541→
+  1542→**Routes that CORRECTLY use findFirst (work fine):**
+  1543→- `api/dashboard/receptionist/walk-in` GET+POST ✅
+  1544→- `api/dashboard/receptionist/bookings/[id]/status` PATCH ✅
+  1545→
+  1546→### CRITICAL BUG #2: Receptionist medicines use wrong doctor ID
+  1547→In `api/receptionist/medicines/*` routes (5 files), the code does:
+  1548→```js
+  1549→const doctor = await db.doctor.findUnique({ where: { id: receptionist.doctorId } })
+  1550→where: { userId: doctor.userId }  // BUG: should be receptionist.doctorId
+  1551→```
+  1552→`DoctorMedicine.userId` stores `Doctor.id`, but the code passes `Doctor.userId` (the User ID). This means:
+  1553→- Receptionist medicine GET returns 0 results
+  1554→- Receptionist medicine POST creates records with wrong doctor reference
+  1555→- Receptionist medicine PUT/DELETE always returns 404 (comparison fails)
+  1556→- Compare with pharmacist route which correctly uses `pharmacist.doctorId`
+  1557→
+  1558→### BUG #3: Approve/reject routes lack doctor scoping
+  1559→- `api/dashboard/receptionist/bookings/[id]/approve` — fetches booking by ID only, no check that booking belongs to the receptionist's doctor. Any authenticated receptionist can approve ANY booking.
+  1560→- `api/dashboard/receptionist/bookings/[id]/reject` — same issue.
+  1561→- `api/dashboard/receptionist/bookings/[id]/status` — CORRECTLY checks `booking.doctorId !== receptionist.doctorId`
+  1562→
+  1563→### Scoping Summary (excluding findUnique bug):
+  1564→| Route | Scoping | Notes |
+  1565→|-------|---------|-------|
+  1566→| Receptionist appointments | ✅ Doctor-scoped | Via receptionist.doctorId |
+  1567→| Receptionist stats | ✅ Doctor-scoped | |
+  1568→| Receptionist patients | ✅ Doctor-scoped | |
+  1569→| Receptionist schedule | ✅ Doctor-scoped | |
+  1570→| Receptionist reports | ✅ Doctor-scoped | |
+  1571→| Receptionist walk-in | ✅ Doctor-scoped | Uses findFirst ✅ |
+  1572→| Receptionist pending-bookings | ✅ Doctor-scoped | |
+  1573→| Receptionist approve/reject | ❌ BROKEN | No doctor check |
+  1574→| Receptionist medicines | ❌ BROKEN | Wrong doctorId |
+  1575→| Assistant appointments | ✅ Doctor-scoped | |
+  1576→| Assistant stats | ✅ Doctor-scoped | |
+  1577→| Assistant patients | ✅ Doctor-scoped | |
+  1578→| Pharmacist prescriptions | ✅ Doctor-scoped | Via Prescription.doctorId |
+  1579→| Pharmacist medicines | ✅ Doctor-scoped | Via DoctorMedicine.userId=Doctor.id |
+  1580→| Pharmacist stats | ✅ Doctor-scoped | |
+  1581→| Doctor appointments | ✅ Self-scoped | Via Doctor.userId (unique) |
+  1582→| Doctor queue | ✅ Self-scoped | |
+  1583→| Doctor prescriptions | ✅ Self-scoped | |
+  1584→| Doctor patients | ✅ Self-scoped | |
+  1585→| Doctor schedule | ✅ Self-scoped | |
+  1586→| Doctor medicines | ✅ Self-scoped | |
+  1587→| Patient bookings | ✅ Self-scoped | Via Booking.userId |
+  1588→| Patient prescriptions | ✅ Self-scoped | Via Booking → Prescription |
+  1589→| Patient queue | ✅ Scoped | Ownership or authorized role |
+  1590→| Hospital appointments | ✅ Hospital-scoped | Via Doctor.hospitalId |
+  1591→
+  1592→## 3. DATA FLOW ANALYSIS
+  1593→
+  1594→### Booking Lifecycle (working end-to-end):
+  1595→1. Patient selects doctor → `/api/doctors` + `/api/doctors/[id]`
+  1596→2. Patient checks slot → `/api/patient/bookings/check-slot` (validates holiday, OPD limit, time conflict)
+  1597→3. Patient books → `/api/patient/bookings` POST (status: Pending, bookingType: By Self)
+  1598→4. Notifications sent to patient, doctor, and receptionist
+  1599→5. Receptionist sees pending → `/api/dashboard/receptionist/pending-bookings`
+  1600→6. Receptionist approves → `/api/dashboard/receptionist/bookings/[id]/approve` (status: Approve, queue position calculated)
+  1601→7. Doctor sees queue → `/api/dashboard/doctor/queue` (Approve+Visited for today)
+  1602→8. Doctor marks Visited → `/api/dashboard/doctor/appointments/[id]/status` PUT (status: Visited)
+  1603→9. Doctor creates prescription → `/api/dashboard/doctor/prescriptions` POST
+  1604→10. Doctor marks Finish → status: Finish
+  1605→
+  1606→### Walk-in Flow:
+  1607→1. Receptionist registers walk-in → `/api/dashboard/receptionist/walk-in` POST (status: Approve, bookingType: By Receptionist)
+  1608→2. OPD limit checked, time slot checked, queue position calculated
+  1609→
+  1610→### Queue System:
+  1611→- Queue position is calculated dynamically (count bookings ahead by createdAt for same doctor+date)
+  1612→- Doctor queue: `/api/dashboard/doctor/queue` — shows today's Approve+Visited patients
+  1613→- Receptionist queue: `/api/dashboard/receptionist/walk-in` GET — shows today's queue
+  1614→- Patient queue: `/api/patient/bookings/queue?bookingId=X` — shows patient's position
+  1615→- No real-time updates (no WebSocket/SSE)
+  1616→- No separate Queue model — it's computed from Booking records
+  1617→
+  1618→## 4. MISSING FEATURES
+  1619→1. No prescription fulfillment tracking (pharmacist can view but not mark as dispensed)
+  1620→2. No real-time queue updates
+  1621→3. No `Rejected` status in schema comment (code uses it)
+  1622→4. Receptionist has blog management pages but no blog-scoped APIs (uses generic blog routes)
+  1623→5. No assistant-specific actions beyond viewing data
+  1624→6. No pharmacist-specific actions beyond viewing/CRUD on medicines
+  1625→7. Doctor earnings page exists but no earnings calculation (just placeholder)
+  1626→
+  1627→## 5. CRITICAL BUGS (Priority Order)
+  1628→
+  1629→### P0 — BLOCKS ALL TESTING for receptionist/assistant/pharmacist:
+  1630→1. **findUnique on non-unique fields**: 19+ routes return 500 for receptionist, assistant, pharmacist. FIX: Add `@unique` on `Receptionist.userId`, `DoctorAssistant.userId`, `DoctorPharmacist.userId` in schema, then `prisma db push`.
+  1631→
+  1632→### P1 — DATA INTEGRITY:
+  1633→2. **Receptionist medicines use wrong doctor ID**: 5 routes use `doctor.userId` instead of `receptionist.doctorId`. FIX: Replace `doctor.userId` with `receptionist.doctorId` in all receptionist medicine routes.
+  1634→3. **Approve/reject routes unscoped**: Any receptionist can approve any booking. FIX: Add doctor scoping check like the status route has.
+  1635→
+  1636→### P2 — FUNCTIONAL:
+  1637→4. **Dev mode mock IDs don't match DB**: When `getAuthUser` falls back to dev mode (no session cookie), it creates mock users with `dev-*` IDs that won't match any Receptionist/DoctorAssistant/DoctorPharmacist record. Only the real session path works.
+  1638→
+  1639→## 6. RECOMMENDATIONS
+  1640→
+  1641→### Fix First (in order):
+  1642→1. **Add @unique constraints** to `Receptionist.userId`, `DoctorAssistant.userId`, `DoctorPharmacist.userId` in prisma/schema.prisma → `bunx prisma db push`
+  1643→2. **Fix receptionist medicines** — replace `doctor.userId` with `receptionist.doctorId` in all 5 medicine route files
+  1644→3. **Add doctor scoping** to approve/reject routes (copy pattern from status route)
+  1645→4. **Rename `DoctorMedicine.userId`** to `DoctorMedicine.doctorId` for clarity (optional but recommended)
+  1646→
+  1647→### Design Notes:
+  1648→- The scoping ARCHITECTURE is correct — every role properly resolves to a doctorId and filters by it
+  1649→- The bugs are implementation-level, not architectural
+  1650→- Doctor and Patient routes work perfectly (no findUnique issues because Doctor.userId is unique)
+  1651→- Hospital routes scope correctly via Doctor.hospitalId
+  1652→- The queue system is functional but basic (no real-time, no WebSocket)
+  1653→---
+  1654→Task ID: 14
+  1655→Agent: Main Agent
+  1656→Task: Phase 0 Critical Fixes — Fix 3 P0 bugs blocking testing
+  1657→
+  1658→Work Log:
+  1659→- **P0-1**: Added `@unique` constraint to `Receptionist.userId`, `DoctorAssistant.userId`, `DoctorPharmacist.userId` in prisma/schema.prisma
+  1660→- Ran `prisma db push --force-reset` and re-seeded database (33 users, 40 bookings, etc.)
+  1661→- **P0-2**: Fixed 5 receptionist medicine routes — `DoctorMedicine.userId` stores `Doctor.id` not User ID. Changed `doctor.userId` → `receptionist.doctorId` in all queries
+  1662→- **P0-3**: Added doctor ownership check to approve/reject booking routes. Receptionist can only manage THEIR doctor's bookings (403 if mismatch)
+  1663→- **P0-4**: Fixed Caddy gateway cookie stripping — dashboard layout now sets `doctorooms_session` and `doctorooms_role` cookies from client-side JS (using real user ID from Zustand/sessionStorage)
+  1664→- **E2E Testing**: Verified all 7 roles (patient, doctor, receptionist, hospital, assistant, pharmacist, admin) login successfully with zero console errors
+  1665→
+  1666→Stage Summary:
+  1667→- 3 schema constraints added (unblocks 19+ API routes)
+  1668→- 5 medicine routes fixed (wrong doctor ID)
+  1669→- 2 booking routes secured (doctor scoping)
+  1670→- 1 critical cookie fix (Caddy preview panel compatibility)
+  1671→- All 7 dashboards verified working via agent-browser
+  1672→- Files changed: prisma/schema.prisma, 5 receptionist medicine routes, 2 approve/reject routes, dashboard/layout.tsx
+  1673→---
+  1674→Task ID: 15
+  1675→Agent: Main Agent
+  1676→Task: E2E Patient Flow Testing + Bug Fixes
+  1677→
+  1678→Work Log:
+  1679→- Tested patient login → dashboard loads with data (Rahul Verma, 1 notification)
+  1680→- Tested all 7 roles login successfully (patient, doctor, receptionist, hospital, assistant, pharmacist, admin)
+  1681→- Zero console errors on any dashboard
+  1682→- Found bug: `/api/doctors/[id]` expected User.id in URL but frontend sends Doctor.id → fixed to support both
+  1683→- Tested booking page: Dr. Rajesh Sharma loads correctly with calendar and schedule
+  1684→- Schedule API returns 10 time slots for Monday (09:00 AM - 01:30 PM)
+  1685→- Agent-browser can't click Framer Motion calendar buttons (known limitation)
+  1686→- Booking page architecture verified: Calendar → Date select → Time slots → Booking form → Confirm
+  1687→
+  1688→Stage Summary:
+  1689→- All 7 dashboards working after Phase 0 fixes
+  1690→- Doctor detail API fixed to accept both User.id and Doctor.id
+  1691→- Patient booking page loads correctly with doctor info and calendar
+  1692→- Full E2E flow (book → approve → queue → prescription) needs manual testing in Preview Panel
+  1693→- Files changed: src/app/api/doctors/[id]/route.ts
+  1694→
