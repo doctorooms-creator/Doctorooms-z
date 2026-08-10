@@ -35,8 +35,11 @@ model User {
   notifications   Notification[]
   chatMessages    BookingChat[]  @relation("ChatSender")
   receivedChats   BookingChat[]  @relation("ChatReceiver")
-  inquiries       HospitalInquiry[]
-  medicalDocuments MedicalDocument[]
+  inquiries           HospitalInquiry[]
+  medicalDocuments     MedicalDocument[]
+  receptionistProfile  Receptionist?       @relation("ReceptionistUser")
+  assistantProfile    DoctorAssistant?    @relation("AssistantUser")
+  pharmacistProfile   DoctorPharmacist?   @relation("PharmacistUser")
 }
 
 // ============ DOCTOR ============
@@ -342,6 +345,7 @@ model DoctorAssistant {
   address     String   @default("")
   createdAt   DateTime @default(now())
 
+  user        User     @relation("AssistantUser", fields: [userId], references: [id], onDelete: Cascade)
   doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 }
 
@@ -358,6 +362,7 @@ model DoctorPharmacist {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  user        User     @relation("PharmacistUser", fields: [userId], references: [id], onDelete: Cascade)
   doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 }
 
@@ -370,6 +375,7 @@ model Receptionist {
   address   String   @default("")
   createdAt DateTime @default(now())
 
+  user      User     @relation("ReceptionistUser", fields: [userId], references: [id], onDelete: Cascade)
   doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 }
 
