@@ -97,7 +97,7 @@ export default function LoginPage() {
   const handleRoleClick = async (role: string) => {
     setLoading(role);
     try {
-      const res = await fetch('/api/auth/dev-login', {
+      const res = await fetch('/api/dev-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role }),
