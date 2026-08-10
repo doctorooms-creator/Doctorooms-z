@@ -109,7 +109,9 @@ export default function LoginPage() {
       const data = await res.json();
       if (data.success && data.user) {
         setUser(data.user);
-        window.location.href = `/dashboard/${role}`;
+        // Also persist to sessionStorage so page refresh works
+        sessionStorage.setItem('doctorooms_dev_user', JSON.stringify(data.user));
+        router.push(`/dashboard/${role}`);
       }
     } catch (err) {
       console.error('Dev login error:', err);

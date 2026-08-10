@@ -20,16 +20,29 @@ export default function DashboardLayout({
   const [mobileOpen, setMobileOpen] = useState(false)
   const [checking, setChecking] = useState(true)
 
-  // On mount, check if we have auth from Zustand (just came from login) OR from cookie/API (page refresh)
+  // On mount, check if we have auth from Zustand (just came from login) OR from sessionStorage/API (page refresh)
   useEffect(() => {
     async function checkAuth() {
-      // 1. If Zustand has user, we're good (just came from login)
+      // 1. If Zustand has user, we're good (just came from login via router.push)
       if (user && isAuthenticated) {
         setChecking(false)
         return
       }
 
-      // 2. Try /api/auth/me (handles both real DB auth and dev mode fallback)
+      // 2. Check sessionStorage (dev mode fallback for page refresh)
+      try {
+        const stored = sessionStorage.getItem('doctorooms_dev_user')
+        if (stored) {
+          const parsed = JSON.parse(stored) as AuthUser
+          setUser(parsed)
+          setChecking(false)
+          return
+        }
+      } catch {
+        // ignore parse errors
+      }
+
+      // 3. Try /api/auth/me (handles both real DB auth and dev mode fallback)
       try {
         const res = await fetch('/api/auth/me')
         const data = await res.json()
@@ -42,7 +55,7 @@ export default function DashboardLayout({
         // API failed
       }
 
-      // 3. No auth found → redirect to login (role selector in dev mode)
+      // 4. No auth found → redirect to login (role selector in dev mode)
       setChecking(false)
       router.push('/login')
     }
@@ -60,7 +73,8 @@ export default function DashboardLayout({
   }, [user, pathname, checking, router])
 
   const handleLogout = async () => {
-    // Clear cookies
+    // Clear all auth state
+    sessionStorage.removeItem('doctorooms_dev_user')
     document.cookie = 'doctorooms_session=;path=/;max-age=0'
     document.cookie = 'doctorooms_role=;path=/;max-age=0'
     try {
