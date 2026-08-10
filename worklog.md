@@ -1650,3 +1650,23 @@ where: { userId: doctor.userId }  // BUG: should be receptionist.doctorId
 - Doctor and Patient routes work perfectly (no findUnique issues because Doctor.userId is unique)
 - Hospital routes scope correctly via Doctor.hospitalId
 - The queue system is functional but basic (no real-time, no WebSocket)
+---
+Task ID: 14
+Agent: Main Agent
+Task: Phase 0 Critical Fixes — Fix 3 P0 bugs blocking testing
+
+Work Log:
+- **P0-1**: Added `@unique` constraint to `Receptionist.userId`, `DoctorAssistant.userId`, `DoctorPharmacist.userId` in prisma/schema.prisma
+- Ran `prisma db push --force-reset` and re-seeded database (33 users, 40 bookings, etc.)
+- **P0-2**: Fixed 5 receptionist medicine routes — `DoctorMedicine.userId` stores `Doctor.id` not User ID. Changed `doctor.userId` → `receptionist.doctorId` in all queries
+- **P0-3**: Added doctor ownership check to approve/reject booking routes. Receptionist can only manage THEIR doctor's bookings (403 if mismatch)
+- **P0-4**: Fixed Caddy gateway cookie stripping — dashboard layout now sets `doctorooms_session` and `doctorooms_role` cookies from client-side JS (using real user ID from Zustand/sessionStorage)
+- **E2E Testing**: Verified all 7 roles (patient, doctor, receptionist, hospital, assistant, pharmacist, admin) login successfully with zero console errors
+
+Stage Summary:
+- 3 schema constraints added (unblocks 19+ API routes)
+- 5 medicine routes fixed (wrong doctor ID)
+- 2 booking routes secured (doctor scoping)
+- 1 critical cookie fix (Caddy preview panel compatibility)
+- All 7 dashboards verified working via agent-browser
+- Files changed: prisma/schema.prisma, 5 receptionist medicine routes, 2 approve/reject routes, dashboard/layout.tsx

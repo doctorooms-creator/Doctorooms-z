@@ -336,7 +336,7 @@ model DoctorMedicine {
 
 model DoctorAssistant {
   id          String   @id @default(cuid())
-  userId      String   // assistant user id
+  userId      String   @unique // assistant user id
   doctorId    String   // doctor id (Doctor model)
   description String   @default("")
   address     String   @default("")
@@ -349,7 +349,7 @@ model DoctorAssistant {
 
 model DoctorPharmacist {
   id          String   @id @default(cuid())
-  userId      String   // pharmacist user id
+  userId      String   @unique // pharmacist user id
   doctorId    String   // doctor id (Doctor model)
   description String   @default("")
   address     String   @default("")
@@ -365,7 +365,7 @@ model DoctorPharmacist {
 
 model Receptionist {
   id        String   @id @default(cuid())
-  userId    String   // receptionist user id
+  userId    String   @unique // receptionist user id
   doctorId  String   // doctor id (Doctor model)
   address   String   @default("")
   createdAt DateTime @default(now())

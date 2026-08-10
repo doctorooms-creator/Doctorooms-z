@@ -8,6 +8,8 @@ export async function PATCH(
 ) {
   try {
     const user = await requireRole(req, 'receptionist')
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
     const { id } = await params
 
     const receptionist = await db.receptionist.findUnique({
@@ -19,18 +21,10 @@ export async function PATCH(
       return NextResponse.json({ error: 'No doctor linked' }, { status: 404 })
     }
 
-    const doctor = await db.doctor.findUnique({
-      where: { id: receptionist.doctorId },
-      select: { userId: true },
-    })
-
-    if (!doctor) {
-      return NextResponse.json({ error: 'Doctor not found' }, { status: 404 })
-    }
-
+    // DoctorMedicine.userId stores Doctor.id
     const existing = await db.doctorMedicine.findUnique({ where: { id } })
 
-    if (!existing || existing.userId !== doctor.userId) {
+    if (!existing || existing.userId !== receptionist.doctorId) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 

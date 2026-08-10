@@ -5,6 +5,7 @@ import { db } from '@/lib/db'
 export async function GET(req: NextRequest) {
   try {
     const user = await requireRole(req, 'receptionist')
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const receptionist = await db.receptionist.findUnique({
       where: { userId: user.id },
@@ -15,23 +16,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No doctor linked' }, { status: 404 })
     }
 
-    const doctor = await db.doctor.findUnique({
-      where: { id: receptionist.doctorId },
-      select: { userId: true },
-    })
-
-    if (!doctor) {
-      return NextResponse.json({ error: 'Doctor not found' }, { status: 404 })
-    }
-
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search') || ''
 
+    // DoctorMedicine.userId stores Doctor.id (not User.id)
     const where = {
-      userId: doctor.userId,
-      ...(search
-        ? { name: { contains: search } }
-        : {}),
+      userId: receptionist.doctorId,
+      ...(search ? { name: { contains: search } } : {}),
     }
 
     const medicines = await db.doctorMedicine.findMany({
@@ -49,6 +40,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = await requireRole(req, 'receptionist')
+    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
     const receptionist = await db.receptionist.findUnique({
       where: { userId: user.id },
@@ -59,15 +51,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No doctor linked' }, { status: 404 })
     }
 
-    const doctor = await db.doctor.findUnique({
-      where: { id: receptionist.doctorId },
-      select: { userId: true },
-    })
-
-    if (!doctor) {
-      return NextResponse.json({ error: 'Doctor not found' }, { status: 404 })
-    }
-
     const body = await req.json()
     const { name, morning, afternoon, evening, dose, tab, description } = body
 
@@ -75,9 +58,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Medicine name is required' }, { status: 400 })
     }
 
+    // DoctorMedicine.userId stores Doctor.id (not User.id)
     const medicine = await db.doctorMedicine.create({
       data: {
-        userId: doctor.userId,
+        userId: receptionist.doctorId,
         createdById: user.id,
         name: name.trim(),
         morning: morning || '',

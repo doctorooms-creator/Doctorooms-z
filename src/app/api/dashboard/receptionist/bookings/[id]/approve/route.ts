@@ -28,6 +28,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
 
+    // Doctor scoping: receptionist can only approve THEIR doctor's bookings
+    if (user.role === 'receptionist') {
+      const receptionist = await db.receptionist.findUnique({
+        where: { userId: user.id },
+        select: { doctorId: true },
+      })
+      if (!receptionist || booking.doctorId !== receptionist.doctorId) {
+        return NextResponse.json({ error: 'Unauthorized — not your doctor\'s booking' }, { status: 403 })
+      }
+    }
+
     // Verify booking status is Pending
     if (booking.status !== 'Pending') {
       return NextResponse.json(
@@ -51,7 +62,6 @@ export async function PATCH(
     })
 
     if (activeBookingsCount >= booking.doctor.dailyLimit) {
-      // OPD full — reject with explanation
       await db.booking.update({
         where: { id },
         data: { status: 'Rejected' },
