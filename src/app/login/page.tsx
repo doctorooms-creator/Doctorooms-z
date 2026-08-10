@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuthStore } from '@/lib/auth-store';
+import { toast } from 'sonner';
 import {
   Stethoscope,
   Shield,
@@ -14,6 +15,7 @@ import {
   Pill,
   ArrowRight,
   Loader2,
+  AlertCircle,
 } from 'lucide-react';
 
 const ROLES = [
@@ -103,7 +105,11 @@ export default function LoginPage() {
         body: JSON.stringify({ role }),
       });
       if (!res.ok) {
-        console.error('Dev login failed:', await res.text());
+        const errData = await res.json().catch(() => ({}));
+        toast.error(errData.message || `Login failed (${res.status})`, {
+          description: 'Please try again or contact support',
+          icon: <AlertCircle className="w-4 h-4 text-red-500" />,
+        });
         return;
       }
       const data = await res.json();
@@ -114,7 +120,10 @@ export default function LoginPage() {
         router.push(`/dashboard/${role}`);
       }
     } catch (err) {
-      console.error('Dev login error:', err);
+      toast.error('Network error', {
+        description: 'Could not connect to server. Please check your connection.',
+        icon: <AlertCircle className="w-4 h-4 text-red-500" />,
+      });
     } finally {
       setLoading(null);
     }

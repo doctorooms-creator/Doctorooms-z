@@ -1444,3 +1444,25 @@ Stage Summary:
 - Page refresh on dashboard also works (sessionStorage fallback)
 - No compilation errors
 - Files changed: src/app/login/page.tsx, src/app/dashboard/layout.tsx
+---
+Task ID: 12
+Agent: Main Agent
+Task: Fix login not working from preview panel - analyze user's console logs and screenshot
+
+Work Log:
+- Analyzed user's browser console logs: POST /api/dev-login returned 404 with body "No active [role] user found in database"
+- Analyzed screenshot via VLM: confirmed user sees 7 role cards, clicking any shows error in DevTools console
+- Root cause: DATABASE WAS EMPTY - `db.user.findMany()` returned `[]`. Seed data was lost (DB file likely recreated)
+- Ran `bunx prisma db push` to ensure schema, then `bun run prisma/seed.ts` to re-seed
+- Verified: 33 users created across all 7 roles (15 patients, 8 doctors, 3 receptionists, 2 hospitals, 2 assistants, 2 pharmacists, 1 admin)
+- Improved login page error handling: replaced silent `console.error` with `toast.error()` using sonner
+- Added `AlertCircle` icon to error toasts
+- Tested dev-login API via curl: returns 200 with user data
+- Verified via agent-browser: Patient dashboard loads correctly after clicking role
+
+Stage Summary:
+- ROOT CAUSE: Empty database (seed data lost)
+- FIX: Re-seeded database with 33 users across all 7 roles
+- BONUS: Added user-visible toast errors instead of silent console logging
+- Files changed: src/app/login/page.tsx (toast errors)
+- Database re-seeded: 15 patients, 8 doctors, 3 receptionists, 2 hospitals, 2 assistants, 2 pharmacists, 1 admin
