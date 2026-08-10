@@ -1,0 +1,723 @@
+   365→  }
+   366→  console.log('✅ 8 Doctors created (1 emergency, 2 linked to hospitals)');
+   367→
+   368→  // ============================================================
+   369→  // 5. RECEPTIONISTS (3) - linked to doctors
+   370→  // ============================================================
+   371→  const receptionistData = [
+   372→    { name: 'Meera Joshi', email: 'meera.joshi@doctorooms.com', mobileNo: '8686868601', doctorIdx: 0 },
+   373→    { name: 'Pooja Sharma', email: 'pooja.sharma@doctorooms.com', mobileNo: '8686868602', doctorIdx: 3 },
+   374→    { name: 'Ritu Agarwal', email: 'ritu.agarwal@doctorooms.com', mobileNo: '8686868603', doctorIdx: 7 },
+   375→  ];
+   376→
+   377→  for (const r of receptionistData) {
+   378→    const user = await db.user.create({
+   379→      data: {
+   380→        name: r.name,
+   381→        email: r.email,
+   382→        password,
+   383→        role: 'receptionist',
+   384→        status: 'Active',
+   385→        gender: 'Female',
+   386→        mobileNo: r.mobileNo,
+   387→        profileImg: 'default.png',
+   388→      },
+   389→    });
+   390→    await db.receptionist.create({
+   391→      data: {
+   392→        userId: user.id,
+   393→        doctorId: doctors[r.doctorIdx].id,
+   394→        address: '',
+   395→      },
+   396→    });
+   397→  }
+   398→  console.log('✅ 3 Receptionists created and linked to doctors');
+   399→
+   400→  // ============================================================
+   401→  // 5b. ADMIN (1)
+   402→  // ============================================================
+   403→  const adminUser = await db.user.create({
+   404→    data: {
+   405→      name: 'Admin User',
+   406→      email: 'admin@doctorooms.com',
+   407→      password,
+   408→      role: 'admin',
+   409→      status: 'Active',
+   410→      gender: 'Male',
+   411→      mobileNo: '9999999901',
+   412→      profileImg: 'default.png',
+   413→    },
+   414→  });
+   415→  console.log('✅ 1 Admin created');
+   416→
+   417→  // ============================================================
+   418→  // 5c. ASSISTANTS (2) - linked to first 2 doctors
+   419→  // ============================================================
+   420→  const assistantData = [
+   421→    { name: 'Vikram Patel', email: 'vikram.p@doctorooms.com', gender: 'Male', mobileNo: '8888888801', doctorIdx: 0 },
+   422→    { name: 'Sanjay Kumar', email: 'sanjay.k@doctorooms.com', gender: 'Male', mobileNo: '8888888802', doctorIdx: 1 },
+   423→  ];
+   424→  for (const a of assistantData) {
+   425→    const user = await db.user.create({
+   426→      data: {
+   427→        name: a.name, email: a.email, password,
+   428→        role: 'assistant', status: 'Active',
+   429→        gender: a.gender, mobileNo: a.mobileNo, profileImg: 'default.png',
+   430→      },
+   431→    });
+   432→    await db.doctorAssistant.create({
+   433→      data: {
+   434→        userId: user.id,
+   435→        doctorId: doctors[a.doctorIdx].id,
+   436→        address: '',
+   437→      },
+   438→    });
+   439→  }
+   440→  console.log('✅ 2 Assistants created and linked to doctors');
+   441→
+   442→  // ============================================================
+   443→  // 5d. PHARMACISTS (2) - linked to first 2 doctors
+   444→  // ============================================================
+   445→  const pharmacistData = [
+   446→    { name: 'Kavitha Devi', email: 'kavitha.d@doctorooms.com', gender: 'Female', mobileNo: '7777777701', doctorIdx: 0 },
+   447→    { name: 'Ramesh Gupta', email: 'ramesh.g@doctorooms.com', gender: 'Male', mobileNo: '7777777702', doctorIdx: 1 },
+   448→  ];
+   449→  for (const p of pharmacistData) {
+   450→    const user = await db.user.create({
+   451→      data: {
+   452→        name: p.name, email: p.email, password,
+   453→        role: 'pharmacist', status: 'Active',
+   454→        gender: p.gender, mobileNo: p.mobileNo, profileImg: 'default.png',
+   455→      },
+   456→    });
+   457→    await db.doctorPharmacist.create({
+   458→      data: {
+   459→        userId: user.id,
+   460→        doctorId: doctors[p.doctorIdx].id,
+   461→        address: '',
+   462→        dlNo: 'DL-' + Math.random().toString(36).substring(2, 10).toUpperCase(),
+   463→      },
+   464→    });
+   465→  }
+   466→  console.log('✅ 2 Pharmacists created and linked to doctors');
+   467→
+   468→  // ============================================================
+   469→  // 6. PATIENTS (15)
+   470→  // ============================================================
+   471→  const patientData = [
+   472→    { name: 'Rahul Verma', email: 'rahul.v@doctorooms.com', gender: 'Male', mobileNo: '8787878701', city: 'Mumbai' },
+   473→    { name: 'Sneha Gupta', email: 'sneha.g@doctorooms.com', gender: 'Female', mobileNo: '8787878702', city: 'Delhi' },
+   474→    { name: 'Arjun Mehta', email: 'arjun.m@doctorooms.com', gender: 'Male', mobileNo: '8787878703', city: 'Bangalore' },
+   475→    { name: 'Pooja Iyer', email: 'pooja.i@doctorooms.com', gender: 'Female', mobileNo: '8787878704', city: 'Chennai' },
+   476→    { name: 'Vikas Reddy', email: 'vikas.r@doctorooms.com', gender: 'Male', mobileNo: '8787878705', city: 'Hyderabad' },
+   477→    { name: 'Ananya Banerjee', email: 'ananya.b@doctorooms.com', gender: 'Female', mobileNo: '8787878706', city: 'Kolkata' },
+   478→    { name: 'Rohit Kapoor', email: 'rohit.k@doctorooms.com', gender: 'Male', mobileNo: '8787878707', city: 'Mumbai' },
+   479→    { name: 'Divya Nair', email: 'divya.n@doctorooms.com', gender: 'Female', mobileNo: '8787878708', city: 'Bangalore' },
+   480→    { name: 'Manish Tiwari', email: 'manish.t@doctorooms.com', gender: 'Male', mobileNo: '8787878709', city: 'Delhi' },
+   481→    { name: 'Kavitha Sundaram', email: 'kavitha.s@doctorooms.com', gender: 'Female', mobileNo: '8787878710', city: 'Chennai' },
+   482→    { name: 'Siddharth Patel', email: 'siddharth.p@doctorooms.com', gender: 'Male', mobileNo: '8787878711', city: 'Hyderabad' },
+   483→    { name: 'Neha Sharma', email: 'neha.s@doctorooms.com', gender: 'Female', mobileNo: '8787878712', city: 'Kolkata' },
+   484→    { name: 'Amit Joshi', email: 'amit.j@doctorooms.com', gender: 'Male', mobileNo: '8787878713', city: 'Mumbai' },
+   485→    { name: 'Priya Das', email: 'priya.d@doctorooms.com', gender: 'Female', mobileNo: '8787878714', city: 'Bangalore' },
+   486→    { name: 'Karan Malhotra', email: 'karan.m@doctorooms.com', gender: 'Male', mobileNo: '8787878715', city: 'Delhi' },
+   487→  ];
+   488→
+   489→  const patients: any[] = [];
+   490→  for (const p of patientData) {
+   491→    const user = await db.user.create({
+   492→      data: {
+   493→        name: p.name,
+   494→        email: p.email,
+   495→        password,
+   496→        role: 'patient',
+   497→        status: 'Active',
+   498→        gender: p.gender,
+   499→        mobileNo: p.mobileNo,
+   500→        profileImg: 'default.png',
+   501→      },
+   502→    });
+   503→    patients.push(user);
+   504→  }
+   505→  console.log('✅ 15 Patients created');
+   506→
+   507→  // ============================================================
+   508→  // 7. DOCTOR SCHEDULES (5-6 days per doctor)
+   509→  // ============================================================
+   510→  const allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+   511→  for (let i = 0; i < doctors.length; i++) {
+   512→    const daysForDoctor = allDays.slice(0, i % 2 === 0 ? 6 : 5);
+   513→    const startHour = 9 + (i % 3);
+   514→    for (const day of daysForDoctor) {
+   515→      await db.doctorSchedule.create({
+   516→        data: {
+   517→          doctorId: doctors[i].id,
+   518→          day,
+   519→          startTime: `${String(startHour).padStart(2, '0')}:00`,
+   520→          endTime: `${String(startHour + 5).padStart(2, '0')}:00`,
+   521→          slotDuration: i === 2 ? 20 : 30,
+   522→          timeSlots: '[]',
+   523→        },
+   524→      });
+   525→    }
+   526→  }
+   527→  console.log('✅ Doctor schedules created (5-6 days per doctor)');
+   528→
+   529→  // ============================================================
+   530→  // 8. DOCTOR HOLIDAYS (2-3 per doctor, upcoming dates)
+   531→  // ============================================================
+   532→  const holidayRemarks = [
+   533→    'Personal leave', 'Conference attendance', 'Medical emergency',
+   534→    'Family function', 'Vacation', 'Training program',
+   535→  ];
+   536→  for (let i = 0; i < doctors.length; i++) {
+   537→    const numHolidays = 2 + (i % 2); // 2 or 3
+   538→    for (let h = 0; h < numHolidays; h++) {
+   539→      await db.doctorHoliday.create({
+   540→        data: {
+   541→          userId: doctors[i].id,
+   542→          date: daysFromNow(10 + i * 5 + h * 3),
+   543→          remark: holidayRemarks[(i + h) % holidayRemarks.length],
+   544→        },
+   545→      });
+   546→    }
+   547→  }
+   548→  console.log('✅ Doctor holidays created (2-3 per doctor)');
+   549→
+   550→  // ============================================================
+   551→  // 9. DOCTOR MEDICINES (5-8 per doctor)
+   552→  // ============================================================
+   553→  const medicineNames = [
+   554→    'Paracetamol 500mg', 'Amoxicillin 250mg', 'Omeprazole 20mg', 'Metformin 500mg',
+   555→    'Amlodipine 5mg', 'Cetirizine 10mg', 'Ibuprofen 400mg', 'Azithromycin 500mg',
+   556→    'Pantoprazole 40mg', 'Losartan 50mg', 'Montelukast 10mg', 'Ciprofloxacin 500mg',
+   557→    'Diclofenac 50mg', 'Dolo 650', 'Allegra 120mg', 'Cetirizine 5mg',
+   558→    'Metoprolol 25mg', 'Aspirin 75mg', 'Atorvastatin 10mg', 'Pantoprazole 20mg',
+   559→  'Ranitidine 150mg', 'Domperidone 10mg', 'Cough Syrup', 'Vitamin D3 60K IU',
+   560→    'Calcium + Vitamin D3', 'Iron Supplement', 'Multivitamin', 'Antacid Gel',
+   561→    'Eye Drops', 'Ear Drops', 'Betadine Solution', 'Hydrogen Peroxide',
+   562→  ];
+   563→
+   564→  const doseOptions = ['1-0-1', '1-0-0', '0-0-1', '1-1-1', '2-1-2', '1-1-0', 'After food', 'Before food', 'SOS'];
+   565→
+   566→  for (let i = 0; i < doctors.length; i++) {
+   567→    const numMeds = 5 + (i % 4); // 5 to 8
+   568→    for (let m = 0; m < numMeds; m++) {
+   569→      const dose = doseOptions[(i + m) % doseOptions.length];
+   570→      await db.doctorMedicine.create({
+   571→        data: {
+   572→          name: medicineNames[(i * 4 + m) % medicineNames.length],
+   573→          morning: dose.includes('1') && dose[0] !== '0' ? 'After Food' : '',
+   574→          afternoon: dose.length >= 3 && dose[2] !== '0' ? 'After Food' : '',
+   575→          evening: dose.length >= 5 && dose[4] !== '0' ? 'After Food' : '',
+   576→          dose,
+   577→          tab: 1 + (m % 2),
+   578→          description: '',
+   579→          status: 'Active',
+   580→          userId: doctors[i].id,
+   581→          createdById: doctorUsers[i].id,
+   582→        },
+   583→      });
+   584→    }
+   585→  }
+   586→  console.log('✅ Doctor medicines created (5-8 per doctor)');
+   587→
+   588→  // ============================================================
+   589→  // 10. BOOKINGS (40) - 10 Pending, 8 Approve, 10 Visited, 5 Finish, 4 Canceled, 3 Extend
+   590→  // ============================================================
+   591→  const diseases = ['Fever', 'Headache & Migraine', 'Cough & Cold', 'Diabetes', 'Hypertension', 'Heart Disease', 'Skin Allergy', 'Back Pain', 'Thyroid Disorder', 'Eye Infection'];
+   592→  const descriptions = [
+   593→    'Persistent symptoms for the past 3 days', 'Recurring issue, needs follow-up',
+   594→    'Routine check-up', 'Acute pain since yesterday', 'Chronic condition management',
+   595→    'Second opinion needed', 'Post-surgery follow-up', 'New symptom appeared',
+   596→    'Seasonal allergy flare-up', 'Medication review required',
+   597→  ];
+   598→  const timeSlots = ['09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM', '02:00 PM', '02:30 PM', '03:00 PM', '03:30 PM', '04:00 PM'];
+   599→  const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+   600→
+   601→  const bookingStatuses: { status: string; count: number }[] = [
+   602→    { status: 'Pending', count: 10 },
+   603→    { status: 'Approve', count: 8 },
+   604→    { status: 'Visited', count: 10 },
+   605→    { status: 'Finish', count: 5 },
+   606→    { status: 'Canceled', count: 4 },
+   607→    { status: 'Extend', count: 3 },
+   608→  ];
+   609→
+   610→  const bookings: any[] = [];
+   611→  let aptNo = 1;
+   612→
+   613→  for (const group of bookingStatuses) {
+   614→    for (let i = 0; i < group.count; i++) {
+   615→      const doctorIdx = (aptNo - 1) % doctors.length;
+   616→      const patientIdx = (aptNo - 1) % patients.length;
+   617→      const doctor = doctors[doctorIdx];
+   618→      const patient = patients[patientIdx];
+   619→      const dayOffset = Math.floor((aptNo - 1) * 1.5);
+   620→      const bookingMode = aptNo % 3 === 0 ? 'VideoCall' : 'InPerson';
+   621→
+   622→      const booking = await db.booking.create({
+   623→        data: {
+   624→          appointmentNo: `APT-${String(aptNo).padStart(3, '0')}`,
+   625→          doctorId: doctor.id,
+   626→          userId: patient.id,
+   627→          patientName: patient.name,
+   628→          gender: patient.gender,
+   629→          age: 20 + (aptNo % 30),
+   630→          disease: diseases[aptNo % diseases.length],
+   631→          description: descriptions[aptNo % descriptions.length],
+   632→          state: doctor.state,
+   633→          city: doctor.city,
+   634→          bloodGroup: bloodGroups[aptNo % bloodGroups.length],
+   635→          weight: 50 + (aptNo % 25),
+   636→          height: 150 + (aptNo % 30),
+   637→          status: group.status,
+   638→          bookingDate: daysAgo(dayOffset),
+   639→          timeSlot: timeSlots[aptNo % timeSlots.length],
+   640→          bookingMode,
+   641→          bookingType: 'By Self',
+   642→          appointmentCharge: doctor.fees,
+   643→          videoRoomId: bookingMode === 'VideoCall' ? `room-${aptNo}-${Date.now()}` : '',
+   644→        },
+   645→      });
+   646→      bookings.push(booking);
+   647→      aptNo++;
+   648→    }
+   649→  }
+   650→  console.log('✅ 40 Bookings created (10 Pending, 8 Approve, 10 Visited, 5 Finish, 4 Canceled, 3 Extend)');
+   651→
+   652→  // ============================================================
+   653→  // 11. PRESCRIPTIONS (10) - for Visited/Finished bookings
+   654→  // ============================================================
+   655→  const visitedAndFinished = bookings.filter(
+   656→    (b) => b.status === 'Visited' || b.status === 'Finish'
+   657→  );
+   658→
+   659→  const prescriptionData = [
+   660→    { bp: '120/80 mmHg', temp: '98.6°F', weight: '68 kg', disease: 'Fever' },
+   661→    { bp: '130/85 mmHg', temp: '99.1°F', weight: '55 kg', disease: 'Headache & Migraine' },
+   662→    { bp: '110/70 mmHg', temp: '98.4°F', weight: '72 kg', disease: 'Cough & Cold' },
+   663→    { bp: '140/90 mmHg', temp: '98.8°F', weight: '80 kg', disease: 'Hypertension' },
+   664→    { bp: '125/82 mmHg', temp: '98.5°F', weight: '60 kg', disease: 'Skin Allergy' },
+   665→    { bp: '118/76 mmHg', temp: '99.0°F', weight: '65 kg', disease: 'Diabetes' },
+   666→    { bp: '135/88 mmHg', temp: '98.7°F', weight: '75 kg', disease: 'Back Pain' },
+   667→    { bp: '122/78 mmHg', temp: '98.3°F', weight: '58 kg', disease: 'Thyroid Disorder' },
+   668→    { bp: '128/84 mmHg', temp: '98.9°F', weight: '70 kg', disease: 'Heart Disease' },
+   669→    { bp: '115/75 mmHg', temp: '98.6°F', weight: '63 kg', disease: 'Eye Infection' },
+   670→  ];
+   671→
+   672→  const medSets = [
+   673→    [
+   674→      { medicine: 'Paracetamol 500mg', morning: true, afternoon: true, evening: true, tab: 1, dose: '1-1-1' },
+   675→      { medicine: 'Azithromycin 500mg', morning: true, afternoon: false, evening: false, tab: 1, dose: '1-0-0' },
+   676→      { medicine: 'Cetirizine 10mg', morning: true, afternoon: false, evening: true, tab: 1, dose: '1-0-1' },
+   677→    ],
+   678→    [
+   679→      { medicine: 'Ibuprofen 400mg', morning: true, afternoon: false, evening: true, tab: 1, dose: '1-0-1' },
+   680→      { medicine: 'Omeprazole 20mg', morning: true, afternoon: false, evening: false, tab: 1, dose: '1-0-0' },
+   681→    ],
+   682→    [
+   683→      { medicine: 'Cetirizine 10mg', morning: true, afternoon: false, evening: true, tab: 1, dose: '1-0-1' },
+   684→      { medicine: 'Cough Syrup', morning: true, afternoon: true, evening: true, tab: 2, dose: '2-2-2' },
+   685→      { medicine: 'Paracetamol 500mg', morning: true, afternoon: true, evening: false, tab: 1, dose: '1-1-0' },
+   686→      { medicine: 'Steam Inhalation', morning: true, afternoon: true, evening: true, tab: 1, dose: 'SOS' },
+   687→    ],
+   688→    [
+   689→      { medicine: 'Amlodipine 5mg', morning: true, afternoon: false, evening: false, tab: 1, dose: '1-0-0' },
+   690→      { medicine: 'Losartan 50mg', morning: false, afternoon: false, evening: true, tab: 1, dose: '0-0-1' },
+   691→      { medicine: 'Aspirin 75mg', morning: true, afternoon: false, evening: false, tab: 1, dose: '1-0-0' },
+   692→    ],
+   693→    [
+   694→      { medicine: 'Cetirizine 10mg', morning: true, afternoon: false, evening: true, tab: 1, dose: '1-0-1' },
+   695→      { medicine: 'Allegra 120mg', morning: true, afternoon: false, evening: false, tab: 1, dose: '1-0-0' },
+   696→      { medicine: 'Clobetasol Cream', morning: true, afternoon: true, evening: true, tab: 1, dose: 'Apply locally' },
+   697→    ],
+   698→    [
+   699→      { medicine: 'Metformin 500mg', morning: true, afternoon: true, evening: true, tab: 1, dose: '1-1-1' },
+   700→      { medicine: 'Vitamin D3 60K IU', morning: false, afternoon: false, evening: true, tab: 1, dose: '0-0-1 (Weekly)' },
+   701→      { medicine: 'Pantoprazole 40mg', morning: true, afternoon: false, evening: false, tab: 1, dose: '1-0-0' },
+   702→    ],
+   703→    [
+   704→      { medicine: 'Diclofenac 50mg', morning: true, afternoon: false, evening: true, tab: 1, dose: '1-0-1' },
+   705→      { medicine: 'Muscle Relaxant', morning: true, afternoon: true, evening: true, tab: 1, dose: '1-1-1' },
+   706→      { medicine: 'Calcium + Vitamin D3', morning: true, afternoon: false, evening: false, tab: 1, dose: '1-0-0' },
+   707→      { medicine: 'Pain Relief Gel', morning: true, afternoon: true, evening: true, tab: 1, dose: 'Apply locally' },
+   708→    ],
+   709→    [
+   710→      { medicine: 'Levothyroxine 50mcg', morning: true, afternoon: false, evening: false, tab: 1, dose: '1-0-0 (Empty stomach)' },
+   711→      { medicine: 'Multivitamin', morning: true, afternoon: false, evening: false, tab: 1, dose: '1-0-0' },
+   712→    ],
+   713→    [
+   714→      { medicine: 'Metoprolol 25mg', morning: true, afternoon: false, evening: true, tab: 1, dose: '1-0-1' },
+   715→      { medicine: 'Atorvastatin 10mg', morning: false, afternoon: false, evening: true, tab: 1, dose: '0-0-1' },
+   716→      { medicine: 'Aspirin 75mg', morning: true, afternoon: false, evening: false, tab: 1, dose: '1-0-0' },
+   717→      { medicine: 'Pantoprazole 20mg', morning: true, afternoon: false, evening: false, tab: 1, dose: '1-0-0' },
+   718→    ],
+   719→    [
+   720→      { medicine: 'Eye Drops', morning: true, afternoon: true, evening: true, tab: 2, dose: '2-2-2 drops' },
+   721→      { medicine: 'Antibiotic Eye Ointment', morning: false, afternoon: false, evening: true, tab: 1, dose: '0-0-1' },
+   722→      { medicine: 'Paracetamol 500mg', morning: true, afternoon: false, evening: true, tab: 1, dose: '1-0-1 SOS' },
+   723→    ],
+   724→  ];
+   725→
+   726→  const prescriptions: any[] = [];
+   727→  for (let i = 0; i < 10; i++) {
+   728→    const booking = visitedAndFinished[i];
+   729→    if (!booking) continue;
+   730→
+   731→    const pDesc = prescriptionData[i];
+   732→    const doctor = doctors.find((d) => d.id === booking.doctorId);
+   733→
+   734→    const prescription = await db.prescription.create({
+   735→      data: {
+   736→        bookingId: booking.id,
+   737→        doctorId: doctor!.id,
+   738→        patientName: booking.patientName,
+   739→        patientAge: String(booking.age),
+   740→        disease: pDesc.disease,
+   741→        weight: pDesc.weight,
+   742→        bp: pDesc.bp,
+   743→        temperature: pDesc.temp,
+   744→        description: `Follow-up in 7 days. Report immediately if symptoms worsen.`,
+   745→        medicines: {
+   746→          create: medSets[i].map((m) => ({
+   747→            medicine: m.medicine,
+   748→            morning: m.morning,
+   749→            afternoon: m.afternoon,
+   750→            evening: m.evening,
+   751→            tab: m.tab,
+   752→            dose: m.dose,
+   753→            description: '',
+   754→          })),
+   755→        },
+   756→      },
+   757→    });
+   758→    prescriptions.push(prescription);
+   759→
+   760→    // Add PLabel entries for some prescriptions
+   761→    if (i % 2 === 0) {
+   762→      await db.pLabel.createMany({
+   763→        data: [
+   764→          { prescriptionId: prescription.id, label: 'Blood Sugar (Fasting)', value: '120 mg/dL', labelUnit: 'mg/dL' },
+   765→          { prescriptionId: prescription.id, label: 'Blood Sugar (Post Meal)', value: '180 mg/dL', labelUnit: 'mg/dL' },
+   766→        ],
+   767→      });
+   768→    }
+   769→
+   770→    // Add PSuggestion entries for some prescriptions
+   771→    if (i % 3 === 0) {
+   772→      await db.pSuggestion.createMany({
+   773→        data: [
+   774→          { prescriptionId: prescription.id, question: 'Diet recommendations?', suggestions: 'Avoid oily and spicy food. Eat more fruits and vegetables.' },
+   775→          { prescriptionId: prescription.id, question: 'Exercise advice?', suggestions: 'Walk for 30 minutes daily. Avoid heavy lifting for 2 weeks.' },
+   776→        ],
+   777→      });
+   778→    }
+   779→  }
+   780→  console.log('✅ 10 Prescriptions created with PMedicine, PLabel, and PSuggestion entries');
+   781→
+   782→  // ============================================================
+   783→  // 12. DOCTOR RATINGS (10) - for Finished bookings, stars 3-5
+   784→  // ============================================================
+   785→  const finishedBookings = bookings.filter((b) => b.status === 'Finish');
+   786→  const ratingTexts = [
+   787→    'Excellent doctor! Very thorough and caring. Highly recommend.',
+   788→    'Good experience. Doctor explained everything clearly.',
+   789→    'Satisfied with the treatment. Staff was helpful.',
+   790→    'Average experience. Had to wait a bit long.',
+   791→    'Great doctor! Very knowledgeable and professional.',
+   792→    'Wonderful experience. Would definitely recommend to friends.',
+   793→    'Very good consultation. Medicines prescribed worked well.',
+   794→    'Doctor is patient and listens carefully. Recommended!',
+   795→    'Fantastic service. Quick diagnosis and effective treatment.',
+   796→    'Good doctor but the wait time could be improved.',
+   797→  ];
+   798→
+   799→  for (let i = 0; i < 10; i++) {
+   800→    const bookingIdx = i % finishedBookings.length;
+   801→    const patientIdx = (i * 3) % patients.length;
+   802→    const doctorBooking = finishedBookings[bookingIdx];
+   803→    const doctor = doctors.find((d) => d.id === doctorBooking.doctorId);
+   804→    const doctorUser = doctorUsers.find((du: any) => du.id === doctor!.userId);
+   805→
+   806→    await db.doctorRating.create({
+   807→      data: {
+   808→        patientId: patients[patientIdx].id,
+   809→        doctorId: doctorUser!.id,
+   810→        bookingId: doctorBooking.id,
+   811→        star: 3 + (i % 3), // 3, 4, or 5
+   812→        consultationRating: 3 + (i % 3),
+   813→        waitTimeRating: 3 + ((i + 1) % 3),
+   814→        staffRating: 3 + ((i + 2) % 3),
+   815→        review: ratingTexts[i],
+   816→        wouldRecommend: i % 4 !== 2,
+   817→        isAnonymous: false,
+   818→      },
+   819→    });
+   820→  }
+   821→  console.log('✅ 10 Doctor Ratings created (stars 3-5)');
+   822→
+   823→  // ============================================================
+   824→  // 13. NOTIFICATIONS (25) - mix of READ/UNREAD
+   825→  // ============================================================
+   826→  const notificationTemplates = [
+   827→    { title: 'Appointment Confirmed', message: 'Your appointment has been confirmed. Please arrive 10 minutes early.' },
+   828→    { title: 'New Appointment Booked', message: 'A new appointment has been booked by a patient.' },
+   829→    { title: 'Prescription Ready', message: 'Your prescription is ready. Please check your appointments.' },
+   830→    { title: 'Appointment Reminder', message: 'Reminder: You have an appointment scheduled for tomorrow.' },
+   831→    { title: 'Appointment Cancelled', message: 'An appointment has been cancelled by the patient.' },
+   832→    { title: 'New Feature Available', message: 'You can now upload medical documents securely.' },
+   833→    { title: 'Payment Received', message: 'Payment for your appointment has been confirmed.' },
+   834→    { title: 'Lab Results Ready', message: 'Your lab results are now available for review.' },
+   835→    { title: 'Follow-up Reminder', message: 'It\'s time for your follow-up consultation.' },
+   836→    { title: 'Profile Updated', message: 'Your profile has been updated successfully.' },
+   837→  ];
+   838→
+   839→  const allUsersForNotifications = [...patients.slice(0, 8), ...doctorUsers.slice(0, 5)];
+   840→  for (let i = 0; i < 25; i++) {
+   841→    const user = allUsersForNotifications[i % allUsersForNotifications.length];
+   842→    const tmpl = notificationTemplates[i % notificationTemplates.length];
+   843→    await db.notification.create({
+   844→      data: {
+   845→        userId: user.id,
+   846→        title: tmpl.title,
+   847→        message: tmpl.message,
+   848→        status: i % 3 === 0 ? 'READ' : 'UNREAD',
+   849→      },
+   850→    });
+   851→  }
+   852→  console.log('✅ 25 Notifications created (mix of READ/UNREAD)');
+   853→
+   854→  // ============================================================
+   855→  // 14. BLOG POSTS (7) - 5 Published, 2 Draft
+   856→  // ============================================================
+   857→  const authorUser = doctorUsers[0];
+   858→  await db.post.createMany({
+   859→    data: [
+   860→      {
+   861→        title: '10 Tips for a Healthy Heart',
+   862→        permalink: '10-tips-healthy-heart',
+   863→        content: '<p>Maintaining a healthy heart is crucial for overall well-being. Here are 10 essential tips to keep your heart in top shape.</p><h3>1. Exercise Regularly</h3><p>Aim for at least 30 minutes of moderate exercise daily.</p><h3>2. Eat a Balanced Diet</h3><p>Include fruits, vegetables, whole grains, and lean proteins.</p><h3>3. Manage Stress</h3><p>Practice meditation, yoga, or deep breathing exercises.</p>',
+   864→        type: 'Blog',
+   865→        status: 'Published',
+   866→        authorId: authorUser.id,
+   867→        blogImg: '',
+   868→      },
+   869→      {
+   870→        title: 'Understanding Diabetes: A Complete Guide',
+   871→        permalink: 'understanding-diabetes-guide',
+   872→        content: '<p>Diabetes is a chronic condition that affects millions worldwide. Understanding its types, symptoms, and management is key to living a healthy life.</p><p><strong>Type 1 Diabetes:</strong> An autoimmune condition where the body produces no insulin.</p><p><strong>Type 2 Diabetes:</strong> The body becomes resistant to insulin or doesn\'t produce enough.</p>',
+   873→        type: 'Blog',
+   874→        status: 'Published',
+   875→        authorId: authorUser.id,
+   876→        blogImg: '',
+   877→      },
+   878→      {
+   879→        title: 'New Advancements in Cardiac Surgery',
+   880→        permalink: 'advancements-cardiac-surgery-2025',
+   881→        content: '<p>Recent breakthroughs in cardiac surgery have made procedures safer and recovery faster. Minimally invasive techniques are now the standard for many heart conditions.</p><p>Robotic-assisted surgery offers precision and faster recovery times for patients.</p>',
+   882→        type: 'News',
+   883→        status: 'Published',
+   884→        authorId: doctorUsers[3].id,
+   885→        blogImg: '',
+   886→      },
+   887→      {
+   888→        title: 'Skin Care in Monsoon Season',
+   889→        permalink: 'skin-care-monsoon-season',
+   890→        content: '<p>The monsoon season brings humidity that can wreak havoc on your skin. Here are expert tips from dermatologists to keep your skin healthy during the rainy season.</p><p>Keep your skin dry, use antifungal powders, and avoid wearing wet clothes for extended periods.</p>',
+   891→        type: 'Blog',
+   892→        status: 'Published',
+   893→        authorId: doctorUsers[1].id,
+   894→        blogImg: '',
+   895→      },
+   896→      {
+   897→        title: 'Pediatric Vaccination Schedule for 2025',
+   898→        permalink: 'pediatric-vaccination-schedule-2025',
+   899→        content: '<p>Keeping your child\'s vaccinations up to date is one of the most important things you can do as a parent. Here is the latest recommended vaccination schedule.</p><p>BCG, OPV, Hepatitis B, DPT, and MMR are among the essential vaccines for children.</p>',
+   900→        type: 'Blog',
+   901→        status: 'Published',
+   902→        authorId: doctorUsers[2].id,
+   903→        blogImg: '',
+   904→      },
+   905→      {
+   906→        title: 'Debunking Common Health Myths',
+   907→        permalink: 'debunking-common-health-myths',
+   908→        content: '<p>From "cracking knuckles causes arthritis" to "sugar makes children hyper" — there are many health myths that need to be addressed with scientific evidence.</p>',
+   909→        type: 'Blog',
+   910→        status: 'Draft',
+   911→        authorId: doctorUsers[4].id,
+   912→        blogImg: '',
+   913→      },
+   914→      {
+   915→        title: 'The Future of Telemedicine in India',
+   916→        permalink: 'future-telemedicine-india',
+   917→        content: '<p>Telemedicine is transforming healthcare delivery in India. This article explores the current landscape, challenges, and future potential of remote medical consultations.</p>',
+   918→        type: 'Blog',
+   919→        status: 'Draft',
+   920→        authorId: doctorUsers[5].id,
+   921→        blogImg: '',
+   922→      },
+   923→    ],
+   924→  });
+   925→  console.log('✅ 7 Blog Posts created (5 Published, 2 Draft)');
+   926→
+   927→  // ============================================================
+   928→  // 15. CHAT MESSAGES (20) - for 5 bookings, back-and-forth
+   929→  // ============================================================
+   930→  const chatBookings = [bookings[0], bookings[5], bookings[10], bookings[20], bookings[30]]; // 5 different bookings
+   931→  const chatMessages = [
+   932→    ['Hello doctor, I have been experiencing chest pain.', 'Hi Rahul, can you describe the pain? Is it sharp or dull?'],
+   933→    ['It is a dull ache, mostly in the morning.', 'I see. Have you been under stress lately?'],
+   934→    ['Yes, work has been very stressful.', 'I recommend we do an ECG. Please book an in-person visit.'],
+   935→    ['Thank you, I will book one right away.', 'Sure, take care in the meantime.'],
+   936→  ];
+   937→
+   938→  let msgCount = 0;
+   939→  for (let c = 0; c < chatBookings.length; c++) {
+   940→    const booking = chatBookings[c];
+   941→    if (!booking || !booking.userId) continue;
+   942→    const doctor = doctors.find((d) => d.id === booking.doctorId);
+   943→    if (!doctor) continue;
+   944→    const doctorUser = doctorUsers.find((du: any) => du.id === doctor.userId);
+   945→    if (!doctorUser) continue;
+   946→
+   947→    const pairs = chatMessages[c % chatMessages.length];
+   948→    // Patient sends first
+   949→    await db.bookingChat.create({
+   950→      data: {
+   951→        bookingId: booking.id,
+   952→        fromId: booking.userId,
+   953→        toId: doctorUser.id,
+   954→        message: pairs[0],
+   955→        status: 'READ',
+   956→      },
+   957→    });
+   958→    msgCount++;
+   959→    // Doctor replies
+   960→    await db.bookingChat.create({
+   961→      data: {
+   962→        bookingId: booking.id,
+   963→        fromId: doctorUser.id,
+   964→        toId: booking.userId,
+   965→        message: pairs[1],
+   966→        status: 'READ',
+   967→      },
+   968→    });
+   969→    msgCount++;
+   970→  }
+   971→  // Add 10 more messages across other bookings for variety
+   972→  for (let i = 0; i < 10; i++) {
+   973→    const booking = bookings[1 + (i % 10)];
+   974→    if (!booking || !booking.userId) continue;
+   975→    const doctor = doctors.find((d) => d.id === booking.doctorId);
+   976→    if (!doctor) continue;
+   977→    const doctorUser = doctorUsers.find((du: any) => du.id === doctor.userId);
+   978→    if (!doctorUser) continue;
+   979→
+   980→    const isFromPatient = i % 2 === 0;
+   981→    await db.bookingChat.create({
+   982→      data: {
+   983→        bookingId: booking.id,
+   984→        fromId: isFromPatient ? booking.userId : doctorUser.id,
+   985→        toId: isFromPatient ? doctorUser.id : booking.userId,
+   986→        message: i % 2 === 0
+   987→          ? ['I need to reschedule my appointment.', 'Can I get the test reports early?', 'Is the prescribed medicine available generically?', 'I am feeling better now.', 'Thank you for the consultation!'][i % 5]
+   988→          : ['Sure, please let me know your preferred time.', 'I will check and get back to you.', 'Yes, the generic version works the same.', 'That is great to hear. Continue the medication.', 'You are welcome. Take care!'][i % 5],
+   989→        status: i < 5 ? 'READ' : 'UNREAD',
+   990→      },
+   991→    });
+   992→    msgCount++;
+   993→  }
+   994→  console.log(`✅ ${msgCount} Chat Messages created (for 5+ bookings)`);
+   995→
+   996→  // ============================================================
+   997→  // 16. MEDICAL DOCUMENTS (5) - for 3 patients
+   998→  // ============================================================
+   999→  await db.medicalDocument.createMany({
+  1000→    data: [
+  1001→      {
+  1002→        patientId: patients[0].id,
+  1003→        title: 'Blood Test Report - January 2025',
+  1004→        category: 'Lab Report',
+  1005→        fileUrl: '/documents/blood-test-p1.pdf',
+  1006→        fileName: 'blood-test-p1.pdf',
+  1007→        fileSize: 245000,
+  1008→        mimeType: 'application/pdf',
+  1009→        description: 'Complete blood count and lipid profile report',
+  1010→      },
+  1011→      {
+  1012→        patientId: patients[0].id,
+  1013→        title: 'ECG Report',
+  1014→        category: 'Imaging',
+  1015→        fileUrl: '/documents/ecg-p1.pdf',
+  1016→        fileName: 'ecg-p1.pdf',
+  1017→        fileSize: 180000,
+  1018→        mimeType: 'application/pdf',
+  1019→        description: 'Electrocardiogram report from City Diagnostics',
+  1020→      },
+  1021→      {
+  1022→        patientId: patients[1].id,
+  1023→        title: 'X-Ray - Chest',
+  1024→        category: 'Imaging',
+  1025→        fileUrl: '/documents/xray-chest-p2.pdf',
+  1026→        fileName: 'xray-chest-p2.pdf',
+  1027→        fileSize: 512000,
+  1028→        mimeType: 'application/pdf',
+  1029→        description: 'Chest X-ray report from Apollo Diagnostics',
+  1030→      },
+  1031→      {
+  1032→        patientId: patients[2].id,
+  1033→        title: 'Vaccination Record',
+  1034→        category: 'Other',
+  1035→        fileUrl: '/documents/vaccination-p3.pdf',
+  1036→        fileName: 'vaccination-p3.pdf',
+  1037→        fileSize: 89000,
+  1038→        mimeType: 'application/pdf',
+  1039→        description: 'Child vaccination record up to age 5',
+  1040→      },
+  1041→      {
+  1042→        patientId: patients[2].id,
+  1043→        title: 'Allergy Test Report',
+  1044→        category: 'Lab Report',
+  1045→        fileUrl: '/documents/allergy-test-p3.pdf',
+  1046→        fileName: 'allergy-test-p3.pdf',
+  1047→        fileSize: 320000,
+  1048→        mimeType: 'application/pdf',
+  1049→        description: 'Comprehensive allergy panel test results',
+  1050→      },
+  1051→    ],
+  1052→  });
+  1053→  console.log('✅ 5 Medical Documents created (for 3 patients)');
+  1054→
+  1055→  // ============================================================
+  1056→  // VERIFICATION
+  1057→  // ============================================================
+  1058→  console.log('\n📊 === SEED VERIFICATION ===');
+  1059→  const counts = {
+  1060→    doctors: await db.doctor.count(),
+  1061→    patients: await db.user.count({ where: { role: 'patient' } }),
+  1062→    hospitals: await db.hospital.count(),
+  1063→    receptionists: await db.receptionist.count(),
+  1064→    bookings: await db.booking.count(),
+  1065→    prescriptions: await db.prescription.count(),
+  1066→    ratings: await db.doctorRating.count(),
+  1067→    notifications: await db.notification.count(),
+  1068→    posts: await db.post.count(),
+  1069→    doctorTypeMaster: await db.doctorTypeMaster.count(),
+  1070→    diseaseMaster: await db.diseaseMaster.count(),
+  1071→    chatMessages: await db.bookingChat.count(),
+  1072→    medicalDocuments: await db.medicalDocument.count(),
+  1073→    schedules: await db.doctorSchedule.count(),
+  1074→    holidays: await db.doctorHoliday.count(),
+  1075→    doctorMedicines: await db.doctorMedicine.count(),
+  1076→  };
+  1077→  console.table(counts);
+  1078→  console.log('\n🎉 Seed completed successfully!');
+  1079→}
+  1080→
+  1081→main()
+  1082→  .catch((e) => {
+  1083→    console.error('❌ Seed failed:', e);
+  1084→    process.exit(1);
+  1085→  })
+  1086→  .finally(() => db.$disconnect());
+  1087→
