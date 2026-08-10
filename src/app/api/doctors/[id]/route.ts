@@ -9,12 +9,27 @@ export async function GET(
   const { id } = await params
 
   try {
-    const user = await db.user.findUnique({
+    // Support both User.id and Doctor.id in the URL param
+    let user = await db.user.findUnique({
       where: { id, role: 'doctor', status: 'Active' },
-      include: {
-        doctor: true,
-      },
+      include: { doctor: true },
     })
+
+    // If not found by User.id, try Doctor.id
+    if (!user || !user.doctor) {
+      const doctor = await db.doctor.findUnique({
+        where: { id },
+        include: { user: true },
+      })
+      if (doctor) {
+        user = doctor.user as any
+        // Re-query with include to get proper typing
+        user = await db.user.findUnique({
+          where: { id: doctor.userId },
+          include: { doctor: true },
+        })
+      }
+    }
 
     if (!user || !user.doctor) {
       return NextResponse.json({ error: 'Doctor not found' }, { status: 404 })

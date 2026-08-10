@@ -1670,3 +1670,24 @@ Stage Summary:
 - 1 critical cookie fix (Caddy preview panel compatibility)
 - All 7 dashboards verified working via agent-browser
 - Files changed: prisma/schema.prisma, 5 receptionist medicine routes, 2 approve/reject routes, dashboard/layout.tsx
+---
+Task ID: 15
+Agent: Main Agent
+Task: E2E Patient Flow Testing + Bug Fixes
+
+Work Log:
+- Tested patient login → dashboard loads with data (Rahul Verma, 1 notification)
+- Tested all 7 roles login successfully (patient, doctor, receptionist, hospital, assistant, pharmacist, admin)
+- Zero console errors on any dashboard
+- Found bug: `/api/doctors/[id]` expected User.id in URL but frontend sends Doctor.id → fixed to support both
+- Tested booking page: Dr. Rajesh Sharma loads correctly with calendar and schedule
+- Schedule API returns 10 time slots for Monday (09:00 AM - 01:30 PM)
+- Agent-browser can't click Framer Motion calendar buttons (known limitation)
+- Booking page architecture verified: Calendar → Date select → Time slots → Booking form → Confirm
+
+Stage Summary:
+- All 7 dashboards working after Phase 0 fixes
+- Doctor detail API fixed to accept both User.id and Doctor.id
+- Patient booking page loads correctly with doctor info and calendar
+- Full E2E flow (book → approve → queue → prescription) needs manual testing in Preview Panel
+- Files changed: src/app/api/doctors/[id]/route.ts
