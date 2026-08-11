@@ -1,0 +1,605 @@
+   623→    // === APPROVED bookings (in doctor queue) ===
+   624→    db.booking.create({
+   625→      data: {
+   626→        appointmentNo: 'APT-004',
+   627→        doctorId: docRajesh.id,
+   628→        userId: patientPriyanka.id,
+   629→        patientName: patientPriyanka.name,
+   630→        state: 'Maharashtra',
+   631→        city: 'Mumbai',
+   632→        bookingDate: d(0, 10, 0),
+   633→        disease: 'Shortness of Breath',
+   634→        description: 'Difficulty breathing during exertion for 2 weeks',
+   635→        gender: 'Female',
+   636→        age: 50,
+   637→        bloodGroup: 'AB+',
+   638→        weight: 65,
+   639→        height: 158,
+   640→        status: 'Approve',
+   641→        timeSlot: '10:00',
+   642→        bookingMode: 'InPerson',
+   643→        bookingType: 'By Self',
+   644→        appointmentCharge: 800,
+   645→      },
+   646→    }),
+   647→    db.booking.create({
+   648→      data: {
+   649→        appointmentNo: 'APT-005',
+   650→        doctorId: docPriya.id,
+   651→        userId: patientMohammed.id,
+   652→        patientName: patientMohammed.name,
+   653→        state: 'Delhi',
+   654→        city: 'Delhi',
+   655→        bookingDate: d(0, 14, 0),
+   656→        disease: 'Acne',
+   657→        description: 'Persistent acne on face and back for 6 months',
+   658→        gender: 'Male',
+   659→        age: 22,
+   660→        bloodGroup: 'B-',
+   661→        weight: 70,
+   662→        height: 178,
+   663→        status: 'Approve',
+   664→        timeSlot: '14:00',
+   665→        bookingMode: 'VideoCall',
+   666→        videoRoomId: 'room-mohammed-priya-001',
+   667→        bookingType: 'By Self',
+   668→        appointmentCharge: 600,
+   669→      },
+   670→    }),
+   671→
+   672→    // === VISITED bookings (completed with prescriptions) ===
+   673→    db.booking.create({
+   674→      data: {
+   675→        appointmentNo: 'APT-006',
+   676→        doctorId: docRajesh.id,
+   677→        userId: patientLakshmi.id,
+   678→        patientName: patientLakshmi.name,
+   679→        state: 'Maharashtra',
+   680→        city: 'Mumbai',
+   681→        bookingDate: d(-2, 9, 0),
+   682→        disease: 'Hypertension',
+   683→        description: 'High BP detected during routine checkup, headache and dizziness',
+   684→        gender: 'Female',
+   685→        age: 55,
+   686→        bloodGroup: 'O+',
+   687→        weight: 68,
+   688→        height: 155,
+   689→        status: 'Visited',
+   690→        timeSlot: '09:00',
+   691→        bookingMode: 'InPerson',
+   692→        bookingType: 'By Self',
+   693→        appointmentCharge: 800,
+   694→      },
+   695→    }),
+   696→    db.booking.create({
+   697→      data: {
+   698→        appointmentNo: 'APT-007',
+   699→        doctorId: docPriya.id,
+   700→        userId: patientRohan.id,
+   701→        patientName: patientRohan.name,
+   702→        state: 'Delhi',
+   703→        city: 'Delhi',
+   704→        bookingDate: d(-3, 11, 0),
+   705→        disease: 'Eczema',
+   706→        description: 'Dry, itchy, red patches on elbows and knees for 3 months',
+   707→        gender: 'Male',
+   708→        age: 30,
+   709→        bloodGroup: 'A-',
+   710→        weight: 75,
+   711→        height: 180,
+   712→        status: 'Visited',
+   713→        timeSlot: '11:00',
+   714→        bookingMode: 'InPerson',
+   715→        bookingType: 'By Self',
+   716→        appointmentCharge: 600,
+   717→      },
+   718→    }),
+   719→    db.booking.create({
+   720→      data: {
+   721→        appointmentNo: 'APT-008',
+   722→        doctorId: docAmit.id,
+   723→        userId: patientAnanya.id,
+   724→        patientName: patientAnanya.name,
+   725→        state: 'Maharashtra',
+   726→        city: 'Pune',
+   727→        bookingDate: d(-1, 10, 30),
+   728→        disease: 'Lower Back Pain',
+   729→        description: 'Chronic lower back pain for 6 months, radiating to left leg',
+   730→        gender: 'Female',
+   731→        age: 40,
+   732→        bloodGroup: 'B+',
+   733→        weight: 62,
+   734→        height: 165,
+   735→        status: 'Visited',
+   736→        timeSlot: '10:30',
+   737→        bookingMode: 'InPerson',
+   738→        bookingType: 'By Self',
+   739→        appointmentCharge: 1000,
+   740→      },
+   741→    }),
+   742→
+   743→    // === FINISHED bookings ===
+   744→    db.booking.create({
+   745→      data: {
+   746→        appointmentNo: 'APT-009',
+   747→        doctorId: docRajesh.id,
+   748→        userId: patientRahul.id,
+   749→        patientName: patientRahul.name,
+   750→        state: 'Maharashtra',
+   751→        city: 'Mumbai',
+   752→        bookingDate: d(-7, 10, 0),
+   753→        disease: 'Palpitations',
+   754→        description: 'Irregular heartbeat sensation, especially at night',
+   755→        gender: 'Male',
+   756→        age: 35,
+   757→        bloodGroup: 'B+',
+   758→        weight: 72,
+   759→        height: 170,
+   760→        status: 'Finish',
+   761→        timeSlot: '10:00',
+   762→        bookingMode: 'InPerson',
+   763→        bookingType: 'By Self',
+   764→        appointmentCharge: 800,
+   765→      },
+   766→    }),
+   767→
+   768→    // === CANCELED bookings ===
+   769→    db.booking.create({
+   770→      data: {
+   771→        appointmentNo: 'APT-010',
+   772→        doctorId: docRajesh.id,
+   773→        userId: patientSneha.id,
+   774→        patientName: patientSneha.name,
+   775→        state: 'Delhi',
+   776→        city: 'Delhi',
+   777→        bookingDate: d(-5, 9, 30),
+   778→        disease: 'Dizziness',
+   779→        description: 'Frequent dizzy spells in the morning',
+   780→        gender: 'Female',
+   781→        age: 28,
+   782→        bloodGroup: 'O+',
+   783→        status: 'Canceled',
+   784→        timeSlot: '09:30',
+   785→        bookingMode: 'InPerson',
+   786→        bookingType: 'By Self',
+   787→        appointmentCharge: 800,
+   788→      },
+   789→    }),
+   790→
+   791→    // === WALK-IN booking (no userId) ===
+   792→    db.booking.create({
+   793→      data: {
+   794→        appointmentNo: 'APT-011',
+   795→        doctorId: docRajesh.id,
+   796→        userId: null,
+   797→        patientName: 'Suresh Pandey',
+   798→        state: 'Maharashtra',
+   799→        city: 'Mumbai',
+   800→        bookingDate: d(0, 11, 0),
+   801→        disease: 'Fever',
+   802→        description: 'High fever since yesterday evening, body ache',
+   803→        gender: 'Male',
+   804→        age: 42,
+   805→        bloodGroup: 'AB-',
+   806→        weight: 78,
+   807→        height: 172,
+   808→        status: 'Approve',
+   809→        timeSlot: '11:00',
+   810→        bookingMode: 'InPerson',
+   811→        bookingType: 'By Receptionist',
+   812→        appointmentCharge: 800,
+   813→      },
+   814→    }),
+   815→  ]);
+   816→  console.log(`✅ Created ${bookings.length} bookings (3 Pending, 3 Approved, 3 Visited, 1 Finish, 1 Canceled, 1 Walk-in)`);
+   817→
+   818→  // =============================================
+   819→  // 14. PRESCRIPTIONS (for Visited bookings)
+   820→  // =============================================
+   821→  console.log('\n📝 Creating Prescriptions...');
+   822→
+   823→  const bookingLakshmi = bookings[5]; // APT-006 Visited
+   824→  const bookingRohan = bookings[6];   // APT-007 Visited
+   825→  const bookingAnanya = bookings[7];  // APT-008 Visited
+   826→  const bookingRahulFinish = bookings[8]; // APT-009 Finish
+   827→
+   828→  const prescriptions = await db.$transaction([
+   829→    // Prescription for Lakshmi (Dr. Rajesh - Hypertension)
+   830→    db.prescription.create({
+   831→      data: {
+   832→        bookingId: bookingLakshmi.id,
+   833→        doctorId: docRajesh.id,
+   834→        patientName: 'Lakshmi Nair',
+   835→        patientAge: '55',
+   836→        disease: 'Hypertension',
+   837→        weight: '68 kg',
+   838→        bp: '160/100 mmHg',
+   839→        temperature: '98.6°F',
+   840→        description: 'Essential hypertension. Start with combination therapy. Monitor BP at home daily. Follow-up after 2 weeks.',
+   841→      },
+   842→    }),
+   843→    // Prescription for Rohan (Dr. Priya - Eczema)
+   844→    db.prescription.create({
+   845→      data: {
+   846→        bookingId: bookingRohan.id,
+   847→        doctorId: docPriya.id,
+   848→        patientName: 'Rohan Kulkarni',
+   849→        patientAge: '30',
+   850→        disease: 'Eczema',
+   851→        weight: '75 kg',
+   852→        bp: '120/80 mmHg',
+   853→        temperature: '98.4°F',
+   854→        description: 'Chronic eczema with flare-up. Avoid hot water baths. Use moisturizer frequently. Follow-up in 3 weeks.',
+   855→      },
+   856→    }),
+   857→    // Prescription for Ananya (Dr. Amit - Lower Back Pain)
+   858→    db.prescription.create({
+   859→      data: {
+   860→        bookingId: bookingAnanya.id,
+   861→        doctorId: docAmit.id,
+   862→        patientName: 'Ananya Bose',
+   863→        patientAge: '40',
+   864→        disease: 'Lower Back Pain with Sciatica',
+   865→        weight: '62 kg',
+   866→        bp: '118/76 mmHg',
+   867→        temperature: '98.6°F',
+   868→        description: 'L4-L5 disc herniation suspected. MRI recommended. Physiotherapy for 4 weeks. Avoid heavy lifting. Review with MRI report.',
+   869→      },
+   870→    }),
+   871→    // Prescription for Rahul (Dr. Rajesh - Palpitations, Finished)
+   872→    db.prescription.create({
+   873→      data: {
+   874→        bookingId: bookingRahulFinish.id,
+   875→        doctorId: docRajesh.id,
+   876→        patientName: 'Rahul Verma',
+   877→        patientAge: '35',
+   878→        disease: 'Palpitations - Anxiety related',
+   879→        weight: '72 kg',
+   880→        bp: '130/85 mmHg',
+   881→        temperature: '98.4°F',
+   882→        description: 'Sinus tachycardia, likely anxiety-related. ECG normal. Reduce caffeine. Practice breathing exercises. Follow-up in 1 month.',
+   883→      },
+   884→    }),
+   885→  ]);
+   886→  console.log(`✅ Created ${prescriptions.length} prescriptions`);
+   887→
+   888→  // Prescription medicines
+   889→  console.log('\n💊 Adding Prescription medicines...');
+   890→
+   891→  await db.$transaction([
+   892→    // For Lakshmi (Hypertension)
+   893→    ...[
+   894→      { prescriptionId: prescriptions[0].id, medicine: 'Amlodipine 5mg', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily morning', description: 'Take after breakfast' },
+   895→      { prescriptionId: prescriptions[0].id, medicine: 'Metoprolol 25mg', morning: true, afternoon: true, evening: false, tab: 1, dose: 'Twice daily', description: 'Monitor heart rate' },
+   896→      { prescriptionId: prescriptions[0].id, medicine: 'Aspirin 75mg', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily', description: 'Blood thinner' },
+   897→    ].map(m => db.pMedicine.create({ data: { ...m, createdById: byEmail('rajesh@doctorooms.com').id } })),
+   898→
+   899→    // For Rohan (Eczema)
+   900→    ...[
+   901→      { prescriptionId: prescriptions[1].id, medicine: 'Betamethasone 0.1% Cream', morning: true, afternoon: true, evening: true, tab: 1, dose: 'Apply twice daily on affected areas', description: 'Thin layer only, for 2 weeks max' },
+   902→      { prescriptionId: prescriptions[1].id, medicine: 'Cetirizine 10mg', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily at night', description: 'For itching relief' },
+   903→      { prescriptionId: prescriptions[1].id, medicine: 'Moisturizer (Ceramide-based)', morning: true, afternoon: true, evening: true, tab: 1, dose: 'Apply liberally 3-4 times daily', description: 'CeraVe or equivalent' },
+   904→    ].map(m => db.pMedicine.create({ data: { ...m, createdById: byEmail('priya@doctorooms.com').id } })),
+   905→
+   906→    // For Ananya (Lower Back Pain)
+   907→    ...[
+   908→      { prescriptionId: prescriptions[2].id, medicine: 'Ibuprofen 400mg', morning: true, afternoon: true, evening: true, tab: 1, dose: '3 times daily with food', description: 'For 5 days only' },
+   909→      { prescriptionId: prescriptions[2].id, medicine: 'Pantoprazole 40mg', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily before breakfast', description: 'Gastroprotection' },
+   910→      { prescriptionId: prescriptions[2].id, medicine: 'Thiocolchicoside 8mg', morning: true, afternoon: true, evening: false, tab: 1, dose: 'Twice daily for muscle spasm', description: 'For 7 days' },
+   911→      { prescriptionId: prescriptions[2].id, medicine: 'Calcium + D3 Tablet', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily', description: 'Long term supplement' },
+   912→    ].map(m => db.pMedicine.create({ data: { ...m, createdById: byEmail('amit@doctorooms.com').id } })),
+   913→
+   914→    // For Rahul (Palpitations)
+   915→    ...[
+   916→      { prescriptionId: prescriptions[3].id, medicine: 'Propranolol 20mg', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily morning', description: 'Beta blocker for palpitations' },
+   917→    ].map(m => db.pMedicine.create({ data: { ...m, createdById: byEmail('rajesh@doctorooms.com').id } })),
+   918→  ]);
+   919→
+   920→  // Prescription labels
+   921→  const labelData = [
+   922→    // Lakshmi labels
+   923→    { prescriptionId: prescriptions[0].id, label: 'BP (mmHg)', value: '160/100', labelUnit: 'mmHg', createdById: byEmail('rajesh@doctorooms.com').id },
+   924→    { prescriptionId: prescriptions[0].id, label: 'Pulse (/min)', value: '88', labelUnit: '/min', createdById: byEmail('rajesh@doctorooms.com').id },
+   925→    { prescriptionId: prescriptions[0].id, label: 'Weight (kg)', value: '68', labelUnit: 'kg', createdById: byEmail('rajesh@doctorooms.com').id },
+   926→    { prescriptionId: prescriptions[0].id, label: 'Blood Sugar (mg/dL)', value: '125', labelUnit: 'mg/dL', createdById: byEmail('rajesh@doctorooms.com').id },
+   927→    // Rohan labels
+   928→    { prescriptionId: prescriptions[1].id, label: 'Skin Type', value: 'Dry-Sensitive', labelUnit: '', createdById: byEmail('priya@doctorooms.com').id },
+   929→    { prescriptionId: prescriptions[1].id, label: 'Allergy History', value: 'Dust mite allergy', labelUnit: '', createdById: byEmail('priya@doctorooms.com').id },
+   930→    // Ananya labels
+   931→    { prescriptionId: prescriptions[2].id, label: 'Pain Scale (1-10)', value: '7', labelUnit: '/10', createdById: byEmail('amit@doctorooms.com').id },
+   932→    { prescriptionId: prescriptions[2].id, label: 'Range of Motion', value: 'Limited flexion', labelUnit: '', createdById: byEmail('amit@doctorooms.com').id },
+   933→    { prescriptionId: prescriptions[2].id, label: 'Tenderness', value: 'L4-L5 positive', labelUnit: '', createdById: byEmail('amit@doctorooms.com').id },
+   934→    // Rahul labels
+   935→    { prescriptionId: prescriptions[3].id, label: 'BP (mmHg)', value: '130/85', labelUnit: 'mmHg', createdById: byEmail('rajesh@doctorooms.com').id },
+   936→    { prescriptionId: prescriptions[3].id, label: 'Pulse (/min)', value: '92', labelUnit: '/min', createdById: byEmail('rajesh@doctorooms.com').id },
+   937→  ];
+   938→
+   939→  await db.$transaction(labelData.map((item) => db.pLabel.create({ data: item })));
+   940→
+   941→  // Prescription suggestions
+   942→  const suggestionData = [
+   943→    { prescriptionId: prescriptions[0].id, question: 'Reduce salt intake to <5g/day', suggestions: 'Avoid processed foods, pickles, papad', createdById: byEmail('rajesh@doctorooms.com').id },
+   944→    { prescriptionId: prescriptions[0].id, question: 'Exercise regularly', suggestions: '30 min brisk walk daily, avoid heavy weights', createdById: byEmail('rajesh@doctorooms.com').id },
+   945→    { prescriptionId: prescriptions[1].id, question: 'Skincare routine', suggestions: 'Lukewarm baths, pat dry, apply moisturizer within 3 min', createdById: byEmail('priya@doctorooms.com').id },
+   946→    { prescriptionId: prescriptions[1].id, question: 'Avoid triggers', suggestions: 'Avoid woolen clothes, harsh soaps, extreme temperatures', createdById: byEmail('priya@doctorooms.com').id },
+   947→    { prescriptionId: prescriptions[2].id, question: 'Physiotherapy', suggestions: 'Core strengthening, hamstring stretches, hot fomentation', createdById: byEmail('amit@doctorooms.com').id },
+   948→    { prescriptionId: prescriptions[2].id, question: 'Posture correction', suggestions: 'Ergonomic chair, avoid sitting >30 min, use lumbar support', createdById: byEmail('amit@doctorooms.com').id },
+   949→    { prescriptionId: prescriptions[3].id, question: 'Lifestyle changes', suggestions: 'Reduce caffeine to 1 cup/day, practice 4-7-8 breathing, sleep 7-8 hrs', createdById: byEmail('rajesh@doctorooms.com').id },
+   950→  ];
+   951→  await db.$transaction(suggestionData.map((item) => db.pSuggestion.create({ data: item })));
+   952→
+   953→  // Diagnosis tables
+   954→  await db.$transaction([
+   955→    db.pDignoTable.create({
+   956→      data: {
+   957→        prescriptionId: prescriptions[0].id,
+   958→        rows: 3, cols: 2,
+   959→        headerLabel: JSON.stringify(['Test', 'Result']),
+   960→        colsLabel: JSON.stringify(['ECG', 'Normal sinus rhythm']),
+   961→        footerLabel: JSON.stringify(['Chest X-Ray', 'Normal']),
+   962→        extraLabel: 'Blood report awaited',
+   963→        createdById: byEmail('rajesh@doctorooms.com').id,
+   964→      },
+   965→    }),
+   966→    db.pDignoTable.create({
+   967→      data: {
+   968→        prescriptionId: prescriptions[2].id,
+   969→        rows: 3, cols: 2,
+   970→        headerLabel: JSON.stringify(['Investigation', 'Finding']),
+   971→        colsLabel: JSON.stringify(['X-Ray LS Spine', 'Reduced L4-L5 disc space']),
+   972→        footerLabel: JSON.stringify(['MRI LS Spine', 'Recommended']),
+   973→        extraLabel: 'MRI to confirm disc herniation',
+   974→        createdById: byEmail('amit@doctorooms.com').id,
+   975→      },
+   976→    }),
+   977→  ]);
+   978→  console.log('✅ Created prescription items (11 medicines, 11 labels, 7 suggestions, 2 diagnosis tables)');
+   979→
+   980→  // =============================================
+   981→  // 15. RATINGS
+   982→  // =============================================
+   983→  console.log('\n⭐ Creating Doctor ratings...');
+   984→
+   985→  await db.$transaction([
+   986→    db.doctorRating.create({
+   987→      data: {
+   988→        patientId: patientRahul.id,
+   989→        doctorId: byEmail('rajesh@doctorooms.com').id,
+   990→        bookingId: bookingRahulFinish.id,
+   991→        star: 5,
+   992→        consultationRating: 5,
+   993→        waitTimeRating: 4,
+   994→        staffRating: 5,
+   995→        review: 'Excellent doctor! Very thorough and patient. Explained everything clearly.',
+   996→        wouldRecommend: true,
+   997→        isAnonymous: false,
+   998→      },
+   999→    }),
+  1000→    db.doctorRating.create({
+  1001→      data: {
+  1002→        patientId: patientLakshmi.id,
+  1003→        doctorId: byEmail('rajesh@doctorooms.com').id,
+  1004→        bookingId: bookingLakshmi.id,
+  1005→        star: 4,
+  1006→        consultationRating: 5,
+  1007→        waitTimeRating: 3,
+  1008→        staffRating: 4,
+  1009→        review: 'Very knowledgeable. Slightly long wait but worth it.',
+  1010→        wouldRecommend: true,
+  1011→        isAnonymous: false,
+  1012→      },
+  1013→    }),
+  1014→    db.doctorRating.create({
+  1015→      data: {
+  1016→        patientId: patientRohan.id,
+  1017→        doctorId: byEmail('priya@doctorooms.com').id,
+  1018→        bookingId: bookingRohan.id,
+  1019→        star: 4,
+  1020→        consultationRating: 4,
+  1021→        waitTimeRating: 5,
+  1022→        staffRating: 4,
+  1023→        review: 'Good treatment. Skin is already improving.',
+  1024→        wouldRecommend: true,
+  1025→        isAnonymous: false,
+  1026→      },
+  1027→    }),
+  1028→    db.doctorRating.create({
+  1029→      data: {
+  1030→        patientId: patientAnanya.id,
+  1031→        doctorId: byEmail('amit@doctorooms.com').id,
+  1032→        bookingId: bookingAnanya.id,
+  1033→        star: 5,
+  1034→        consultationRating: 5,
+  1035→        waitTimeRating: 4,
+  1036→        staffRating: 5,
+  1037→        review: 'Dr. Amit is amazing! Very caring and explained the MRI need clearly.',
+  1038→        wouldRecommend: true,
+  1039→        isAnonymous: false,
+  1040→      },
+  1041→    }),
+  1042→  ]);
+  1043→  console.log('✅ Created 4 doctor ratings');
+  1044→
+  1045→  // =============================================
+  1046→  // 16. NOTIFICATIONS
+  1047→  // =============================================
+  1048→  console.log('\n🔔 Creating Notifications...');
+  1049→
+  1050→  await db.$transaction([
+  1051→    // For Rahul - booking pending
+  1052→    db.notification.create({ data: { userId: patientRahul.id, title: 'Appointment Booked', message: 'Your appointment with Dr. Rajesh Sharma is pending approval. You will be notified once confirmed.', status: 'UNREAD' } }),
+  1053→    // For Sneha - booking pending
+  1054→    db.notification.create({ data: { userId: patientSneha.id, title: 'Appointment Booked', message: 'Your appointment with Dr. Priya Singh is pending approval.', status: 'UNREAD' } }),
+  1055→    // For Arjun - booking pending
+  1056→    db.notification.create({ data: { userId: patientArjun.id, title: 'Appointment Booked', message: 'Your appointment with Dr. Amit Patel is pending approval.', status: 'UNREAD' } }),
+  1057→    // For Priyanka - booking approved
+  1058→    db.notification.create({ data: { userId: patientPriyanka.id, title: 'Appointment Approved', message: 'Your appointment with Dr. Rajesh Sharma has been approved. Please arrive 15 minutes early.', status: 'UNREAD' } }),
+  1059→    // For Mohammed - booking approved
+  1060→    db.notification.create({ data: { userId: patientMohammed.id, title: 'Appointment Approved', message: 'Your video consultation with Dr. Priya Singh is approved. Link will be shared before the appointment.', status: 'UNREAD' } }),
+  1061→    // For Lakshmi - prescription ready
+  1062→    db.notification.create({ data: { userId: patientLakshmi.id, title: 'Prescription Ready', message: 'Your prescription from Dr. Rajesh Sharma is ready. Please collect your medicines from the pharmacy.', status: 'READ' } }),
+  1063→    // For Rohan - prescription ready
+  1064→    db.notification.create({ data: { userId: patientRohan.id, title: 'Prescription Ready', message: 'Your prescription from Dr. Priya Singh is ready.', status: 'READ' } }),
+  1065→    // For Ananya - prescription ready
+  1066→    db.notification.create({ data: { userId: patientAnanya.id, title: 'Prescription Ready', message: 'Your prescription from Dr. Amit Patel is ready. MRI has been recommended.', status: 'READ' } }),
+  1067→    // For Dr. Rajesh - new pending bookings
+  1068→    db.notification.create({ data: { userId: byEmail('rajesh@doctorooms.com').id, title: 'New Booking Request', message: 'Rahul Verma has booked an appointment for tomorrow 9:30 AM. Awaiting receptionist approval.', status: 'UNREAD' } }),
+  1069→    db.notification.create({ data: { userId: byEmail('rajesh@doctorooms.com').id, title: 'Walk-in Patient', message: 'Suresh Pandey (walk-in) has been added to your queue for today 11:00 AM.', status: 'UNREAD' } }),
+  1070→    // For receptionist Meera - pending approvals
+  1071→    db.notification.create({ data: { userId: byEmail('meera@doctorooms.com').id, title: 'Pending Approvals', message: 'You have 1 pending appointment request from Rahul Verma. Please review and approve.', status: 'UNREAD' } }),
+  1072→    // For receptionist Pooja - pending approvals
+  1073→    db.notification.create({ data: { userId: byEmail('pooja@doctorooms.com').id, title: 'Pending Approvals', message: 'You have 1 pending appointment request from Sneha Reddy. Please review.', status: 'UNREAD' } }),
+  1074→    // For receptionist Ritu - pending approvals
+  1075→    db.notification.create({ data: { userId: byEmail('ritu@doctorooms.com').id, title: 'Pending Approvals', message: 'You have 1 pending appointment request from Arjun Mehta. Please review.', status: 'UNREAD' } }),
+  1076→  ]);
+  1077→  console.log('✅ Created 13 notifications');
+  1078→
+  1079→  // =============================================
+  1080→  // 17. BLOG POSTS
+  1081→  // =============================================
+  1082→  console.log('\n📰 Creating Blog posts...');
+  1083→
+  1084→  await db.$transaction([
+  1085→    db.post.create({
+  1086→      data: {
+  1087→        title: '10 Tips for a Healthy Heart',
+  1088→        permalink: '10-tips-healthy-heart',
+  1089→        content: 'Heart disease is the leading cause of death globally. Here are 10 practical tips to keep your heart healthy: 1. Exercise regularly, 2. Eat a balanced diet, 3. Quit smoking, 4. Manage stress, 5. Get enough sleep, 6. Monitor blood pressure, 7. Control cholesterol, 8. Maintain healthy weight, 9. Limit alcohol, 10. Get regular checkups.',
+  1090→        blogImg: '/img/blog-heart-health.jpg',
+  1091→        type: 'Blog',
+  1092→        status: 'Published',
+  1093→        authorId: byEmail('rajesh@doctorooms.com').id,
+  1094→      },
+  1095→    }),
+  1096→    db.post.create({
+  1097→      data: {
+  1098→        title: 'Understanding Eczema: Causes and Treatment',
+  1099→        permalink: 'understanding-eczema',
+  1100→        content: 'Eczema is a chronic skin condition that affects millions. Learn about the causes, triggers, and latest treatment options including topical steroids, immunomodulators, and biologics.',
+  1101→        blogImg: '/img/blog-eczema.jpg',
+  1102→        type: 'Blog',
+  1103→        status: 'Published',
+  1104→        authorId: byEmail('priya@doctorooms.com').id,
+  1105→      },
+  1106→    }),
+  1107→    db.post.create({
+  1108→      data: {
+  1109→        title: 'When to See an Orthopedic Doctor',
+  1110→        permalink: 'when-to-see-orthopedic',
+  1111→        content: 'Many people ignore joint pain until it becomes severe. Learn the warning signs that indicate you should consult an orthopedic specialist: persistent pain, swelling, reduced mobility, joint instability, and pain that interferes with daily activities.',
+  1112→        blogImg: '/img/blog-ortho.jpg',
+  1113→        type: 'Blog',
+  1114→        status: 'Draft',
+  1115→        authorId: byEmail('amit@doctorooms.com').id,
+  1116→      },
+  1117→    }),
+  1118→    db.post.create({
+  1119→      data: {
+  1120→        title: 'New Cardiac Treatment Guidelines Released',
+  1121→        permalink: 'new-cardiac-guidelines-2025',
+  1122→        content: 'The American Heart Association has released updated guidelines for cardiac treatment. Key changes include new blood pressure targets and revised recommendations for statin therapy.',
+  1123→        type: 'News',
+  1124→        status: 'Published',
+  1125→        authorId: byEmail('rajesh@doctorooms.com').id,
+  1126→      },
+  1127→    }),
+  1128→  ]);
+  1129→  console.log('✅ Created 4 blog posts');
+  1130→
+  1131→  // =============================================
+  1132→  // 18. SLIDERS
+  1133→  // =============================================
+  1134→  console.log('\n🖼️ Creating Sliders...');
+  1135→
+  1136→  await db.$transaction([
+  1137→    db.slider.create({ data: { sliderImage: '/img/slider1.jpg', position: 1, status: 'Active', title: 'Book Doctor Appointments Online', subtitle: 'Skip the queue, book from home', link: '/dashboard/patient' } }),
+  1138→    db.slider.create({ data: { sliderImage: '/img/slider2.jpg', position: 2, status: 'Active', title: 'Expert Doctors Near You', subtitle: 'Find specialists in your city', link: '/search' } }),
+  1139→    db.slider.create({ data: { sliderImage: '/img/slider3.jpg', position: 3, status: 'Active', title: 'Video Consultations Available', subtitle: 'Consult doctors from the comfort of your home', link: '/dashboard/patient' } }),
+  1140→  ]);
+  1141→  console.log('✅ Created 3 sliders');
+  1142→
+  1143→  // =============================================
+  1144→  // 19. HOSPITAL INQUIRIES
+  1145→  // =============================================
+  1146→  console.log('\n📬 Creating Hospital inquiries...');
+  1147→
+  1148→  await db.$transaction([
+  1149→    db.hospitalInquiry.create({
+  1150→      data: {
+  1151→        name: 'Vikram Singh',
+  1152→        email: 'vikram.singh@email.com',
+  1153→        phone: '9800000100',
+  1154→        subject: 'Cardiology Department Timing',
+  1155→        message: 'What are the OPD timings for the cardiology department? I want to visit for my father\'s follow-up.',
+  1156→        status: 'Pending',
+  1157→        userId: null,
+  1158→      },
+  1159→    }),
+  1160→    db.hospitalInquiry.create({
+  1161→      data: {
+  1162→        name: 'Rahul Verma',
+  1163→        email: 'rahul@patient.com',
+  1164→        phone: '9800000001',
+  1165→        subject: 'Insurance Empanelment',
+  1166→        message: 'Do you accept Star Health Insurance for cardiac procedures?',
+  1167→        status: 'Pending',
+  1168→        userId: patientRahul.id,
+  1169→      },
+  1170→    }),
+  1171→  ]);
+  1172→  console.log('✅ Created 2 hospital inquiries');
+  1173→
+  1174→  // =============================================
+  1175→  // 20. MEDICAL DOCUMENTS (for patients)
+  1176→  // =============================================
+  1177→  console.log('\n📁 Creating Medical documents...');
+  1178→
+  1179→  await db.$transaction([
+  1180→    db.medicalDocument.create({ data: { patientId: patientLakshmi.id, title: 'Blood Report - June 2025', category: 'Lab Report', fileUrl: '/docs/lakshmi_blood_june2025.pdf', fileName: 'blood_report_june2025.pdf', fileSize: 245000, mimeType: 'application/pdf', description: 'Complete blood count and lipid profile' } }),
+  1181→    db.medicalDocument.create({ data: { patientId: patientLakshmi.id, title: 'ECG Report', category: 'Test Report', fileUrl: '/docs/lakshmi_ecg.pdf', fileName: 'ecg_report.pdf', fileSize: 180000, mimeType: 'application/pdf', description: '12-lead ECG, normal sinus rhythm' } }),
+  1182→    db.medicalDocument.create({ data: { patientId: patientAnanya.id, title: 'X-Ray LS Spine', category: 'Imaging', fileUrl: '/docs/ananya_xray_ls.pdf', fileName: 'xray_ls_spine.pdf', fileSize: 520000, mimeType: 'application/pdf', description: 'X-ray showing reduced L4-L5 disc space' } }),
+  1183→    db.medicalDocument.create({ data: { patientId: patientRahul.id, title: 'Previous Prescription', category: 'Prescription', fileUrl: '/docs/rahul_prev_rx.pdf', fileName: 'prev_prescription.pdf', fileSize: 120000, mimeType: 'application/pdf', description: 'Prescription from last visit' } }),
+  1184→    db.medicalDocument.create({ data: { patientId: patientRohan.id, title: 'Skin Allergy Test', category: 'Lab Report', fileUrl: '/docs/rohan_allergy_test.pdf', fileName: 'allergy_test.pdf', fileSize: 310000, mimeType: 'application/pdf', description: 'Patch test results showing dust mite allergy' } }),
+  1185→  ]);
+  1186→  console.log('✅ Created 5 medical documents');
+  1187→
+  1188→  // =============================================
+  1189→  // 21. CHAT MESSAGES (for active bookings)
+  1190→  // =============================================
+  1191→  console.log('\n💬 Creating Chat messages...');
+  1192→
+  1193→  await db.$transaction([
+  1194→    // Chat between Priyanka and Dr. Rajesh receptionist for approved booking
+  1195→    db.bookingChat.create({ data: { bookingId: bookings[3].id, fromId: patientPriyanka.id, toId: byEmail('meera@doctorooms.com').id, message: 'Hi, I have uploaded my previous reports. Can you confirm my appointment?', status: 'READ' } }),
+  1196→    db.bookingChat.create({ data: { bookingId: bookings[3].id, fromId: byEmail('meera@doctorooms.com').id, toId: patientPriyanka.id, message: 'Yes, your appointment is confirmed for today at 10:00 AM. Please bring your ID and insurance card.', status: 'READ' } }),
+  1197→    db.bookingChat.create({ data: { bookingId: bookings[3].id, fromId: patientPriyanka.id, toId: byEmail('meera@doctorooms.com').id, message: 'Thank you! I will be there on time.', status: 'READ' } }),
+  1198→  ]);
+  1199→  console.log('✅ Created 3 chat messages');
+  1200→
+  1201→  // =============================================
+  1202→  // DONE!
+  1203→  // =============================================
+  1204→  console.log('\n🎉 ============================================');
+  1205→  console.log('   SEEDING COMPLETE!');
+  1206→  console.log('   ============================================');
+  1207→  console.log(`   Users:            25 (1 admin + 2 hospitals + 4 doctors + 3 receptionists + 3 assistants + 3 pharmacists + 8 patients + 2 pending patients + 1 blocked)`);
+  1208→  console.log(`   Doctors:          3 (with full profiles)`);
+  1209→  console.log(`   Doctor Teams:     9 (receptionist + assistant + pharmacist per doctor)`);
+  1210→  console.log(`   Schedules:        20 (across all doctors)`);
+  1211→  console.log(`   Medicines:        21 (doctor-specific)`);
+  1212→  console.log(`   Bookings:         11 (3 Pending, 3 Approved, 3 Visited, 1 Finish, 1 Canceled, 1 Walk-in)`);
+  1213→  console.log(`   Prescriptions:    4 (with medicines, labels, suggestions, diagnosis tables)`);
+  1214→  console.log(`   Ratings:          4`);
+  1215→  console.log(`   Notifications:    13`);
+  1216→  console.log(`   Blog Posts:       4`);
+  1217→  console.log(`   Disease Masters:  20`);
+  1218→  console.log(`   Doctor Types:     15`);
+  1219→  console.log(`   Medical Docs:     5`);
+  1220→  console.log(`   Chat Messages:    3`);
+  1221→  console.log('   ============================================\n');
+  1222→}
+  1223→
+  1224→main()
+  1225→  .catch(e => { console.error('❌ Seed error:', e); process.exit(1); })
+  1226→  .finally(() => db.$disconnect());
+  1227→

@@ -55,6 +55,28 @@ async function main() {
     return dt;
   };
 
+  // Helper: next occurrence of a specific day name (e.g. 'Monday'), minDaysFromNow=0 means today+ is OK
+  const nextDay = (dayName: string, hour = 10, min = 0, minDaysFromNow = 0) => {
+    const dayMap: Record<string, number> = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
+    const target = dayMap[dayName];
+    const current = today.getDay();
+    let diff = target - current;
+    if (diff < 0) diff += 7;
+    while (diff < minDaysFromNow) diff += 7;
+    return d(diff, hour, min);
+  };
+
+  // Helper: previous occurrence of a specific day name (N weeks back)
+  const prevDay = (dayName: string, hour = 10, min = 0, weeksBack = 1) => {
+    const dayMap: Record<string, number> = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
+    const target = dayMap[dayName];
+    const current = today.getDay();
+    let diff = target - current;
+    if (diff > 0) diff -= 7;
+    diff -= (weeksBack - 1) * 7;
+    return d(diff, hour, min);
+  };
+
   // =============================================
   // 1. USERS (33 total across 7 roles)
   // =============================================
@@ -289,7 +311,7 @@ async function main() {
     db.doctorSchedule.create({ data: { doctorId: docAmit.id, day: 'Thursday', startTime: '09:00', endTime: '15:00', slotDuration: 30, timeSlots: JSON.stringify(['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30']) } }),
     db.doctorSchedule.create({ data: { doctorId: docAmit.id, day: 'Saturday', startTime: '09:00', endTime: '13:00', slotDuration: 30, timeSlots: JSON.stringify(['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30']) } }),
   ]);
-  console.log('✅ Created 20 doctor schedules');
+  console.log('✅ Created 14 doctor schedules');
 
   // =============================================
   // 6. DOCTOR HOLIDAYS
@@ -297,10 +319,10 @@ async function main() {
   console.log('\n🏖️ Creating Doctor holidays...');
 
   await db.$transaction([
-    db.doctorHoliday.create({ data: { userId: docRajesh.id, date: d(7, 0, 0), remark: 'Personal leave' } }),
-    db.doctorHoliday.create({ data: { userId: docRajesh.id, date: d(14, 0, 0), remark: 'Conference - Cardiology Summit 2025' } }),
-    db.doctorHoliday.create({ data: { userId: docPriya.id, date: d(10, 0, 0), remark: 'Medical workshop' } }),
-    db.doctorHoliday.create({ data: { userId: docAmit.id, date: d(5, 0, 0), remark: 'Surgery day - no OPD' } }),
+    db.doctorHoliday.create({ data: { userId: docRajesh.id, date: nextDay('Monday', 0, 0, 7), remark: 'Personal leave' } }),
+    db.doctorHoliday.create({ data: { userId: docRajesh.id, date: nextDay('Wednesday', 0, 0, 14), remark: 'Conference - Cardiology Summit 2025' } }),
+    db.doctorHoliday.create({ data: { userId: docPriya.id, date: nextDay('Friday', 0, 0, 10), remark: 'Medical workshop' } }),
+    db.doctorHoliday.create({ data: { userId: docAmit.id, date: nextDay('Monday', 0, 0, 5), remark: 'Surgery day - no OPD' } }),
   ]);
   console.log('✅ Created 4 doctor holidays');
 
@@ -558,7 +580,7 @@ async function main() {
         patientName: patientRahul.name,
         state: 'Maharashtra',
         city: 'Mumbai',
-        bookingDate: d(1, 9, 30),
+        bookingDate: nextDay('Monday', 9, 30, 1),
         disease: 'Chest Pain',
         description: 'Experiencing mild chest discomfort during morning walks since 3 days',
         gender: 'Male',
@@ -581,7 +603,7 @@ async function main() {
         patientName: patientSneha.name,
         state: 'Delhi',
         city: 'Delhi',
-        bookingDate: d(1, 10, 20),
+        bookingDate: nextDay('Monday', 10, 20, 1),
         disease: 'Skin Rash',
         description: 'Red itchy rash on arms and neck for 1 week',
         gender: 'Female',
@@ -604,7 +626,7 @@ async function main() {
         patientName: patientArjun.name,
         state: 'Maharashtra',
         city: 'Pune',
-        bookingDate: d(2, 9, 0),
+        bookingDate: nextDay('Tuesday', 9, 0, 1),
         disease: 'Knee Pain',
         description: 'Right knee pain for 2 months, worse after climbing stairs',
         gender: 'Male',
@@ -629,7 +651,7 @@ async function main() {
         patientName: patientPriyanka.name,
         state: 'Maharashtra',
         city: 'Mumbai',
-        bookingDate: d(0, 10, 0),
+        bookingDate: nextDay('Wednesday', 10, 0, 0),
         disease: 'Shortness of Breath',
         description: 'Difficulty breathing during exertion for 2 weeks',
         gender: 'Female',
@@ -652,7 +674,7 @@ async function main() {
         patientName: patientMohammed.name,
         state: 'Delhi',
         city: 'Delhi',
-        bookingDate: d(0, 14, 0),
+        bookingDate: nextDay('Wednesday', 14, 0, 0),
         disease: 'Acne',
         description: 'Persistent acne on face and back for 6 months',
         gender: 'Male',
@@ -678,7 +700,7 @@ async function main() {
         patientName: patientLakshmi.name,
         state: 'Maharashtra',
         city: 'Mumbai',
-        bookingDate: d(-2, 9, 0),
+        bookingDate: prevDay('Monday', 9, 0, 1),
         disease: 'Hypertension',
         description: 'High BP detected during routine checkup, headache and dizziness',
         gender: 'Female',
@@ -701,7 +723,7 @@ async function main() {
         patientName: patientRohan.name,
         state: 'Delhi',
         city: 'Delhi',
-        bookingDate: d(-3, 11, 0),
+        bookingDate: prevDay('Monday', 11, 0, 1),
         disease: 'Eczema',
         description: 'Dry, itchy, red patches on elbows and knees for 3 months',
         gender: 'Male',
@@ -724,7 +746,7 @@ async function main() {
         patientName: patientAnanya.name,
         state: 'Maharashtra',
         city: 'Pune',
-        bookingDate: d(-1, 10, 30),
+        bookingDate: prevDay('Thursday', 10, 30, 1),
         disease: 'Lower Back Pain',
         description: 'Chronic lower back pain for 6 months, radiating to left leg',
         gender: 'Female',
@@ -749,7 +771,7 @@ async function main() {
         patientName: patientRahul.name,
         state: 'Maharashtra',
         city: 'Mumbai',
-        bookingDate: d(-7, 10, 0),
+        bookingDate: prevDay('Monday', 10, 0, 2),
         disease: 'Palpitations',
         description: 'Irregular heartbeat sensation, especially at night',
         gender: 'Male',
@@ -774,7 +796,7 @@ async function main() {
         patientName: patientSneha.name,
         state: 'Delhi',
         city: 'Delhi',
-        bookingDate: d(-5, 9, 30),
+        bookingDate: prevDay('Wednesday', 9, 30, 1),
         disease: 'Dizziness',
         description: 'Frequent dizzy spells in the morning',
         gender: 'Female',
@@ -797,7 +819,7 @@ async function main() {
         patientName: 'Suresh Pandey',
         state: 'Maharashtra',
         city: 'Mumbai',
-        bookingDate: d(0, 11, 0),
+        bookingDate: nextDay('Friday', 11, 0, 0),
         disease: 'Fever',
         description: 'High fever since yesterday evening, body ache',
         gender: 'Male',
@@ -975,7 +997,25 @@ async function main() {
       },
     }),
   ]);
-  console.log('✅ Created prescription items (11 medicines, 11 labels, 7 suggestions, 2 diagnosis tables)');
+  // Chief complaints (PCo) linked to prescriptions
+  const coRajesh = await db.coMaster.findMany({ where: { doctorId: docRajesh.id } });
+  const coPriya = await db.coMaster.findMany({ where: { doctorId: docPriya.id } });
+  const coAmit = await db.coMaster.findMany({ where: { doctorId: docAmit.id } });
+
+  await db.$transaction([
+    // Lakshmi (Hypertension) - Chest Pain + Shortness of Breath
+    db.pCo.create({ data: { prescriptionId: prescriptions[0].id, coId: coRajesh.find(c => c.coDetail === 'Chest Pain')!.id, createdById: byEmail('rajesh@doctorooms.com').id } }),
+    db.pCo.create({ data: { prescriptionId: prescriptions[0].id, coId: coRajesh.find(c => c.coDetail === 'Shortness of Breath')!.id, createdById: byEmail('rajesh@doctorooms.com').id } }),
+    db.pCo.create({ data: { prescriptionId: prescriptions[0].id, coId: coRajesh.find(c => c.coDetail === 'Dizziness')!.id, createdById: byEmail('rajesh@doctorooms.com').id } }),
+    // Rohan (Eczema) - Skin Rash + Itching
+    db.pCo.create({ data: { prescriptionId: prescriptions[1].id, coId: coPriya.find(c => c.coDetail === 'Skin Rash')!.id, createdById: byEmail('priya@doctorooms.com').id } }),
+    db.pCo.create({ data: { prescriptionId: prescriptions[1].id, coId: coPriya.find(c => c.coDetail === 'Itching')!.id, createdById: byEmail('priya@doctorooms.com').id } }),
+    // Ananya (Lower Back Pain) - Back Pain
+    db.pCo.create({ data: { prescriptionId: prescriptions[2].id, coId: coAmit.find(c => c.coDetail === 'Back Pain')!.id, createdById: byEmail('amit@doctorooms.com').id } }),
+    // Rahul (Palpitations)
+    db.pCo.create({ data: { prescriptionId: prescriptions[3].id, coId: coRajesh.find(c => c.coDetail === 'Palpitations')!.id, createdById: byEmail('rajesh@doctorooms.com').id } }),
+  ]);
+  console.log('✅ Created prescription items (11 medicines, 11 labels, 7 suggestions, 2 diagnosis tables, 7 chief complaints)');
 
   // =============================================
   // 15. RATINGS
@@ -1207,7 +1247,7 @@ async function main() {
   console.log(`   Users:            25 (1 admin + 2 hospitals + 4 doctors + 3 receptionists + 3 assistants + 3 pharmacists + 8 patients + 2 pending patients + 1 blocked)`);
   console.log(`   Doctors:          3 (with full profiles)`);
   console.log(`   Doctor Teams:     9 (receptionist + assistant + pharmacist per doctor)`);
-  console.log(`   Schedules:        20 (across all doctors)`);
+  console.log(`   Schedules:        14 (across all doctors)`);
   console.log(`   Medicines:        21 (doctor-specific)`);
   console.log(`   Bookings:         11 (3 Pending, 3 Approved, 3 Visited, 1 Finish, 1 Canceled, 1 Walk-in)`);
   console.log(`   Prescriptions:    4 (with medicines, labels, suggestions, diagnosis tables)`);

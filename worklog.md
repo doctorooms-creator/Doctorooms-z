@@ -1989,3 +1989,43 @@ Audited all 12 patient frontend pages and 20 corresponding API route files. Foun
 - Document upload/delete (field names match)
 - Blog create/delete (r.ok checks present)
 - Appointment cancel (PATCH method correct)
+
+---
+Task ID: 17
+Agent: Main
+Task: Analyse database, fix data integrity issues, re-seed
+
+Work Log:
+- Found database completely empty (all 31 tables had 0 records)
+- Ran prisma/seed.ts successfully - 279 total records across 31 tables
+- Built comprehensive integrity checker (analyze-db.ts) to verify:
+  - DoctorHoliday.userId stores Doctor.id (not User.id) - schema quirk confirmed OK
+  - DoctorMedicine.userId same quirk - confirmed OK
+  - Booking day-of-week vs doctor schedule day alignment
+  - Holiday vs booking date overlap detection
+  - Rating role integrity
+  - Prescription doctorId consistency
+  - Double-booking detection
+
+Bugs Found & Fixed:
+1. CRITICAL: APT-004 (10:00 Tuesday) and APT-011 (11:00 Tuesday) booked on Dr. Rajesh's Tuesday - but his Tuesday schedule is 16:00-20:00 (evening only). Morning slots don't exist on Tuesday.
+   FIX: Added nextDay()/prevDay() day-aware date helpers to seed. All 11 bookings now use correct day-of-week matching their time slots to doctor schedules.
+2. CRITICAL: APT-003 (Dr. Amit, Tuesday) conflicted with Dr. Amit's holiday on the same Tuesday (Surgery day - no OPD)
+   FIX: Moved Dr. Amit's holiday from Tuesday to Monday (non-schedule day)
+3. MEDIUM: PCo table (chief complaints on prescriptions) was empty - prescriptions had 0 linked complaints
+   FIX: Added 7 PCo records linking appropriate chief complaints to each prescription
+4. LOW: Seed log message said "20 doctor schedules" but actual was 14
+   FIX: Corrected to 14
+5. OBSERVATION: Holiday overlap check in original analysis script used DateTime comparison (with time component) instead of date-only, masking the holiday conflict
+
+Final Record Counts (279 total):
+  User:27, Doctor:3, Hospital:2, Booking:11, BookingChat:3, Prescription:4, PMedicine:11, PLabel:11, PSuggestion:7, PDignoTable:2, PCo:7, POtherSetting:3, DoctorRating:4, DoctorSchedule:14, DoctorHoliday:4, DoctorMedicine:21, DoctorAssistant:3, DoctorPharmacist:3, Receptionist:3, DoctorTypeMaster:15, Post:4, Notification:13, Slider:3, HospitalInquiry:2, DiseaseMaster:20, LabelMaster:17, CoMaster:15, QuestionsMaster:9, SuggestionsMaster:27, DoctorGallery:6, MedicalDocument:5
+
+Stage Summary:
+- Database fully populated with day-aware seed data
+- All 11 bookings now correctly match their doctor's schedule day + time slot
+- No holiday conflicts with any booking
+- No double-bookings
+- All prescription doctorIds match their booking doctorIds
+- All ratings reference correct patient/doctor roles
+- PCo table now populated with 7 chief complaint links
