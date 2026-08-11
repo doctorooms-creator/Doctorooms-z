@@ -231,6 +231,7 @@ export default function PatientBookDoctorPage() {
       fetch('/api/patient/bookings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(body),
       }).then((r) => {
         if (!r.ok) return r.json().then((d) => Promise.reject(new Error(d.error || 'Booking failed')))
@@ -256,7 +257,7 @@ export default function PatientBookDoctorPage() {
   }
 
   const handleBook = () => {
-    if (!selectedDate || !selectedSlot || !disease.trim()) {
+    if (!selectedDate || !disease.trim()) {
       toast.error('Please fill in all required fields')
       return
     }
@@ -271,7 +272,7 @@ export default function PatientBookDoctorPage() {
     bookMutation.mutate({
       doctorId: scheduleData.doctorId,
       bookingDate: dateStr,
-      timeSlot: selectedSlot,
+      timeSlot: selectedSlot || '',
       bookingMode,
       gender: selectedGender,
       disease: disease.trim(),
@@ -540,6 +541,17 @@ export default function PatientBookDoctorPage() {
                         All slots are booked for this date. Try a different date.
                       </div>
                     )}
+
+                    {!showBookingForm && selectedDate && (
+                      <Button
+                        variant='outline'
+                        className='w-full mt-3 border-dashed border-teal-300 text-teal-600 hover:bg-teal-50 dark:border-teal-700 dark:text-teal-400 dark:hover:bg-teal-950/30'
+                        onClick={() => setShowBookingForm(true)}
+                      >
+                        <Clock className='h-4 w-4 mr-2' />
+                        Request Without Time Slot (Join Queue)
+                      </Button>
+                    )}
                   </div>
                 ) : selectedDate && !scheduleForSelectedDay ? (
                   <div className="flex flex-col items-center justify-center py-10 text-center">
@@ -573,7 +585,7 @@ export default function PatientBookDoctorPage() {
             <Card className="sticky top-6">
               <CardHeader className="pb-3">
                 <CardTitle className="text-base font-semibold flex items-center gap-2">
-                  {selectedSlot ? (
+                  {showBookingForm ? (
                     <>
                       <Check className="h-5 w-5 text-teal-500" />
                       Confirm Booking
@@ -596,10 +608,10 @@ export default function PatientBookDoctorPage() {
                       <span className="font-medium">{format(selectedDate, 'MMM d, yyyy (EEEE)')}</span>
                     </div>
                   )}
-                  {selectedSlot && (
+                  {showBookingForm && (
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Time</span>
-                      <span className="font-medium text-teal-600 dark:text-teal-400">{selectedSlot}</span>
+                      <span className="font-medium text-teal-600 dark:text-teal-400">{selectedSlot || 'Walk-in / Queue'}</span>
                     </div>
                   )}
                   <div className="flex justify-between">
@@ -621,9 +633,9 @@ export default function PatientBookDoctorPage() {
                   </div>
                 </div>
 
-                {/* Booking form (appears when slot selected) */}
+                {/* Booking form (appears when slot selected or queue requested) */}
                 <AnimatePresence mode="wait">
-                  {selectedSlot && (
+                  {showBookingForm && (
                     <motion.div
                       key="booking-form"
                       initial={{ opacity: 0, y: 8 }}
@@ -715,7 +727,7 @@ export default function PatientBookDoctorPage() {
                         ) : (
                           <>
                             <Check className="h-4 w-4 mr-2" />
-                            Confirm & Book
+                            {selectedSlot ? 'Confirm & Book' : 'Request Appointment'}
                           </>
                         )}
                       </Button>
@@ -723,8 +735,8 @@ export default function PatientBookDoctorPage() {
                   )}
                 </AnimatePresence>
 
-                {/* No slot selected hint */}
-                {!selectedSlot && (
+                {/* No form shown hint */}
+                {!showBookingForm && (
                   <p className="text-xs text-center text-muted-foreground pt-2">
                     Select a date and time slot to proceed with booking.
                   </p>

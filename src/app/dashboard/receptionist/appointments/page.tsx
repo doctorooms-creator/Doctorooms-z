@@ -78,6 +78,7 @@ interface ReceptionistAppointment {
   doctorId: string
   doctorSpecialization: string | null
   date: string
+  timeSlot: string
   status: string
   charge: number
   disease: string
@@ -937,7 +938,9 @@ export default function ReceptionistAppointmentsPage() {
                             {format(new Date(appt.date), 'MMM d, yyyy')}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {format(new Date(appt.date), 'h:mm a')}
+                            {appt.timeSlot
+                              ? <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{appt.timeSlot}</span>
+                              : <span className="text-muted-foreground/60">No slot</span>}
                           </span>
                         </div>
                       </TableCell>
@@ -1083,8 +1086,12 @@ export default function ReceptionistAppointmentsPage() {
                       <p className="text-sm font-medium">{format(new Date(selectedAppt.date), 'MMM d, yyyy')}</p>
                     </div>
                     <div className="rounded-lg bg-muted/50 p-3">
-                      <p className="text-xs text-muted-foreground">Time</p>
-                      <p className="text-sm font-medium">{format(new Date(selectedAppt.date), 'h:mm a')}</p>
+                      <p className="text-xs text-muted-foreground">Time Slot</p>
+                      <p className="text-sm font-medium">
+                        {selectedAppt.timeSlot
+                          ? selectedAppt.timeSlot
+                          : <span className="text-muted-foreground/60">Walk-in</span>}
+                      </p>
                     </div>
                     <div className="rounded-lg bg-muted/50 p-3">
                       <p className="text-xs text-muted-foreground">Fee</p>

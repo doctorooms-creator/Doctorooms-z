@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
-import { startOfDay, endOfDay } from 'date-fns'
+import { todayISTRange } from '@/lib/date-utils'
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,9 +15,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 })
     }
 
-    const today = new Date()
-    const todayStart = startOfDay(today)
-    const todayEnd = endOfDay(today)
+    const { start: todayStart, end: todayEnd } = todayISTRange()
 
     const [
       todayAppointments,

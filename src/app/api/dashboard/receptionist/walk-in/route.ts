@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth, RECEPTION_ROLES } from '@/lib/api-auth'
+import { todayISTRange, todayISTStr, currentTimeIST } from '@/lib/date-utils'
 
 // ============ GET: Today's queue for the receptionist's doctor ============
 export async function GET(req: NextRequest) {
@@ -28,11 +29,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Doctor not found' }, { status: 404 })
     }
 
-    // Today's date range
-    const today = new Date()
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-    const startOfDay = new Date(todayStr + 'T00:00:00.000Z')
-    const endOfDay = new Date(todayStr + 'T23:59:59.999Z')
+    // Today's date range in IST
+    const { start: startOfDay, end: endOfDay } = todayISTRange()
+    const todayStr = todayISTStr()
 
     // Fetch all Approve/Visited/Finish bookings for today
     const bookings = await db.booking.findMany({
@@ -123,11 +122,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Disease/Reason is required' }, { status: 400 })
     }
 
-    // Today's date range
-    const today = new Date()
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-    const startOfDay = new Date(todayStr + 'T00:00:00.000Z')
-    const endOfDay = new Date(todayStr + 'T23:59:59.999Z')
+    // Today's date range in IST
+    const { start: startOfDay, end: endOfDay } = todayISTRange()
+    const todayStr = todayISTStr()
 
     // 1. Validate OPD limit
     const activeBookingsCount = await db.booking.count({
@@ -200,7 +197,7 @@ export async function POST(req: NextRequest) {
         status: 'Approve',
         bookingType: 'By Receptionist',
         bookingMode: bookingMode || 'InPerson',
-        timeSlot: timeSlot || '',
+        timeSlot: timeSlot || currentTimeIST(),
         appointmentCharge: doctor.fees,
         bookingDate: new Date(),
       },

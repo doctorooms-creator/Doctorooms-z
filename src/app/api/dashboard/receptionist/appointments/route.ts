@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { istDateRange, nowIST, currentTimeIST } from '@/lib/date-utils'
 
 export async function GET(request: NextRequest) {
   try {
@@ -33,8 +34,8 @@ export async function GET(request: NextRequest) {
     }
     if (from || to) {
       where.bookingDate = {}
-      if (from) where.bookingDate.gte = new Date(from)
-      if (to) where.bookingDate.lte = new Date(to + 'T23:59:59.999Z')
+      if (from) { const range = istDateRange(from); where.bookingDate.gte = range.start }
+      if (to) { const range = istDateRange(to); where.bookingDate.lte = range.end }
     }
 
     const [appointments, statusCounts, doctor] = await Promise.all([
@@ -75,6 +76,7 @@ export async function GET(request: NextRequest) {
         doctorImg: b.doctor?.user?.profileImg,
         doctorSpecialization: b.doctor?.specialization || null,
         date: b.bookingDate,
+        timeSlot: b.timeSlot || '',
         status: b.status,
         charge: b.appointmentCharge,
         disease: b.disease,
@@ -133,9 +135,10 @@ export async function POST(request: NextRequest) {
       where: { id: receptionist.doctorId },
     })
 
+    // When no time slot selected, use current IST time for queue ordering
     const bookingDate = time
       ? new Date(`${date}T${time}`)
-      : new Date(date)
+      : nowIST()
 
     // Generate appointment number
     const appointmentCount = await db.booking.count()
@@ -173,7 +176,7 @@ export async function POST(request: NextRequest) {
         height: height ? parseFloat(String(height)) || 0 : 0,
         physicallyChallenged: physicallyChallenged || 'No',
         relationWithMe: relationWithMe || '',
-        timeSlot: time || '',
+        timeSlot: time || currentTimeIST(),
       },
     })
 

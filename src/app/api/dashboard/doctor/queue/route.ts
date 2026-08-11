@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
+import { todayISTRange, todayISTStr } from '@/lib/date-utils'
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,11 +18,9 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 })
     }
 
-    // Today's date in YYYY-MM-DD format
-    const today = new Date()
-    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
-    const startOfDay = new Date(todayStr + 'T00:00:00.000Z')
-    const endOfDay = new Date(todayStr + 'T23:59:59.999Z')
+    // Today's date in IST
+    const { start: startOfDay, end: endOfDay } = todayISTRange()
+    const todayStr = todayISTStr()
 
     // Fetch all Approve/Visited bookings for today
     const bookings = await db.booking.findMany({

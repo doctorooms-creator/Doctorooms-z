@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
-import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, format, eachDayOfInterval } from 'date-fns'
+import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfYear, endOfYear, format, eachDayOfInterval } from 'date-fns'
+import { todayISTRange } from '@/lib/date-utils'
 
 export async function GET(req: NextRequest) {
   try {
@@ -40,8 +41,7 @@ export async function GET(req: NextRequest) {
         break
     }
 
-    const todayStart = startOfDay(now)
-    const todayEnd = endOfDay(now)
+    const { start: todayStart, end: todayEnd } = todayISTRange()
 
     // Fetch all finished bookings in the period
     const bookings = await db.booking.findMany({

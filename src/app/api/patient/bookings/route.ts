@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { istDateRange } from '@/lib/date-utils'
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,10 +43,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid booking date' }, { status: 400 })
     }
 
-    // Extract date-only portion for comparisons
-    const dateOnly = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate())
-    const nextDay = new Date(dateOnly)
-    nextDay.setDate(nextDay.getDate() + 1)
+    // Extract IST date range for comparisons
+    const dateStr = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`
+    const { start: dateOnly, end: _endOfDay } = istDateRange(dateStr)
+    const nextDay = new Date(_endOfDay.getTime() + 1)
 
     // Check if date is a holiday for this doctor
     const holiday = await db.doctorHoliday.findFirst({
