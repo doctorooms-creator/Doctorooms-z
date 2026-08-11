@@ -16,6 +16,33 @@ export async function GET(
 
     const { bookingId } = await params
 
+    // Fetch booking to verify ownership
+    const booking = await db.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        userId: true,
+        doctor: {
+          select: {
+            userId: true,
+            receptionistLinks: { select: { userId: true } },
+          },
+        },
+      },
+    })
+
+    if (!booking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
+
+    // Verify caller has access to this booking's chat
+    const isPatient = booking.userId === user.id
+    const isDoctor = booking.doctor.userId === user.id
+    const isReceptionist = booking.doctor.receptionistLinks.some((r) => r.userId === user.id)
+
+    if (!isPatient && !isDoctor && !isReceptionist) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+    }
+
     const messages = await db.bookingChat.findMany({
       where: { bookingId },
       orderBy: { createdAt: 'asc' },

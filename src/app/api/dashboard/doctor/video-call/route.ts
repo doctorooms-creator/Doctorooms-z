@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthUser, AuthUser } from '@/lib/api-auth'
+import { getAuthUser } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
 /**
  * POST /api/dashboard/doctor/video-call
  * Start a video call for a booking.
- * Accepts: doctor, receptionist, admin roles.
+ * Only the booking's own doctor can start the call.
+ * Receptionists linked to the same doctor can also initiate on behalf.
  */
 export async function POST(req: NextRequest) {
   try {
-    // Auth: accept doctor, receptionist, admin
     const user = await getAuthUser(req)
-    if (!user || !['doctor', 'receptionist', 'admin'].includes(user.role)) {
+    if (!user || !['doctor', 'receptionist'].includes(user.role)) {
       return NextResponse.json({ success: false, message: 'Unauthorized' }, { status: 401 })
     }
 
@@ -43,12 +43,20 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Validate: doctor must own this booking (unless admin/receptionist)
+    // Strict scoping: verify the caller belongs to this booking's doctor
     if (user.role === 'doctor') {
       const doctor = await db.doctor.findUnique({ where: { userId: user.id } })
       if (!doctor || doctor.id !== booking.doctorId) {
         return NextResponse.json(
           { success: false, message: 'This booking does not belong to your account' },
+          { status: 403 }
+        )
+      }
+    } else if (user.role === 'receptionist') {
+      const receptionist = await db.receptionist.findUnique({ where: { userId: user.id } })
+      if (!receptionist || receptionist.doctorId !== booking.doctorId) {
+        return NextResponse.json(
+          { success: false, message: 'This booking does not belong to your doctor' },
           { status: 403 }
         )
       }

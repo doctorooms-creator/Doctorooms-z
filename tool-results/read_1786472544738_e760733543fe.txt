@@ -1,0 +1,875 @@
+     1→'use client'
+     2→
+     3→import { useState } from 'react'
+     4→import { useParams, useRouter } from 'next/navigation'
+     5→import Link from 'next/link'
+     6→import { useQuery } from '@tanstack/react-query'
+     7→import { motion, AnimatePresence } from 'framer-motion'
+     8→import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+     9→import { Button } from '@/components/ui/button'
+    10→import { Badge } from '@/components/ui/badge'
+    11→import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+    12→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    13→import { Separator } from '@/components/ui/separator'
+    14→import { Skeleton } from '@/components/ui/skeleton'
+    15→import {
+    16→  ArrowLeft,
+    17→  User,
+    18→  Calendar,
+    19→  Phone,
+    20→  Mail,
+    21→  Heart,
+    22→  FileText,
+    23→  Activity,
+    24→  Clock,
+    25→  Dumbbell,
+    26→  Thermometer,
+    27→  ChevronDown,
+    28→  ChevronUp,
+    29→  ExternalLink,
+    30→  Droplets,
+    31→  Stethoscope,
+    32→} from 'lucide-react'
+    33→import { format, parseISO } from 'date-fns'
+    34→import { cn } from '@/lib/utils'
+    35→
+    36→// ---------- Types ----------
+    37→
+    38→interface Medicine {
+    39→  id: string
+    40→  medicine: string
+    41→  morning: boolean
+    42→  afternoon: boolean
+    43→  evening: boolean
+    44→  tab: number
+    45→  dose: string
+    46→  description: string
+    47→}
+    48→
+    49→interface LabelItem {
+    50→  id: string
+    51→  label: string
+    52→  value: string
+    53→  labelUnit: string
+    54→}
+    55→
+    56→interface SuggestionItem {
+    57→  id: string
+    58→  question: string
+    59→  suggestions: string
+    60→}
+    61→
+    62→interface Prescription {
+    63→  id: string
+    64→  disease: string
+    65→  weight: string
+    66→  bp: string
+    67→  temperature: string
+    68→  description: string
+    69→  createdAt: string
+    70→  medicines: Medicine[]
+    71→  labels: LabelItem[]
+    72→  suggestions: SuggestionItem[]
+    73→}
+    74→
+    75→interface Visit {
+    76→  id: string
+    77→  appointmentNo: string
+    78→  bookingDate: string
+    79→  disease: string
+    80→  description: string
+    81→  status: string
+    82→  timeSlot: string
+    83→  bookingMode: string
+    84→  bloodGroup: string
+    85→  weight: number
+    86→  height: number
+    87→  prescriptions: Prescription[]
+    88→}
+    89→
+    90→interface PatientInfo {
+    91→  name: string
+    92→  gender: string
+    93→  email: string
+    94→  mobileNo: string
+    95→  profileImg: string
+    96→  dateOfBirth: string | null
+    97→  createdAt: string
+    98→  age: number | null
+    99→  bloodGroup: string
+   100→}
+   101→
+   102→interface Stats {
+   103→  totalVisits: number
+   104→  lastVisit: string | null
+   105→  commonDiseases: { disease: string; count: number }[]
+   106→}
+   107→
+   108→interface PatientDetailData {
+   109→  patient: PatientInfo
+   110→  visitHistory: Visit[]
+   111→  stats: Stats
+   112→}
+   113→
+   114→// ---------- Status Config ----------
+   115→
+   116→const statusConfig: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
+   117→  Pending: { label: 'Pending', variant: 'outline', className: 'border-yellow-300 text-yellow-700 bg-yellow-50 dark:border-yellow-700 dark:text-yellow-400 dark:bg-yellow-950/30' },
+   118→  Approve: { label: 'Approved', variant: 'outline', className: 'border-teal-300 text-teal-700 bg-teal-50 dark:border-teal-700 dark:text-teal-400 dark:bg-teal-950/30' },
+   119→  Visited: { label: 'Visited', variant: 'default', className: 'bg-teal-600 text-white hover:bg-teal-600' },
+   120→  Finish: { label: 'Completed', variant: 'default', className: 'bg-teal-600 text-white hover:bg-teal-600' },
+   121→  Canceled: { label: 'Canceled', variant: 'destructive', className: 'bg-red-500/10 text-red-600 border-red-200 dark:text-red-400 dark:border-red-800' },
+   122→  Extend: { label: 'Extended', variant: 'outline', className: 'border-orange-300 text-orange-700 bg-orange-50 dark:border-orange-700 dark:text-orange-400 dark:bg-orange-950/30' },
+   123→}
+   124→
+   125→// ---------- Animation Variants ----------
+   126→
+   127→const fadeInUp = {
+   128→  initial: { opacity: 0, y: 15 },
+   129→  animate: { opacity: 1, y: 0 },
+   130→  transition: { duration: 0.35 },
+   131→}
+   132→
+   133→const staggerContainer = {
+   134→  animate: { transition: { staggerChildren: 0.06 } },
+   135→}
+   136→
+   137→// ---------- Component ----------
+   138→
+   139→export default function PatientDetailPage() {
+   140→  const params = useParams()
+   141→  const router = useRouter()
+   142→  const patientId = params.id as string
+   143→  const [expandedVisit, setExpandedVisit] = useState<string | null>(null)
+   144→
+   145→  const { data, isLoading, error } = useQuery<PatientDetailData>({
+   146→    queryKey: ['doctor-patient-detail', patientId],
+   147→    queryFn: () => fetch(`/api/dashboard/doctor/patients/${patientId}`).then((r) => {
+   148→      if (!r.ok) throw new Error('Failed to load')
+   149→      return r.json()
+   150→    }),
+   151→    enabled: !!patientId,
+   152→  })
+   153→
+   154→  const patient = data?.patient
+   155→  const visits = data?.visitHistory || []
+   156→  const stats = data?.stats
+   157→
+   158→  // Vitals timeline data (visits with weight or BP)
+   159→  const vitalsData = visits.filter((v) => v.weight > 0 || v.prescriptions.some((p) => p.bp))
+   160→
+   161→  // All unique prescriptions across visits
+   162→  const allPrescriptions = visits.flatMap((v) => v.prescriptions)
+   163→
+   164→  if (isLoading) {
+   165→    return <LoadingSkeleton />
+   166→  }
+   167→
+   168→  if (error || !patient) {
+   169→    return (
+   170→      <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+   171→        <User className="h-14 w-14 mb-4 opacity-30" />
+   172→        <p className="font-medium text-lg">Patient not found</p>
+   173→        <p className="text-sm mt-1">The patient you&apos;re looking for doesn&apos;t exist or you don&apos;t have access.</p>
+   174→        <Button variant="ghost" className="mt-6" onClick={() => router.push('/dashboard/doctor/patients')}>
+   175→          <ArrowLeft className="mr-1 h-4 w-4" /> Back to Patients
+   176→        </Button>
+   177→      </div>
+   178→    )
+   179→  }
+   180→
+   181→  return (
+   182→    <div className="space-y-6">
+   183→      {/* Back button */}
+   184→      <motion.div {...fadeInUp}>
+   185→        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground" asChild>
+   186→          <Link href="/dashboard/doctor/patients">
+   187→            <ArrowLeft className="mr-1 h-4 w-4" /> Back to Patients
+   188→          </Link>
+   189→        </Button>
+   190→      </motion.div>
+   191→
+   192→      {/* Patient Header Card */}
+   193→      <motion.div {...fadeInUp} transition={{ duration: 0.35, delay: 0.05 }}>
+   194→        <Card className="overflow-hidden">
+   195→          <div className="bg-gradient-to-r from-teal-600 to-teal-500 h-2" />
+   196→          <CardContent className="p-6">
+   197→            <div className="flex flex-col sm:flex-row gap-5">
+   198→              <Avatar className="h-20 w-20 border-2 border-teal-200 dark:border-teal-800 shrink-0">
+   199→                <AvatarImage src={patient.profileImg || ''} />
+   200→                <AvatarFallback className="bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300 text-2xl">
+   201→                  {patient.name.charAt(0).toUpperCase()}
+   202→                </AvatarFallback>
+   203→              </Avatar>
+   204→              <div className="flex-1 min-w-0">
+   205→                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+   206→                  <div>
+   207→                    <h1 className="text-xl font-bold tracking-tight">{patient.name}</h1>
+   208→                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+   209→                      {patient.gender && (
+   210→                        <Badge variant="secondary" className="text-xs">
+   211→                          <User className="mr-1 h-3 w-3" /> {patient.gender}
+   212→                        </Badge>
+   213→                      )}
+   214→                      {patient.age && (
+   215→                        <Badge variant="secondary" className="text-xs">
+   216→                          <Calendar className="mr-1 h-3 w-3" /> {patient.age} yrs
+   217→                        </Badge>
+   218→                      )}
+   219→                      {patient.bloodGroup && (
+   220→                        <Badge variant="outline" className="text-xs border-red-200 text-red-600 dark:border-red-800 dark:text-red-400">
+   221→                          <Droplets className="mr-1 h-3 w-3" /> {patient.bloodGroup}
+   222→                        </Badge>
+   223→                      )}
+   224→                    </div>
+   225→                  </div>
+   226→                </div>
+   227→
+   228→                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-sm text-muted-foreground">
+   229→                  {patient.mobileNo && (
+   230→                    <span className="flex items-center gap-1.5">
+   231→                      <Phone className="h-3.5 w-3.5" /> {patient.mobileNo}
+   232→                    </span>
+   233→                  )}
+   234→                  {patient.email && (
+   235→                    <span className="flex items-center gap-1.5">
+   236→                      <Mail className="h-3.5 w-3.5" /> {patient.email}
+   237→                    </span>
+   238→                  )}
+   239→                </div>
+   240→              </div>
+   241→            </div>
+   242→          </CardContent>
+   243→        </Card>
+   244→      </motion.div>
+   245→
+   246→      {/* Quick Stats Row */}
+   247→      <motion.div
+   248→        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+   249→        variants={staggerContainer}
+   250→        initial="initial"
+   251→        animate="animate"
+   252→      >
+   253→        <motion.div {...fadeInUp}>
+   254→          <Card className="hover:shadow-md transition-shadow">
+   255→            <CardContent className="p-4 flex items-center gap-4">
+   256→              <div className="h-11 w-11 rounded-lg bg-teal-100 dark:bg-teal-900/50 flex items-center justify-center shrink-0">
+   257→                <Calendar className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   258→              </div>
+   259→              <div>
+   260→                <p className="text-xs text-muted-foreground font-medium">Total Visits</p>
+   261→                <p className="text-2xl font-bold text-teal-600 dark:text-teal-400">{stats?.totalVisits || 0}</p>
+   262→              </div>
+   263→            </CardContent>
+   264→          </Card>
+   265→        </motion.div>
+   266→
+   267→        <motion.div {...fadeInUp}>
+   268→          <Card className="hover:shadow-md transition-shadow">
+   269→            <CardContent className="p-4 flex items-center gap-4">
+   270→              <div className="h-11 w-11 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center shrink-0">
+   271→                <Clock className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+   272→              </div>
+   273→              <div>
+   274→                <p className="text-xs text-muted-foreground font-medium">Last Visit</p>
+   275→                <p className="text-sm font-semibold">
+   276→                  {stats?.lastVisit
+   277→                    ? format(parseISO(stats.lastVisit), 'MMM d, yyyy')
+   278→                    : '—'}
+   279→                </p>
+   280→              </div>
+   281→            </CardContent>
+   282→          </Card>
+   283→        </motion.div>
+   284→
+   285→        <motion.div {...fadeInUp}>
+   286→          <Card className="hover:shadow-md transition-shadow">
+   287→            <CardContent className="p-4 flex items-center gap-4">
+   288→              <div className="h-11 w-11 rounded-lg bg-violet-100 dark:bg-violet-900/50 flex items-center justify-center shrink-0">
+   289→                <User className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   290→              </div>
+   291→              <div>
+   292→                <p className="text-xs text-muted-foreground font-medium">Member Since</p>
+   293→                <p className="text-sm font-semibold">
+   294→                  {format(parseISO(patient.createdAt), 'MMM d, yyyy')}
+   295→                </p>
+   296→              </div>
+   297→            </CardContent>
+   298→          </Card>
+   299→        </motion.div>
+   300→      </motion.div>
+   301→
+   302→      {/* Common Diseases */}
+   303→      {stats?.commonDiseases && stats.commonDiseases.length > 0 && (
+   304→        <motion.div {...fadeInUp} transition={{ duration: 0.35, delay: 0.2 }}>
+   305→          <Card>
+   306→            <CardContent className="p-4">
+   307→              <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
+   308→                <Stethoscope className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+   309→                Frequent Conditions
+   310→              </h3>
+   311→              <div className="flex flex-wrap gap-2">
+   312→                {stats.commonDiseases.map((cd) => (
+   313→                  <Badge key={cd.disease} variant="secondary" className="text-xs py-1 px-3">
+   314→                    {cd.disease}
+   315→                    <span className="ml-1.5 text-muted-foreground">({cd.count})</span>
+   316→                  </Badge>
+   317→                ))}
+   318→              </div>
+   319→            </CardContent>
+   320→          </Card>
+   321→        </motion.div>
+   322→      )}
+   323→
+   324→      {/* Tabs: Visit History, Prescriptions, Vitals Timeline */}
+   325→      <motion.div {...fadeInUp} transition={{ duration: 0.35, delay: 0.25 }}>
+   326→        <Tabs defaultValue="visits" className="w-full">
+   327→          <TabsList className="w-full sm:w-auto">
+   328→            <TabsTrigger value="visits" className="gap-1.5">
+   329→              <Calendar className="h-3.5 w-3.5" /> Visits
+   330→            </TabsTrigger>
+   331→            <TabsTrigger value="prescriptions" className="gap-1.5">
+   332→              <FileText className="h-3.5 w-3.5" /> Prescriptions
+   333→              {allPrescriptions.length > 0 && (
+   334→                <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 h-4">
+   335→                  {allPrescriptions.length}
+   336→                </Badge>
+   337→              )}
+   338→            </TabsTrigger>
+   339→            {vitalsData.length > 0 && (
+   340→              <TabsTrigger value="vitals" className="gap-1.5">
+   341→                <Activity className="h-3.5 w-3.5" /> Vitals
+   342→              </TabsTrigger>
+   343→            )}
+   344→          </TabsList>
+   345→
+   346→          {/* Visit History Tab */}
+   347→          <TabsContent value="visits" className="mt-4">
+   348→            {visits.length === 0 ? (
+   349→              <EmptyState
+   350→                icon={<Calendar className="h-12 w-12" />}
+   351→                title="No visits yet"
+   352→                description="This patient has no recorded visits with you."
+   353→              />
+   354→            ) : (
+   355→              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
+   356→                {visits.map((visit, i) => {
+   357→                  const isExpanded = expandedVisit === visit.id
+   358→                  const sc = statusConfig[visit.status] || statusConfig.Pending
+   359→                  const rx = visit.prescriptions[0]
+   360→
+   361→                  return (
+   362→                    <motion.div
+   363→                      key={visit.id}
+   364→                      initial={{ opacity: 0, y: 10 }}
+   365→                      animate={{ opacity: 1, y: 0 }}
+   366→                      transition={{ delay: i * 0.04 }}
+   367→                    >
+   368→                      <Card className={cn(
+   369→                        'transition-all hover:shadow-sm',
+   370→                        isExpanded && 'border-teal-300 dark:border-teal-700'
+   371→                      )}>
+   372→                        <button
+   373→                          className="w-full text-left p-4 flex items-start justify-between gap-3"
+   374→                          onClick={() => setExpandedVisit(isExpanded ? null : visit.id)}
+   375→                        >
+   376→                          <div className="flex-1 min-w-0">
+   377→                            <div className="flex items-center gap-2 flex-wrap">
+   378→                              <span className="font-semibold text-sm">
+   379→                                {format(parseISO(visit.bookingDate), 'MMM d, yyyy')}
+   380→                              </span>
+   381→                              {visit.timeSlot && (
+   382→                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+   383→                                  <Clock className="h-3 w-3" /> {visit.timeSlot}
+   384→                                </span>
+   385→                              )}
+   386→                              <Badge variant={sc.variant} className={cn('text-[10px] px-1.5 py-0', sc.className)}>
+   387→                                {sc.label}
+   388→                              </Badge>
+   389→                              {visit.bookingMode === 'VideoCall' && (
+   390→                                <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+   391→                                  Video
+   392→                                </Badge>
+   393→                              )}
+   394→                            </div>
+   395→                            <div className="mt-1.5 flex items-center gap-3 text-xs text-muted-foreground">
+   396→                              <span>#{visit.appointmentNo}</span>
+   397→                              {visit.disease && (
+   398→                                <span className="text-foreground/80 font-medium">{visit.disease}</span>
+   399→                              )}
+   400→                            </div>
+   401→                          </div>
+   402→                          <div className="shrink-0 pt-0.5">
+   403→                            {isExpanded ? (
+   404→                              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+   405→                            ) : (
+   406→                              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+   407→                            )}
+   408→                          </div>
+   409→                        </button>
+   410→
+   411→                        <AnimatePresence>
+   412→                          {isExpanded && (
+   413→                            <motion.div
+   414→                              initial={{ height: 0, opacity: 0 }}
+   415→                              animate={{ height: 'auto', opacity: 1 }}
+   416→                              exit={{ height: 0, opacity: 0 }}
+   417→                              transition={{ duration: 0.2 }}
+   418→                              className="overflow-hidden"
+   419→                            >
+   420→                              <Separator className="mx-4" />
+   421→                              <div className="p-4 space-y-4">
+   422→                                {/* Description */}
+   423→                                {visit.description && (
+   424→                                  <div>
+   425→                                    <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
+   426→                                    <p className="text-sm whitespace-pre-wrap">{visit.description}</p>
+   427→                                  </div>
+   428→                                )}
+   429→
+   430→                                {/* Vitals */}
+   431→                                {(visit.weight > 0 || visit.height > 0 || rx?.bp || rx?.temperature) && (
+   432→                                  <div>
+   433→                                    <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+   434→                                      <Activity className="h-3.5 w-3.5" /> Vitals
+   435→                                    </p>
+   436→                                    <div className="flex flex-wrap gap-3">
+   437→                                      {visit.weight > 0 && (
+   438→                                        <VitalPill icon={<Dumbbell className="h-3.5 w-3.5" />} label="Weight" value={`${visit.weight} kg`} color="text-teal-600 dark:text-teal-400" />
+   439→                                      )}
+   440→                                      {visit.height > 0 && (
+   441→                                        <VitalPill icon={<Activity className="h-3.5 w-3.5" />} label="Height" value={`${visit.height} cm`} color="text-blue-600 dark:text-blue-400" />
+   442→                                      )}
+   443→                                      {rx?.bp && (
+   444→                                        <VitalPill icon={<Heart className="h-3.5 w-3.5" />} label="BP" value={rx.bp} color="text-red-600 dark:text-red-400" />
+   445→                                      )}
+   446→                                      {rx?.temperature && (
+   447→                                        <VitalPill icon={<Thermometer className="h-3.5 w-3.5" />} label="Temp" value={`${rx.temperature}°F`} color="text-orange-600 dark:text-orange-400" />
+   448→                                      )}
+   449→                                    </div>
+   450→                                  </div>
+   451→                                )}
+   452→
+   453→                                {/* Prescription Summary */}
+   454→                                {rx && (
+   455→                                  <div>
+   456→                                    <div className="flex items-center justify-between mb-2">
+   457→                                      <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+   458→                                        <FileText className="h-3.5 w-3.5" /> Prescription
+   459→                                      </p>
+   460→                                      <Button variant="ghost" size="sm" className="h-6 text-xs gap-1 text-teal-600 dark:text-teal-400 hover:text-teal-700 dark:hover:text-teal-300" asChild>
+   461→                                        <Link href={`/dashboard/doctor/prescriptions/${rx.id}`}>
+   462→                                          View Full <ExternalLink className="h-3 w-3" />
+   463→                                        </Link>
+   464→                                      </Button>
+   465→                                    </div>
+   466→                                    {rx.medicines.length > 0 && (
+   467→                                      <div className="flex flex-wrap gap-1.5">
+   468→                                        {rx.medicines.slice(0, 3).map((med) => (
+   469→                                          <Badge key={med.id} variant="secondary" className="text-[11px]">
+   470→                                            {med.medicine}
+   471→                                            <span className="ml-1 text-muted-foreground">
+   472→                                              {med.morning ? 'M' : ''}{med.afternoon ? 'A' : ''}{med.evening ? 'E' : ''}
+   473→                                            </span>
+   474→                                          </Badge>
+   475→                                        ))}
+   476→                                        {rx.medicines.length > 3 && (
+   477→                                          <Badge variant="outline" className="text-[11px]">
+   478→                                            +{rx.medicines.length - 3} more
+   479→                                          </Badge>
+   480→                                        )}
+   481→                                      </div>
+   482→                                    )}
+   483→                                    {rx.suggestions.length > 0 && (
+   484→                                      <div className="mt-2 space-y-1">
+   485→                                        {rx.suggestions.map((s) => (
+   486→                                          <p key={s.id} className="text-xs text-muted-foreground">
+   487→                                            <span className="font-medium">{s.question}:</span> {s.suggestions}
+   488→                                          </p>
+   489→                                        ))}
+   490→                                      </div>
+   491→                                    )}
+   492→                                  </div>
+   493→                                )}
+   494→
+   495→                                {/* No prescription note */}
+   496→                                {!rx && (
+   497→                                  <p className="text-xs text-muted-foreground italic">No prescription recorded for this visit.</p>
+   498→                                )}
+   499→                              </div>
+   500→                            </motion.div>
+   501→                          )}
+   502→                        </AnimatePresence>
+   503→                      </Card>
+   504→                    </motion.div>
+   505→                  )
+   506→                })}
+   507→              </div>
+   508→            )}
+   509→          </TabsContent>
+   510→
+   511→          {/* Prescriptions Tab */}
+   512→          <TabsContent value="prescriptions" className="mt-4">
+   513→            {allPrescriptions.length === 0 ? (
+   514→              <EmptyState
+   515→                icon={<FileText className="h-12 w-12" />}
+   516→                title="No prescriptions"
+   517→                description="No prescriptions have been created for this patient's visits."
+   518→              />
+   519→            ) : (
+   520→              <div className="space-y-3 max-h-[600px] overflow-y-auto pr-1 custom-scrollbar">
+   521→                {allPrescriptions.map((rx, i) => {
+   522→                  // Find the visit date for this prescription
+   523→                  const visit = visits.find((v) => v.prescriptions.some((p) => p.id === rx.id))
+   524→                  return (
+   525→                    <motion.div
+   526→                      key={rx.id}
+   527→                      initial={{ opacity: 0, y: 10 }}
+   528→                      animate={{ opacity: 1, y: 0 }}
+   529→                      transition={{ delay: i * 0.04 }}
+   530→                    >
+   531→                      <Card className="transition-all hover:shadow-sm hover:border-teal-300 dark:hover:border-teal-700">
+   532→                        <CardContent className="p-4">
+   533→                          <div className="flex items-start justify-between gap-3">
+   534→                            <div className="flex-1 min-w-0">
+   535→                              <div className="flex items-center gap-2 flex-wrap">
+   536→                                {rx.disease && (
+   537→                                  <span className="font-semibold text-sm">{rx.disease}</span>
+   538→                                )}
+   539→                                {visit && (
+   540→                                  <span className="text-xs text-muted-foreground">
+   541→                                    {format(parseISO(visit.bookingDate), 'MMM d, yyyy')}
+   542→                                  </span>
+   543→                                )}
+   544→                              </div>
+   545→
+   546→                              {/* Medicines */}
+   547→                              {rx.medicines.length > 0 && (
+   548→                                <div className="mt-2 flex flex-wrap gap-1.5">
+   549→                                  {rx.medicines.map((med) => (
+   550→                                    <Badge key={med.id} variant="secondary" className="text-[11px]">
+   551→                                      {med.medicine}
+   552→                                      <span className="ml-1 text-muted-foreground">
+   553→                                        {med.morning ? 'M' : ''}{med.afternoon ? 'A' : ''}{med.evening ? 'E' : ''}
+   554→                                      </span>
+   555→                                    </Badge>
+   556→                                  ))}
+   557→                                </div>
+   558→                              )}
+   559→
+   560→                              {/* Labels */}
+   561→                              {rx.labels.length > 0 && (
+   562→                                <div className="mt-2 flex flex-wrap gap-1.5">
+   563→                                  {rx.labels.map((l) => (
+   564→                                    <span key={l.id} className="text-[11px] text-muted-foreground bg-muted rounded-full px-2 py-0.5">
+   565→                                      {l.label}: {l.value} {l.labelUnit}
+   566→                                    </span>
+   567→                                  ))}
+   568→                                </div>
+   569→                              )}
+   570→
+   571→                              {/* Suggestions */}
+   572→                              {rx.suggestions.length > 0 && (
+   573→                                <div className="mt-2 space-y-0.5">
+   574→                                  {rx.suggestions.map((s) => (
+   575→                                    <p key={s.id} className="text-[11px] text-muted-foreground">
+   576→                                      <span className="font-medium">{s.question}:</span> {s.suggestions}
+   577→                                    </p>
+   578→                                  ))}
+   579→                                </div>
+   580→                              )}
+   581→                            </div>
+   582→
+   583→                            <Button
+   584→                              variant="outline"
+   585→                              size="sm"
+   586→                              className="shrink-0 text-xs gap-1 text-teal-600 border-teal-200 hover:bg-teal-50 dark:text-teal-400 dark:border-teal-800 dark:hover:bg-teal-950/30"
+   587→                              asChild
+   588→                            >
+   589→                              <Link href={`/dashboard/doctor/prescriptions/${rx.id}`}>
+   590→                                <ExternalLink className="h-3 w-3" /> View
+   591→                              </Link>
+   592→                            </Button>
+   593→                          </div>
+   594→                        </CardContent>
+   595→                      </Card>
+   596→                    </motion.div>
+   597→                  )
+   598→                })}
+   599→              </div>
+   600→            )}
+   601→          </TabsContent>
+   602→
+   603→          {/* Vitals Timeline Tab */}
+   604→          <TabsContent value="vitals" className="mt-4">
+   605→            {vitalsData.length === 0 ? (
+   606→              <EmptyState
+   607→                icon={<Activity className="h-12 w-12" />}
+   608→                title="No vitals data"
+   609→                description="No vitals have been recorded for this patient's visits."
+   610→              />
+   611→            ) : (
+   612→              <div className="space-y-6">
+   613→                {/* Weight Timeline */}
+   614→                <WeightTimeline visits={vitalsData} />
+   615→
+   616→                {/* BP Timeline */}
+   617→                <BPTimeline visits={vitalsData} />
+   618→
+   619→                {/* Temperature Timeline */}
+   620→                <TemperatureTimeline visits={vitalsData} />
+   621→              </div>
+   622→            )}
+   623→          </TabsContent>
+   624→        </Tabs>
+   625→      </motion.div>
+   626→    </div>
+   627→  )
+   628→}
+   629→
+   630→// ---------- Sub-components ----------
+   631→
+   632→function VitalPill({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
+   633→  return (
+   634→    <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2">
+   635→      <span className={color}>{icon}</span>
+   636→      <div>
+   637→        <p className="text-[10px] text-muted-foreground leading-none">{label}</p>
+   638→        <p className="text-sm font-semibold leading-tight mt-0.5">{value}</p>
+   639→      </div>
+   640→    </div>
+   641→  )
+   642→}
+   643→
+   644→function EmptyState({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+   645→  return (
+   646→    <Card>
+   647→      <CardContent className="py-16 flex flex-col items-center text-center text-muted-foreground">
+   648→        <div className="opacity-30 mb-3">{icon}</div>
+   649→        <p className="font-medium">{title}</p>
+   650→        <p className="text-sm mt-1 max-w-sm">{description}</p>
+   651→      </CardContent>
+   652→    </Card>
+   653→  )
+   654→}
+   655→
+   656→// ---------- Vitals Timeline Components (no chart library) ----------
+   657→
+   658→function WeightTimeline({ visits }: { visits: Visit[] }) {
+   659→  const weights = visits.filter((v) => v.weight > 0)
+   660→  if (weights.length === 0) return null
+   661→
+   662→  const maxW = Math.max(...weights.map((v) => v.weight))
+   663→  const minW = Math.min(...weights.map((v) => v.weight))
+   664→  const range = maxW - minW || 1
+   665→
+   666→  return (
+   667→    <Card>
+   668→      <CardHeader className="pb-3">
+   669→        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   670→          <Dumbbell className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+   671→          Weight Trend (kg)
+   672→        </CardTitle>
+   673→      </CardHeader>
+   674→      <CardContent className="space-y-3">
+   675→        {weights.map((v) => {
+   676→          const pct = ((v.weight - minW) / range) * 100
+   677→          return (
+   678→            <div key={v.id} className="flex items-center gap-3">
+   679→              <span className="text-xs text-muted-foreground w-20 shrink-0">
+   680→                {format(parseISO(v.bookingDate), 'MMM d')}
+   681→              </span>
+   682→              <div className="flex-1 h-6 bg-muted/50 rounded-full relative overflow-hidden">
+   683→                <motion.div
+   684→                  className="absolute inset-y-0 left-0 bg-gradient-to-r from-teal-500 to-teal-400 rounded-full"
+   685→                  initial={{ width: 0 }}
+   686→                  animate={{ width: `${Math.max(pct, 8)}%` }}
+   687→                  transition={{ duration: 0.6, delay: 0.1 }}
+   688→                />
+   689→              </div>
+   690→              <span className="text-xs font-semibold w-12 text-right">{v.weight}</span>
+   691→            </div>
+   692→          )
+   693→        })}
+   694→        <div className="flex justify-between text-[10px] text-muted-foreground pt-1">
+   695→          <span>{minW} kg</span>
+   696→          <span>{maxW} kg</span>
+   697→        </div>
+   698→      </CardContent>
+   699→    </Card>
+   700→  )
+   701→}
+   702→
+   703→function BPTimeline({ visits }: { visits: Visit[] }) {
+   704→  const bpData = visits
+   705→    .filter((v) => v.prescriptions.some((p) => p.bp))
+   706→    .map((v) => {
+   707→      const rx = v.prescriptions.find((p) => p.bp)
+   708→      return { ...v, bp: rx!.bp }
+   709→    })
+   710→
+   711→  if (bpData.length === 0) return null
+   712→
+   713→  // Parse systolic values
+   714→  const systolics = bpData
+   715→    .map((v) => parseInt(v.bp.split('/')[0], 10))
+   716→    .filter((n) => !isNaN(n))
+   717→
+   718→  if (systolics.length === 0) return null
+   719→
+   720→  const maxSys = Math.max(...systolics)
+   721→  const minSys = Math.min(...systolics)
+   722→  const range = maxSys - minSys || 1
+   723→
+   724→  return (
+   725→    <Card>
+   726→      <CardHeader className="pb-3">
+   727→        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   728→          <Heart className="h-4 w-4 text-red-500" />
+   729→          Blood Pressure Trend (mmHg)
+   730→        </CardTitle>
+   731→      </CardHeader>
+   732→      <CardContent className="space-y-3">
+   733→        {bpData.map((v) => {
+   734→          const sys = parseInt(v.bp.split('/')[0], 10) || 0
+   735→          const pct = ((sys - minSys) / range) * 100
+   736→          // Color based on BP level
+   737→          const barColor = sys > 140 ? 'from-red-500 to-red-400' : sys > 120 ? 'from-amber-500 to-amber-400' : 'from-green-500 to-green-400'
+   738→
+   739→          return (
+   740→            <div key={v.id} className="flex items-center gap-3">
+   741→              <span className="text-xs text-muted-foreground w-20 shrink-0">
+   742→                {format(parseISO(v.bookingDate), 'MMM d')}
+   743→              </span>
+   744→              <div className="flex-1 h-6 bg-muted/50 rounded-full relative overflow-hidden">
+   745→                <motion.div
+   746→                  className={cn('absolute inset-y-0 left-0 bg-gradient-to-r rounded-full', barColor)}
+   747→                  initial={{ width: 0 }}
+   748→                  animate={{ width: `${Math.max(pct, 8)}%` }}
+   749→                  transition={{ duration: 0.6, delay: 0.1 }}
+   750→                />
+   751→              </div>
+   752→              <span className="text-xs font-semibold w-16 text-right">{v.bp}</span>
+   753→            </div>
+   754→          )
+   755→        })}
+   756→        <div className="flex justify-between text-[10px] text-muted-foreground pt-1">
+   757→          <span>{minSys} mmHg</span>
+   758→          <span>{maxSys} mmHg</span>
+   759→        </div>
+   760→      </CardContent>
+   761→    </Card>
+   762→  )
+   763→}
+   764→
+   765→function TemperatureTimeline({ visits }: { visits: Visit[] }) {
+   766→  const tempData = visits
+   767→    .filter((v) => v.prescriptions.some((p) => p.temperature))
+   768→    .map((v) => {
+   769→      const rx = v.prescriptions.find((p) => p.temperature)
+   770→      return { ...v, temp: parseFloat(rx!.temperature) }
+   771→    })
+   772→    .filter((v) => !isNaN(v.temp))
+   773→
+   774→  if (tempData.length === 0) return null
+   775→
+   776→  const maxT = Math.max(...tempData.map((v) => v.temp))
+   777→  const minT = Math.min(...tempData.map((v) => v.temp))
+   778→  const range = maxT - minT || 1
+   779→
+   780→  return (
+   781→    <Card>
+   782→      <CardHeader className="pb-3">
+   783→        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+   784→          <Thermometer className="h-4 w-4 text-orange-500" />
+   785→          Temperature Trend (°F)
+   786→        </CardTitle>
+   787→      </CardHeader>
+   788→      <CardContent className="space-y-3">
+   789→        {tempData.map((v) => {
+   790→          const pct = ((v.temp - minT) / range) * 100
+   791→          const barColor = v.temp > 99 ? 'from-red-500 to-red-400' : v.temp > 98 ? 'from-amber-500 to-amber-400' : 'from-green-500 to-green-400'
+   792→
+   793→          return (
+   794→            <div key={v.id} className="flex items-center gap-3">
+   795→              <span className="text-xs text-muted-foreground w-20 shrink-0">
+   796→                {format(parseISO(v.bookingDate), 'MMM d')}
+   797→              </span>
+   798→              <div className="flex-1 h-6 bg-muted/50 rounded-full relative overflow-hidden">
+   799→                <motion.div
+   800→                  className={cn('absolute inset-y-0 left-0 bg-gradient-to-r rounded-full', barColor)}
+   801→                  initial={{ width: 0 }}
+   802→                  animate={{ width: `${Math.max(pct, 8)}%` }}
+   803→                  transition={{ duration: 0.6, delay: 0.1 }}
+   804→                />
+   805→              </div>
+   806→              <span className="text-xs font-semibold w-12 text-right">{v.temp}°F</span>
+   807→            </div>
+   808→          )
+   809→        })}
+   810→        <div className="flex justify-between text-[10px] text-muted-foreground pt-1">
+   811→          <span>{minT}°F</span>
+   812→          <span>{maxT}°F</span>
+   813→        </div>
+   814→      </CardContent>
+   815→    </Card>
+   816→  )
+   817→}
+   818→
+   819→// ---------- Loading Skeleton ----------
+   820→
+   821→function LoadingSkeleton() {
+   822→  return (
+   823→    <div className="space-y-6">
+   824→      <Skeleton className="h-8 w-36" />
+   825→      <Card>
+   826→        <div className="bg-gradient-to-r from-teal-600 to-teal-500 h-2" />
+   827→        <CardContent className="p-6">
+   828→          <div className="flex items-center gap-5">
+   829→            <Skeleton className="h-20 w-20 rounded-full shrink-0" />
+   830→            <div className="flex-1 space-y-3">
+   831→              <Skeleton className="h-6 w-48" />
+   832→              <div className="flex gap-2">
+   833→                <Skeleton className="h-5 w-16 rounded-full" />
+   834→                <Skeleton className="h-5 w-16 rounded-full" />
+   835→                <Skeleton className="h-5 w-20 rounded-full" />
+   836→              </div>
+   837→              <div className="flex gap-6">
+   838→                <Skeleton className="h-4 w-32" />
+   839→                <Skeleton className="h-4 w-44" />
+   840→              </div>
+   841→            </div>
+   842→          </div>
+   843→        </CardContent>
+   844→      </Card>
+   845→      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+   846→        {Array.from({ length: 3 }).map((_, i) => (
+   847→          <Card key={i}>
+   848→            <CardContent className="p-4 flex items-center gap-4">
+   849→              <Skeleton className="h-11 w-11 rounded-lg" />
+   850→              <div className="space-y-2">
+   851→                <Skeleton className="h-3 w-20" />
+   852→                <Skeleton className="h-6 w-24" />
+   853→              </div>
+   854→            </CardContent>
+   855→          </Card>
+   856→        ))}
+   857→      </div>
+   858→      <Card>
+   859→        <CardContent className="p-4 space-y-4">
+   860→          <Skeleton className="h-5 w-40" />
+   861→          {Array.from({ length: 3 }).map((_, i) => (
+   862→            <div key={i} className="rounded-lg border p-4 space-y-2">
+   863→              <div className="flex justify-between">
+   864→                <Skeleton className="h-4 w-32" />
+   865→                <Skeleton className="h-5 w-16 rounded-full" />
+   866→              </div>
+   867→              <Skeleton className="h-3 w-48" />
+   868→            </div>
+   869→          ))}
+   870→        </CardContent>
+   871→      </Card>
+   872→    </div>
+   873→  )
+   874→}
+   875→

@@ -16,7 +16,63 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url)
     const search = searchParams.get('search') || ''
+    const type = searchParams.get('type') || 'own'
 
+    if (type === 'shared') {
+      // Fetch prescriptions that patients have granted this doctor access to
+      const where: Record<string, unknown> = {
+        requestingDoctorId: doctor.id,
+        status: 'Approved',
+      }
+
+      const accessRecords = await db.prescriptionAccessRequest.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          prescription: {
+            include: {
+              medicines: true,
+              labels: true,
+              suggestions: true,
+            },
+          },
+          originalDoctor: {
+            include: {
+              user: { select: { name: true, profileImg: true, specialization: true } },
+            },
+          },
+        },
+      })
+
+      // Filter by search
+      const filtered = search
+        ? accessRecords.filter(
+            (r) => r.prescription.patientName.toLowerCase().includes(search.toLowerCase())
+          )
+        : accessRecords
+
+      return NextResponse.json({
+        prescriptions: filtered.map((r) => ({
+          id: r.prescription.id,
+          patientName: r.prescription.patientName,
+          patientAge: r.prescription.patientAge,
+          disease: r.prescription.disease,
+          weight: r.prescription.weight,
+          bp: r.prescription.bp,
+          temperature: r.prescription.temperature,
+          description: r.prescription.description,
+          createdAt: r.prescription.createdAt,
+          medicines: r.prescription.medicines,
+          labels: r.prescription.labels,
+          suggestions: r.prescription.suggestions,
+          isShared: true,
+          originalDoctorName: r.originalDoctor.user.name,
+          originalDoctorSpecialization: r.originalDoctor.specialization,
+        })),
+      })
+    }
+
+    // Default: own prescriptions
     const where: Record<string, unknown> = { doctorId: doctor.id }
     if (search) {
       where.patientName = { contains: search }
@@ -32,7 +88,12 @@ export async function GET(req: NextRequest) {
       },
     })
 
-    return NextResponse.json({ prescriptions })
+    return NextResponse.json({
+      prescriptions: prescriptions.map((p) => ({
+        ...p,
+        isShared: false,
+      })),
+    })
   } catch (error) {
     console.error('Doctor prescriptions error:', error)
     return NextResponse.json({ error: 'Failed to load prescriptions' }, { status: 500 })

@@ -2068,3 +2068,59 @@ Stage Summary:
 - All 7 role dashboards will work even with old cookies
 - Doctor dashboard shows proper error message instead of misleading zeros
 - Patient booking works without needing to re-login
+
+---
+Task ID: 19
+Agent: Main Agent
+Task: Implement prescription privacy system (Issue 2) + video call scoping fix (Issue 3) + chat privacy fix (bonus)
+
+Work Log:
+- Confirmed doctor-centric privacy architecture is correctly implemented across all roles
+- Identified 3 privacy issues: (1) chat GET route missing ownership check, (2) video call route missing receptionist scoping, (3) no cross-doctor prescription access control
+- Added PrescriptionAccessRequest model to Prisma schema with relations to Doctor, Prescription, and User
+- Pushed schema to DB successfully (bun run db:push)
+- Created 4 new API routes for prescription access:
+  1. POST /api/prescription-access/request - Doctor requests access to another doctor's prescription
+  2. GET /api/prescription-access/requests - Patient lists their access requests (filterable by status)
+  3. POST /api/prescription-access/[id]/respond - Patient approves/rejects a request
+  4. DELETE /api/prescription-access/[id]/respond - Patient revokes previously granted access
+- Modified doctor prescriptions GET to support ?type=shared for viewing consent-based shared prescriptions
+- Modified doctor prescription detail GET to allow viewing shared prescriptions (checks PrescriptionAccessRequest for approval)
+- Modified doctor prescription PUT to only allow editing own prescriptions (shared are read-only)
+- Fixed video call route: removed admin access, added receptionist scoping to same doctor
+- Fixed chat GET route: added ownership verification (patient/doctor/receptionist of same doctor only)
+- Created patient prescription access management page (dashboard/patient/prescription-access) with:
+  - Pending/Approved/History tabs with pending count badge
+  - Accept/Reject buttons for pending requests with optimistic updates
+  - Revoke Access button for approved requests with confirmation
+  - Skeleton loading, error state, empty states
+- Updated doctor prescriptions page with:
+  - 'My Prescriptions' and 'Shared With Me' tabs
+  - Shared prescriptions show teal left border, original doctor info, access granted date
+  - Search works across both tabs
+- Added 'Rx Access' link to patient sidebar (Shield icon)
+- Ran ESLint: zero errors
+
+Files Created:
+1. prisma/schema.prisma - Added PrescriptionAccessRequest model + reverse relations
+2. src/app/api/prescription-access/request/route.ts - Doctor requests access
+3. src/app/api/prescription-access/requests/route.ts - Patient lists requests
+4. src/app/api/prescription-access/[id]/respond/route.ts - Patient approve/reject/revoke
+5. src/app/api/prescription-access/granted/route.ts - Doctor lists granted prescriptions
+6. src/app/dashboard/patient/prescription-access/page.tsx - Patient access management UI
+
+Files Modified:
+1. src/app/api/dashboard/doctor/prescriptions/route.ts - Added ?type=shared support
+2. src/app/api/dashboard/doctor/prescriptions/[id]/route.ts - Allow viewing shared prescriptions, read-only
+3. src/app/api/dashboard/doctor/video-call/route.ts - Fixed receptionist scoping
+4. src/app/api/bookings/[bookingId]/chat/route.ts - Added ownership check on GET
+5. src/app/dashboard/doctor/prescriptions/page.tsx - Added Shared With Me tab
+6. src/lib/sidebar-config.ts - Added 'Rx Access' to patient sidebar
+
+Stage Summary:
+- Prescription privacy system implemented: doctors can request access, patients approve/reject/revoke
+- Video calls now properly scoped: only the booking's doctor or their receptionist can start
+- Chat GET route now verifies caller ownership before returning messages
+- Doctor prescriptions page has 'Shared With Me' tab for viewing patient-approved prescriptions
+- Patient has 'Rx Access' page in sidebar to manage all access requests
+- All changes pass ESLint with zero errors

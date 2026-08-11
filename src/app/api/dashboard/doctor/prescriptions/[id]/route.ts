@@ -19,12 +19,13 @@ export async function GET(
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 })
     }
 
-    const prescription = await db.prescription.findFirst({
+    // First, try to find as own prescription
+    let prescription = await db.prescription.findFirst({
       where: { id, doctorId: doctor.id },
       include: {
         booking: {
           include: {
-            user: { select: { name: true, profileImg: true, gender: true } },
+            user: { select: { name: true, profileImg: true, gender: true, id: true } },
           },
         },
         doctor: {
@@ -38,11 +39,51 @@ export async function GET(
       },
     })
 
+    // If not own, check if patient has granted access via PrescriptionAccessRequest
+    if (!prescription) {
+      const accessGranted = await db.prescriptionAccessRequest.findFirst({
+        where: {
+          prescriptionId: id,
+          requestingDoctorId: doctor.id,
+          status: 'Approved',
+        },
+      })
+
+      if (accessGranted) {
+        prescription = await db.prescription.findUnique({
+          where: { id },
+          include: {
+            booking: {
+              include: {
+                user: { select: { name: true, profileImg: true, gender: true, id: true } },
+              },
+            },
+            doctor: {
+              include: {
+                user: { select: { name: true, profileImg: true, mobileNo: true } },
+              },
+            },
+            medicines: true,
+            labels: true,
+            suggestions: true,
+          },
+        })
+      }
+    }
+
     if (!prescription) {
       return NextResponse.json({ error: 'Prescription not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ prescription })
+    // Determine if this is a shared prescription
+    const isShared = prescription.doctorId !== doctor.id
+
+    return NextResponse.json({
+      prescription: {
+        ...prescription,
+        isShared,
+      },
+    })
   } catch (error) {
     console.error('Get prescription error:', error)
     return NextResponse.json({ error: 'Failed to load prescription' }, { status: 500 })
@@ -65,6 +106,17 @@ export async function PUT(
       return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 })
     }
 
+    // Only the original doctor can edit a prescription
+    const existing = await db.prescription.findFirst({
+      where: { id, doctorId: doctor.id },
+    })
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'Prescription not found or you do not have edit permission for shared prescriptions' },
+        { status: 404 }
+      )
+    }
+
     const body = await req.json()
     const {
       patientName,
@@ -77,13 +129,6 @@ export async function PUT(
       medicines,
       labels,
     } = body
-
-    const existing = await db.prescription.findFirst({
-      where: { id, doctorId: doctor.id },
-    })
-    if (!existing) {
-      return NextResponse.json({ error: 'Prescription not found' }, { status: 404 })
-    }
 
     // Delete old medicines and labels, then recreate
     await db.pMedicine.deleteMany({ where: { prescriptionId: id } })

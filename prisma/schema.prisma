@@ -40,6 +40,7 @@ model User {
   receptionistProfile  Receptionist?       @relation("ReceptionistUser")
   assistantProfile    DoctorAssistant?    @relation("AssistantUser")
   pharmacistProfile   DoctorPharmacist?   @relation("PharmacistUser")
+  prescriptionAccessRequests PrescriptionAccessRequest[] @relation("PrescriptionAccessPatient")
 }
 
 // ============ DOCTOR ============
@@ -86,6 +87,8 @@ model Doctor {
   labelMaster         LabelMaster[]
   questionMaster      QuestionsMaster[]
   otherSettings       POtherSetting?
+  accessRequestsMade  PrescriptionAccessRequest[] @relation("RequestingDoctor")
+  accessRequestsReceived PrescriptionAccessRequest[] @relation("OriginalDoctor")
 }
 
 // ============ HOSPITAL ============
@@ -182,6 +185,7 @@ model Prescription {
   suggestions  PSuggestion[]
   diagnosisTables PDignoTable[]
   chiefComplaints PCo[]
+  accessRequests    PrescriptionAccessRequest[]
 }
 
 model PMedicine {
@@ -531,6 +535,24 @@ model DoctorGallery {
   createdAt DateTime @default(now())
 
   doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+// ============ PRESCRIPTION ACCESS REQUEST (Patient Consent) ============
+
+model PrescriptionAccessRequest {
+  id                 String   @id @default(cuid())
+  prescriptionId     String   // prescription being requested
+  requestingDoctorId String   // Doctor.id of the doctor requesting access (Doctor Z)
+  patientId          String   // User.id of the patient who owns this prescription
+  originalDoctorId   String   // Doctor.id of the doctor who created the prescription (Doctor Y)
+  status             String   @default("Pending") // Pending, Approved, Rejected
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  prescription       Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  requestingDoctor   Doctor      @relation("RequestingDoctor", fields: [requestingDoctorId], references: [id])
+  originalDoctor     Doctor      @relation("OriginalDoctor", fields: [originalDoctorId], references: [id])
+  patient            User        @relation("PrescriptionAccessPatient", fields: [patientId], references: [id])
 }
 
 // ============ MEDICAL DOCUMENTS ============
