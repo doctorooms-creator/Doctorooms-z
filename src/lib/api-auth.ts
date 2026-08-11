@@ -13,8 +13,8 @@ export interface AuthUser {
 
 /**
  * Unified auth for API routes.
- * DEV MODE: If DB lookup fails, falls back to creating a mock user
- * from the doctorooms_role cookie. Auth is disabled for development.
+ * DEV MODE: If DB lookup fails (stale session after re-seed etc.),
+ * falls back to looking up a real DB user matching the role cookie.
  *
  * PRODUCTION: Will require valid session cookie + DB user lookup.
  */
@@ -45,10 +45,28 @@ export async function getAuthUser(req: NextRequest): Promise<AuthUser | null> {
     }
   }
 
-  // DEV MODE FALLBACK: Create mock user from role cookie
-  // This allows all API routes to work without real authentication
+  // DEV MODE FALLBACK: Find a real DB user matching the role cookie.
+  // This handles stale sessions (e.g. after database re-seed).
   if (roleCookie) {
-    return getDevUser(roleCookie, sessionId)
+    try {
+      const realUser = await db.user.findFirst({
+        where: { role: roleCookie, status: 'Active' },
+      })
+      if (realUser) {
+        return {
+          id: realUser.id,
+          name: realUser.name,
+          email: realUser.email,
+          role: realUser.role,
+          gender: realUser.gender,
+          profileImg: realUser.profileImg,
+          mobileNo: realUser.mobileNo,
+        }
+      }
+    } catch {
+      // DB fallback also failed, use hardcoded dev user
+    }
+    return getDevUser(roleCookie)
   }
 
   return null
@@ -144,11 +162,6 @@ const DEV_USERS: Record<string, AuthUser> = {
   },
 }
 
-function getDevUser(role: string, id?: string | null): AuthUser {
-  const base = DEV_USERS[role] || DEV_USERS['patient']!
-  // If a real session ID exists, try to use it for data queries
-  if (id && !id.startsWith('dev-')) {
-    return { ...base, id }
-  }
-  return base
+function getDevUser(role: string): AuthUser {
+  return DEV_USERS[role] || DEV_USERS['patient']!
 }

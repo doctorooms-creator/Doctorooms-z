@@ -113,8 +113,12 @@ export default function PatientBookDoctorPage() {
     isLoading: doctorLoading,
   } = useQuery({
     queryKey: ['doctor-info', doctorId],
-    queryFn: () => fetch(`/api/doctors/${doctorId}`).then((r) => r.json()),
+    queryFn: () => fetch(`/api/doctors/${doctorId}`).then((r) => {
+      if (!r.ok) throw new Error('Failed to load doctor info')
+      return r.json()
+    }),
     enabled: !!doctorId,
+    retry: 1,
   })
 
   const doctor: DoctorInfo | null = doctorData?.doctor || null

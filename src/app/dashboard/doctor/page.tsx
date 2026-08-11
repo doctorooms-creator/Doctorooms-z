@@ -17,6 +17,7 @@ import {
   Stethoscope,
   PenSquare,
   Plus,
+  AlertCircle,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -55,12 +56,26 @@ const statusColors: Record<string, string> = {
 }
 
 export default function DoctorDashboardPage() {
-  const { data: stats, isLoading } = useQuery<DoctorStats>({
+  const { data: stats, isLoading, error } = useQuery<DoctorStats>({
     queryKey: ['doctor-stats'],
-    queryFn: () => fetch('/api/dashboard/doctor/stats').then((r) => r.json()),
+    queryFn: () => fetch('/api/dashboard/doctor/stats').then((r) => {
+      if (!r.ok) throw new Error('Failed to load stats')
+      return r.json()
+    }),
+    retry: 1,
   })
 
   if (isLoading) return <DoctorDashboardSkeleton />
+
+  if (error || !stats) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <AlertCircle className="h-12 w-12 text-muted-foreground/40 mb-4" />
+        <p className="text-lg font-medium text-muted-foreground">Failed to load dashboard</p>
+        <p className="text-sm text-muted-foreground/70 mt-1">Please try re-logging in or refresh the page.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
