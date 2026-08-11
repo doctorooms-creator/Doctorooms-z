@@ -115,6 +115,10 @@ export function DashboardHeader({ onMenuClick, onLogout }: DashboardHeaderProps)
   const userEmail = user?.email || ''
   const getAvatarSrc = (img: string | null | undefined): string => {
     if (!img || img === 'default.png') return '/default.png'
+    if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('/')) return img
+    // Bare filename → Supabase Storage
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    if (supabaseUrl) return `${supabaseUrl}/storage/v1/object/public/avatars/${img}`
     return `/uploads/profile/${img}`
   }
   const userImg = getAvatarSrc(user?.profileImg)

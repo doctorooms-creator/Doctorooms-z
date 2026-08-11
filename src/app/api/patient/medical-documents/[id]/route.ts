@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
+import { deleteFromStorage } from '@/lib/supabase'
+
+const BUCKET = 'medical-docs'
 
 export async function PUT(
   req: NextRequest,
@@ -22,17 +25,10 @@ export async function PUT(
       const title = formData.get('title') as string | null
       const category = formData.get('category') as string | null
       const description = formData.get('description') as string | null
-      const file = formData.get('file') as File | null
 
       if (title !== null) updateData.title = title
       if (category !== null) updateData.category = category
       if (description !== null) updateData.description = description
-      if (file && file.size > 0) {
-        const bytes = await file.arrayBuffer()
-        updateData.fileData = Buffer.from(bytes)
-        updateData.fileName = file.name
-        updateData.fileType = file.type
-      }
     } else {
       const body = await req.json()
       const { title, category, description } = body
@@ -77,6 +73,15 @@ export async function DELETE(
     const doc = await db.medicalDocument.findUnique({ where: { id } })
     if (!doc || doc.patientId !== user.id) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // Delete file from Supabase Storage
+    if (doc.fileUrl) {
+      try {
+        await deleteFromStorage(BUCKET, doc.fileUrl)
+      } catch {
+        // Ignore if file cannot be deleted
+      }
     }
 
     await db.medicalDocument.delete({ where: { id } })

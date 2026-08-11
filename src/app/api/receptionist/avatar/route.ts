@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { existsSync, unlinkSync } from 'fs'
+import { uploadToStorage, deleteFromStorage } from '@/lib/supabase'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_SIZE = 2 * 1024 * 1024 // 2MB
-const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads', 'profile')
+const BUCKET = 'avatars'
 
 export async function POST(req: NextRequest) {
   try {
     const user = await requireRole(req, 'receptionist')
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'Unauthorized access.' }, { status: 401 })
+    }
 
     const formData = await req.formData()
     const file = formData.get('avatar') as File
@@ -38,47 +39,35 @@ export async function POST(req: NextRequest) {
     }
 
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
-    const newFilename = `${user.id}_${Date.now()}.${ext}`
-
-    await mkdir(UPLOAD_DIR, { recursive: true })
-
+    const storagePath = `receptionists/${user.id}_${Date.now()}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
-    const filePath = join(UPLOAD_DIR, newFilename)
-    await writeFile(filePath, buffer)
 
-    // Delete old avatar if it exists and is not the default
+    const publicUrl = await uploadToStorage(BUCKET, storagePath, buffer, file.type)
+
+    // Delete old avatar from storage if it's not default
     const existingUser = await db.user.findUnique({
       where: { id: user.id },
       select: { profileImg: true },
     })
 
     if (existingUser?.profileImg && existingUser.profileImg !== 'default.png') {
-      const oldFilePath = join(UPLOAD_DIR, existingUser.profileImg)
-      if (existsSync(oldFilePath)) {
-        try {
-          unlinkSync(oldFilePath)
-        } catch {
-          // Ignore error if old file cannot be deleted
-        }
+      try {
+        await deleteFromStorage(BUCKET, existingUser.profileImg)
+      } catch {
+        // Ignore if old file cannot be deleted
       }
     }
 
     await db.user.update({
       where: { id: user.id },
-      data: { profileImg: newFilename },
+      data: { profileImg: publicUrl },
     })
 
     return NextResponse.json({
       success: true,
-      profileImg: newFilename,
+      profileImg: publicUrl,
     })
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized access.' },
-        { status: 401 }
-      )
-    }
     console.error('Receptionist avatar upload error:', error)
     return NextResponse.json(
       { success: false, message: 'Failed to upload avatar. Please try again.' },

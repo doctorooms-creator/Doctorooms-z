@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
-function avatarUrl(img: string | null | undefined): string {
-  if (!img || img === 'default.png') return ''
-  return img.startsWith('/') ? img : `/uploads/profile/${img}`
-}
+import { resolveAvatarUrl } from '@/lib/avatar-url'
 
 /**
  * GET /api/prescription-access/granted
@@ -87,9 +84,9 @@ export async function GET(req: NextRequest) {
         // Shared metadata
         accessGrantedAt: r.updatedAt,
         originalDoctorName: r.originalDoctor.user.name,
-        originalDoctorImg: avatarUrl(r.originalDoctor.user.profileImg),
+        originalDoctorImg: resolveAvatarUrl(r.originalDoctor.user.profileImg),
         originalDoctorSpecialization: r.originalDoctor.specialization,
-        patientImg: avatarUrl(r.patient.profileImg),
+        patientImg: resolveAvatarUrl(r.patient.profileImg),
         isShared: true,
       })),
     })

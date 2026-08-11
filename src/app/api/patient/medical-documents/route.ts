@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
+import { uploadToStorage } from '@/lib/supabase'
 
 const ALLOWED_TYPES = [
   'application/pdf',
@@ -12,7 +11,7 @@ const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]
 const MAX_SIZE = 5 * 1024 * 1024 // 5MB
-const UPLOAD_DIR = join(process.cwd(), 'uploads', 'documents')
+const BUCKET = 'medical-docs'
 
 export async function GET(req: NextRequest) {
   try {
@@ -86,9 +85,7 @@ export async function POST(req: NextRequest) {
     let fileSize = 0
     let mimeType = ''
 
-    // Handle real file upload
     if (file && file.size > 0) {
-      // Validate file type
       if (!ALLOWED_TYPES.includes(file.type)) {
         return NextResponse.json(
           { error: 'Invalid file type. Only PDF, JPG, PNG, DOC, and DOCX files are allowed.' },
@@ -96,7 +93,6 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Validate file size
       if (file.size > MAX_SIZE) {
         return NextResponse.json(
           { error: 'File too large. Maximum allowed size is 5MB.' },
@@ -104,21 +100,12 @@ export async function POST(req: NextRequest) {
         )
       }
 
-      // Generate safe filename: {userId}_{timestamp}_{originalName}
       const timestamp = Date.now()
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-      const diskFilename = `${user.id}_${timestamp}_${safeName}`
+      const storagePath = `${user.id}/${timestamp}_${safeName}`
 
-      // Ensure upload directory exists
-      await mkdir(UPLOAD_DIR, { recursive: true })
-
-      // Write file to disk
       const buffer = Buffer.from(await file.arrayBuffer())
-      const filePath = join(UPLOAD_DIR, diskFilename)
-      await writeFile(filePath, buffer)
-
-      // Store the disk-relative path in fileUrl for the download route to use
-      fileUrl = `/uploads/documents/${diskFilename}`
+      fileUrl = await uploadToStorage(BUCKET, storagePath, buffer, file.type)
       fileName = file.name
       fileSize = file.size
       mimeType = file.type

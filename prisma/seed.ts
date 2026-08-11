@@ -7,40 +7,40 @@ async function main() {
   console.log('🌱 Seeding database with comprehensive mock data...');
 
   // ============ CLEAN ============
+  // Sequential deletes (pgbouncer transaction mode doesn't support $transaction array syntax)
   console.log('Cleaning existing data...');
-  await db.$transaction([
-    db.bookingChat.deleteMany(),
-    db.pCo.deleteMany(),
-    db.pDignoTable.deleteMany(),
-    db.pSuggestion.deleteMany(),
-    db.pLabel.deleteMany(),
-    db.pMedicine.deleteMany(),
-    db.prescription.deleteMany(),
-    db.medicalDocument.deleteMany(),
-    db.notification.deleteMany(),
-    db.doctorRating.deleteMany(),
-    db.booking.deleteMany(),
-    db.doctorHoliday.deleteMany(),
-    db.doctorSchedule.deleteMany(),
-    db.doctorMedicine.deleteMany(),
-    db.doctorGallery.deleteMany(),
-    db.doctorAssistant.deleteMany(),
-    db.doctorPharmacist.deleteMany(),
-    db.receptionist.deleteMany(),
-    db.pOtherSetting.deleteMany(),
-    db.coMaster.deleteMany(),
-    db.labelMaster.deleteMany(),
-    db.questionsMaster.deleteMany(),
-    db.suggestionsMaster.deleteMany(),
-    db.post.deleteMany(),
-    db.hospitalInquiry.deleteMany(),
-    db.diseaseMaster.deleteMany(),
-    db.doctorTypeMaster.deleteMany(),
-    db.hospital.deleteMany(),
-    db.doctor.deleteMany(),
-    db.slider.deleteMany(),
-    db.user.deleteMany(),
-  ]);
+  await db.bookingChat.deleteMany();
+  await db.pCo.deleteMany();
+  await db.pDignoTable.deleteMany();
+  await db.pSuggestion.deleteMany();
+  await db.pLabel.deleteMany();
+  await db.pMedicine.deleteMany();
+  await db.prescriptionAccessRequest.deleteMany();
+  await db.prescription.deleteMany();
+  await db.medicalDocument.deleteMany();
+  await db.notification.deleteMany();
+  await db.doctorRating.deleteMany();
+  await db.booking.deleteMany();
+  await db.doctorHoliday.deleteMany();
+  await db.doctorSchedule.deleteMany();
+  await db.doctorMedicine.deleteMany();
+  await db.doctorGallery.deleteMany();
+  await db.doctorAssistant.deleteMany();
+  await db.doctorPharmacist.deleteMany();
+  await db.receptionist.deleteMany();
+  await db.pOtherSetting.deleteMany();
+  await db.coMaster.deleteMany();
+  await db.labelMaster.deleteMany();
+  await db.questionsMaster.deleteMany();
+  await db.suggestionsMaster.deleteMany();
+  await db.post.deleteMany();
+  await db.hospitalInquiry.deleteMany();
+  await db.diseaseMaster.deleteMany();
+  await db.doctorTypeMaster.deleteMany();
+  await db.hospital.deleteMany();
+  await db.doctor.deleteMany();
+  await db.slider.deleteMany();
+  await db.user.deleteMany();
   console.log('✅ Cleaned');
 
   const password = await hash('123456', 10);

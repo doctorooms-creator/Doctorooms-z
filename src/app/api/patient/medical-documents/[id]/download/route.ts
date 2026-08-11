@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
-import { createReadStream, existsSync } from 'fs'
-import { join } from 'path'
-import { stat } from 'fs/promises'
+
+export const BUCKET = 'medical-docs'
 
 export async function GET(
   req: NextRequest,
@@ -16,7 +15,6 @@ export async function GET(
     }
     const { id } = await params
 
-    // Fetch document and verify ownership
     const doc = await db.medicalDocument.findUnique({
       where: { id },
     })
@@ -32,31 +30,21 @@ export async function GET(
       )
     }
 
-    // Resolve the file path from the stored fileUrl (e.g., /uploads/documents/{filename})
-    const diskPath = join(process.cwd(), doc.fileUrl)
-
-    if (!existsSync(diskPath)) {
-      return NextResponse.json(
-        { error: 'File not found on disk' },
-        { status: 404 }
-      )
+    // For Supabase Storage URLs, redirect the client to the public URL
+    // Supabase Storage handles serving the file with proper content-type
+    if (doc.fileUrl.startsWith('http')) {
+      return NextResponse.json({
+        url: doc.fileUrl,
+        fileName: doc.fileName,
+        mimeType: doc.mimeType,
+      })
     }
 
-    const fileStat = await stat(diskPath)
-    const fileStream = createReadStream(diskPath)
-
-    // Determine content type
-    const contentType = doc.mimeType || 'application/octet-stream'
-
-    return new NextResponse(fileStream as unknown as BodyInit, {
-      status: 200,
-      headers: {
-        'Content-Type': contentType,
-        'Content-Disposition': `inline; filename="${doc.fileName}"`,
-        'Content-Length': fileStat.size.toString(),
-        'Cache-Control': 'private, max-age=86400',
-      },
-    })
+    // Fallback for any local paths (should not happen after migration)
+    return NextResponse.json(
+      { error: 'File not found' },
+      { status: 404 }
+    )
   } catch (error) {
     console.error('Document download error:', error)
     return NextResponse.json(

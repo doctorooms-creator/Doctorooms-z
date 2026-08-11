@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
-function avatarUrl(img: string | null | undefined): string {
-  if (!img || img === 'default.png') return ''
-  return img.startsWith('/') ? img : `/uploads/profile/${img}`
-}
+import { resolveAvatarUrl } from '@/lib/avatar-url'
 
 export async function GET(req: NextRequest) {
   try {
@@ -106,7 +103,7 @@ export async function GET(req: NextRequest) {
       upcomingList: upcomingAppointments.map((b) => ({
         id: b.id,
         doctorName: b.doctor?.user?.name || 'Unknown',
-        doctorImg: avatarUrl(b.doctor?.user?.profileImg),
+        doctorImg: resolveAvatarUrl(b.doctor?.user?.profileImg),
         doctorSpecialization: b.doctor?.specialization || '',
         date: b.bookingDate,
         disease: b.disease,

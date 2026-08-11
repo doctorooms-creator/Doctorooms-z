@@ -3,10 +3,7 @@ import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { Prisma } from '@prisma/client'
 
-function avatarUrl(img: string | null | undefined): string {
-  if (!img || img === 'default.png') return ''
-  return img.startsWith('/') ? img : `/uploads/profile/${img}`
-}
+import { resolveAvatarUrl } from '@/lib/avatar-url'
 
 export async function GET(req: NextRequest) {
   try {
@@ -67,7 +64,7 @@ export async function GET(req: NextRequest) {
         id: b.id,
         appointmentNo: b.appointmentNo,
         doctorName: b.doctor?.user?.name || 'Unknown',
-        doctorImg: avatarUrl(b.doctor?.user?.profileImg),
+        doctorImg: resolveAvatarUrl(b.doctor?.user?.profileImg),
         doctorSpecialization: b.doctor?.specialization || '',
         date: b.bookingDate,
         disease: b.disease,

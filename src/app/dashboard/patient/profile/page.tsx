@@ -33,7 +33,11 @@ interface Profile {
 
 function getAvatarUrl(profileImg: string | null | undefined): string {
   if (!profileImg || profileImg === 'default.png') return '/default.png'
-  return profileImg.startsWith('/') ? profileImg : `/uploads/profile/${profileImg}`
+  if (profileImg.startsWith('http://') || profileImg.startsWith('https://') || profileImg.startsWith('/')) return profileImg
+  // Bare filename → Supabase Storage
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (supabaseUrl) return `${supabaseUrl}/storage/v1/object/public/avatars/${profileImg}`
+  return `/uploads/profile/${profileImg}`
 }
 
 function ProfilePageSkeleton() {

@@ -2,10 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
-function avatarUrl(img: string | null | undefined): string {
-  if (!img || img === 'default.png') return ''
-  return img.startsWith('/') ? img : `/uploads/profile/${img}`
-}
+import { resolveAvatarUrl } from '@/lib/avatar-url'
 
 export async function GET(req: NextRequest) {
   try {
@@ -57,7 +54,7 @@ export async function GET(req: NextRequest) {
           description: m.description,
         })),
         doctorName: p.doctor?.user?.name || 'Unknown',
-        doctorImg: avatarUrl(p.doctor?.user?.profileImg),
+        doctorImg: resolveAvatarUrl(p.doctor?.user?.profileImg),
         bookingId: p.bookingId,
         appointmentNo: p.booking?.appointmentNo || '',
         bookingDate: p.booking?.bookingDate || null,

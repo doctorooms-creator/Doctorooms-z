@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
+import { resolveAvatarUrl } from '@/lib/avatar-url'
 
 export async function GET(
   req: NextRequest,
@@ -103,11 +104,7 @@ export async function GET(
             id: booking.doctor.id,
             userId: booking.doctor.userId,
             name: booking.doctor.user?.name || '',
-            img: booking.doctor.user?.profileImg
-              ? booking.doctor.user.profileImg.startsWith('/')
-                ? booking.doctor.user.profileImg
-                : `/uploads/profile/${booking.doctor.user.profileImg}`
-              : '',
+            img: resolveAvatarUrl(booking.doctor.user?.profileImg),
             email: booking.doctor.user?.email || '',
             phone: booking.doctor.user?.mobileNo || '',
             specialization: booking.doctor.specialization,
@@ -123,11 +120,7 @@ export async function GET(
             email: booking.user.email,
             phone: booking.user.mobileNo,
             gender: booking.user.gender,
-            img: booking.user.profileImg
-              ? booking.user.profileImg.startsWith('/')
-                ? booking.user.profileImg
-                : `/uploads/profile/${booking.user.profileImg}`
-              : '',
+            img: resolveAvatarUrl(booking.user.profileImg),
           }
         : null,
       chatMessages: booking.chatMessages.map((m) => ({
@@ -139,11 +132,7 @@ export async function GET(
         sender: {
           id: m.sender.id,
           name: m.sender.name,
-          profileImg: m.sender.profileImg
-            ? m.sender.profileImg.startsWith('/')
-              ? m.sender.profileImg
-              : `/uploads/profile/${m.sender.profileImg}`
-            : '',
+          profileImg: resolveAvatarUrl(m.sender.profileImg),
           role: m.sender.role,
         },
       })),

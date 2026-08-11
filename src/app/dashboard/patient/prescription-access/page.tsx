@@ -50,7 +50,10 @@ interface AccessRequest {
 
 function getAvatarUrl(img: string | null | undefined): string {
   if (!img || img === 'default.png') return ''
-  return img.startsWith('/') ? img : `/uploads/profile/${img}`
+  if (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('/')) return img
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (supabaseUrl) return `${supabaseUrl}/storage/v1/object/public/avatars/${img}`
+  return `/uploads/profile/${img}`
 }
 
 function getInitials(name: string): string {

@@ -1,13 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { requireRole } from '@/lib/api-auth';
-import { db } from '@/lib/db';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
-import { existsSync, unlinkSync } from 'fs';
+import { NextRequest, NextResponse } from 'next/server'
+import { requireRole } from '@/lib/api-auth'
+import { db } from '@/lib/db'
+import { uploadToStorage, deleteFromStorage } from '@/lib/supabase'
 
-const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_SIZE = 2 * 1024 * 1024; // 2MB
-const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads', 'profile');
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
+const MAX_SIZE = 2 * 1024 * 1024 // 2MB
+const BUCKET = 'avatars'
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,77 +14,64 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, message: 'Unauthorized access.' }, { status: 401 })
     }
 
-    const formData = await req.formData();
-    const file = formData.get('avatar') as File;
+    const formData = await req.formData()
+    const file = formData.get('avatar') as File
 
-    // Validate file exists
     if (!file) {
       return NextResponse.json(
         { success: false, message: 'No file provided. Please select an image.' },
         { status: 400 }
-      );
+      )
     }
 
-    // Validate file type
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
         { success: false, message: 'Invalid file type. Only JPEG, PNG, and WebP images are allowed.' },
         { status: 400 }
-      );
+      )
     }
 
-    // Validate file size
     if (file.size > MAX_SIZE) {
       return NextResponse.json(
         { success: false, message: 'File too large. Maximum allowed size is 2MB.' },
         { status: 400 }
-      );
+      )
     }
 
-    // Extract extension from file name
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-    const newFilename = `${user.id}_${Date.now()}.${ext}`;
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+    const storagePath = `patients/${user.id}_${Date.now()}.${ext}`
+    const buffer = Buffer.from(await file.arrayBuffer())
 
-    // Ensure upload directory exists
-    await mkdir(UPLOAD_DIR, { recursive: true });
+    const publicUrl = await uploadToStorage(BUCKET, storagePath, buffer, file.type)
 
-    // Write file to disk
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const filePath = join(UPLOAD_DIR, newFilename);
-    await writeFile(filePath, buffer);
-
-    // Delete old avatar if it exists and is not the default
+    // Delete old avatar from storage if it's a Supabase URL and not default
     const existingUser = await db.user.findUnique({
       where: { id: user.id },
       select: { profileImg: true },
-    });
+    })
 
     if (existingUser?.profileImg && existingUser.profileImg !== 'default.png') {
-      const oldFilePath = join(UPLOAD_DIR, existingUser.profileImg);
-      if (existsSync(oldFilePath)) {
-        try {
-          unlinkSync(oldFilePath);
-        } catch {
-          // Ignore error if old file cannot be deleted
-        }
+      try {
+        await deleteFromStorage(BUCKET, existingUser.profileImg)
+      } catch {
+        // Ignore if old file cannot be deleted (might be local)
       }
     }
 
-    // Update database
     await db.user.update({
       where: { id: user.id },
-      data: { profileImg: newFilename },
-    });
+      data: { profileImg: publicUrl },
+    })
 
     return NextResponse.json({
       success: true,
-      profileImg: newFilename,
-    });
+      profileImg: publicUrl,
+    })
   } catch (error) {
-    console.error('Avatar upload error:', error);
+    console.error('Avatar upload error:', error)
     return NextResponse.json(
       { success: false, message: 'Failed to upload avatar. Please try again.' },
       { status: 500 }
-    );
+    )
   }
 }
