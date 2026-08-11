@@ -5,6 +5,9 @@ import { db } from '@/lib/db'
 export async function GET(req: NextRequest) {
   try {
     const user = await requireRole(req, 'patient')
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const userId = user.id
 
     const [

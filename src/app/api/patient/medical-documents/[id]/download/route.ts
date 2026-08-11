@@ -11,6 +11,9 @@ export async function GET(
 ) {
   try {
     const user = await requireRole(req, 'patient')
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
     const { id } = await params
 
     // Fetch document and verify ownership
@@ -55,9 +58,6 @@ export async function GET(
       },
     })
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
     console.error('Document download error:', error)
     return NextResponse.json(
       { error: 'Failed to download document' },

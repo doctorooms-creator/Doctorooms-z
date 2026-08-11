@@ -1,0 +1,772 @@
+    40→
+    41→// ==================== TYPES ====================
+    42→
+    43→interface ChatMessage {
+    44→  id: string
+    45→  fromId: string
+    46→  message: string
+    47→  status: string
+    48→  createdAt: string
+    49→  sender: {
+    50→    id: string
+    51→    name: string
+    52→    profileImg: string
+    53→  }
+    54→}
+    55→
+    56→const statusColors: Record<string, string> = {
+    57→  Pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400',
+    58→  Approve: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400',
+    59→  Visited: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400',
+    60→  Canceled: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400',
+    61→  Finish: 'bg-gray-100 text-gray-600 dark:bg-gray-800/50 dark:text-gray-400',
+    62→}
+    63→
+    64→const timelineIcons: Record<string, typeof CheckCircle2> = {
+    65→  Pending: Circle,
+    66→  Approve: CheckCircle2,
+    67→  Visited: CheckCircle2,
+    68→  Finish: CheckCircle2,
+    69→  Canceled: XCircle,
+    70→}
+    71→
+    72→const ratingLabels = ['Poor', 'Fair', 'Good', 'Very Good', 'Excellent']
+    73→
+    74→export default function AppointmentDetailPage() {
+    75→  const params = useParams()
+    76→  const router = useRouter()
+    77→  const queryClient = useQueryClient()
+    78→  const { user } = useAuthStore()
+    79→  const id = params.id as string
+    80→  const [chatMessage, setChatMessage] = useState('')
+    81→  const [printRxIndex, setPrintRxIndex] = useState<number | null>(null)
+    82→  const chatEndRef = useRef<HTMLDivElement>(null)
+    83→
+    84→  const { data, isLoading } = useQuery({
+    85→    queryKey: ['appointment-detail', id],
+    86→    queryFn: () => fetch(`/api/dashboard/patient/appointments/${id}`).then((r) => r.json()),
+    87→    enabled: !!id,
+    88→  })
+    89→
+    90→  // Check if this booking has been rated
+    91→  const { data: ratingData } = useQuery({
+    92→    queryKey: ['booking-rating', id],
+    93→    queryFn: () => fetch(`/api/patient/feedback/check?bookingId=${id}`).then((r) => r.json()),
+    94→    enabled: !!id && appointment?.status === 'Finish',
+    95→  })
+    96→  const bookingRating = ratingData?.rating
+    97→
+    98→  // Separate query for chat messages (polls every 10s for near-real-time)
+    99→  const { data: chatData } = useQuery({
+   100→    queryKey: ['booking-chat', id],
+   101→    queryFn: () => fetch(`/api/bookings/${id}/chat`).then((r) => r.json()),
+   102→    enabled: !!id,
+   103→    refetchInterval: 10_000,
+   104→  })
+   105→
+   106→  const chatMessages = chatData?.messages
+   107→
+   108→  // Scroll to bottom when messages change
+   109→  useEffect(() => {
+   110→    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+   111→  }, [chatMessages?.length])
+   112→
+   113→  // Send message mutation with optimistic update
+   114→  const sendMessageMutation = useMutation({
+   115→    mutationFn: (msg: string) =>
+   116→      fetch(`/api/bookings/${id}/chat`, {
+   117→        method: 'POST',
+   118→        headers: { 'Content-Type': 'application/json' },
+   119→        body: JSON.stringify({ message: msg }),
+   120→      }).then((r) => {
+   121→        if (!r.ok) return r.json().then((d) => { throw new Error(d.error || 'Failed to send') })
+   122→        return r.json()
+   123→      }),
+   124→    onMutate: async (msg) => {
+   125→      // Cancel outgoing refetches
+   126→      await queryClient.cancelQueries({ queryKey: ['booking-chat', id] })
+   127→      // Snapshot previous data
+   128→      const prev = queryClient.getQueryData(['booking-chat', id])
+   129→      // Optimistically add the message
+   130→      queryClient.setQueryData(['booking-chat', id], (old: { messages: ChatMessage[] } | undefined) => ({
+   131→        messages: [
+   132→          ...(old?.messages || []),
+   133→          {
+   134→            id: `temp-${Date.now()}`,
+   135→            fromId: user.id,
+   136→            message: msg,
+   137→            status: 'UNREAD',
+   138→            createdAt: new Date().toISOString(),
+   139→            sender: { id: user.id, name: user.name || 'You', profileImg: user.profileImg || '' },
+   140→          },
+   141→        ],
+   142→      }))
+   143→      return { prev }
+   144→    },
+   145→    onSuccess: () => {
+   146→      queryClient.invalidateQueries({ queryKey: ['booking-chat', id] })
+   147→    },
+   148→    onError: (_err, _msg, context) => {
+   149→      if (context?.prev) {
+   150→        queryClient.setQueryData(['booking-chat', id], context.prev)
+   151→      }
+   152→      toast.error('Failed to send message')
+   153→    },
+   154→    onSettled: () => {
+   155→      setChatMessage('')
+   156→    },
+   157→  })
+   158→
+   159→  const handleSendMessage = useCallback(() => {
+   160→    if (!chatMessage.trim()) return
+   161→    sendMessageMutation.mutate(chatMessage.trim())
+   162→  }, [chatMessage, sendMessageMutation])
+   163→
+   164→  const handlePrintPrescription = (index: number) => {
+   165→    setPrintRxIndex(index)
+   166→  }
+   167→
+   168→  const handleClosePrint = () => setPrintRxIndex(null)
+   169→  const handlePrintAction = () => window.print()
+   170→
+   171→  const { appointment, doctor, patient, prescriptions, statusTimeline } = data || {}
+   172→
+   173→  const buildPrintData = (rx: {
+   174→    id: string
+   175→    patientName: string
+   176→    patientAge: string
+   177→    disease: string
+   178→    weight: string
+   179→    bp: string
+   180→    temperature: string
+   181→    description: string
+   182→    medicines: { id?: string; medicine: string; morning: boolean; afternoon: boolean; evening: boolean; tab: number; dose: string; description?: string }[]
+   183→    labels: { id?: string; label: string; value: string; labelUnit: string }[]
+   184→    suggestions: { id?: string; question: string; suggestions: string }[]
+   185→    createdAt: string
+   186→  }): PrescriptionPrintData => {
+   187→    return {
+   188→      patientName: rx.patientName || appointment?.patientName || patient?.name || '',
+   189→      patientAge: rx.patientAge || (appointment?.age ? String(appointment.age) : undefined),
+   190→      gender: appointment?.gender || undefined,
+   191→      bloodGroup: appointment?.bloodGroup || undefined,
+   192→      weight: rx.weight || undefined,
+   193→      bp: rx.bp || undefined,
+   194→      temperature: rx.temperature || undefined,
+   195→      disease: rx.disease || undefined,
+   196→      description: rx.description || undefined,
+   197→      createdAt: rx.createdAt,
+   198→      medicines: rx.medicines.map((m) => ({
+   199→        id: m.id,
+   200→        medicine: m.medicine,
+   201→        morning: m.morning,
+   202→        afternoon: m.afternoon,
+   203→        evening: m.evening,
+   204→        tab: m.tab,
+   205→        dose: m.dose,
+   206→        description: m.description || '',
+   207→      })),
+   208→      labels: rx.labels,
+   209→      suggestions: rx.suggestions,
+   210→      doctor: {
+   211→        name: doctor?.name,
+   212→        specialization: doctor?.specialization,
+   213→        city: doctor?.city,
+   214→        hospitalAddress: doctor?.hospitalAddress,
+   215→        phoneNo: doctor?.phone,
+   216→        fees: doctor?.fees,
+   217→        experience: doctor?.experience,
+   218→      },
+   219→    }
+   220→  }
+   221→
+   222→  if (isLoading) {
+   223→    return (
+   224→      <div className="space-y-6">
+   225→        <div className="h-8 w-32 animate-pulse rounded bg-muted" />
+   226→        <div className="grid gap-6 lg:grid-cols-3">
+   227→          <div className="lg:col-span-2 space-y-4">
+   228→            <div className="h-48 animate-pulse rounded-xl bg-muted" />
+   229→            <div className="h-64 animate-pulse rounded-xl bg-muted" />
+   230→          </div>
+   231→          <div className="space-y-4">
+   232→            <div className="h-48 animate-pulse rounded-xl bg-muted" />
+   233→            <div className="h-40 animate-pulse rounded-xl bg-muted" />
+   234→          </div>
+   235→        </div>
+   236→      </div>
+   237→    )
+   238→  }
+   239→
+   240→  return (
+   241→    <div className="space-y-6">
+   242→      {/* Back button + title */}
+   243→      <div className="flex items-center gap-3">
+   244→        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => router.back()}>
+   245→          <ArrowLeft className="h-4 w-4" />
+   246→        </Button>
+   247→        <div>
+   248→          <h2 className="text-lg font-semibold">Appointment Details</h2>
+   249→          <p className="text-xs text-muted-foreground">{appointment?.appointmentNo}</p>
+   250→        </div>
+   251→        <span
+   252→          className={cn(
+   253→            'ml-auto inline-flex items-center rounded-full px-3 py-1 text-xs font-medium',
+   254→            statusColors[appointment?.status] || 'bg-gray-100 text-gray-700'
+   255→          )}
+   256→        >
+   257→          {appointment?.status}
+   258→        </span>
+   259→      </div>
+   260→
+   261→      <div className="grid gap-6 lg:grid-cols-3">
+   262→        <div className="lg:col-span-2 space-y-6">
+   263→          {/* Doctor & Patient Info */}
+   264→          <div className="grid gap-4 sm:grid-cols-2">
+   265→            {/* Doctor Card */}
+   266→            <Card>
+   267→              <CardHeader className="pb-3">
+   268→                <CardTitle className="text-sm font-medium text-muted-foreground">Doctor Information</CardTitle>
+   269→              </CardHeader>
+   270→              <CardContent>
+   271→                {doctor ? (
+   272→                  <div className="space-y-3">
+   273→                    <div className="flex items-center gap-3">
+   274→                      <Avatar className="h-12 w-12">
+   275→                        <AvatarImage src={doctor.img} />
+   276→                        <AvatarFallback className="bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300">
+   277→                          {doctor.name.charAt(0)}
+   278→                        </AvatarFallback>
+   279→                      </Avatar>
+   280→                      <div>
+   281→                        <p className="font-medium">{doctor.name}</p>
+   282→                        <p className="text-sm text-muted-foreground">{doctor.specialization}</p>
+   283→                      </div>
+   284→                    </div>
+   285→                    <Separator />
+   286→                    {doctor.hospitalAddress && (
+   287→                      <div className="flex items-start gap-2 text-sm">
+   288→                        <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+   289→                        <span className="text-muted-foreground">{doctor.hospitalAddress}</span>
+   290→                      </div>
+   291→                    )}
+   292→                    {doctor.experience && (
+   293→                      <div className="flex items-center gap-2 text-sm">
+   294→                        <Clock className="h-4 w-4 text-muted-foreground" />
+   295→                        <span className="text-muted-foreground">{doctor.experience} experience</span>
+   296→                      </div>
+   297→                    )}
+   298→                    <Button size="sm" variant="outline" className="w-full text-teal-600 border-teal-200 hover:bg-teal-50 dark:border-teal-800 dark:text-teal-400 dark:hover:bg-teal-950/50" asChild>
+   299→                      <Link href={`/doctors/${doctor.id}`}>View Profile</Link>
+   300→                    </Button>
+   301→                  </div>
+   302→                ) : (
+   303→                  <p className="text-sm text-muted-foreground">Doctor info not available</p>
+   304→                )}
+   305→              </CardContent>
+   306→            </Card>
+   307→
+   308→            {/* Patient Info Card */}
+   309→            <Card>
+   310→              <CardHeader className="pb-3">
+   311→                <CardTitle className="text-sm font-medium text-muted-foreground">Patient Information</CardTitle>
+   312→              </CardHeader>
+   313→              <CardContent>
+   314→                <div className="space-y-3">
+   315→                  <div className="flex items-center gap-3">
+   316→                    <Avatar className="h-12 w-12">
+   317→                      <AvatarImage src={patient?.img} />
+   318→                      <AvatarFallback className="bg-teal-100 text-teal-700 dark:bg-teal-900 dark:text-teal-300">
+   319→                        {(patient?.name || 'P').charAt(0)}
+   320→                      </AvatarFallback>
+   321→                    </Avatar>
+   322→                    <div>
+   323→                      <p className="font-medium">{patient?.name || appointment?.patientName}</p>
+   324→                      <p className="text-sm text-muted-foreground">{appointment?.gender}</p>
+   325→                    </div>
+   326→                  </div>
+   327→                  <Separator />
+   328→                  <div className="grid grid-cols-2 gap-2 text-sm">
+   329→                    {appointment?.bloodGroup && (
+   330→                      <div className="flex items-center gap-1.5">
+   331→                        <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+   332→                        <span className="text-muted-foreground">Blood: {appointment.bloodGroup}</span>
+   333→                      </div>
+   334→                    )}
+   335→                    {appointment?.age && (
+   336→                      <div className="flex items-center gap-1.5">
+   337→                        <User className="h-3.5 w-3.5 text-muted-foreground" />
+   338→                        <span className="text-muted-foreground">Age: {appointment.age}</span>
+   339→                      </div>
+   340→                    )}
+   341→                    {appointment?.weight > 0 && (
+   342→                      <div className="flex items-center gap-1.5">
+   343→                        <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+   344→                        <span className="text-muted-foreground">Weight: {appointment.weight} kg</span>
+   345→                      </div>
+   346→                    )}
+   347→                  </div>
+   348→                </div>
+   349→              </CardContent>
+   350→            </Card>
+   351→          </div>
+   352→
+   353→          {/* Appointment Details */}
+   354→          <Card>
+   355→            <CardHeader className="pb-3">
+   356→              <CardTitle className="text-sm font-medium text-muted-foreground">Appointment Details</CardTitle>
+   357→            </CardHeader>
+   358→            <CardContent>
+   359→              <div className="grid gap-4 sm:grid-cols-2">
+   360→                <div className="flex items-center gap-2 text-sm">
+   361→                  <Calendar className="h-4 w-4 text-teal-500" />
+   362→                  <span className="text-muted-foreground">Date:</span>
+   363→                  <span className="font-medium">
+   364→                    {appointment?.bookingDate ? format(new Date(appointment.bookingDate), 'MMM d, yyyy') : '—'}
+   365→                  </span>
+   366→                </div>
+   367→                <div className="flex items-center gap-2 text-sm">
+   368→                  <Stethoscope className="h-4 w-4 text-teal-500" />
+   369→                  <span className="text-muted-foreground">Disease:</span>
+   370→                  <span className="font-medium">{appointment?.disease || '—'}</span>
+   371→                </div>
+   372→                <div className="flex items-start gap-2 text-sm sm:col-span-2">
+   373→                  <FileText className="mt-0.5 h-4 w-4 text-teal-500" />
+   374→                  <span className="text-muted-foreground shrink-0">Description:</span>
+   375→                  <span className="text-muted-foreground">{appointment?.description || 'No description provided'}</span>
+   376→                </div>
+   377→              </div>
+   378→            </CardContent>
+   379→          </Card>
+   380→
+   381→          {/* Quick Re-book */}
+   382→          {(appointment?.status === 'Visited' || appointment?.status === 'Finish') && appointment?.doctorId && (
+   383→            <Button asChild className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-md shadow-teal-500/20">
+   384→              <Link href={`/dashboard/patient/book/${appointment.doctorId}`}>
+   385→                <CalendarPlus className="mr-2 h-4 w-4" />
+   386→                Book Again with Dr. {doctor?.name}
+   387→              </Link>
+   388→            </Button>
+   389→          )}
+   390→
+   391→          {/* Join Video Call - shown when doctor has started a video consultation */}
+   392→          {appointment?.bookingMode === 'VideoCall' && appointment?.status === 'Visited' && appointment?.videoRoomId && (
+   393→            <motion.div
+   394→              initial={{ opacity: 0, y: 10 }}
+   395→              animate={{ opacity: 1, y: 0 }}
+   396→              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+   397→            >
+   398→              <Card className="overflow-hidden border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50 to-emerald-50 dark:from-teal-950/30 dark:to-emerald-950/30">
+   399→                <CardContent className="p-5">
+   400→                  <div className="flex flex-col sm:flex-row items-center gap-4">
+   401→                    <div className="flex items-center justify-center h-14 w-14 rounded-2xl bg-teal-600 shadow-lg shadow-teal-600/30 shrink-0">
+   402→                      <Video className="h-7 w-7 text-white" />
+   403→                    </div>
+   404→                    <div className="flex-1 text-center sm:text-left">
+   405→                      <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+   406→                        <span className="relative flex h-2.5 w-2.5">
+   407→                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75" />
+   408→                          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-green-500" />
+   409→                        </span>
+   410→                        <p className="text-sm font-semibold text-teal-700 dark:text-teal-400">
+   411→                          Doctor has started the call — Join Now
+   412→                        </p>
+   413→                      </div>
+   414→                      <p className="text-xs text-muted-foreground">
+   415→                        Your video consultation with {doctor?.name || 'your doctor'} is ready.
+   416→                      </p>
+   417→                    </div>
+   418→                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+   419→                      <Button
+   420→                        size="lg"
+   421→                        className="bg-teal-600 hover:bg-teal-700 text-white gap-2 shadow-lg shadow-teal-600/30 text-base px-6 h-12"
+   422→                        onClick={() => router.push(`/dashboard/video-call/${appointment.videoRoomId}`)}
+   423→                      >
+   424→                        <Video className="h-5 w-5" />
+   425→                        Join Video Call
+   426→                      </Button>
+   427→                    </motion.div>
+   428→                  </div>
+   429→                </CardContent>
+   430→              </Card>
+   431→            </motion.div>
+   432→          )}
+   433→
+   434→          {/* Rate This Visit — shown for finished appointments */}
+   435→          {appointment?.status === 'Finish' && (
+   436→            <motion.div
+   437→              initial={{ opacity: 0, y: 10 }}
+   438→              animate={{ opacity: 1, y: 0 }}
+   439→              transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+   440→            >
+   441→              <Card className={cn(
+   442→                'overflow-hidden',
+   443→                !bookingRating && 'border-teal-200 dark:border-teal-800 bg-gradient-to-r from-teal-50 to-amber-50 dark:from-teal-950/30 dark:to-amber-950/20'
+   444→              )}>
+   445→                <CardContent className="p-5">
+   446→                  <div className="flex flex-col sm:flex-row items-center gap-4">
+   447→                    <div className={cn(
+   448→                      'flex items-center justify-center h-14 w-14 rounded-2xl shrink-0',
+   449→                      bookingRating
+   450→                        ? 'bg-amber-100 dark:bg-amber-900/30'
+   451→                        : 'bg-teal-600 shadow-lg shadow-teal-600/30'
+   452→                    )}>
+   453→                      <Star className={cn(
+   454→                        'h-7 w-7',
+   455→                        bookingRating
+   456→                          ? 'fill-amber-400 text-amber-400'
+   457→                          : 'text-white'
+   458→                      )} />
+   459→                    </div>
+   460→                    <div className="flex-1 text-center sm:text-left">
+   461→                      {bookingRating ? (
+   462→                        <>
+   463→                          <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+   464→                            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+   465→                              You rated this visit
+   466→                            </p>
+   467→                          </div>
+   468→                          <div className="flex items-center justify-center sm:justify-start gap-0.5">
+   469→                            {[1, 2, 3, 4, 5].map((s) => (
+   470→                              <Star
+   471→                                key={s}
+   472→                                className={cn(
+   473→                                  'h-4 w-4',
+   474→                                  s <= bookingRating.star
+   475→                                    ? 'fill-amber-400 text-amber-400'
+   476→                                    : 'fill-none text-muted-foreground/30'
+   477→                                )}
+   478→                              />
+   479→                            ))}
+   480→                            <span className="ml-2 text-xs text-muted-foreground">
+   481→                              {ratingLabels[bookingRating.star - 1]} &middot; {format(new Date(bookingRating.createdAt), 'MMM d, yyyy')}
+   482→                            </span>
+   483→                          </div>
+   484→                        </>
+   485→                      ) : (
+   486→                        <>
+   487→                          <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
+   488→                            <p className="text-sm font-semibold text-teal-700 dark:text-teal-400">
+   489→                              How was your visit?
+   490→                            </p>
+   491→                          </div>
+   492→                          <p className="text-xs text-muted-foreground">
+   493→                            Share your experience to help other patients
+   494→                          </p>
+   495→                        </>
+   496→                      )}
+   497→                    </div>
+   498→                    {!bookingRating && (
+   499→                      <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+   500→                        <Button
+   501→                          className="bg-teal-600 hover:bg-teal-700 text-white gap-2 shadow-lg shadow-teal-600/30"
+   502→                          onClick={() => {
+   503→                            const doctorUserId = doctor?.userId || ''
+   504→                            router.push(`/dashboard/patient/feedback?bookingId=${id}&doctorId=${doctorUserId}`)
+   505→                          }}
+   506→                        >
+   507→                          <Star className="h-4 w-4" />
+   508→                          Rate This Visit
+   509→                        </Button>
+   510→                      </motion.div>
+   511→                    )}
+   512→                  </div>
+   513→                </CardContent>
+   514→              </Card>
+   515→            </motion.div>
+   516→          )}
+   517→
+   518→          {/* Chat Section */}
+   519→          <Card>
+   520→            <CardHeader className="pb-3">
+   521→              <div className="flex items-center gap-2">
+   522→                <MessageSquare className="h-4 w-4 text-teal-500" />
+   523→                <CardTitle className="text-base font-semibold">Chat with Doctor</CardTitle>
+   524→              </div>
+   525→            </CardHeader>
+   526→            <CardContent className="p-0">
+   527→              <div className="max-h-[300px] overflow-y-auto p-4 space-y-3 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb:bg-border [&::-webkit-scrollbar-track]:bg-transparent">
+   528→                {!chatMessages || chatMessages.length === 0 ? (
+   529→                  <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
+   530→                    <MessageSquare className="h-8 w-8 mb-2 opacity-30" />
+   531→                    <p className="text-sm">No messages yet</p>
+   532→                    <p className="text-xs opacity-60">Start a conversation about your appointment</p>
+   533→                  </div>
+   534→                ) : (
+   535→                  chatMessages.map((msg: ChatMessage) => {
+   536→                    const isMe = msg.fromId === user.id
+   537→                    return (
+   538→                      <motion.div
+   539→                        key={msg.id}
+   540→                        initial={{ opacity: 0, y: 8, scale: 0.97 }}
+   541→                        animate={{ opacity: 1, y: 0, scale: 1 }}
+   542→                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+   543→                        className={cn('flex gap-2', isMe ? 'justify-end' : 'justify-start')}
+   544→                      >
+   545→                        {!isMe && (
+   546→                          <Avatar className="h-7 w-7 shrink-0 mt-1">
+   547→                            <AvatarImage src={msg.sender?.profileImg} />
+   548→                            <AvatarFallback className="text-[10px] bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+   549→                              {(msg.sender?.name || 'D').charAt(0)}
+   550→                            </AvatarFallback>
+   551→                          </Avatar>
+   552→                        )}
+   553→                        <div className="max-w-[75%] space-y-0.5">
+   554→                          {!isMe && (
+   555→                            <p className="text-[10px] font-medium text-muted-foreground pl-1">
+   556→                              {msg.sender?.name || 'Doctor'}
+   557→                            </p>
+   558→                          )}
+   559→                          <div
+   560→                            className={cn(
+   561→                              'rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
+   562→                              isMe
+   563→                                ? 'bg-teal-600 text-white rounded-br-md'
+   564→                                : 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-gray-100 rounded-bl-md'
+   565→                            )}
+   566→                          >
+   567→                            <p>{msg.message}</p>
+   568→                          </div>
+   569→                          <p className={cn('text-[10px] text-muted-foreground', isMe ? 'text-right pr-1' : 'pl-1')}>
+   570→                            {(() => {
+   571→                              try {
+   572→                                return formatDistanceToNow(new Date(msg.createdAt), { addSuffix: true })
+   573→                              } catch {
+   574→                                return ''
+   575→                              }
+   576→                            })()}
+   577→                          </p>
+   578→                        </div>
+   579→                      </motion.div>
+   580→                    )
+   581→                  })
+   582→                )}
+   583→                <div ref={chatEndRef} />
+   584→              </div>
+   585→              <div className="border-t border-border p-3">
+   586→                <form
+   587→                  onSubmit={(e) => {
+   588→                    e.preventDefault()
+   589→                    handleSendMessage()
+   590→                  }}
+   591→                  className="flex gap-2"
+   592→                >
+   593→                  <Textarea
+   594→                    value={chatMessage}
+   595→                    onChange={(e) => setChatMessage(e.target.value)}
+   596→                    onKeyDown={(e) => {
+   597→                      if (e.key === 'Enter' && !e.shiftKey) {
+   598→                        e.preventDefault()
+   599→                        handleSendMessage()
+   600→                      }
+   601→                    }}
+   602→                    placeholder="Type a message..."
+   603→                    className="min-h-[40px] max-h-[100px] resize-none text-sm"
+   604→                    rows={1}
+   605→                    disabled={sendMessageMutation.isPending}
+   606→                  />
+   607→                  <Button
+   608→                    type="submit"
+   609→                    size="icon"
+   610→                    className="h-10 w-10 shrink-0 bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50"
+   611→                    disabled={!chatMessage.trim() || sendMessageMutation.isPending}
+   612→                  >
+   613→                    <SendHorizontal className="h-4 w-4" />
+   614→                  </Button>
+   615→                </form>
+   616→              </div>
+   617→            </CardContent>
+   618→          </Card>
+   619→        </div>
+   620→
+   621→        {/* Right Column */}
+   622→        <div className="space-y-6">
+   623→          {/* Status Timeline */}
+   624→          <Card>
+   625→            <CardHeader className="pb-3">
+   626→              <CardTitle className="text-base font-semibold">Status Timeline</CardTitle>
+   627→            </CardHeader>
+   628→            <CardContent>
+   629→              <div className="space-y-0">
+   630→                {statusTimeline?.map((step: { status: string; label: string; date: string }, i: number) => {
+   631→                  const Icon = timelineIcons[step.status] || Circle
+   632→                  const isLast = i === statusTimeline.length - 1
+   633→                  return (
+   634→                    <motion.div
+   635→                      key={i}
+   636→                      initial={{ opacity: 0, x: 10 }}
+   637→                      animate={{ opacity: 1, x: 0 }}
+   638→                      transition={{ delay: i * 0.1 }}
+   639→                      className="flex gap-3"
+   640→                    >
+   641→                      <div className="flex flex-col items-center">
+   642→                        <div
+   643→                          className={cn(
+   644→                            'flex h-7 w-7 items-center justify-center rounded-full',
+   645→                            step.status === 'Canceled'
+   646→                              ? 'bg-red-100 dark:bg-red-900/50'
+   647→                              : 'bg-teal-100 dark:bg-teal-900/50'
+   648→                          )}
+   649→                        >
+   650→                          <Icon
+   651→                            className={cn(
+   652→                              'h-3.5 w-3.5',
+   653→                              step.status === 'Canceled' ? 'text-red-500' : 'text-teal-600 dark:text-teal-400'
+   654→                            )}
+   655→                          />
+   656→                        </div>
+   657→                        {!isLast && (
+   658→                          <div className="mt-1 h-full min-h-[24px] w-px bg-border" />
+   659→                        )}
+   660→                      </div>
+   661→                      <div className="pb-4">
+   662→                        <p className="text-sm font-medium">{step.label}</p>
+   663→                        <p className="text-xs text-muted-foreground">
+   664→                          {format(new Date(step.date), 'MMM d, yyyy h:mm a')}
+   665→                        </p>
+   666→                      </div>
+   667→                    </motion.div>
+   668→                  )
+   669→                })}
+   670→              </div>
+   671→            </CardContent>
+   672→          </Card>
+   673→
+   674→          {/* Prescription View */}
+   675→          {prescriptions && prescriptions.length > 0 && (
+   676→            <Card>
+   677→              <CardHeader className="pb-3">
+   678→                <div className="flex items-center justify-between">
+   679→                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+   680→                    <FileText className="h-4 w-4 text-teal-500" />
+   681→                    Prescription
+   682→                  </CardTitle>
+   683→                  {prescriptions.length > 0 && (
+   684→                    <Button
+   685→                      variant="outline"
+   686→                      size="sm"
+   687→                      className="h-7 gap-1.5 text-xs"
+   688→                      onClick={() => handlePrintPrescription(0)}
+   689→                    >
+   690→                      <Printer className="h-3.5 w-3.5" /> Print
+   691→                    </Button>
+   692→                  )}
+   693→                </div>
+   694→              </CardHeader>
+   695→              <CardContent className="space-y-4">
+   696→                {prescriptions.map((rx: {
+   697→                  id: string
+   698→                  disease: string
+   699→                  weight: string
+   700→                  bp: string
+   701→                  temperature: string
+   702→                  description: string
+   703→                  medicines: { medicine: string; morning: boolean; afternoon: boolean; evening: boolean; tab: number; dose: string }[]
+   704→                  labels: { label: string; value: string; labelUnit: string }[]
+   705→                  suggestions: { question: string; suggestions: string }[]
+   706→                }) => (
+   707→                  <div key={rx.id} className="space-y-3">
+   708→                    {/* Vitals */}
+   709→                    {(rx.bp || rx.temperature || rx.weight) && (
+   710→                      <div className="grid grid-cols-3 gap-2">
+   711→                        {rx.bp && (
+   712→                          <div className="rounded-lg bg-muted/50 p-2 text-center">
+   713→                            <Activity className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
+   714→                            <p className="mt-1 text-xs font-medium">{rx.bp}</p>
+   715→                            <p className="text-[10px] text-muted-foreground">BP</p>
+   716→                          </div>
+   717→                        )}
+   718→                        {rx.temperature && (
+   719→                          <div className="rounded-lg bg-muted/50 p-2 text-center">
+   720→                            <Thermometer className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
+   721→                            <p className="mt-1 text-xs font-medium">{rx.temperature}</p>
+   722→                            <p className="text-[10px] text-muted-foreground">Temp</p>
+   723→                          </div>
+   724→                        )}
+   725→                        {rx.weight && (
+   726→                          <div className="rounded-lg bg-muted/50 p-2 text-center">
+   727→                            <Activity className="mx-auto h-3.5 w-3.5 text-muted-foreground" />
+   728→                            <p className="mt-1 text-xs font-medium">{rx.weight}</p>
+   729→                            <p className="text-[10px] text-muted-foreground">Weight</p>
+   730→                          </div>
+   731→                        )}
+   732→                      </div>
+   733→                    )}
+   734→
+   735→                    {/* Medicines */}
+   736→                    {rx.medicines?.length > 0 && (
+   737→                      <div>
+   738→                        <p className="mb-2 text-xs font-medium text-muted-foreground flex items-center gap-1">
+   739→                          <Pill className="h-3.5 w-3.5" /> Medicines
+   740→                        </p>
+   741→                        <div className="space-y-1.5">
+   742→                          {rx.medicines.map((med) => (
+   743→                            <div key={med.medicine || med.id} className="flex items-center justify-between rounded-lg border border-border px-3 py-2 text-sm">
+   744→                              <span className="font-medium text-sm">{med.medicine}</span>
+   745→                              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+   746→                                {med.morning && <Badge variant="outline" className="h-5 px-1.5 text-[10px]">M</Badge>}
+   747→                                {med.afternoon && <Badge variant="outline" className="h-5 px-1.5 text-[10px]">A</Badge>}
+   748→                                {med.evening && <Badge variant="outline" className="h-5 px-1.5 text-[10px]">E</Badge>}
+   749→                                <span>{med.tab}x {med.dose}</span>
+   750→                              </div>
+   751→                            </div>
+   752→                          ))}
+   753→                        </div>
+   754→                      </div>
+   755→                    )}
+   756→
+   757→                    {/* Labels */}
+   758→                    {rx.labels?.length > 0 && (
+   759→                      <div>
+   760→                        <p className="mb-2 text-xs font-medium text-muted-foreground">Lab Results</p>
+   761→                        <div className="space-y-1">
+   762→                          {rx.labels.map((l) => (
+   763→                            <div key={l.id} className="flex justify-between text-sm">
+   764→                              <span className="text-muted-foreground">{l.label}</span>
+   765→                              <span className="font-medium">{l.value} {l.labelUnit}</span>
+   766→                            </div>
+   767→                          ))}
+   768→                        </div>
+   769→                      </div>
+   770→                    )}
+   771→
+   772→                    {/* Suggestions */}
+   773→                    {rx.suggestions?.length > 0 && (
+   774→                      <div>
+   775→                        <p className="mb-2 text-xs font-medium text-muted-foreground">Doctor&apos;s Advice</p>
+   776→                        <div className="space-y-1">
+   777→                          {rx.suggestions.map((s) => (
+   778→                            <div key={s.id} className="rounded-lg bg-teal-50 p-2 text-sm dark:bg-teal-950/30">
+   779→                              <p className="font-medium text-teal-700 dark:text-teal-400">{s.question}</p>
+   780→                              <p className="text-muted-foreground">{s.suggestions}</p>
+   781→                            </div>
+   782→                          ))}
+   783→                        </div>
+   784→                      </div>
+   785→                    )}
+   786→
+   787→                    {rx.description && (
+   788→                      <div className="rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+   789→                        {rx.description}
+   790→                      </div>
+   791→                    )}
+   792→                  </div>
+   793→                ))}
+   794→              </CardContent>
+   795→            </Card>
+   796→          )}
+   797→        </div>
+   798→      </div>
+   799→
+   800→      {/* Print preview overlay */}
+   801→      {printRxIndex !== null && prescriptions?.[printRxIndex] && (
+   802→        <PrescriptionPrintView
+   803→          data={buildPrintData(prescriptions[printRxIndex])}
+   804→          onClose={handleClosePrint}
+   805→          onPrint={handlePrintAction}
+   806→        />
+   807→      )}
+   808→    </div>
+   809→  )
+   810→}
+   811→

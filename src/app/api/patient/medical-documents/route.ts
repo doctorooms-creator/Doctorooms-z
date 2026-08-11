@@ -17,6 +17,9 @@ const UPLOAD_DIR = join(process.cwd(), 'uploads', 'documents')
 export async function GET(req: NextRequest) {
   try {
     const user = await requireRole(req, 'patient')
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { searchParams } = new URL(req.url)
     const category = searchParams.get('category')
@@ -61,6 +64,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = await requireRole(req, 'patient')
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const formData = await req.formData()
     const file = formData.get('file') as File | null

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -150,55 +150,65 @@ export default function PatientBookDoctorPage() {
     return scheduleData.holidays.some((h) => h.date === dateStr)
   }, [selectedDate, scheduleData])
 
-  // ── Check individual slot availability ──
-  const checkSlotAvailabilities = useCallback(async () => {
-    if (!selectedDate || timeSlots.length === 0) {
-      setSlotStatuses([])
-      return
-    }
-
-    const dateStr = format(selectedDate, 'yyyy-MM-dd')
-    const currentDoctorId = scheduleData?.doctorId
-    const initial: SlotAvailability[] = timeSlots.map((slot) => ({
-      slot,
-      available: true,
-      loading: true,
-    }))
-    setSlotStatuses(initial)
-
-    // Check all slots in parallel
-    const results = await Promise.all(
-      timeSlots.map(async (slot) => {
-        try {
-          const res = await fetch(
-            `/api/patient/bookings/check-slot?doctorId=${currentDoctorId}&date=${dateStr}&timeSlot=${encodeURIComponent(slot)}`
-          )
-          const data = await res.json()
-          return { slot, available: data.available !== false, loading: false }
-        } catch {
-          return { slot, available: true, loading: false }
-        }
-      })
-    )
-
-    setSlotStatuses(results)
-  }, [selectedDate, timeSlots, scheduleData])
-
-  // When date changes, reset slot and re-check availability
+  // When date changes, reset slot selection
   const handleDateSelect = useCallback(
     (date: Date | undefined) => {
       setSelectedDate(date)
       setSelectedSlot(null)
       setShowBookingForm(false)
-      if (date) {
-        // Small delay to allow scheduleForSelectedDay to compute
-        setTimeout(() => checkSlotAvailabilities(), 50)
-      } else {
+      if (!date) {
         setSlotStatuses([])
       }
     },
-    [checkSlotAvailabilities]
+    []
   )
+
+  // Fetch slot availability when date or slots change (useEffect avoids stale closure)
+  useEffect(() => {
+    if (!selectedDate || timeSlots.length === 0 || !scheduleData?.doctorId) {
+      return
+    }
+
+    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+    const currentDoctorId = scheduleData.doctorId
+    const currentSlots = [...timeSlots]
+    let cancelled = false
+
+    fetch(`/api/patient/bookings/slots-availability?doctorId=${currentDoctorId}&date=${dateStr}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return
+        if (data.available === false) {
+          setSlotStatuses(currentSlots.map((slot) => ({ slot, available: false, loading: false })))
+        } else {
+          const bookedSet = new Set(data.bookedSlots || [])
+          setSlotStatuses(
+            currentSlots.map((slot) => ({
+              slot,
+              available: !bookedSet.has(slot),
+              loading: false,
+            }))
+          )
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setSlotStatuses(currentSlots.map((slot) => ({ slot, available: true, loading: false })))
+        }
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedDate, timeSlots, scheduleData?.doctorId])
+
+  // Derive display statuses: only show slotStatuses when they match current timeSlots
+  const displaySlotStatuses = useMemo(() => {
+    if (timeSlots.length === 0) return []
+    if (slotStatuses.length !== timeSlots.length) return []
+    if (slotStatuses.length > 0 && slotStatuses[0]?.slot !== timeSlots[0]) return []
+    return slotStatuses
+  }, [timeSlots, slotStatuses])
 
   // ── Booking mutation ──
   const bookMutation = useMutation({
@@ -224,7 +234,7 @@ export default function PatientBookDoctorPage() {
 
   // ── Handlers ──
   const handleSlotClick = (slot: string) => {
-    const status = slotStatuses.find((s) => s.slot === slot)
+    const status = displaySlotStatuses.find((s) => s.slot === slot)
     if (status && !status.available) return
     setSelectedSlot(slot === selectedSlot ? null : slot)
     setShowBookingForm(slot !== selectedSlot || showBookingForm)
@@ -463,9 +473,9 @@ export default function PatientBookDoctorPage() {
                     <Separator />
 
                     {/* Time slots grid */}
-                    {slotStatuses.length > 0 ? (
+                    {displaySlotStatuses.length > 0 ? (
                       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 max-h-72 overflow-y-auto">
-                        {slotStatuses.map((status) => {
+                        {displaySlotStatuses.map((status) => {
                           const isSelected = selectedSlot === status.slot
                           const isUnavailable = !status.available
 
@@ -505,7 +515,7 @@ export default function PatientBookDoctorPage() {
                       </div>
                     )}
 
-                    {slotStatuses.length > 0 && slotStatuses.every((s) => !s.available) && (
+                    {displaySlotStatuses.length > 0 && displaySlotStatuses.every((s) => !s.available) && (
                       <div className="text-center py-3 text-sm text-muted-foreground">
                         All slots are booked for this date. Try a different date.
                       </div>

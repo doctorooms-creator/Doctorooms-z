@@ -11,7 +11,10 @@ const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads', 'profile');
 
 export async function POST(req: NextRequest) {
   try {
-    const user = await requireRole(req, 'patient');
+    const user = await requireRole(req, 'patient')
+    if (!user) {
+      return NextResponse.json({ success: false, message: 'Unauthorized access.' }, { status: 401 })
+    }
 
     const formData = await req.formData();
     const file = formData.get('avatar') as File;
@@ -80,12 +83,6 @@ export async function POST(req: NextRequest) {
       profileImg: newFilename,
     });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Unauthorized') {
-      return NextResponse.json(
-        { success: false, message: 'Unauthorized access.' },
-        { status: 401 }
-      );
-    }
     console.error('Avatar upload error:', error);
     return NextResponse.json(
       { success: false, message: 'Failed to upload avatar. Please try again.' },

@@ -8,6 +8,9 @@ export async function PUT(
 ) {
   try {
     const user = await requireRole(req, 'patient')
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { id } = await params
     const body = await req.json()
@@ -36,6 +39,9 @@ export async function DELETE(
 ) {
   try {
     const user = await requireRole(req, 'patient')
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { id } = await params
 

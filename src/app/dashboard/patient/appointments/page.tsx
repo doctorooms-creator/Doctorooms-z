@@ -102,8 +102,8 @@ export default function PatientAppointmentsPage() {
             const res = await fetch(`/api/patient/bookings/queue?bookingId=${id}`)
             if (res.ok) {
               const data = await res.json()
-              if (typeof data.position === 'number') {
-                results[id] = data.position
+              if (typeof data.queuePosition === 'number') {
+                results[id] = data.queuePosition
               }
             }
           } catch {

@@ -1807,3 +1807,35 @@ Stage Summary:
 - 11 total bugs fixed across 9 files (4 P0, 7 P1/P2)
 - Zero console errors on any receptionist page
 - Receptionist module fully functional end-to-end
+---
+Task ID: 17
+Agent: Main Agent
+Task: Fix patient time slot loading + full patient module audit
+
+Work Log:
+- Read worklog.md for project context (auth migration, previous bug fixes)
+- Analyzed the critical stale closure bug in booking page's `handleDateSelect` + `checkSlotAvailabilities`
+- Created new batch API `/api/patient/bookings/slots-availability/route.ts` — single DB query replaces 8 parallel fetch calls
+- Replaced `checkSlotAvailabilities` useCallback + setTimeout pattern with a proper `useEffect` that watches `selectedDate`, `timeSlots`, and `scheduleData?.doctorId`
+- Added `displaySlotStatuses` useMemo to derive slot display, preventing stale data flash when switching dates
+- Audited all 12 patient frontend pages and 22 patient API routes
+- Found and fixed 14 additional bugs across the patient module
+
+Stage Summary:
+- CRITICAL FIX: Time slots now load correctly via useEffect (no more stale closure capturing empty `timeSlots`)
+- PERFORMANCE: Reduced 8 parallel API calls to 1 batch call via `/api/patient/bookings/slots-availability`
+- BUG FIX: Queue position display on appointments page (frontend checked `data.position` but API returns `data.queuePosition`)
+- BUG FIX: Missing null checks after `requireRole()` in 13 API routes that would crash with TypeError on auth failure:
+  - /api/patient/profile (GET, PUT)
+  - /api/patient/medical-documents (GET, POST)
+  - /api/patient/medical-documents/[id] (PUT, DELETE)
+  - /api/patient/medical-documents/[id]/download (GET)
+  - /api/patient/posts (GET, POST)
+  - /api/patient/posts/[id] (GET, PUT, DELETE)
+  - /api/patient/avatar (POST)
+  - /api/dashboard/patient/stats (GET)
+  - /api/dashboard/patient/appointments (GET)
+  - /api/dashboard/patient/appointments/[id] (GET)
+  - /api/dashboard/patient/prescriptions (GET)
+- CLEANUP: Removed dead `error.message === 'Unauthorized'` catch blocks in avatar and document download routes (requireRole never throws)
+- All changes pass `bun run lint` with zero errors

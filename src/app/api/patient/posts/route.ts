@@ -27,6 +27,9 @@ async function generateUniquePermalink(title: string): Promise<string> {
 export async function GET(req: NextRequest) {
   try {
     const user = await requireRole(req, 'patient')
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const posts = await db.post.findMany({
       where: { authorId: user.id },
@@ -52,6 +55,9 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const user = await requireRole(req, 'patient')
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const body = await req.json()
     const { title, content, blogImg, videoLink, status } = body

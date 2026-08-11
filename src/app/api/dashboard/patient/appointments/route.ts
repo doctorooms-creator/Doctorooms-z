@@ -6,6 +6,9 @@ import { Prisma } from '@prisma/client'
 export async function GET(req: NextRequest) {
   try {
     const user = await requireRole(req, 'patient')
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
     const { searchParams } = new URL(req.url)
     const status = searchParams.get('status')
