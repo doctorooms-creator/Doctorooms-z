@@ -1,0 +1,1268 @@
+     1→     1→# DOCTOROOMS — ARCHITECT MASTER PLAN
+     2→     2→
+     3→     3→> **Document Type**: Architectural Master Plan (Strategic + Tactical)
+     4→     4→> **Role**: System Architect
+     5→     5→> **Date**: 2025-06-24
+     6→     6→> **Version**: 1.0
+     7→     7→> **Scope**: Entire Doctorooms platform — all 7 modules, 61 pages, 101 API routes, 30 DB models
+     8→     8→> **Philosophy**: "Pehle patient, phir workflow, last mein admin" — Revenue-generating flows first
+     9→     9→
+    10→    10→---
+    11→    11→
+    12→    12→## TABLE OF CONTENTS
+    13→    13→
+    14→    14→1. [Executive Summary](#1-executive-summary)
+    15→    15→2. [Current Architecture Assessment](#2-current-architecture-assessment)
+    16→    16→3. [Target Architecture Vision](#3-target-architecture-vision)
+    17→    17→4. [Architecture Decision Records (ADRs)](#4-architecture-decision-records-adrs)
+    18→    18→5. [Technical Debt Register](#5-technical-debt-register)
+    19→    19→6. [Module Completion Matrix](#6-module-completion-matrix)
+    20→    20→7. [Development Roadmap — 6 Phases](#7-development-roadmap--6-phases)
+    21→    21→8. [Phase 0: Foundation — Critical Blockers](#8-phase-0-foundation--critical-blockers)
+    22→    22→9. [Phase 1: Patient Journey End-to-End](#9-phase-1-patient-journey-end-to-end)
+    23→    23→10. [Phase 2: Workflow Engine (Doctor + Reception)](#10-phase-2-workflow-engine-doctor--reception)
+    24→    24→11. [Phase 3: Supporting Modules (Hospital + Assistant + Pharmacist)](#11-phase-3-supporting-modules-hospital--assistant--pharmacist)
+    25→    25→12. [Phase 4: Admin & Governance](#12-phase-4-admin--governance)
+    26→    26→13. [Phase 5: Architecture Hardening & Modernization](#13-phase-5-architecture-hardening--modernization)
+    27→    27→14. [API Architecture Standards](#14-api-architecture-standards)
+    28→    28→15. [Component Architecture Standards](#15-component-architecture-standards)
+    29→    29→16. [Database Evolution Plan](#16-database-evolution-plan)
+    30→    30→17. [File Upload & Storage Architecture](#17-file-upload--storage-architecture)
+    31→    31→18. [Real-Time Architecture](#18-real-time-architecture)
+    32→    32→19. [Deployment Architecture](#19-deployment-architecture)
+    33→    33→20. [Risk Register & Mitigation](#20-risk-register--mitigation)
+    34→    34→
+    35→    35→---
+    36→    36→
+    37→    37→## 1. EXECUTIVE SUMMARY
+    38→    38→
+    39→    39→### 1.1 The Project
+    40→    40→
+    41→    41→Doctorooms is a multi-role healthcare appointment management platform being rebuilt from a PHP/CodeIgniter monolith to Next.js 16. It serves 7 user roles: Patient, Doctor, Receptionist, Hospital, Assistant, Pharmacist, and Admin.
+    42→    42→
+    43→    43→### 1.2 Current State — By The Numbers
+    44→    44→
+    45→    45→```
+    46→    46→Pages:           61 dashboard + 11 public = 72 total
+    47→    47→API Routes:      101 files, ~150 endpoints
+    48→    48→DB Models:       30 (Prisma)
+    49→    49→Dependencies:    47 production, 8 dev
+    50→    50→Components:      40+ shadcn/ui + 9 custom
+    51→    51→Total LOC:       ~30,000+ (estimated)
+    52→    52→```
+    53→    53→
+    54→    54→### 1.3 Module Completion
+    55→    55→
+    56→    56→| Module | Pages | APIs | Bugs | Completion | Priority |
+    57→    57→|--------|-------|------|------|------------|----------|
+    58→    58→| **Patient** | 12 | 30 | 34 | **62%** | 🔴 #1 FIRST |
+    59→    59→| **Receptionist** | 14 | 23 | ~12 | **55%** | 🔴 #2 |
+    60→    60→| **Doctor** | 13 | 18 | ~15 | **46%** | 🟡 #3 |
+    61→    61→| **Hospital** | 3 | 3 | ~5 | **20%** | 🟡 #4 |
+    62→    62→| **Assistant** | 3 | 3 | ~3 | **30%** | 🟢 #5 |
+    63→    63→| **Pharmacist** | 3 | 3 | ~2 | **25%** | 🟢 #5 |
+    64→    64→| **Admin** | 8 | 10 | ~8 | **31%** | 🟢 #6 (LAST) |
+    65→    65→
+    66→    66→### 1.4 The Core Problem
+    67→    67→
+    68→    68→> **85% of code is written but only ~45% works end-to-end.**
+    69→    69→
+    70→    70→The platform suffers from three systemic issues:
+    71→    71→
+    72→    72→1. **Empty database** — zero seed data, app appears dead to any visitor
+    73→    73→2. **5 critical bugs in Patient module** — the money-making flow is broken
+    74→    74→3. **No cross-module integration testing** — modules built in isolation, don't connect
+    75→    75→
+    76→    76→### 1.5 The Architect's Verdict
+    77→    77→
+    78→    78→```
+    79→    79→IF we fix Phase 0 (critical blockers) → Patient module goes from 40% → 80% E2E
+    80→    80→IF we complete Phase 1 (patient journey) → Platform has ONE working user flow
+    81→    81→IF we complete Phase 2 (workflow)  → Doctor + Reception can process bookings
+    82→    82→IF we complete Phase 3 (supporting)  → All roles have functional dashboards
+    83→    83→IF we complete Phase 4 (admin)       → Platform is self-service
+    84→    84→IF we complete Phase 5 (hardening)  → Production-ready
+    85→    85→```
+    86→    86→
+    87→    87→**Estimated total effort**: 6 development phases × 2-3 sessions each = **12-18 focused sessions**
+    88→    88→
+    89→    89→---
+    90→    90→
+    91→    91→## 2. CURRENT ARCHITECTURE ASSESSMENT
+    92→    92→
+    93→    93→### 2.1 Technology Stack (Non-Negotiable)
+    94→    94→
+    95→    95→| Layer | Technology | Version | Status |
+    96→    96→|-------|-----------|---------|--------|
+    97→    97→| Framework | Next.js (App Router) | 16.1.1 | ✅ Locked |
+    98→    98→| Language | TypeScript | 5 | ✅ Locked |
+    99→    99→| UI Library | shadcn/ui (New York) | Latest | ✅ Locked |
+   100→   100→| Styling | Tailwind CSS | v4 | ✅ Locked |
+   101→   101→| Database ORM | Prisma | 6.11.1 | ✅ Locked |
+   102→   102→| Database | SQLite (dev) / PostgreSQL (prod) | — | ✅ Locked |
+   103→   103→| State | Zustand | 5.0.6 | ✅ Locked |
+   104→   104→| Server State | TanStack Query | 5.82.0 | ✅ Locked |
+   105→   105→| Forms | react-hook-form + zod | 7.60 / 4.0.2 | ✅ Locked |
+   106→   106→| Animations | Framer Motion | 12.23.2 | ✅ Locked |
+   107→   107→| Toasts | Sonner | 2.0.6 | ✅ Locked |
+   108→   108→| Icons | Lucide React | 0.525.0 | ✅ Locked |
+   109→   109→| Charts | Recharts | 2.15.4 | ✅ Locked |
+   110→   110→| Date | date-fns | 4.1.0 | ✅ Locked |
+   111→   111→| Runtime | Bun | — | ✅ Locked |
+   112→   112→
+   113→   113→### 2.2 Architecture Patterns (Current)
+   114→   114→
+   115→   115→```
+   116→   116→┌─────────────────────────────────────────────────────────────┐
+   117→   117→│                     BROWSER (Client)                        │
+   118→   118→│                                                             │
+   119→   119→│  ┌──────────┐  ┌──────────────┐  ┌────────────────────┐    │
+   120→   120→│  │ Zustand  │  │ TanStack     │  │ Framer Motion      │    │
+   121→   121→│  │ (auth)   │  │ Query        │  │ (animations)       │    │
+   122→   122→│  └────┬─────┘  └──────┬───────┘  └────────────────────┘    │
+   123→   123→│       │               │                                     │
+   124→   124→│  ┌────┴───────────────┴──────────────────────────────┐     │
+   125→   125→│  │           shadcn/ui Components                     │     │
+   126→   126→│  │  (40+ components, all 'use client')                │     │
+   127→   127→│  └────────────────────┬──────────────────────────────┘     │
+   128→   128→│                       │ fetch()                            │
+   129→   129→└───────────────────────┼─────────────────────────────────────┘
+   130→   130→                        │
+   131→   131→                        ▼
+   132→   132→┌─────────────────────────────────────────────────────────────┐
+   133→   133→│                   NEXT.JS SERVER                             │
+   134→   134→│                                                             │
+   135→   135→│  ┌──────────────────────────────────────────────────┐     │
+   136→   136→│  │           Route Handlers (101 files)               │     │
+   137→   137→│  │  requireRole(req, 'role') → user | null           │     │
+   138→   138→│  │  try/catch → { data } | { error }                  │     │
+   139→   139→│  └────────────────────┬─────────────────────────────┘     │
+   140→   140→│                       │                                     │
+   141→   141→│  ┌────────────────────┴─────────────────────────────┐     │
+   142→   142→│  │              Prisma Client                        │     │
+   143→   143→│  │  findMany, findUnique, create, update, delete      │     │
+   144→   144→│  └────────────────────┬─────────────────────────────┘     │
+   145→   145→│                       │                                     │
+   146→   146→│  ┌────────────────────┴─────────────────────────────┐     │
+   147→   147→│  │           SQLite Database                          │     │
+   148→   148→│  │  30 models, ~20 tables with data                   │     │
+   149→   149→│  └──────────────────────────────────────────────────┘     │
+   150→   150→│                                                             │
+   151→   151→│  Mini-Services:                                             │
+   152→   152→│  └── chat-service (port 3003, socket.io) — exists but unused │
+   153→   153→└─────────────────────────────────────────────────────────────┘
+   154→   154→```
+   155→   155→
+   156→   156→### 2.3 What's RIGHT With Current Architecture
+   157→   157→
+   158→   158→| Decision | Why It's Good |
+   159→   159→|----------|--------------|
+   160→   160→| Custom cookie-based auth (`api-auth.ts`) | Simple, works, no NextAuth dependency for APIs |
+   161→   161→| Zustand for auth state | Fast, no provider nesting, clean API |
+   162→   162→| TanStack Query everywhere | Consistent caching, refetching, loading states |
+   163→   163→| shadcn/ui (New York) | Consistent, accessible, composable |
+   164→   164→| Framer Motion animations | Smooth, professional feel |
+   165→   165→| `sonner` for toasts | Lightweight, modern, zero-config |
+   166→   166→| Each API = separate file | Easy to find, test, modify independently |
+   167→   167→| `doctorooms_session` + `doctorooms_role` cookies | Explicit, debuggable, works across services |
+   168→   168→
+   169→   169→### 2.4 What's WRONG With Current Architecture
+   170→   170→
+   171→   171→| Problem | Severity | Impact |
+   172→   172→|---------|----------|--------|
+   173→   173→| No middleware.ts — all route protection is client-side | HIGH | Pages flash before redirect, no server-side guard |
+   174→   174→| 100% client components (zero server components) | MEDIUM | No SSR/SSG benefits, larger JS bundles |
+   175→   175→| No Zod validation on API requests | HIGH | Inconsistent validation, security gaps |
+   176→   176→| No shared types directory | MEDIUM | Duplicated type definitions, drift risk |
+   177→   177→| 5+ pieces of duplicated code | MEDIUM | Maintenance burden, inconsistency risk |
+   178→   178→| Session cookie = raw user ID | CRITICAL | Knowing a CUID = full account access |
+   179→   179→| Chat WebSocket service exists but unused | MEDIUM | Wasted infrastructure, HTTP polling instead |
+   180→   180→| No file upload infrastructure (except avatar) | HIGH | Medical documents upload is fake |
+   181→   181→| 3 monolith page files (700-800 lines) | MEDIUM | Hard to maintain, test, reuse |
+   182→   182→| No error boundaries | MEDIUM | Uncaught errors crash the UI |
+   183→   183→| No NextAuth integration (dead code in auth.ts) | LOW | Confusion, wasted imports |
+   184→   184→| No environment variable validation | LOW | Missing NEXTAUTH_SECRET, etc. |
+   185→   185→
+   186→   186→---
+   187→   187→
+   188→   188→## 3. TARGET ARCHITECTURE VISION
+   189→   189→
+   190→   190→### 3.1 The Target State
+   191→   191→
+   192→   192→```
+   193→   193→┌─────────────────────────────────────────────────────────────┐
+   194→   194→│                     BROWSER (Client)                        │
+   195→   195→│                                                             │
+   196→   196→│  ┌──────────┐  ┌──────────────┐  ┌────────────────────┐    │
+   197→   197→│  │ Zustand  │  │ TanStack     │  │ Framer Motion      │    │
+   198→   198→│  │ (auth +  │  │ Query +      │  │ + View Transitions  │    │
+   199→   199→│  │  UI)     │  │ InfiniteQuery│  │                     │    │
+   200→   200→│  └────┬─────┘  └──────┬───────┘  └────────────────────┘    │
+   201→   201→│       │               │                                     │
+   202→   202→│  ┌────┴───────────────┴──────────────────────────────┐     │
+   203→   203→│  │  Shared Components (extracted from monoliths)      │     │
+   204→   204→│  │  + Custom Hooks (usePatientAppointments, etc.)     │     │
+   205→   205→│  │  + Shared Types (src/types/)                      │     │
+   206→   206→│  └────────────────────┬──────────────────────────────┘     │
+   207→   207→│                       │ fetch() + WebSocket                 │
+   208→   208→└───────────────────────┼─────────────────────────────────────┘
+   209→   209→                        │
+   210→   210→         ┌──────────────┼──────────────┐
+   211→   211→         │              │              │
+   212→   212→         ▼              ▼              ▼
+   213→   213→┌────────────┐  ┌────────────┐  ┌────────────┐
+   214→   214→│  Next.js   │  │  Socket.io │  │  File      │
+   215→   215→│  API Routes│  │  Service   │  │  Upload    │
+   216→   216→│  (validated│  │  (chat +   │  │  Service   │
+   217→   217→│   w/ Zod)  │  │   notifs)  │  │  (multer)  │
+   218→   218→└──────┬─────┘  └──────┬─────┘  └──────┬─────┘
+   219→   219→       │               │               │
+   220→   220→       └───────────────┼───────────────┘
+   221→   221→                       │
+   222→   222→                       ▼
+   223→   223→              ┌─────────────────┐
+   224→   224→              │   Prisma + DB    │
+   225→   225→              │   (validated)    │
+   226→   226→              └─────────────────┘
+   227→   227→```
+   228→   228→
+   229→   229→### 3.2 Architecture Principles
+   230→   230→
+   231→   231→| # | Principle | Description |
+   232→   232→|---|-----------|-------------|
+   233→   233→| 1 | **Patient First** | Every decision prioritizes the patient journey. Revenue comes from bookings. |
+   234→   234→| 2 | **Validate Everything** | All API inputs validated with Zod. All outputs typed. No exceptions. |
+   235→   235→| 3 | **Extract, Don't Duplicate** | Shared logic in `lib/`, `hooks/`, `types/`, `components/`. DRY at all levels. |
+   236→   236→| 4 | **Fail Gracefully** | Error boundaries, loading states, empty states, error toasts — always. |
+   237→   237→| 5 | **Secure by Default** | httpOnly cookies, ownership checks, input sanitization, no raw IDs in responses. |
+   238→   238→| 6 | **Server When Possible** | Use server components for data-heavy pages. Client only for interactivity. |
+   239→   239→| 7 | **Batch Over N+1** | Never make N API calls when 1 batch call will do. |
+   240→   240→| 8 | **Real-Time Over Polling** | Use WebSocket for chat, notifications, queue positions. |
+   241→   241→
+   242→   242→---
+   243→   243→
+   244→   244→## 4. ARCHITECTURE DECISION RECORDS (ADRs)
+   245→   245→
+   246→   246→### ADR-001: Authentication — Custom Cookie (Keep)
+   247→   247→
+   248→   248→- **Status**: ACCEPTED
+   249→   249→- **Context**: System uses custom `doctorooms_session` cookie (raw user ID) instead of NextAuth JWT
+   250→   250→- **Decision**: Keep custom cookie auth for API routes. Fix security (add random token, make httpOnly)
+   251→   251→- **Rationale**: Works reliably, simple to debug, no NextAuth dependency. NextAuth config exists but is unused dead code.
+   252→   252→- **Consequences**: Must add session token rotation and httpOnly flag. Must remove dead `auth.ts` NextAuth config.
+   253→   253→
+   254→   254→### ADR-002: Validation — Adopt Zod for All APIs
+   255→   255→
+   256→   256→- **Status**: PROPOSED
+   257→   257→- **Context**: Currently all API validation is manual (`if (!body.name) return error`). Inconsistent, missing checks.
+   258→   258→- **Decision**: Create Zod schemas for every API request body. Validate at route handler entry point.
+   259→   259→- **Rationale**: Zod v4 is already a dependency. Provides type inference, auto-parsing, consistent error messages.
+   260→   260→- **Consequences**: ~101 route files need Zod schemas. Schemas go in `src/lib/validations/`.
+   261→   261→
+   262→   262→### ADR-003: File Upload — Local Disk (Current Phase)
+   263→   263→
+   264→   264→- **Status**: ACCEPTED
+   265→   265→- **Context**: Medical document upload is fake (metadata only). Avatar upload works but writes to `public/`.
+   266→   266→- **Decision**: Phase 1-3: Local disk (`uploads/` with Bun file API). Phase 4+: Abstract to storage interface for S3/GCS.
+   267→   267→- **Rationale**: SQLite + local disk is sufficient for dev/MVP. Production needs cloud storage.
+   268→   268→- **Consequences**: Need `src/lib/storage.ts` abstraction layer. File serving via Next.js API route (not public/).
+   269→   269→
+   270→   270→### ADR-004: Real-Time — Socket.io (Existing Service)
+   271→   271→
+   272→   272→- **Status**: PROPOSED
+   273→   273→- **Context**: Chat service exists at `mini-services/chat-service/` (port 3003) but is unused. All real-time is HTTP polling (10s).
+   274→   274→- **Decision**: Activate Socket.io for: (1) Chat messages, (2) Notification push, (3) Queue position updates, (4) Booking status changes.
+   275→   275→- **Rationale**: Service exists, just needs wiring. Eliminates 10s polling. Better UX for chat.
+   276→   276→- **Consequences**: Frontend needs Socket.io client. Auth needs to pass through gateway.
+   277→   277→
+   278→   278→### ADR-005: Component Architecture — Extract From Monoliths
+   279→   279→
+   280→   280→- **Status**: PROPOSED
+   281→   281→- **Context**: 3 page files are 700-800 lines. `StarRating` duplicated. `statusColors` in 4+ files.
+   282→   282→- **Decision**: Decompose monolith pages into focused components. Extract shared pieces to `src/components/` and `src/hooks/`.
+   283→   283→- **Rationale**: Maintainability, testability, reusability. Pages should be orchestrators, not implementations.
+   284→   284→- **Consequences**: Each 800-line file becomes 1 page (200 lines) + 4-5 components (100-150 lines each).
+   285→   285→
+   286→   286→### ADR-006: Types — Centralize in `src/types/`
+   287→   287→
+   288→   288→- **Status**: PROPOSED
+   289→   289→- **Context**: All types are inline in page files. `AuthUser` duplicated. `statusColors` in 4 files.
+   290→   290→- **Decision**: Create `src/types/` with domain-specific type files. Import from there.
+   291→   291→- **Rationale**: Single source of truth. Auto-completion. Prevents drift.
+   292→   292→- **Consequences**: Need to create type files, then update all imports across 61+ pages.
+   293→   293→
+   294→   294→### ADR-007: Database — Stay SQLite for Dev, Prepare PostgreSQL Migration
+   295→   295→
+   296→   296→- **Status**: ACCEPTED
+   297→   297→- **Context**: Current DB is SQLite. `.env.example` shows Supabase PostgreSQL config (commented out).
+   298→   298→- **Decision**: Keep SQLite for all development. Schema must be PostgreSQL-compatible (no SQLite-specific features). Migration script exists at `scripts/switch-to-supabase.sh`.
+   299→   299→- **Rationale**: SQLite is zero-config for dev. Prisma abstracts the DB layer. Switch is one config change.
+   300→   300→- **Consequences**: No raw SQL queries. No SQLite-specific functions. Test migration before production.
+   301→   301→
+   302→   302→### ADR-008: Middleware — Add `middleware.ts` for Route Protection
+   303→   303→
+   304→   304→- **Status**: PROPOSED
+   305→   305→- **Context**: Currently all dashboard route protection is client-side (useEffect in layout). Pages flash before redirect.
+   306→   306→- **Decision**: Add Next.js `middleware.ts` that checks `doctorooms_session` cookie and redirects unauthenticated users to `/login`.
+   307→   307→- **Rationale**: Server-side protection prevents flash. Faster redirect (no JS execution needed). More secure.
+   308→   308→- **Consequences**: Middleware can't do DB lookups (edge runtime). Cookie-only check is sufficient for redirect — API routes still do full auth.
+   309→   309→
+   310→   310→---
+   311→   311→
+   312→   312→## 5. TECHNICAL DEBT REGISTER
+   313→   313→
+   314→   314→### Critical Debt (Must Fix in Phase 0)
+   315→   315→
+   316→   316→| ID | Debt | Location | Effort | Impact if Unfixed |
+   317→   317→|----|------|----------|--------|-----------------|
+   318→   318→| TD-001 | Empty database — no seed data | `prisma/` | Medium | App is invisible and unusable |
+   319→   319→| TD-002 | Session cookie = raw user ID | `api/auth/login/route.ts:62` | Small | Account takeover vulnerability |
+   320→   320→| TD-003 | No Zod validation on any API | All 101 route files | Large | Data integrity, security gaps |
+   321→   321→| TD-004 | Dead NextAuth code | `lib/auth.ts`, `providers.tsx` | Tiny | Confusion, wasted dependency |
+   322→   322→
+   323→   323→### High Debt (Fix in Phase 1-2)
+   324→   324→
+   325→   325→| ID | Debt | Location | Effort |
+   326→   326→|----|------|----------|--------|
+   327→   327→| TD-005 | Chat GET endpoint has no authorization | `bookings/[bookingId]/chat/route.ts` | Small |
+   328→   328→| TD-006 | No middleware.ts for route protection | `src/middleware.ts` (missing) | Medium |
+   329→   329→| TD-007 | File upload is fake (metadata only) | `health-records/page.tsx` | Medium |
+   330→   330→| TD-008 | 3 monolith page files (700-800 lines) | Appointments detail, Booking, Health records | Large |
+   331→   331→| TD-009 | No shared types directory | `src/types/` (missing) | Medium |
+   332→   332→| TD-010 | 5+ pieces of duplicated code | Multiple files | Medium |
+   333→   333→| TD-011 | Session cookie not httpOnly | `api/auth/login/route.ts:63` | Tiny |
+   334→   334→
+   335→   335→### Medium Debt (Fix in Phase 3-4)
+   336→   336→
+   337→   337→| ID | Debt | Location | Effort |
+   338→   338→|----|------|----------|--------|
+   339→   339→| TD-012 | No error boundaries | All pages | Small |
+   340→   340→| TD-013 | All pages are 'use client' | All 61 dashboard pages | Large |
+   341→   341→| TD-014 | No custom data hooks | `src/hooks/` | Medium |
+   342→   342→| TD-015 | Unused hooks (use-mobile, use-toast) | `src/hooks/` | Tiny |
+   343→   343→| TD-016 | No environment variable validation | `.env` | Small |
+   344→   344→| TD-017 | WebSocket service exists but unused | `mini-services/chat-service/` | Medium |
+   345→   345→| TD-018 | Files written to `public/` (directly servable) | `patient/avatar/route.ts` | Small |
+   346→   346→
+   347→   347→---
+   348→   348→
+   349→   349→## 6. MODULE COMPLETION MATRIX
+   350→   350→
+   351→   351→### 6.1 Feature-by-Feature Matrix
+   352→   352→
+   353→   353→```
+   354→   354→Key: ✅ Working | ⚠️ Partial | ❌ Broken/Missing | — N/A
+   355→   355→```
+   356→   356→
+   357→   357→| Feature | Patient | Doctor | Reception | Hospital | Assistant | Pharmacist | Admin |
+   358→   358→|---------|---------|--------|-----------|----------|----------|------------|-------|
+   359→   359→| **Dashboard (stats + summary)** | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ |
+   360→   360→| **Profile (view/edit)** | ⚠️ | ⚠️ | ⚠️ | — | — | — | — |
+   361→   361→| **Avatar Upload** | ✅ | — | ✅ | — | — | — | — |
+   362→   362→| **Appointments List** | ⚠️ | ⚠️ | ⚠️ | ⚠️ | ⚠️ | — | ⚠️ |
+   363→   363→| **Appointment Detail** | ⚠️ | ❌ | — | — | — | — | — |
+   364→   364→| **Create Booking** | ❌ | — | ⚠️ | — | — | — | — |
+   365→   365→| **Cancel Booking** | ✅ | — | — | — | — | — | — |
+   366→   366→| **Status Changes** | — | ⚠️ | ⚠️ | — | — | — | — |
+   367→   367→| **Queue Management** | ✅ | ⚠️ | — | — | — | — | — |
+   368→   368→| **Prescriptions (list/view)** | ⚠️ | ⚠️ | — | — | — | ⚠️ | — |
+   369→   369→| **Create Prescription** | — | ⚠️ | — | — | — | — | — |
+   370→   370→| **Print Prescription** | ✅ | — | ⚠️ | — | — | — | — |
+   371→   371→| **Medicine Master** | — | ⚠️ | ⚠️ | — | — | ⚠️ | — |
+   372→   372→| **Schedule (view)** | ✅ | ⚠️ | ⚠️ | — | — | — | — |
+   373→   373→| **Schedule (write)** | — | ⚠️ | ⚠️ | — | — | — | — |
+   374→   374→| **Patient List** | — | ⚠️ | ⚠️ | — | ⚠️ | — | — |
+   375→   375→| **Patient Detail** | — | ⚠️ | — | — | ⚠️ | — | — |
+   376→   376→| **Chat** | ⚠️ | ⚠️ | ⚠️ | — | — | — | — |
+   377→   377→| **Video Call** | ✅ | ⚠️ | — | — | — | — | — |
+   378→   378→| **Feedback/Ratings** | ✅ | — | — | — | — | — | — |
+   379→   379→| **Notifications** | ⚠️ | — | ⚠️ | — | — | — | — |
+   380→   380→| **Blog (CRUD)** | ⚠️ | ⚠️ | ⚠️ | — | — | — | ⚠️ |
+   381→   381→| **Health Records** | ❌ | — | — | — | — | — | — |
+   382→   382→| **Medical Documents** | ❌ | — | — | — | — | — | — |
+   383→   383→| **Earnings/Income** | — | ⚠️ | — | — | — | — | — |
+   384→   384→| **Gallery** | — | ⚠️ | — | — | — | — | — |
+   385→   385→| **Walk-in Registration** | — | — | ⚠️ | — | — | — | — |
+   386→   386→| **Reports** | — | — | ⚠️ | — | — | — | — |
+   387→   387→| **Settings** | ❌ | ⚠️ | — | — | — | — | ⚠️ |
+   388→   388→| **Change Password** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+   389→   389→| **User Management** | — | — | — | — | — | — | ⚠️ |
+   390→   390→| **Hospital Mgmt** | — | — | — | — | — | — | ⚠️ |
+   391→   391→| **Inquiries** | — | — | — | — | — | — | ⚠️ |
+   392→   392→
+   393→   393→### 6.2 Module Development Order (Architect's Decision)
+   394→   394→
+   395→   395→```
+   396→   396→Phase 0: Foundation          → Seed DB + Fix 5 critical bugs + Fix auth security
+   397→   397→Phase 1: Patient Journey      → Patient module 62% → 95%
+   398→   398→Phase 2: Workflow Engine      → Doctor 46% → 80%, Reception 55% → 80%
+   399→   399→Phase 3: Supporting Roles     → Hospital 20% → 70%, Assistant 30% → 70%, Pharmacist 25% → 70%
+   400→   400→Phase 4: Admin & Governance   → Admin 31% → 85%
+   401→   401→Phase 5: Hardening            → All modules → 95%+
+   402→   402→```
+   403→   403→
+   404→   404→**Rationale for this order:**
+   405→   405→- Patient FIRST: Revenue comes from patient bookings. No patients = no platform.
+   406→   406→- Doctor + Reception SECOND: They process the bookings patients create. Without them, bookings sit in "Pending" forever.
+   407→   407→- Supporting roles THIRD: Assistant and Pharmacist support doctors. Hospital is a separate entity.
+   408→   408→- Admin LAST: Admin is governance/maintenance. Not revenue-generating. Can wait.
+   409→   409→
+   410→   410→---
+   411→   411→
+   412→   412→## 7. DEVELOPMENT ROADMAP — 6 PHASES
+   413→   413→
+   414→   414→### Visual Roadmap
+   415→   415→
+   416→   416→```
+   417→   417→Week 1:  ██████████ Phase 0 (Foundation) — Seed DB, fix critical bugs, secure auth
+   418→   418→Week 2:  ██████████████████ Phase 1 (Patient) — End-to-end patient journey
+   419→   419→Week 3:  ██████████████████████ Phase 2 (Workflow) — Doctor + Reception integration
+   420→   420→Week 4:  ██████████████████ Phase 3 (Supporting) — Hospital, Assistant, Pharmacist
+   421→   421→Week 5:  ██████████ Phase 4 (Admin) — User management, governance
+   422→   422→Week 6:  ████████████████ Phase 5 (Hardening) — Architecture, security, performance
+   423→   423→```
+   424→   424→
+   425→   425→### Phase Dependency Graph
+   426→   426→
+   427→   427→```
+   428→   428→Phase 0 (Foundation)
+   429→   429→    │
+   430→   430→    ├──→ Phase 1 (Patient Journey)
+   431→   431→    │       │
+   432→   432→    │       ├──→ Phase 2 (Doctor + Reception Workflow)
+   433→   433→    │       │       │
+   434→   434→    │       │       └──→ Phase 3 (Supporting Roles)
+   435→   435→    │       │               │
+   436→   436→    │       │               └──→ Phase 4 (Admin)
+   437→   437→    │       │
+   438→   438→    │       └──→ Phase 5 (Architecture Hardening) [can run parallel after Phase 1]
+   439→   439→    │
+   440→   440→    └──→ Phase 5 (Security fixes can start immediately)
+   441→   441→```
+   442→   442→
+   443→   443→---
+   444→   444→
+   445→   445→## 8. PHASE 0: FOUNDATION — CRITICAL BLOCKERS
+   446→   446→
+   447→   447→> **Goal**: Make the app visible and the patient login→book flow technically possible
+   448→   448→> **Effort**: 1-2 sessions
+   449→   449→> **Success Criteria**: (1) Landing page shows real data, (2) Patient can register+login, (3) Patient can book an appointment
+   450→   450→
+   451→   451→### 8.1 Task 0.1: Database Seed Script
+   452→   452→
+   453→   453→**Priority**: 🔴 CRITICAL (Nothing works without this)
+   454→   454→**File**: `prisma/seed.ts` (already exists, needs enhancement)
+   455→   455→**Effort**: Medium
+   456→   456→
+   457→   457→**Specification**:
+   458→   458→```
+   459→   459→Seed Data Requirements:
+   460→   460→
+   461→   461→1. DOCTORS (8 users + 8 doctor profiles)
+   462→   462→   - Specializations: Cardiologist, Dermatologist, Pediatrician, Orthopedic,
+   463→   463→     General Physician, ENT, Ophthalmologist, Gynecologist
+   464→   464→   - Each with: User (role=doctor, status=Active) + Doctor profile
+   465→   465→   - Each with: 5-6 day schedule (DoctorSchedule entries)
+   466→   466→   - 2 linked to Hospital records
+   467→   467→   - 1 with isEmergency=true
+   468→   468→   - Fees: ₹200-₹1000
+   469→   469→   - Cities: Mumbai, Delhi, Bangalore, Chennai, Hyderabad, Kolkata
+   470→   470→   - Each with 5-8 DoctorMedicine entries
+   471→   471→   - Each with 2-3 DoctorHoliday entries (upcoming dates)
+   472→   472→
+   473→   473→2. HOSPITALS (2 users + 2 hospital profiles)
+   474→   474→   - Cities: Mumbai, Delhi
+   475→   475→   - With addresses
+   476→   476→
+   477→   477→3. RECEPTIONISTS (3 users + 3 receptionist profiles)
+   478→   478→   - Each linked to a doctor
+   479→   479→
+   480→   480→4. PATIENTS (15 users, role=patient, status=Active)
+   481→   481→   - Mix of genders, cities
+   482→   482→   - All with bcrypt-hashed password: "123456"
+   483→   483→
+   484→   484→5. BOOKINGS (40 bookings)
+   485→   485→   - Distribution: 10 Pending, 8 Approve, 10 Visited, 5 Finish, 4 Canceled, 3 Extend
+   486→   486→   - Spread across doctors and dates (last 60 days)
+   487→   487→   - Mix of InPerson and VideoCall
+   488→   488→   - All with appointmentNo like "APT-{timestamp}"
+   489→   489→
+   490→   490→6. PRESCRIPTIONS (10 for Visited/Finished bookings)
+   491→   491→   - Each with 2-4 PMedicine entries
+   492→   492→   - Some with PLabel entries
+   493→   493→   - Some with PSuggestion entries
+   494→   494→   - Include vitals (bp, temperature, weight)
+   495→   495→
+   496→   496→7. RATINGS (10 for Finished bookings)
+   497→   497→   - Stars 3-5, some with reviews
+   498→   498→
+   499→   499→8. NOTIFICATIONS (25)
+   500→   500→   - Mix of READ/UNREAD
+   501→   501→   - Different types: booking created, approved, prescription ready
+   502→   502→
+   503→   503→9. BLOG POSTS (7)
+   504→   504→   - 5 Published, 2 Draft
+   505→   505→   - Mix of Blog and News types
+   506→   506→
+   507→   507→10. MASTER DATA
+   508→   508→    - 5 DoctorTypeMaster entries
+   509→   509→    - 10 DiseaseMaster entries
+   510→   510→    - 5 DoctorGallery entries per doctor
+   511→   511→
+   512→   512→11. CHAT MESSAGES (20)
+   513→   513→    - For 5 approved/visited bookings
+   514→   514→    - Back-and-forth between patient and doctor
+   515→   515→
+   516→   516→12. MEDICAL DOCUMENTS (5)
+   517→   517→    - For 3 patients, different categories
+   518→   518→```
+   519→   519→
+   520→   520→### 8.2 Task 0.2: Fix Booking Form — Add Gender Field
+   521→   521→
+   522→   522→**Priority**: 🔴 CRITICAL
+   523→   523→**File**: `src/app/dashboard/patient/book/[doctorId]/page.tsx`
+   524→   524→**Effort**: Small (30 min)
+   525→   525→
+   526→   526→**Specification**:
+   527→   527→- Auto-populate gender from `useAuthStore` user data
+   528→   528→- Show a `<Select>` with Male/Female/Other options (use `GENDERS` from `@/lib/constants`)
+   529→   529→- Default to user's current gender
+   530→   530→- Include in booking mutation body
+   531→   531→
+   532→   532→### 8.3 Task 0.3: Fix Settings Page Broken JSX
+   533→   533→
+   534→   534→**Priority**: 🔴 CRITICAL
+   535→   535→**File**: `src/app/dashboard/patient/settings/page.tsx` (lines 183-188)
+   536→   536→**Effort**: Tiny (10 min)
+   537→   537→
+   538→   538→**Specification**:
+   539→   539→- The outer `Array.from({ length: 3 }).map()` is missing its closing `)}` before `</Card>`
+   540→   540→- Fix the JSX nesting in the loading skeleton section
+   541→   541→
+   542→   542→### 8.4 Task 0.4: Fix Register Page Step 3 Crash
+   543→   543→
+   544→   544→**Priority**: 🔴 CRITICAL
+   545→   545→**File**: `src/app/register/page.tsx`
+   546→   546→**Effort**: Small (30 min)
+   547→   547→
+   548→   548→**Specification**:
+   549→   549→- Audit Step 3 JSX for block elements inside inline elements
+   550→   550→- Likely a `<p>` containing a `<div>` (skeleton) or similar nesting violation
+   551→   551→- Fix the nesting to be valid JSX
+   552→   552→
+   553→   553→### 8.5 Task 0.5: Fix Login Error Feedback
+   554→   554→
+   555→   555→**Priority**: 🔴 CRITICAL
+   556→   556→**File**: `src/app/login/page.tsx`
+   557→   557→**Effort**: Tiny (15 min)
+   558→   558→
+   559→   559→**Specification**:
+   560→   560→- On API response `!response.ok`, show error toast: `toast.error('Invalid email or password')`
+   561→   561→- Currently fails silently on 401
+   562→   562→
+   563→   563→### 8.6 Task 0.6: Secure Session Cookie
+   564→   564→
+   565→   565→**Priority**: 🔴 CRITICAL (Security)
+   566→   566→**File**: `src/app/api/auth/login/route.ts`
+   567→   567→**Effort**: Small (45 min)
+   568→   568→
+   569→   569→**Specification**:
+   570→   570→- Generate random session token: `crypto.randomUUID()`
+   571→   571→- Store mapping in a new `Session` model or in-memory map (for now)
+   572→   572→- Set cookie value to session token (not user ID)
+   573→   573→- Set `httpOnly: true` on cookie
+   574→   574→- Update `api-auth.ts` to look up user from session token
+   575→   575→- **Alternative (simpler for Phase 0)**: Just make httpOnly=true, add sameSite:'lax', secure in production. Keep user ID in cookie for now. Full token migration in Phase 5.
+   576→   576→
+   577→   577→### 8.7 Task 0.7: Fix /book 404
+   578→   578→
+   579→   579→**Priority**: 🔴 HIGH
+   580→   580→**File**: `src/app/book/page.tsx` (new file)
+   581→   581→**Effort**: Tiny (15 min)
+   582→   582→
+   583→   583→**Specification**:
+   584→   584→- Create a simple redirect page: `router.replace('/doctors')`
+   585→   585→- Show a toast: "Please select a doctor first to book an appointment"
+   586→   586→
+   587→   587→---
+   588→   588→
+   589→   589→## 9. PHASE 1: PATIENT JOURNEY END-TO-END
+   590→   590→
+   591→   591→> **Goal**: Complete patient journey from discovery → booking → consultation → rating
+   592→   592→> **Effort**: 2-3 sessions
+   593→   593→> **Success Criteria**: Patient can: discover doctors, book, chat, view prescription, rate
+   594→   594→> **Depends on**: Phase 0 complete
+   595→   595→
+   596→   596→### 9.1 Task 1.1: Fix Landing Page Interactivity
+   597→   597→
+   598→   598→**Files**:
+   599→   599→- `src/app/page.tsx` (landing page)
+   600→   600→**Effort**: Medium (1-2 hrs)
+   601→   601→
+   602→   602→**Specification**:
+   603→   603→- **Search bar**: Add `onSubmit` handler → `router.push(\`/doctors?search=${encodeURIComponent(query)}\`)`
+   604→   604→- **Specialization cards**: Wrap each card in `<Link href={\`/doctors?specialization=${name}\`}>`
+   605→   605→- **"Book Appointment" CTAs**: Change `/book` links to `/doctors` (2-3 instances)
+   606→   606→- **Stats fallback**: When `data.doctorCount === 0`, show fallback numbers (15, 8, 2400, 5800)
+   607→   607→- **Featured doctors**: When 0 doctors, show "No doctors available yet" or hide section
+   608→   608→- **Math.random()**: Wrap specialization counts in `useMemo` or remove when 0
+   609→   609→- **Doctor card buttons**: Wrap "Book Appointment" and "View Profile" in proper `<Link>`
+   610→   610→
+   611→   611→### 9.2 Task 1.2: Fix Doctor Profile CTA for Unauthenticated Users
+   612→   612→
+   613→   613→**File**: `src/app/doctors/[id]/page.tsx`
+   614→   614→**Effort**: Small (30 min)
+   615→   615→
+   616→   616→**Specification**:
+   617→   617→- Import `useAuthStore` and `isAuthenticated`
+   618→   618→- On "Book Appointment" click: if not authenticated → `router.push(\`/login?redirect=/doctors/${id}\`)`
+   619→   619→- If authenticated → navigate to booking page as before
+   620→   620→
+   621→   621→### 9.3 Task 1.3: Fix Chat fromId Bug
+   622→   622→
+   623→   623→**File**: `src/app/dashboard/patient/appointments/[id]/page.tsx`
+   624→   624→**Effort**: Tiny (15 min)
+   625→   625→
+   626→   626→**Specification**:
+   627→   627→- Replace `msg.fromId === 'me'` with `msg.fromId === user.id`
+   628→   628→- Get `user` from `useAuthStore()`
+   629→   629→- Messages will now appear on the correct side
+   630→   630→
+   631→   631→### 9.4 Task 1.4: Real File Upload for Medical Documents
+   632→   632→
+   633→   633→**Files**:
+   634→   634→- `src/app/api/patient/medical-documents/route.ts` (modify POST to handle FormData)
+   635→   635→- `src/app/dashboard/patient/health-records/page.tsx` (add file input, send FormData)
+   636→   636→**Effort**: Medium (1-2 hrs)
+   637→   637→
+   638→   638→**Specification**:
+   639→   639→- **Frontend**: Add `<Input type="file">` to upload dialog. Accept: PDF, JPG, PNG, DOC, DOCX. Max 5MB.
+   640→   640→- **Frontend**: On submit, create `FormData` with file + metadata (title, category, description)
+   641→   641→- **API**: Parse FormData. Read file buffer. Generate unique filename.
+   642→   642→- **API**: Write to `uploads/documents/{userId}_{timestamp}_{filename}`
+   643→   643→- **API**: Store `fileUrl`, `fileName`, `fileSize`, `mimeType` in MedicalDocument
+   644→   644→- **Download**: Create a new API route `GET /api/patient/medical-documents/[id]/download` that streams the file
+   645→   645→
+   646→   646→### 9.5 Task 1.5: Fix Blog VideoLink
+   647→   647→
+   648→   648→**Files**:
+   649→   649→- `src/app/api/patient/posts/route.ts` (add videoLink to create)
+   650→   650→- `src/app/api/patient/posts/[id]/route.ts` (add videoLink to update)
+   651→   651→- `src/app/dashboard/patient/blog/[id]/edit/page.tsx` (load videoLink from post)
+   652→   652→**Effort**: Small (30 min)
+   653→   653→
+   654→   654→**Specification**:
+   655→   655→- Add `videoLink` to Prisma `create` and `update` calls in both route files
+   656→   656→- In edit page, initialize `videoLink` state from `post.videoLink` instead of empty string
+   657→   657→
+   658→   658→### 1.6 Task 1.6: Fix Profile Save → Header Name Update
+   659→   659→
+   660→   660→**File**: `src/app/dashboard/patient/profile/page.tsx`
+   661→   661→**Effort**: Tiny (10 min)
+   662→   662→
+   663→   663→**Specification**:
+   664→   664→- After successful profile PUT, add: `useAuthStore.getState().setUser({ ...useAuthStore.getState().user, name: updatedName })`
+   665→   665→
+   666→   666→### 9.7 Task 1.7: Add Error States to Patient Pages
+   667→   667→
+   668→   668→**Files**: All 12 patient pages
+   669→   669→**Effort**: Medium (1 hr)
+   670→   670→
+   671→   671→**Specification**:
+   672→   672→- For each `useQuery`, add `isError` check with user-friendly error message and retry button
+   673→   673→- Pattern:
+   674→   674→  ```tsx
+   675→   675→  if (isError) {
+   676→   676→    return (
+   677→   677→      <Card className="p-6 text-center">
+   678→   678→        <p className="text-destructive">Failed to load data</p>
+   679→   679→        <Button variant="outline" onClick={() => refetch()} className="mt-2">Retry</Button>
+   680→   680→      </Card>
+   681→   681→    )
+   682→   682→  }
+   683→   683→  ```
+   684→   684→
+   685→   685→### 9.8 Task 1.8: Fix Footer Broken Links
+   686→   686→
+   687→   687→**File**: `src/components/layout/public-footer.tsx`
+   688→   688→**Effort**: Small (30 min)
+   689→   689→
+   690→   690→**Specification**:
+   691→   691→- Remove dead dashboard links (Doctor Dashboard, Prescriptions, Schedule)
+   692→   692→- Change "Join as Doctor" → `/register` (with pre-selected doctor role)
+   693→   693→- Change Privacy/Terms/Cookies to `#` with title="Coming soon" or create simple placeholder pages
+   694→   694→
+   695→   695→---
+   696→   696→
+   697→   697→## 10. PHASE 2: WORKFLOW ENGINE (DOCTOR + RECEPTION)
+   698→   698→
+   699→   699→> **Goal**: Doctor and Receptionist can process bookings end-to-end
+   700→   700→> **Effort**: 3-4 sessions
+   701→   701→> **Success Criteria**: Complete booking lifecycle works (Pending → Approved → Visited → Finished)
+   702→   702→> **Depends on**: Phase 0 + Phase 1
+   703→   703→
+   704→   704→### 10.1 Doctor Module Gaps (from DOCTOR-MODULE-PLAN.md)
+   705→   705→
+   706→   706→| Priority | Task | File | Effort |
+   707→   707→|----------|------|------|--------|
+   708→   708→| HIGH | Fix stats API syntax issue | `dashboard/doctor/stats/route.ts` | Tiny |
+   709→   709→| HIGH | Add appointment detail page | `dashboard/doctor/appointments/[id]/page.tsx` | Large |
+   710→   710→| HIGH | Emergency toggle in profile | `dashboard/doctor/profile/page.tsx` | Small |
+   711→   711→| MEDIUM | Gallery file upload (currently URL-only) | `dashboard/doctor/gallery/page.tsx` | Medium |
+   712→   712→| MEDIUM | Prescription C/O section + next visit | `prescription/` pages | Medium |
+   713→   713→| MEDIUM | Complete schedule slot write API | `schedule/slots/route.ts` | Medium |
+   714→   714→| LOW | Blog image upload | `posts/` pages | Small |
+   715→   715→| LOW | Photo upload in profile | `profile/page.tsx` | Small |
+   716→   716→
+   717→   717→### 10.2 Receptionist Module Gaps (from RECEPTION-MODULE-PLAN.md)
+   718→   718→
+   719→   719→| Priority | Task | File | Effort |
+   720→   720→|----------|------|------|--------|
+   721→   721→| HIGH | Scope pending bookings to linked doctor | `pending-bookings/page.tsx` | Small |
+   722→   722→| HIGH | Add Extend/Visited status actions | `appointments/page.tsx` | Medium |
+   723→   723→| HIGH | Rich booking form (15 fields vs 5) | `walk-in/page.tsx` | Large |
+   724→   724→| MEDIUM | Add chat UI for receptionist | New component | Medium |
+   725→   725→| MEDIUM | Blog write access | `blog/` pages | Small |
+   726→   726→| MEDIUM | Medicine master write access | `medicines/` pages | Small |
+   727→   727→| MEDIUM | Schedule write access | `schedule/` pages | Small |
+   728→   728→| LOW | Dashboard enhancements | `page.tsx` | Medium |
+   729→   729→
+   730→   730→### 10.3 Cross-Module Integration Tests
+   731→   731→
+   732→   732→After Phase 2, verify this complete flow works:
+   733→   733→
+   734→   734→```
+   735→   735→1. Patient registers → logs in
+   736→   736→2. Patient discovers doctor → views profile
+   737→   737→3. Patient books appointment → status: Pending
+   738→   738→4. Receptionist sees pending booking → Approves → status: Approve
+   739→   739→5. Patient sees queue position → waits
+   740→   740→6. Doctor sees approved booking → Starts consultation → status: Visited
+   741→   741→7. Doctor creates prescription with medicines
+   742→   742→8. Patient views prescription → prints it
+   743→   743→9. Doctor marks as Finished → status: Finish
+   744→   744→10. Patient rates the visit → submits feedback
+   745→   745→11. Rating appears on doctor's public profile
+   746→   746→```
+   747→   747→
+   748→   748→---
+   749→   749→
+   750→   750→## 11. PHASE 3: SUPPORTING MODULES (HOSPITAL + ASSISTANT + PHARMACIST)
+   751→   751→
+   752→   752→> **Goal**: All supporting roles have functional dashboards
+   753→   753→> **Effort**: 3-4 sessions
+   754→   754→> **Depends on**: Phase 2
+   755→   755→
+   756→   756→### 11.1 Hospital Module (20% → 70%)
+   757→   757→
+   758→   758→Currently has 3 pages + 3 GET-only APIs. Needs:
+   759→   759→
+   760→   760→| Priority | Task | Type |
+   761→   761→|----------|------|------|
+   762→   762→| HIGH | Hospital profile page (view/edit) | Page + API |
+   763→   763→| HIGH | Add doctor to hospital (link existing) | API + UI |
+   764→   764→| HIGH | Appointment detail page | Page |
+   765→   765→| MEDIUM | Appointment create (receptionist-like booking) | Page + API |
+   766→   766→| MEDIUM | Income/earnings summary | Page + API |
+   767→   767→| MEDIUM | Blog management | Page + API |
+   768→   768→| MEDIUM | Notifications | Page + API |
+   769→   769→| LOW | Dashboard enhancements | Page |
+   770→   770→
+   771→   771→### 11.2 Assistant Module (30% → 70%)
+   772→   772→
+   773→   773→Currently has 3 pages + 3 APIs. Needs:
+   774→   774→
+   775→   775→| Priority | Task | Type |
+   776→   776→|----------|------|------|
+   777→   777→| HIGH | Patient detail view (linked to doctor) | Page + API |
+   778→   778→| HIGH | Appointment detail view | Page |
+   779→   779→| MEDIUM | Dashboard enhancements | Page |
+   780→   780→| LOW | Notifications | Page + API |
+   781→   781→
+   782→   782→### 11.3 Pharmacist Module (25% → 70%)
+   783→   783→
+   784→   784→Currently has 3 pages + 3 APIs. Needs:
+   785→   785→
+   786→   786→| Priority | Task | Type |
+   787→   787→|----------|------|------|
+   788→   788→| HIGH | Prescription detail view | Page |
+   789→   789→| HIGH | Medicine management (view linked doctor's) | Enhancement |
+   790→   790→| MEDIUM | Dashboard enhancements | Page |
+   791→   791→| LOW | Notifications | Page + API |
+   792→   792→
+   793→   793→---
+   794→   794→
+   795→   795→## 12. PHASE 4: ADMIN & GOVERNANCE
+   796→   796→
+   797→   797→> **Goal**: Self-service platform administration
+   798→   798→> **Effort**: 2-3 sessions
+   799→   799→> **Depends on**: Phase 3
+   800→   800→> **Note**: Admin is LAST per user's explicit instruction
+   801→   801→
+   802→   802→### 12.1 Admin Module (31% → 85%)
+   803→   803→
+   804→   804→From `ADMIN-COMPLETE-IMPLEMENTATION-PLAN.md`:
+   805→   805→
+   806→   806→| Priority | Task | Type |
+   807→   807→|----------|------|------|
+   808→   808→| HIGH | User management (CRUD, status, role) | Already exists, needs fixes |
+   809→   809→| HIGH | Doctor approval workflow | Page + API |
+   810→   810→| HIGH | Hospital approval workflow | Page + API |
+   811→   811→| MEDIUM | System settings (fees, commission, limits) | Page + API |
+   812→   812→| MEDIUM | Blog moderation (approve/reject patient posts) | Enhancement |
+   813→   813→| MEDIUM | Advanced reports/analytics | Page + API |
+   814→   814→| LOW | Slider management | Page + API |
+   815→   815→| LOW | Disease/Doctor type masters | Page + API |
+   816→   816→| LOW | Full audit log | Page + API |
+   817→   817→
+   818→   818→---
+   819→   819→
+   820→   820→## 13. PHASE 5: ARCHITECTURE HARDENING & MODERNIZATION
+   821→   821→
+   822→   822→> **Goal**: Production-ready codebase
+   823→   823→> **Effort**: 3-4 sessions (can run parallel after Phase 1)
+   824→   824→
+   825→   825→### 13.1 Security Hardening
+   826→   826→
+   827→   827→| Task | Effort | Phase When to Start |
+   828→   828→|------|--------|-------------------|
+   829→   829→| Session token (replace raw user ID) | Medium | Phase 5 |
+   830→   830→| Add `middleware.ts` for route protection | Medium | Phase 5 |
+   831→   831→| Zod validation on all 101 API routes | Large | Phase 5 (start with patient APIs) |
+   832→   832→| Chat GET authorization check | Tiny | Immediate |
+   833→   833→| File serving via API (not public/) | Small | Phase 5 |
+   834→   834→| Rate limiting on auth routes | Small | Phase 5 |
+   835→   835→| Remove demo credentials from source | Tiny | Phase 5 |
+   836→   836→| Remove OTP from toast message | Tiny | Immediate |
+   837→   837→
+   838→   838→### 13.2 Code Quality
+   839→   839→
+   840→   840→| Task | Effort |
+   841→   841→|------|--------|
+   842→   842→| Create `src/types/` directory with shared types | Medium |
+   843→   843→| Extract `StarRating` to `src/components/ui/star-rating.tsx` | Small |
+   844→   844→| Extract `statusColors` to `src/lib/constants.ts` | Small |
+   845→   845→| Extract `getInitials()` to `src/lib/utils.ts` | Tiny |
+   846→   846→| Create custom hooks (`usePatientProfile`, etc.) | Medium |
+   847→   847→| Decompose 3 monolith pages (800+ lines each) | Large |
+   848→   848→| Remove dead `auth.ts` NextAuth config | Tiny |
+   849→   849→| Remove unused `use-toast.ts` hook | Tiny |
+   850→   850→
+   851→   851→### 13.3 Performance
+   852→   852→
+   853→   853→| Task | Effort |
+   854→   854→|------|--------|
+   855→   855→| Batch queue position API | Small |
+   856→   856→| Batch slot availability API | Medium |
+   857→   857→| Doctors listing pagination | Small |
+   858→   858→| Notification auto-refresh (30s polling) | Tiny |
+   859→   859→| Activate WebSocket for chat (replace 10s polling) | Medium |
+   860→   860→| Activate WebSocket for notifications | Medium |
+   861→   861→
+   862→   862→### 13.4 UX Enhancements
+   863→   863→
+   864→   864→| Task | Effort |
+   865→   865→|------|--------|
+   866→   866→| Rich text editor for blog (use @mdxeditor/editor, already installed) | Medium |
+   867→   867→| Blog image upload | Small |
+   868→   868→| Image upload for public pages | Small |
+   869→   869→| Hospital detail page (`/hospitals/[id]`) | Medium |
+   870→   870→| Legal pages (Privacy, Terms, Cookies) | Small |
+   871→   871→| Landing page blog preview section | Small |
+   872→   872→
+   873→   873→---
+   874→   874→
+   875→   875→## 14. API ARCHITECTURE STANDARDS
+   876→   876→
+   877→   877→### 14.1 Route Handler Template
+   878→   878→
+   879→   879→Every API route MUST follow this pattern:
+   880→   880→
+   881→   881→```typescript
+   882→   882→// src/app/api/example/route.ts
+   883→   883→import { NextRequest, NextResponse } from 'next/server';
+   884→   884→import { requireRole } from '@/lib/api-auth';
+   885→   885→import { db } from '@/lib/db';
+   886→   886→import { z } from 'zod';
+   887→   887→
+   888→   888→// 1. Validation schemas (at top of file)
+   889→   889→const CreateBodySchema = z.object({
+   890→   890→  name: z.string().min(1, 'Name is required').max(100),
+   891→   891→  email: z.string().email('Invalid email'),
+   892→   892→  status: z.enum(['Active', 'Inactive']).optional(),
+   893→   893→});
+   894→   894→
+   895→   895→// 2. Type inference from schema
+   896→   896→type CreateBody = z.infer<typeof CreateBodySchema>;
+   897→   897→
+   898→   898→// 3. Route handler
+   899→   899→export async function POST(req: NextRequest) {
+   900→   900→  // 3a. Auth check
+   901→   901→  const user = await requireRole(req, 'patient');
+   902→   902→  if (!user) {
+   903→   903→    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   904→   904→  }
+   905→   905→
+   906→   906→  // 3b. Parse + validate body
+   907→   907→  let body: CreateBody;
+   908→   908→  try {
+   909→   909→    const raw = await req.json();
+   910→   910→    body = CreateBodySchema.parse(raw);
+   911→   911→  } catch (err) {
+   912→   912→    if (err instanceof z.ZodError) {
+   913→   913→      return NextResponse.json(
+   914→   914→        { error: 'Validation failed', details: err.errors },
+   915→   915→        { status: 400 }
+   916→   916→      );
+   917→   917→    }
+   918→   918→    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+   919→   919→  }
+   920→   920→
+   921→   921→  // 3c. Business logic
+   922→   922→  try {
+   923→   923→    const record = await db.example.create({
+   924→   924→      data: { ...body, userId: user.id },
+   925→   925→    });
+   926→   926→    return NextResponse.json({ record }, { status: 201 });
+   927→   927→  } catch (error) {
+   928→   928→    console.error('POST /api/example:', error);
+   929→   929→    return NextResponse.json(
+   930→   930→      { error: 'Internal server error' },
+   931→   931→      { status: 500 }
+   932→   932→    );
+   933→   933→  }
+   934→   934→}
+   935→   935→```
+   936→   936→
+   937→   937→### 14.2 Response Standards
+   938→   938→
+   939→   939→```typescript
+   940→   940→// Success
+   941→   941→{ data: T }                    // Single item
+   942→   942→{ items: T[], total: number }  // List with total
+   943→   943→{ success: true, ... }         // Mutation acknowledgment
+   944→   944→
+   945→   945→// Error
+   946→   946→{ error: string }              // Human-readable message
+   947→   947→{ error: string, details: ZodError[] }  // Validation errors
+   948→   948→```
+   949→   949→
+   950→   950→### 14.3 Auth Patterns
+   951→   951→
+   952→   952→```typescript
+   953→   953→// Role-required (most common)
+   954→   954→const user = await requireRole(req, 'patient');
+   955→   955→if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   956→   956→
+   957→   957→// Any authenticated user
+   958→   958→const user = await requireAuth(req);
+   959→   959→if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+   960→   960→
+   961→   961→// Ownership check (after auth)
+   962→   962→if (record.userId !== user.id) {
+   963→   963→  return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+   964→   964→}
+   965→   965→```
+   966→   966→
+   967→   967→### 14.4 New Batch APIs Needed
+   968→   968→
+   969→   969→| Endpoint | Method | Purpose | Replaces |
+   970→   970→|----------|--------|---------|----------|
+   971→   971→| `/api/patient/bookings/queue/batch` | POST | Batch queue positions | N× GET /queue?bookingId=X |
+   972→   972→| `/api/patient/bookings/check-slots` | POST | Batch slot availability | N× GET /check-slot?slot=X |
+   973→   973→| `/api/dashboard/patient/notifications/stream` | GET (SSE) | Real-time notification push | 30s polling |
+   974→   974→| `/api/bookings/[id]/chat/stream` | GET (SSE) | Real-time chat messages | 10s polling |
+   975→   975→
+   976→   976→---
+   977→   977→
+   978→   978→## 15. COMPONENT ARCHITECTURE STANDARDS
+   979→   979→
+   980→   980→### 15.1 Component Decomposition Rule
+   981→   981→
+   982→   982→> **No page file should exceed 400 lines.**
+   983→   983→> If it does, extract components until it fits.
+   984→   984→
+   985→   985→### 15.2 Shared Components to Extract
+   986→   986→
+   987→   987→| Component | Current Location | Target | Lines Saved |
+   988→   988→|-----------|-----------------|--------|-------------|
+   989→   989→| `StarRating` | Inline in `feedback/page.tsx` + `page.tsx` | `src/components/ui/star-rating.tsx` | ~40 per usage |
+   990→   990→| `StatusBadge` | Inline in 6+ pages | `src/components/shared/status-badge.tsx` | ~30 per usage |
+   991→   991→| `EmptyState` | Inline in 10+ pages | `src/components/shared/empty-state.tsx` | ~20 per usage |
+   992→   992→| `ErrorState` | Missing | `src/components/shared/error-state.tsx` | New |
+   993→   993→| `PageHeader` | Inline in 10+ pages | `src/components/shared/page-header.tsx` | ~15 per usage |
+   994→   994→| `ConfirmDialog` | Various AlertDialog usages | `src/components/shared/confirm-dialog.tsx` | ~25 per usage |
+   995→   995→
+   996→   996→### 15.3 Custom Hooks to Create
+   997→   997→
+   998→   998→| Hook | Purpose | Used By |
+   999→   999→|------|---------|----------|
+  1000→  1000→| `usePatientProfile()` | Fetch + cache patient profile | Profile, Booking form |
+  1001→  1001→| `usePatientAppointments(filters?)` | Fetch + filter appointments | Dashboard, Appointments list |
+  1002→  1002→| `usePatientNotifications()` | Fetch + auto-refresh notifications | Notifications, Header bell |
+  1003→  1003→| `useBookingChat(bookingId)` | Fetch + send chat messages | Appointment detail |
+  1004→  1004→| `useDoctorSchedule(doctorId)` | Fetch doctor's schedule | Booking page |
+  1005→  1005→| `useSlotAvailability(doctorId, date, slots)` | Batch check slot availability | Booking page |
+  1006→  1006→
+  1007→  1007→### 15.4 Types Directory Structure
+  1008→  1008→
+  1009→  1009→```
+  1010→  1010→src/types/
+  1011→  1011→├── auth.ts          # AuthUser, LoginRequest, RegisterRequest
+  1012→  1012→├── booking.ts       # Booking, BookingStatus, BookingMode, QueuePosition
+  1013→  1013→├── doctor.ts        # Doctor, DoctorSchedule, DoctorProfile
+  1014→  1014→├── prescription.ts  # Prescription, PMedicine, PLabel, PSuggestion
+  1015→  1015→├── notification.ts  # Notification, NotificationSettings
+  1016→  1016→├── post.ts          # Post, PostStatus
+  1017→  1017→├── medical-doc.ts   # MedicalDocument, DocumentCategory
+  1018→  1018→├── rating.ts        # DoctorRating, FeedbackItem
+  1019→  1019→├── common.ts        # PaginatedResponse, ApiError, StatusColors
+  1020→  1020→└── index.ts         # Re-exports everything
+  1021→  1021→```
+  1022→  1022→
+  1023→  1023→---
+  1024→  1024→
+  1025→  1025→## 16. DATABASE EVOLUTION PLAN
+  1026→  1026→
+  1027→  1027→### 16.1 Models to Add
+  1028→  1028→
+  1029→  1029→| Model | Purpose | Phase |
+  1030→  1030→|-------|---------|-------|
+  1031→  1031→| `Session` | Secure session token storage | Phase 5 |
+  1032→  1032→| `AdminConfig` | Platform settings (fees, commission, limits) | Phase 4 |
+  1033→  1033→| `AuditLog` | Track admin/user actions | Phase 5 |
+  1034→  1034→
+  1035→  1035→### 16.2 Models to Modify
+  1036→  1036→
+  1037→  1037→| Model | Change | Phase |
+  1038→  1038→|-------|--------|-------|
+  1039→  1039→| `Post` | Add `videoLink` field (String, default '') | Phase 1 |
+  1040→  1040→| `User` | Add `lastLoginAt` (DateTime?) | Phase 5 |
+  1041→  1041→| `Booking` | Consider adding `rescheduledFrom` for re-booking tracking | Phase 2 |
+  1042→  1042→
+  1043→  1043→### 16.3 Schema Design Principles
+  1044→  1044→
+  1045→  1045→1. **No SQLite-specific features** — use only Prisma-compatible types
+  1046→  1046→2. **All strings have `@default('')`** — never null strings
+  1047→  1047→3. **All numbers have `@default(0)`** — never null numbers
+  1048→  1048→4. **Optional fields use `?` type** — explicit nullability
+  1049→  1049→5. **JSON fields use `String` type** — Prisma SQLite doesn't support Json type natively
+  1050→  1050→6. **Cascade deletes** — use `onDelete: Cascade` for owned relationships
+  1051→  1051→
+  1052→  1052→---
+  1053→  1053→
+  1054→  1054→## 17. FILE UPLOAD & STORAGE ARCHITECTURE
+  1055→  1055→
+  1056→  1056→### 17.1 Current State
+  1057→  1057→
+  1058→  1058→| Upload Type | Working? | Storage | Max Size | Types |
+  1059→  1059→|-------------|----------|---------|----------|-------|
+  1060→  1060→| Patient avatar | ✅ | `public/uploads/profile/` | 2MB | JPEG, PNG, WebP |
+  1061→  1061→| Receptionist avatar | ✅ | `public/uploads/profile/` | 2MB | JPEG, PNG, WebP |
+  1062→  1062→| Medical documents | ❌ | N/A | N/A | N/A |
+  1063→  1063→| Blog images | ❌ | N/A | N/A | N/A |
+  1064→  1064→| Doctor gallery | ❌ | N/A | N/A | N/A |
+  1065→  1065→
+  1066→  1066→### 17.2 Target Architecture
+  1067→  1067→
+  1068→  1068→```
+  1069→  1069→src/lib/storage.ts (abstraction layer)
+  1070→  1070→├── uploadFile(file: File, folder: string): Promise<FileInfo>
+  1071→  1071→├── deleteFile(path: string): Promise<void>
+  1072→  1072→├── getFilePath(path: string): string
+  1073→  1073→└── getFileUrl(path: string): string
+  1074→  1074→
+  1075→  1075→Upload directories:
+  1076→  1076→├── uploads/profiles/     # Avatar images
+  1077→  1077→├── uploads/documents/    # Medical documents (PDF, DOC, images)
+  1078→  1078→├── uploads/blog/         # Blog post images
+  1079→  1079→├── uploads/gallery/      # Doctor gallery images
+  1080→  1080→└── uploads/prescriptions/# Prescription attachments (future)
+  1081→  1081→
+  1082→  1082→File serving:
+  1083→  1083→├── Development: Next.js API route (GET /api/files/[...path])
+  1084→  1084→└── Production: CDN / S3 signed URLs (future)
+  1085→  1085→```
+  1086→  1086→
+  1087→  1087→### 17.3 File Validation Standards
+  1088→  1088→
+  1089→  1089→```typescript
+  1090→  1090→const ALLOWED_TYPES: Record<string, string[]> = {
+  1091→  1091→  avatar: ['image/jpeg', 'image/png', 'image/webp'],
+  1092→  1092→  document: ['application/pdf', 'image/jpeg', 'image/png', 'application/msword',
+  1093→  1093→             'application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+  1094→  1094→  blog: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+  1095→  1095→  gallery: ['image/jpeg', 'image/png', 'image/webp'],
+  1096→  1096→};
+  1097→  1097→
+  1098→  1098→const MAX_SIZES: Record<string, number> = {
+  1099→  1099→  avatar: 2 * 1024 * 1024,    // 2MB
+  1100→  1100→  document: 5 * 1024 * 1024,  // 5MB
+  1101→  1101→  blog: 2 * 1024 * 1024,      // 2MB
+  1102→  1102→  gallery: 5 * 1024 * 1024,   // 5MB
+  1103→  1103→};
+  1104→  1104→```
+  1105→  1105→
+  1106→  1106→---
+  1107→  1107→
+  1108→  1108→## 18. REAL-TIME ARCHITECTURE
+  1109→  1109→
+  1110→  1110→### 18.1 Current State
+  1111→  1111→
+  1112→  1112→| Feature | Current Implementation | Latency | Issues |
+  1113→  1113→|---------|----------------------|---------|--------|
+  1114→  1114→| Chat | HTTP polling (10s interval) | 0-10s | Wasted requests, stale data |
+  1115→  1115→| Notifications | No auto-refresh | ∞ | Must manually refresh |
+  1116→  1116→| Queue position | On-demand fetch | Manual | No live updates |
+  1117→  1117→| Booking status | On page visit | Manual | No push notifications |
+  1118→  1118→
+  1119→  1119→### 18.2 Target Architecture (Socket.io)
+  1120→  1120→
+  1121→  1121→```
+  1122→  1122→┌──────────┐     Socket.io      ┌──────────────┐     ┌──────────┐
+  1123→  1123→│  Client  │ ◄════════════════► │ Chat Service │ ◄──► │  Prisma  │
+  1124→  1124→│ (Browser)│  ws:///?XTransform  │  (port 3003) │     │   (DB)   │
+  1125→  1125→└──────────┘      Port=3003     └──────────────┘     └──────────┘
+  1126→  1126→
+  1127→  1127→Events:
+  1128→  1128→├── chat:message          (send + receive)
+  1129→  1129→├── chat:read             (mark as read)
+  1130→  1130→├── notification:new      (push to user)
+  1131→  1131→├── notification:read     (mark as read)
+  1132→  1132→├── booking:status-change (push to patient + doctor)
+  1133→  1133→├── queue:update          (push to waiting patients)
+  1134→  1134→└── doctor:online-status  (push to patients viewing profile)
+  1135→  1135→
+  1136→  1136→Rooms (per booking):
+  1137→  1137→├── booking:{bookingId}   (patient + doctor + receptionist)
+  1138→  1138→└── user:{userId}         (personal notifications)
+  1139→  1139→```
+  1140→  1140→
+  1141→  1141→### 18.3 Migration Path
+  1142→  1142→
+  1143→  1143→1. **Phase 2**: Wire chat through Socket.io (replace 10s polling)
+  1144→  1144→2. **Phase 3**: Add notification push events
+  1145→  1145→3. **Phase 4**: Add booking status change events
+  1146→  1146→4. **Phase 5**: Add queue position and online status events
+  1147→  1147→
+  1148→  1148→---
+  1149→  1149→
+  1150→  1150→## 19. DEPLOYMENT ARCHITECTURE
+  1151→  1151→
+  1152→  1152→### 19.1 Current (Development)
+  1153→  1153→
+  1154→  1154→```
+  1155→  1155→Caddy (:81) → Next.js (:3000) → SQLite (file)
+  1156→  1156→                                       → Socket.io (:3003, unused)
+  1157→  1157→```
+  1158→  1158→
+  1159→  1159→### 19.2 Target (Production)
+  1160→  1160→
+  1161→  1161→```
+  1162→  1162→                    ┌─────────────┐
+  1163→  1163→                    │   CDN/Proxy  │
+  1164→  1164→                    │  (Caddy/NGINX)│
+  1165→  1165→                    └──────┬──────┘
+  1166→  1166→                           │
+  1167→  1167→              ┌────────────┼────────────┐
+  1168→  1168→              │            │            │
+  1169→  1169→              ▼            ▼            ▼
+  1170→  1170→        ┌──────────┐ ┌──────────┐ ┌──────────┐
+  1171→  1171→        │ Next.js  │ │ Socket.io│ │ File     │
+  1172→  1172→        │ (Node)   │ │ Service  │ │ Storage  │
+  1173→  1173→        └────┬─────┘ └────┬─────┘ │ (S3/GCS) │
+  1174→  1174→             │            │        └──────────┘
+  1175→  1175→             │            │
+  1176→  1176→             ▼            ▼
+  1177→  1177→        ┌─────────────────────┐
+  1178→  1178→        │  PostgreSQL (Supabase)│
+  1179→  1179→        └─────────────────────┘
+  1180→  1180→```
+  1181→  1181→
+  1182→  1182→### 19.3 Environment Variables
+  1183→  1183→
+  1184→  1184→```env
+  1185→  1185→# Required
+  1186→  1186→DATABASE_URL=postgresql://...          # Prisma connection
+  1187→  1187→NEXTAUTH_SECRET=...                      # Session encryption
+  1188→  1188→SESSION_SECRET=...                       # Session token signing
+  1189→  1189→
+  1190→  1190→# Optional
+  1191→  1191→NEXT_PUBLIC_APP_URL=https://...         # Public app URL
+  1192→  1192→STORAGE_TYPE=local                       # local | s3
+  1193→  1193→S3_BUCKET=...                           # If S3 storage
+  1194→  1194→S3_REGION=...                           # If S3 storage
+  1195→  1195→S3_ACCESS_KEY=...                       # If S3 storage
+  1196→  1196→S3_SECRET_KEY=...                       # If S3 storage
+  1197→  1197→
+  1198→  1198→# Email (future)
+  1199→  1199→SMTP_HOST=...
+  1200→  1200→SMTP_PORT=...
+  1201→  1201→SMTP_USER=...
+  1202→  1202→SMTP_PASS=...
+  1203→  1203→```
+  1204→  1204→
+  1205→  1205→---
+  1206→  1206→
+  1207→  1207→## 20. RISK REGISTER & MITIGATION
+  1208→  1208→
+  1209→  1209→| # | Risk | Probability | Impact | Mitigation |
+  1210→  1210→|---|------|-------------|--------|------------|
+  1211→  1211→| R-1 | **Seed data becomes stale** | Medium | Medium | Create idempotent seed script that can be re-run. Add `--force` flag to reset. |
+  1212→  1212→| R-2 | **SQLite limits hit in production** | Low | High | Keep schema PostgreSQL-compatible. Test migration before production. |
+  1213→  1213→| R-3 | **Session security breach** | Medium | Critical | Phase 0: httpOnly. Phase 5: Random tokens. Phase 5+: Refresh rotation. |
+  1214→  1214→| R-4 | **Monolith pages become unmaintainable** | High | Medium | Phase 5 decomposition. Keep new pages under 400 lines. |
+  1215→  1215→| R-5 | **N+1 queries cause performance issues** | High | Medium | Phase 2: Batch APIs. Phase 5: DataLoader pattern if needed. |
+  1216→  1216→| R-6 | **Module integration breaks existing flows** | Medium | High | Phase 2: End-to-end integration test. Browser verification after each phase. |
+  1217→  1217→| R-7 | **Scope creep in Phase 3-4** | High | Medium | Strict phase boundaries. No new features in hardening phase. |
+  1218→  1218→| R-8 | **File uploads fill disk** | Low | Medium | Add file size limits. Phase 5: Add storage quotas per user. |
+  1219→  1219→| R-9 | **Chat service crashes** | Low | Medium | Graceful fallback to HTTP polling if WebSocket fails. |
+  1220→  1220→| R-10 | **Doctor schedule conflicts** | Medium | Medium | Already handled by check-slot API. Add database-level unique constraint for same doctor/date/slot. |
+  1221→  1221→
+  1222→  1222→---
+  1223→  1223→
+  1224→  1224→## APPENDIX A: DECISION LOG
+  1225→  1225→
+  1226→  1226→| Date | Decision | Rationale |
+  1227→  1227→|------|----------|-----------|
+  1228→  1228→| 2025-06-24 | Patient module FIRST | Revenue comes from patient bookings |
+  1229→  1229→| 2025-06-24 | Admin module LAST | Not revenue-generating, can wait |
+  1230→  1230→| 2025-06-24 | Keep custom cookie auth (not NextAuth) | Works, simple, no dependency |
+  1231→  1231→| 2025-06-24 | Adopt Zod for API validation | Already installed, consistent, type-safe |
+  1232→  1232→| 2025-06-24 | Activate Socket.io for real-time | Service exists, better than polling |
+  1233→  1233→| 2025-06-24 | Local disk storage for Phase 1-3 | Simple, no external dependency |
+  1234→  1234→| 2025-06-24 | No new external dependencies | 47 production deps already, enough |
+  1235→  1235→
+  1236→  1236→## APPENDIX B: QUICK REFERENCE — FILES TO KNOW
+  1237→  1237→
+  1238→  1238→```
+  1239→  1239→Core Infrastructure:
+  1240→  1240→├── src/lib/api-auth.ts          ← Auth middleware (requireRole, requireAuth)
+  1241→  1241→├── src/lib/auth-store.ts        ← Zustand auth state
+  1242→  1242→├── src/lib/db.ts                ← Prisma client
+  1243→  1243→├── src/lib/sidebar-config.ts    ← Navigation per role
+  1244→  1244→├── src/lib/constants.ts         ← App constants (GENDERS, SPECIALIZATIONS)
+  1245→  1245→├── src/lib/utils.ts             ← cn() utility
+  1246→  1246→├── src/components/providers.tsx  ← QueryClient + ThemeProvider
+  1247→  1247→├── src/app/dashboard/layout.tsx ← Dashboard shell + auth check
+  1248→  1248→└── prisma/schema.prisma         ← 30 DB models
+  1249→  1249→
+  1250→  1250→Patient Module:
+  1251→  1251→├── src/app/dashboard/patient/   ← 12 pages, 4,943 lines
+  1252→  1252→├── src/app/api/patient/          ← 16 route files, patient-specific
+  1253→  1253→├── src/app/api/dashboard/patient/ ← 4 route files, dashboard data
+  1254→  1254→└── src/app/api/bookings/         ← Chat route (shared)
+  1255→  1255→
+  1256→  1256→Public Pages:
+  1257→  1257→├── src/app/page.tsx              ← Landing page (~740 lines)
+  1258→  1258→├── src/app/doctors/              ← Listing + profile
+  1259→  1259→├── src/app/login/                ← Login
+  1260→  1260→├── src/app/register/             ← Registration (crashes Step 3)
+  1261→  1261→└── src/components/layout/        ← Navbar, Footer, PublicLayout
+  1262→  1262→```
+  1263→  1263→
+  1264→  1264→---
+  1265→  1265→
+  1266→  1266→*End of Architect Master Plan v1.0*
+  1267→  1267→*Created by: System Architect*
+  1268→  1268→*Date: 2025-06-24*

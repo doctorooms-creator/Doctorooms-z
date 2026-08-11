@@ -102,6 +102,10 @@ export default function PendingBookingsPage() {
         )
         queryClient.invalidateQueries({ queryKey: ['receptionist-stats'] })
         queryClient.invalidateQueries({ queryKey: ['receptionist-appointments'] })
+      } else {
+        toast.error(result.error || 'Failed to approve booking')
+        queryClient.invalidateQueries({ queryKey: ['receptionist-pending-bookings'] })
+        queryClient.invalidateQueries({ queryKey: ['receptionist-stats'] })
       }
     },
     onError: (_err, id, ctx) => {
@@ -161,15 +165,6 @@ export default function PendingBookingsPage() {
     setExtendDialogOpen(true)
   }
 
-  const confirmExtend = () => {
-    if (extendTargetId) {
-      extendMutation.mutate(extendTargetId)
-    }
-    setExtendDialogOpen(false)
-    setExtendTargetId(null)
-    setExtendTargetName('')
-  }
-
   const extendMutation = useMutation({
     mutationFn: (id: string) =>
       fetch(`/api/dashboard/receptionist/bookings/${id}/status`, {
@@ -199,7 +194,16 @@ export default function PendingBookingsPage() {
     },
   })
 
-  const isApproving = (id: string) => approveMutation.isPending || approvingId === id
+  const confirmExtend = () => {
+    if (extendTargetId) {
+      extendMutation.mutate(extendTargetId)
+    }
+    setExtendDialogOpen(false)
+    setExtendTargetId(null)
+    setExtendTargetName('')
+  }
+
+  const isApproving = (id: string) => (approveMutation.isPending && approveMutation.variables === id) || approvingId === id
   const isRejecting = (id: string) => rejectMutation.isPending && rejectMutation.variables === id
   const isExtending = (id: string) => extendMutation.isPending && extendMutation.variables === id
 

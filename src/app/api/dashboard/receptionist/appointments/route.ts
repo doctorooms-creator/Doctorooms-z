@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
       height,
       physicallyChallenged,
       relationWithMe,
+      mobile,
     } = body
 
     if (!patientName || !date) {
@@ -140,10 +141,23 @@ export async function POST(request: NextRequest) {
     const appointmentCount = await db.booking.count()
     const appointmentNo = `APT${String(appointmentCount + 1).padStart(6, '0')}`
 
+    // Look up existing patient by mobile
+    let userId: string | null = null
+    if (mobile) {
+      const existingPatient = await db.user.findFirst({
+        where: { mobileNo: mobile, role: 'patient' },
+        select: { id: true },
+      })
+      if (existingPatient) {
+        userId = existingPatient.id
+      }
+    }
+
     const appointment = await db.booking.create({
       data: {
         appointmentNo,
         doctorId: receptionist.doctorId,
+        userId,
         patientName,
         disease: disease || '',
         description: description || '',

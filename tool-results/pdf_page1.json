@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "Reception:\n\n1. New Appointment ko click krne pe ye ata error aa rha hai jo image me hai\n\n2. Pending appointment pe ye error aa rha hai jo image me hai",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1786440741,
+  "id": "202608111732191be31b53f765445e",
+  "model": "glm-5v-turbo",
+  "object": "chat.completion",
+  "request_id": "202608111732191be31b53f765445e",
+  "usage": {
+    "completion_tokens": 40,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 2514,
+    "prompt_tokens_details": {
+      "cached_tokens": 2
+    },
+    "total_tokens": 2554
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "3. Ye manage appointment button ka error\n\n[Image: Browser window showing a runtime error]\n\n**Runtime TypeError**\nobject is not iterable (cannot read property Symbol(Symbol.iterator))\n\n`src/app/dashboard/receptionist/appointments/page.tsx (160:57) @ ReceptionistAppointmentsPage`\n\n```\n158 |   // Mobile lookup state\n159 |   const [lookupStatus, setLookupStatus] = useState<'idle' | 'searching' | 'found' | 'not_found' | 'error'>\n> 160 |   const [lookupDebounceTimer, setLookupDebounceTimer] = useRef<ReturnType<typeof setTimeout> | null>(null)\n     |\n161 |\n162 |   // Register dialog state\n163 |   const [showRegisterDialog, setShowRegisterDialog] = useState(false)\n```\n\n**Call Stack**\nReceptionistAppointmentsPage\nsrc/app/dashboard/receptionist/appointments/page.tsx (160:57)\n\n[Button: 1 issue]\n\nReception modules me bahot jyada errors hai sare pages check kro act as architect hm pehle full development khtm kar dete hai reception only",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1786440799,
+  "id": "202608111733008c99aa7aaaa340b8",
+  "model": "glm-5v-turbo",
+  "object": "chat.completion",
+  "request_id": "202608111733008c99aa7aaaa340b8",
+  "usage": {
+    "completion_tokens": 231,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 2514,
+    "prompt_tokens_details": {
+      "cached_tokens": 1
+    },
+    "total_tokens": 2745
+  }
+}

@@ -54,36 +54,20 @@ export async function GET(req: NextRequest) {
         return {
           id: b.id,
           appointmentNo: b.appointmentNo,
-          bookingDate: b.bookingDate,
-          timeSlot: b.timeSlot,
-          bookingMode: b.bookingMode,
+          patientName: b.user?.name || b.patientName || 'Unknown',
+          patientImg: b.user?.profileImg || null,
+          patientMobile: b.user?.mobileNo || '',
           disease: b.disease,
           description: b.description,
-          gender: b.gender,
-          age: b.age,
-          bloodGroup: b.bloodGroup,
-          weight: b.weight,
-          relationWithMe: b.relationWithMe,
-          appointmentCharge: b.appointmentCharge,
+          bookingDate: b.bookingDate,
+          timeSlot: b.timeSlot,
+          bookingMode: b.bookingMode || 'InPerson',
           createdAt: b.createdAt,
-          patient: b.user
-            ? {
-                id: b.user.id,
-                name: b.user.name,
-                email: b.user.email,
-                profileImg: b.user.profileImg,
-                mobileNo: b.user.mobileNo,
-              }
-            : null,
-          doctor: {
-            id: b.doctor.id,
-            name: b.doctor.user?.name || 'Unknown',
-            profileImg: b.doctor.user?.profileImg || '',
-            specialization: b.doctor.specialization,
-            dailyLimit: b.doctor.dailyLimit,
-          },
-          queuePositionIfApproved: hypotheticalQueuePosition,
+          doctorName: b.doctor.user?.name || 'Unknown',
+          doctorSpecialization: b.doctor.specialization || '',
+          queuePosition: hypotheticalQueuePosition,
           opdCount: existingApproved,
+          opdLimit: b.doctor.dailyLimit || 0,
         }
       })
     )

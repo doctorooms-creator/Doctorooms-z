@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
     const approved = bookings.filter(b => b.status === 'Approve').length
     const visited = bookings.filter(b => b.status === 'Visited').length
     const finished = bookings.filter(b => b.status === 'Finish').length
-    const canceled = bookings.filter(b => b.status === 'Canceled').length
+    const canceled = bookings.filter(b => b.status === 'Canceled' || b.status === 'Rejected').length
     const extended = bookings.filter(b => b.status === 'Extend').length
     const revenue = bookings
       .filter(b => ['Visited', 'Finish', 'Approve'].includes(b.status))

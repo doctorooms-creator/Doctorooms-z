@@ -241,9 +241,13 @@ export default function ReceptionistSchedulePage() {
   // Helpers
   const todayStr = format(new Date(), 'yyyy-MM-dd')
   const allHolidays = holidaysData?.holidays ?? []
-  const futureHolidays = allHolidays.filter(h => h.date >= todayStr)
-  const pastHolidays = allHolidays.filter(h => h.date < todayStr)
-  const isPast = (dateStr: string) => dateStr < todayStr
+  const futureHolidays = allHolidays.filter(h => {
+    try { return new Date(h.date) >= new Date(todayStr) } catch { return false }
+  })
+  const pastHolidays = allHolidays.filter(h => {
+    try { return new Date(h.date) < new Date(todayStr) } catch { return false }
+  })
+  const isPast = (dateStr: string) => { try { return new Date(dateStr) < new Date(todayStr) } catch { return false } }
   const bookingDays = bookingDaysData?.bookingDays ?? 180
 
   if (isLoading) {

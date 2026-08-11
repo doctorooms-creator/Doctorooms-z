@@ -157,7 +157,7 @@ export default function ReceptionistAppointmentsPage() {
 
   // Mobile lookup state
   const [lookupStatus, setLookupStatus] = useState<'idle' | 'searching' | 'found' | 'not_found'>('idle')
-  const [lookupDebounceTimer, setLookupDebounceTimer] = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const lookupDebounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Register dialog state
   const [showRegisterDialog, setShowRegisterDialog] = useState(false)

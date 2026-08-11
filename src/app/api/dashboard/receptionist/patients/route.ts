@@ -24,11 +24,19 @@ export async function GET(request: NextRequest) {
       },
     }
     if (search) {
-      where.OR = [
-        { name: { contains: search } },
-        { email: { contains: search } },
-        { mobileNo: { contains: search } },
+      where.AND = [
+        { role: 'patient' },
+        { bookings: { some: { doctorId: receptionist.doctorId } } },
+        {
+          OR: [
+            { name: { contains: search } },
+            { email: { contains: search } },
+            { mobileNo: { contains: search } },
+          ],
+        },
       ]
+      delete where.role
+      delete where.bookings
     }
 
     const patients = await db.user.findMany({

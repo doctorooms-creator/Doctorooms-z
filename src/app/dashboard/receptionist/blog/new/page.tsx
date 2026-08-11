@@ -232,12 +232,12 @@ export default function NewBlogPostPage() {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Publishing...
+                      Saving...
                     </>
                   ) : (
                     <>
                       <PenLine className="mr-2 h-4 w-4" />
-                      Publish
+                      {status === 'Draft' ? 'Save Draft' : 'Publish'}
                     </>
                   )}
                 </Button>
