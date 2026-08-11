@@ -87,6 +87,8 @@ export default function AppointmentDetailPage() {
     enabled: !!id,
   })
 
+  const { appointment, doctor, patient, prescriptions, statusTimeline } = data || {}
+
   // Check if this booking has been rated
   const { data: ratingData } = useQuery({
     queryKey: ['booking-rating', id],
@@ -168,8 +170,6 @@ export default function AppointmentDetailPage() {
 
   const handleClosePrint = () => setPrintRxIndex(null)
   const handlePrintAction = () => window.print()
-
-  const { appointment, doctor, patient, prescriptions, statusTimeline } = data || {}
 
   const buildPrintData = (rx: {
     id: string
@@ -554,7 +554,7 @@ export default function AppointmentDetailPage() {
                         <div className="max-w-[75%] space-y-0.5">
                           {!isMe && (
                             <p className="text-[10px] font-medium text-muted-foreground pl-1">
-                              {msg.sender?.name || 'Doctor'}
+                              {msg.sender?.name || 'Support'}
                             </p>
                           )}
                           <div

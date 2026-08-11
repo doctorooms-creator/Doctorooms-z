@@ -33,7 +33,7 @@ interface Profile {
 
 function getAvatarUrl(profileImg: string | null | undefined): string {
   if (!profileImg || profileImg === 'default.png') return '/default.png'
-  return `/uploads/profile/${profileImg}`
+  return profileImg.startsWith('/') ? profileImg : `/uploads/profile/${profileImg}`
 }
 
 function ProfilePageSkeleton() {

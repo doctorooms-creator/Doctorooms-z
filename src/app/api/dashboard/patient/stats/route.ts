@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
+function avatarUrl(img: string | null | undefined): string {
+  if (!img || img === 'default.png') return ''
+  return img.startsWith('/') ? img : `/uploads/profile/${img}`
+}
+
 export async function GET(req: NextRequest) {
   try {
     const user = await requireRole(req, 'patient')
@@ -101,7 +106,7 @@ export async function GET(req: NextRequest) {
       upcomingList: upcomingAppointments.map((b) => ({
         id: b.id,
         doctorName: b.doctor?.user?.name || 'Unknown',
-        doctorImg: b.doctor?.user?.profileImg || '',
+        doctorImg: avatarUrl(b.doctor?.user?.profileImg),
         doctorSpecialization: b.doctor?.specialization || '',
         date: b.bookingDate,
         disease: b.disease,

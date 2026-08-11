@@ -93,6 +93,8 @@ export async function GET(
         doctorId: booking.doctorId,
         charge: booking.appointmentCharge,
         bookingType: booking.bookingType,
+        bookingMode: booking.bookingMode,
+        videoRoomId: booking.videoRoomId,
         createdAt: booking.createdAt,
         updatedAt: booking.updatedAt,
       },
@@ -121,7 +123,11 @@ export async function GET(
             email: booking.user.email,
             phone: booking.user.mobileNo,
             gender: booking.user.gender,
-            img: booking.user.profileImg,
+            img: booking.user.profileImg
+              ? booking.user.profileImg.startsWith('/')
+                ? booking.user.profileImg
+                : `/uploads/profile/${booking.user.profileImg}`
+              : '',
           }
         : null,
       chatMessages: booking.chatMessages.map((m) => ({

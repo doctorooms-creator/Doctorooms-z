@@ -148,7 +148,10 @@ export default function EditBlogPostPage() {
 
   const { data: post, isLoading, isError } = useQuery<BlogPost>({
     queryKey: ['patient-post', id],
-    queryFn: () => fetch(`/api/patient/posts/${id}`).then((r) => r.json()),
+    queryFn: () => fetch(`/api/patient/posts/${id}`).then((r) => {
+      if (!r.ok) throw new Error('Not found')
+      return r.json()
+    }),
     enabled: !!id,
   })
 

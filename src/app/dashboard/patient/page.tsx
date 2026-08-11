@@ -79,7 +79,6 @@ export default function PatientDashboardPage() {
           title="Upcoming Appointments"
           value={stats?.upcomingAppointments ?? 0}
           icon={CalendarDays}
-          trend={{ value: 12, label: 'from last month' }}
           gradient="from-teal-500 to-teal-600"
           iconBg="bg-teal-100 dark:bg-teal-900/50"
         />
@@ -87,7 +86,6 @@ export default function PatientDashboardPage() {
           title="Completed Visits"
           value={stats?.completedVisits ?? 0}
           icon={CheckCircle2}
-          trend={{ value: 8, label: 'from last month' }}
           gradient="from-emerald-500 to-emerald-600"
           iconBg="bg-emerald-100 dark:bg-emerald-900/50"
         />
@@ -95,7 +93,6 @@ export default function PatientDashboardPage() {
           title="Total Doctors"
           value={stats?.totalDoctors ?? 0}
           icon={Stethoscope}
-          trend={{ value: 5, label: 'all time' }}
           gradient="from-amber-500 to-amber-600"
           iconBg="bg-amber-100 dark:bg-amber-900/50"
         />
@@ -103,7 +100,6 @@ export default function PatientDashboardPage() {
           title="Medical Documents"
           value={stats?.medicalDocuments ?? 0}
           icon={FileText}
-          trend={{ value: 15, label: 'from last month' }}
           gradient="from-violet-500 to-violet-600"
           iconBg="bg-violet-100 dark:bg-violet-900/50"
         />

@@ -100,8 +100,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate appointmentNo
-    const appointmentNo = `APT-${Date.now()}`
+    // Generate unique appointmentNo (random suffix prevents collision on rapid bookings)
+    const appointmentNo = `APT-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 
     // Create booking
     const booking = await db.booking.create({
