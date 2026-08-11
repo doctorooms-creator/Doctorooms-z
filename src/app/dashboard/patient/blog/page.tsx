@@ -86,9 +86,10 @@ export default function BlogListPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) =>
-      fetch(`/api/patient/posts/${id}`, { method: 'DELETE' }).then((r) =>
-        r.json()
-      ),
+      fetch(`/api/patient/posts/${id}`, { method: 'DELETE' }).then((r) => {
+        if (!r.ok) throw new Error('Delete failed')
+        return r.json()
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['patient-posts'] })
       toast.success('Post deleted successfully')

@@ -24,12 +24,14 @@ export async function GET(req: NextRequest) {
     // Validate doctor exists
     const doctor = await db.doctor.findUnique({
       where: { id: doctorId },
+      include: { user: { select: { name: true } } },
     })
 
     if (!doctor) {
       return NextResponse.json({ error: 'Doctor not found' }, { status: 404 })
     }
 
+    const doctorName = doctor.user.name
     const dateObj = new Date(dateStr)
     if (isNaN(dateObj.getTime())) {
       return NextResponse.json({ error: 'Invalid date' }, { status: 400 })
@@ -51,7 +53,7 @@ export async function GET(req: NextRequest) {
     if (holiday) {
       return NextResponse.json({
         available: false,
-        reason: `Dr. ${doctorId} is on holiday on this date. Reason: ${holiday.remark || 'Not specified'}`,
+        reason: `Dr. ${doctorName} is on holiday on this date. Reason: ${holiday.remark || 'Not specified'}`,
         opdCount: 0,
         opdLimit: doctor.dailyLimit,
       })

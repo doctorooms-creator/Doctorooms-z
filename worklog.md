@@ -1839,3 +1839,48 @@ Stage Summary:
   - /api/dashboard/patient/prescriptions (GET)
 - CLEANUP: Removed dead `error.message === 'Unauthorized'` catch blocks in avatar and document download routes (requireRole never throws)
 - All changes pass `bun run lint` with zero errors
+---
+Task ID: 17-a
+Agent: patient-p1-batch1
+Task: Fix patient P1 bugs batch 1 (chat null guard, feedback doctorId, chat img/profileImg rename, avatar prefix, timeline canceled)
+Work Log:
+- Read and fixed appointments/[id]/page.tsx chat onMutate null guard
+- Read and fixed API to include doctor.userId in response
+- Renamed chat sender img to profileImg, added id field
+- Added /uploads/profile/ prefix for doctor avatar and chat avatar
+- Fixed timeline to not show 'Approved' for Canceled appointments
+Stage Summary:
+- Fixed 5 P1 bugs in patient appointment detail flow
+
+--- Task ID: 17-b Agent: patient-p1-batch2 Task: Fix patient P1 bugs batch 2 (blog button text, blog res.ok checks, medical-docs PUT, stats timezone) Work Log: - Read and fixed blog/new/page.tsx button text conditional on status - Read and fixed blog/page.tsx delete mutation res.ok check - Read and fixed blog/new/page.tsx create mutation res.ok check - Read and fixed blog/[id]/edit/page.tsx update mutation res.ok check - Read and fixed medical-documents/[id]/route.ts PUT conditional update - Read and fixed stats/route.ts timezone issue with date-only comparison Stage Summary: - Fixed 6 P1 bugs in patient blog, medical documents, and stats flows
+
+---
+Task ID: 17-c
+Agent: main
+Task: Database analysis + seed + patient time slot fix + full patient module audit
+
+Work Log:
+- Analyzed complete database: all 31 tables were EMPTY (0 rows)
+- Ran `bun run prisma/seed.ts` successfully — populated 272 records across 31 tables
+- Verified seed data integrity: 27 users, 3 doctors, 14 schedules, 4 holidays, 11 bookings, 4 prescriptions, etc.
+- Conducted full patient module audit: 12 frontend pages + 25 API routes → found 21 bugs (2 P0, 14 P1, 5 P2)
+- Fixed P0 Bug #1: Removed fragile first-element comparison in `displaySlotStatuses` useMemo
+- Fixed P0 Bug #2: Added `r.ok` check in slots-availability fetch to handle 401/500 responses properly
+- Fixed P0 Bug #3: Added guard in `handleBook` to prevent sending User.id instead of Doctor.id
+- Fixed P1 Bug #4: Wrapped `JSON.parse(s.timeSlots)` in try/catch in schedule API
+- Fixed P1 Bug #5: Holiday message in check-slot API now shows doctor name instead of UUID
+- Fixed P1 Bugs #6-10 (batch 1): Chat null guard, doctor.userId in response, chat img→profileImg, avatar URL prefix, timeline for Canceled
+- Fixed P1 Bugs #11-16 (batch 2): Blog button text, blog res.ok checks (3 files), medical-docs PUT conditional, stats timezone
+- Ran `bun run lint` — zero errors
+- Verified with agent-browser:
+  - Patient login → dashboard loads correctly
+  - Book page → calendar shows correct enabled/disabled dates
+  - Time slots LOAD and DISPLAY correctly (8 slots for Dr. Rajesh Tuesday)
+  - Slot selection → booking form appears with correct summary
+  - All 6 patient pages (appointments, health-records, notifications, settings, profile, feedback, blog) load with ZERO console errors
+
+Stage Summary:
+- Database: 272 records seeded, fully verified
+- Patient time slot loading: FIXED (root cause was fragile displaySlotStatuses guard + missing r.ok check)
+- 16 bugs fixed (2 P0 + 14 P1), 5 P2 deferred (hardcoded trends, appointmentNo collision, notification status, chat sender id)
+- All patient pages verified error-free via agent-browser

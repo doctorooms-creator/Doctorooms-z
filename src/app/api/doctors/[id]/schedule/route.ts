@@ -71,7 +71,12 @@ export async function GET(
 
     // Generate time slots for each schedule — prefer manual slots over auto-generated
     const schedulesWithSlots = schedules.map((s) => {
-      const parsedManual = JSON.parse(s.timeSlots || '[]') as string[]
+      let parsedManual: string[] = []
+      try {
+        parsedManual = JSON.parse(s.timeSlots || '[]')
+      } catch {
+        parsedManual = []
+      }
       // If manual slots exist and are non-empty, use them; otherwise auto-generate
       const useManual = Array.isArray(parsedManual) && parsedManual.length > 0
       return {

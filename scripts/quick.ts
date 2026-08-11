@@ -1,0 +1,1 @@
+import{PrismaClient}from'@prisma/client';const p=new PrismaClient();async function main(){const patients=await p.user.findMany({where:{role:'patient',status:'Active'},select:{id:true,name:true,email:true},take:5});console.log('Active patients:');patients.forEach(u=>console.log(' ',u.id,u.name,u.email));await p.$disconnect();}main();

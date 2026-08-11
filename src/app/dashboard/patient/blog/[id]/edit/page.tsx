@@ -53,7 +53,7 @@ function EditBlogForm({ post, id }: { post: BlogPost; id: string }) {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-      }).then((r) => r.json()),
+      }).then((r) => { if (!r.ok) throw new Error('Failed to update post'); return r.json() }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['patient-posts'] })
       queryClient.invalidateQueries({ queryKey: ['patient-post', id] })

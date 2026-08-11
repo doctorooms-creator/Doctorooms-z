@@ -175,9 +175,21 @@ export default function PatientBookDoctorPage() {
     let cancelled = false
 
     fetch(`/api/patient/bookings/slots-availability?doctorId=${currentDoctorId}&date=${dateStr}`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) {
+          // Auth or server error — show all slots as available but log warning
+          console.warn('Slots availability API returned', r.status)
+          return null
+        }
+        return r.json()
+      })
       .then((data) => {
         if (cancelled) return
+        if (!data) {
+          // API returned non-OK (e.g. 401) — still show slots so user can see them
+          setSlotStatuses(currentSlots.map((slot) => ({ slot, available: true, loading: false })))
+          return
+        }
         if (data.available === false) {
           setSlotStatuses(currentSlots.map((slot) => ({ slot, available: false, loading: false })))
         } else {
@@ -206,7 +218,6 @@ export default function PatientBookDoctorPage() {
   const displaySlotStatuses = useMemo(() => {
     if (timeSlots.length === 0) return []
     if (slotStatuses.length !== timeSlots.length) return []
-    if (slotStatuses.length > 0 && slotStatuses[0]?.slot !== timeSlots[0]) return []
     return slotStatuses
   }, [timeSlots, slotStatuses])
 
@@ -246,10 +257,15 @@ export default function PatientBookDoctorPage() {
       return
     }
 
+    if (!scheduleData?.doctorId) {
+      toast.error('Schedule data not loaded. Please wait and try again.')
+      return
+    }
+
     const selectedGender = bookingGender || user?.gender || 'Male'
     const dateStr = format(selectedDate, 'yyyy-MM-dd')
     bookMutation.mutate({
-      doctorId: scheduleData?.doctorId || doctorId,
+      doctorId: scheduleData.doctorId,
       bookingDate: dateStr,
       timeSlot: selectedSlot,
       bookingMode,

@@ -1807,4 +1807,48 @@
   1807→- 11 total bugs fixed across 9 files (4 P0, 7 P1/P2)
   1808→- Zero console errors on any receptionist page
   1809→- Receptionist module fully functional end-to-end
-  1810→
+  1810→---
+  1811→Task ID: 17
+  1812→Agent: Main Agent
+  1813→Task: Fix patient time slot loading + full patient module audit
+  1814→
+  1815→Work Log:
+  1816→- Read worklog.md for project context (auth migration, previous bug fixes)
+  1817→- Analyzed the critical stale closure bug in booking page's `handleDateSelect` + `checkSlotAvailabilities`
+  1818→- Created new batch API `/api/patient/bookings/slots-availability/route.ts` — single DB query replaces 8 parallel fetch calls
+  1819→- Replaced `checkSlotAvailabilities` useCallback + setTimeout pattern with a proper `useEffect` that watches `selectedDate`, `timeSlots`, and `scheduleData?.doctorId`
+  1820→- Added `displaySlotStatuses` useMemo to derive slot display, preventing stale data flash when switching dates
+  1821→- Audited all 12 patient frontend pages and 22 patient API routes
+  1822→- Found and fixed 14 additional bugs across the patient module
+  1823→
+  1824→Stage Summary:
+  1825→- CRITICAL FIX: Time slots now load correctly via useEffect (no more stale closure capturing empty `timeSlots`)
+  1826→- PERFORMANCE: Reduced 8 parallel API calls to 1 batch call via `/api/patient/bookings/slots-availability`
+  1827→- BUG FIX: Queue position display on appointments page (frontend checked `data.position` but API returns `data.queuePosition`)
+  1828→- BUG FIX: Missing null checks after `requireRole()` in 13 API routes that would crash with TypeError on auth failure:
+  1829→  - /api/patient/profile (GET, PUT)
+  1830→  - /api/patient/medical-documents (GET, POST)
+  1831→  - /api/patient/medical-documents/[id] (PUT, DELETE)
+  1832→  - /api/patient/medical-documents/[id]/download (GET)
+  1833→  - /api/patient/posts (GET, POST)
+  1834→  - /api/patient/posts/[id] (GET, PUT, DELETE)
+  1835→  - /api/patient/avatar (POST)
+  1836→  - /api/dashboard/patient/stats (GET)
+  1837→  - /api/dashboard/patient/appointments (GET)
+  1838→  - /api/dashboard/patient/appointments/[id] (GET)
+  1839→  - /api/dashboard/patient/prescriptions (GET)
+  1840→- CLEANUP: Removed dead `error.message === 'Unauthorized'` catch blocks in avatar and document download routes (requireRole never throws)
+  1841→- All changes pass `bun run lint` with zero errors
+  1842→---
+  1843→Task ID: 17-a
+  1844→Agent: patient-p1-batch1
+  1845→Task: Fix patient P1 bugs batch 1 (chat null guard, feedback doctorId, chat img/profileImg rename, avatar prefix, timeline canceled)
+  1846→Work Log:
+  1847→- Read and fixed appointments/[id]/page.tsx chat onMutate null guard
+  1848→- Read and fixed API to include doctor.userId in response
+  1849→- Renamed chat sender img to profileImg, added id field
+  1850→- Added /uploads/profile/ prefix for doctor avatar and chat avatar
+  1851→- Fixed timeline to not show 'Approved' for Canceled appointments
+  1852→Stage Summary:
+  1853→- Fixed 5 P1 bugs in patient appointment detail flow
+  1854→

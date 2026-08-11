@@ -10,6 +10,9 @@ export async function GET(req: NextRequest) {
     }
     const userId = user.id
 
+    const todayStart = new Date()
+    todayStart.setHours(0, 0, 0, 0)
+
     const [
       upcomingCount,
       visitedCount,
@@ -24,7 +27,7 @@ export async function GET(req: NextRequest) {
         where: {
           userId,
           status: { in: ['Pending', 'Approve'] },
-          bookingDate: { gte: new Date() },
+          bookingDate: { gte: todayStart },
         },
       }),
       db.booking.count({
@@ -46,7 +49,7 @@ export async function GET(req: NextRequest) {
         where: {
           userId,
           status: { in: ['Pending', 'Approve'] },
-          bookingDate: { gte: new Date() },
+          bookingDate: { gte: todayStart },
         },
         take: 3,
         orderBy: { bookingDate: 'asc' },

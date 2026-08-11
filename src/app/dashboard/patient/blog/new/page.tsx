@@ -46,7 +46,7 @@ export default function NewBlogPostPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
-      }).then((r) => r.json()),
+      }).then((r) => { if (!r.ok) throw new Error('Failed to create post'); return r.json() }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['patient-posts'] })
       toast.success('Blog post created successfully!')
@@ -232,12 +232,12 @@ export default function NewBlogPostPage() {
                   {isSubmitting ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Publishing...
+                      {status === 'Draft' ? 'Saving...' : 'Publishing...'}
                     </>
                   ) : (
                     <>
                       <PenLine className="mr-2 h-4 w-4" />
-                      Publish
+                      {status === 'Draft' ? 'Save Draft' : 'Publish'}
                     </>
                   )}
                 </Button>

@@ -26,7 +26,7 @@ export async function GET(
         chatMessages: {
           orderBy: { createdAt: 'asc' },
           include: {
-            sender: { select: { name: true, profileImg: true, role: true } },
+            sender: { select: { id: true, name: true, profileImg: true, role: true } },
           },
         },
         prescriptions: {
@@ -47,7 +47,7 @@ export async function GET(
       { status: 'Pending', label: 'Appointment Booked', date: booking.createdAt },
     ]
 
-    if (booking.status === 'Approve' || ['Visited', 'Finish', 'Canceled'].includes(booking.status)) {
+    if (['Approve', 'Visited', 'Finish'].includes(booking.status)) {
       statusTimeline.push({
         status: 'Approve',
         label: 'Approved by Doctor',
@@ -99,8 +99,13 @@ export async function GET(
       doctor: booking.doctor
         ? {
             id: booking.doctor.id,
+            userId: booking.doctor.userId,
             name: booking.doctor.user?.name || '',
-            img: booking.doctor.user?.profileImg || '',
+            img: booking.doctor.user?.profileImg
+              ? booking.doctor.user.profileImg.startsWith('/')
+                ? booking.doctor.user.profileImg
+                : `/uploads/profile/${booking.doctor.user.profileImg}`
+              : '',
             email: booking.doctor.user?.email || '',
             phone: booking.doctor.user?.mobileNo || '',
             specialization: booking.doctor.specialization,
@@ -126,8 +131,13 @@ export async function GET(
         status: m.status,
         createdAt: m.createdAt,
         sender: {
+          id: m.sender.id,
           name: m.sender.name,
-          img: m.sender.profileImg,
+          profileImg: m.sender.profileImg
+            ? m.sender.profileImg.startsWith('/')
+              ? m.sender.profileImg
+              : `/uploads/profile/${m.sender.profileImg}`
+            : '',
           role: m.sender.role,
         },
       })),

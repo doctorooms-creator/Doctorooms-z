@@ -122,6 +122,7 @@ export default function AppointmentDetailPage() {
         return r.json()
       }),
     onMutate: async (msg) => {
+      if (!user) return { previousMessages: [] }
       // Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['booking-chat', id] })
       // Snapshot previous data

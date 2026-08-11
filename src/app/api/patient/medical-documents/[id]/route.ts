@@ -13,8 +13,37 @@ export async function PUT(
     }
 
     const { id } = await params
-    const body = await req.json()
-    const { title, category, description } = body
+    const contentType = req.headers.get('content-type') || ''
+
+    let updateData: Record<string, unknown> = {}
+
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData()
+      const title = formData.get('title') as string | null
+      const category = formData.get('category') as string | null
+      const description = formData.get('description') as string | null
+      const file = formData.get('file') as File | null
+
+      if (title !== null) updateData.title = title
+      if (category !== null) updateData.category = category
+      if (description !== null) updateData.description = description
+      if (file && file.size > 0) {
+        const bytes = await file.arrayBuffer()
+        updateData.fileData = Buffer.from(bytes)
+        updateData.fileName = file.name
+        updateData.fileType = file.type
+      }
+    } else {
+      const body = await req.json()
+      const { title, category, description } = body
+      if (title !== undefined) updateData.title = title
+      if (category !== undefined) updateData.category = category
+      if (description !== undefined) updateData.description = description
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+    }
 
     const doc = await db.medicalDocument.findUnique({ where: { id } })
     if (!doc || doc.patientId !== user.id) {
@@ -23,7 +52,7 @@ export async function PUT(
 
     const updated = await db.medicalDocument.update({
       where: { id },
-      data: { title, category, description },
+      data: updateData,
     })
 
     return NextResponse.json(updated)
