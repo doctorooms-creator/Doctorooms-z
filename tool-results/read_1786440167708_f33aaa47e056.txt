@@ -1,0 +1,749 @@
+     1→'use client'
+     2→
+     3→import { useState, useEffect, useCallback } from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→import { Card, CardContent } from '@/components/ui/card'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Badge } from '@/components/ui/badge'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Label } from '@/components/ui/label'
+    11→import { Textarea } from '@/components/ui/textarea'
+    12→import { Skeleton } from '@/components/ui/skeleton'
+    13→import {
+    14→  Dialog,
+    15→  DialogContent,
+    16→  DialogDescription,
+    17→  DialogFooter,
+    18→  DialogHeader,
+    19→  DialogTitle,
+    20→} from '@/components/ui/dialog'
+    21→import {
+    22→  AlertDialog,
+    23→  AlertDialogAction,
+    24→  AlertDialogCancel,
+    25→  AlertDialogContent,
+    26→  AlertDialogDescription,
+    27→  AlertDialogFooter,
+    28→  AlertDialogHeader,
+    29→  AlertDialogTitle,
+    30→  AlertDialogTrigger,
+    31→} from '@/components/ui/alert-dialog'
+    32→import {
+    33→  Table,
+    34→  TableBody,
+    35→  TableCell,
+    36→  TableHead,
+    37→  TableHeader,
+    38→  TableRow,
+    39→} from '@/components/ui/table'
+    40→import {
+    41→  Pill,
+    42→  Plus,
+    43→  Pencil,
+    44→  Trash2,
+    45→  Search,
+    46→  Power,
+    47→  Sun,
+    48→  CloudSun,
+    49→  Moon,
+    50→} from 'lucide-react'
+    51→import { toast } from 'sonner'
+    52→
+    53→// ==================== TYPES ====================
+    54→
+    55→interface Medicine {
+    56→  id: string
+    57→  name: string
+    58→  morning: string
+    59→  afternoon: string
+    60→  evening: string
+    61→  dose: string
+    62→  tab: number
+    63→  description: string
+    64→  status: 'Active' | 'Inactive'
+    65→  createdAt: string
+    66→  updatedAt: string
+    67→}
+    68→
+    69→interface FormData {
+    70→  name: string
+    71→  morning: string
+    72→  afternoon: string
+    73→  evening: string
+    74→  dose: string
+    75→  tab: number
+    76→  description: string
+    77→}
+    78→
+    79→const emptyForm: FormData = {
+    80→  name: '',
+    81→  morning: '',
+    82→  afternoon: '',
+    83→  evening: '',
+    84→  dose: '',
+    85→  tab: 1,
+    86→  description: '',
+    87→}
+    88→
+    89→// ==================== ANIMATION VARIANTS ====================
+    90→
+    91→const containerVariants = {
+    92→  hidden: {},
+    93→  show: { transition: { staggerChildren: 0.04 } },
+    94→}
+    95→
+    96→const itemVariants = {
+    97→  hidden: { opacity: 0, y: 12 },
+    98→  show: { opacity: 1, y: 0, transition: { duration: 0.3, ease: 'easeOut' } },
+    99→}
+   100→
+   101→// ==================== MAIN COMPONENT ====================
+   102→
+   103→export default function MedicinesPage() {
+   104→  const queryClient = useQueryClient()
+   105→  const [search, setSearch] = useState('')
+   106→  const [dialogOpen, setDialogOpen] = useState(false)
+   107→  const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null)
+   108→  const [form, setForm] = useState<FormData>(emptyForm)
+   109→  const [deleteId, setDeleteId] = useState<string | null>(null)
+   110→  const [debouncedSearch, setDebouncedSearch] = useState('')
+   111→
+   112→  // Debounce search input
+   113→  useEffect(() => {
+   114→    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+   115→    return () => clearTimeout(timer)
+   116→  }, [search])
+   117→
+   118→  // ---------- Query ----------
+   119→
+   120→  const { data, isLoading } = useQuery<{ medicines: Medicine[] }>({
+   121→    queryKey: ['receptionist-medicines', debouncedSearch],
+   122→    queryFn: () =>
+   123→      fetch(
+   124→        `/api/receptionist/medicines${debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : ''}`
+   125→      ).then((r) => r.json()),
+   126→  })
+   127→
+   128→  const medicines = data?.medicines || []
+   129→
+   130→  // ---------- Mutations ----------
+   131→
+   132→  const createMutation = useMutation({
+   133→    mutationFn: (body: FormData) =>
+   134→      fetch('/api/receptionist/medicines', {
+   135→        method: 'POST',
+   136→        headers: { 'Content-Type': 'application/json' },
+   137→        body: JSON.stringify(body),
+   138→      }).then((r) => r.json()),
+   139→    onSuccess: (data) => {
+   140→      if (data.error) {
+   141→        toast.error(data.error)
+   142→        return
+   143→      }
+   144→      queryClient.invalidateQueries({ queryKey: ['receptionist-medicines'] })
+   145→      toast.success('Medicine added successfully')
+   146→      closeDialog()
+   147→    },
+   148→    onError: () => {
+   149→      toast.error('Failed to add medicine')
+   150→    },
+   151→  })
+   152→
+   153→  const updateMutation = useMutation({
+   154→    mutationFn: ({ id, body }: { id: string; body: FormData }) =>
+   155→      fetch(`/api/receptionist/medicines/${id}`, {
+   156→        method: 'PUT',
+   157→        headers: { 'Content-Type': 'application/json' },
+   158→        body: JSON.stringify(body),
+   159→      }).then((r) => r.json()),
+   160→    onSuccess: (data) => {
+   161→      if (data.error) {
+   162→        toast.error(data.error)
+   163→        return
+   164→      }
+   165→      queryClient.invalidateQueries({ queryKey: ['receptionist-medicines'] })
+   166→      toast.success('Medicine updated successfully')
+   167→      closeDialog()
+   168→    },
+   169→    onError: () => {
+   170→      toast.error('Failed to update medicine')
+   171→    },
+   172→  })
+   173→
+   174→  const deleteMutation = useMutation({
+   175→    mutationFn: (id: string) =>
+   176→      fetch(`/api/receptionist/medicines/${id}`, { method: 'DELETE' }).then((r) =>
+   177→        r.json()
+   178→      ),
+   179→    onSuccess: () => {
+   180→      queryClient.invalidateQueries({ queryKey: ['receptionist-medicines'] })
+   181→      toast.success('Medicine deleted successfully')
+   182→      setDeleteId(null)
+   183→    },
+   184→    onError: () => {
+   185→      toast.error('Failed to delete medicine')
+   186→    },
+   187→  })
+   188→
+   189→  const toggleMutation = useMutation({
+   190→    mutationFn: (id: string) =>
+   191→      fetch(`/api/receptionist/medicines/${id}/toggle`, { method: 'PATCH' }).then(
+   192→        (r) => r.json()
+   193→      ),
+   194→    onSuccess: (data) => {
+   195→      if (data.error) {
+   196→        toast.error(data.error)
+   197→        return
+   198→      }
+   199→      queryClient.invalidateQueries({ queryKey: ['receptionist-medicines'] })
+   200→      toast.success(
+   201→        data.status === 'Active'
+   202→          ? 'Medicine activated'
+   203→          : 'Medicine deactivated'
+   204→      )
+   205→    },
+   206→    onError: () => {
+   207→      toast.error('Failed to toggle status')
+   208→    },
+   209→  })
+   210→
+   211→  // ---------- Handlers ----------
+   212→
+   213→  const openAddDialog = useCallback(() => {
+   214→    setEditingMedicine(null)
+   215→    setForm(emptyForm)
+   216→    setDialogOpen(true)
+   217→  }, [])
+   218→
+   219→  const openEditDialog = useCallback((med: Medicine) => {
+   220→    setEditingMedicine(med)
+   221→    setForm({
+   222→      name: med.name,
+   223→      morning: med.morning,
+   224→      afternoon: med.afternoon,
+   225→      evening: med.evening,
+   226→      dose: med.dose,
+   227→      tab: med.tab,
+   228→      description: med.description,
+   229→    })
+   230→    setDialogOpen(true)
+   231→  }, [])
+   232→
+   233→  const closeDialog = useCallback(() => {
+   234→    setDialogOpen(false)
+   235→    setEditingMedicine(null)
+   236→    setForm(emptyForm)
+   237→  }, [])
+   238→
+   239→  const handleSave = useCallback(() => {
+   240→    if (!form.name.trim()) {
+   241→      toast.error('Medicine name is required')
+   242→      return
+   243→    }
+   244→    if (editingMedicine) {
+   245→      updateMutation.mutate({ id: editingMedicine.id, body: form })
+   246→    } else {
+   247→      createMutation.mutate(form)
+   248→    }
+   249→  }, [form, editingMedicine, createMutation, updateMutation])
+   250→
+   251→  const isSaving = createMutation.isPending || updateMutation.isPending
+   252→
+   253→  // ==================== RENDER ====================
+   254→
+   255→  return (
+   256→    <div className="space-y-6">
+   257→      {/* ========== A. PAGE HEADER ========== */}
+   258→      <motion.div
+   259→        initial={{ opacity: 0, y: -10 }}
+   260→        animate={{ opacity: 1, y: 0 }}
+   261→        transition={{ duration: 0.35 }}
+   262→        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+   263→      >
+   264→        <div>
+   265→          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+   266→            Medicine List
+   267→          </h1>
+   268→          <p className="text-sm text-muted-foreground mt-1">
+   269→            Manage the doctor&apos;s medicine master list
+   270→          </p>
+   271→        </div>
+   272→        <Button
+   273→          onClick={openAddDialog}
+   274→          className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white shadow-md shadow-teal-500/20 mt-2 sm:mt-0"
+   275→        >
+   276→          <Plus className="mr-2 h-4 w-4" />
+   277→          Add Medicine
+   278→        </Button>
+   279→      </motion.div>
+   280→
+   281→      {/* ========== B. SEARCH + COUNT ========== */}
+   282→      <motion.div
+   283→        initial={{ opacity: 0, y: 8 }}
+   284→        animate={{ opacity: 1, y: 0 }}
+   285→        transition={{ duration: 0.3, delay: 0.05 }}
+   286→        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"
+   287→      >
+   288→        <div className="relative w-full sm:max-w-xs">
+   289→          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   290→          <Input
+   291→            placeholder="Search medicines..."
+   292→            value={search}
+   293→            onChange={(e) => setSearch(e.target.value)}
+   294→            className="pl-9"
+   295→          />
+   296→        </div>
+   297→        <p className="text-sm text-muted-foreground">
+   298→          Showing{' '}
+   299→          <span className="font-medium text-foreground">{medicines.length}</span>{' '}
+   300→          {medicines.length === 1 ? 'medicine' : 'medicines'}
+   301→        </p>
+   302→      </motion.div>
+   303→
+   304→      {/* ========== C. LOADING SKELETON ========== */}
+   305→      {isLoading && (
+   306→        <div className="space-y-3">
+   307→          {Array.from({ length: 4 }).map((_, i) => (
+   308→            <div key={i} className="rounded-lg border border-border p-4">
+   309→              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   310→                <Skeleton className="h-5 w-40" />
+   311→                <div className="flex gap-2">
+   312→                  <Skeleton className="h-8 w-20" />
+   313→                  <Skeleton className="h-8 w-20" />
+   314→                  <Skeleton className="h-8 w-20" />
+   315→                </div>
+   316→              </div>
+   317→            </div>
+   318→          ))}
+   319→        </div>
+   320→      )}
+   321→
+   322→      {/* ========== D. EMPTY STATE ========== */}
+   323→      {!isLoading && medicines.length === 0 && (
+   324→        <motion.div
+   325→          initial={{ opacity: 0, y: 20 }}
+   326→          animate={{ opacity: 1, y: 0 }}
+   327→          className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-20"
+   328→        >
+   329→          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+   330→            <Pill className="h-8 w-8 text-muted-foreground/40" />
+   331→          </div>
+   332→          <p className="mt-4 text-sm font-medium text-muted-foreground">
+   333→            {debouncedSearch
+   334→              ? 'No medicines match your search'
+   335→              : 'No medicines added yet'}
+   336→          </p>
+   337→          <p className="mt-1 text-xs text-muted-foreground">
+   338→            {debouncedSearch
+   339→              ? 'Try a different search term'
+   340→              : 'Start by adding medicines to the master list'}
+   341→          </p>
+   342→          {!debouncedSearch && (
+   343→            <Button
+   344→              onClick={openAddDialog}
+   345→              className="mt-4 bg-teal-500 hover:bg-teal-600 text-white"
+   346→            >
+   347→              <Plus className="mr-2 h-4 w-4" />
+   348→              Add Your First Medicine
+   349→            </Button>
+   350→          )}
+   351→        </motion.div>
+   352→      )}
+   353→
+   354→      {/* ========== E. DESKTOP TABLE ========== */}
+   355→      {!isLoading && medicines.length > 0 && (
+   356→        <>
+   357→          {/* Desktop Table */}
+   358→          <motion.div
+   359→            variants={containerVariants}
+   360→            initial="hidden"
+   361→            animate="show"
+   362→            className="hidden md:block rounded-lg border border-border overflow-hidden"
+   363→          >
+   364→            <Table>
+   365→              <TableHeader>
+   366→                <TableRow className="bg-muted/50 hover:bg-muted/50">
+   367→                  <TableHead className="pl-4">Name</TableHead>
+   368→                  <TableHead className="hidden lg:table-cell">
+   369→                    <span className="inline-flex items-center gap-1">
+   370→                      <Sun className="h-3.5 w-3.5 text-amber-500" />
+   371→                      Morning
+   372→                    </span>
+   373→                  </TableHead>
+   374→                  <TableHead className="hidden lg:table-cell">
+   375→                    <span className="inline-flex items-center gap-1">
+   376→                      <CloudSun className="h-3.5 w-3.5 text-orange-500" />
+   377→                      Afternoon
+   378→                    </span>
+   379→                  </TableHead>
+   380→                  <TableHead className="hidden lg:table-cell">
+   381→                    <span className="inline-flex items-center gap-1">
+   382→                      <Moon className="h-3.5 w-3.5 text-violet-500" />
+   383→                      Evening
+   384→                    </span>
+   385→                  </TableHead>
+   386→                  <TableHead className="hidden xl:table-cell">Dosage</TableHead>
+   387→                  <TableHead className="hidden xl:table-cell">Tabs</TableHead>
+   388→                  <TableHead>Status</TableHead>
+   389→                  <TableHead className="text-right pr-4">Actions</TableHead>
+   390→                </TableRow>
+   391→              </TableHeader>
+   392→              <TableBody>
+   393→                {medicines.map((med) => (
+   394→                  <motion.tr
+   395→                    key={med.id}
+   396→                    variants={itemVariants}
+   397→                    className="border-b transition-colors hover:bg-muted/50"
+   398→                  >
+   399→                    <TableCell className="pl-4 font-medium">
+   400→                      {med.name}
+   401→                    </TableCell>
+   402→                    <TableCell className="hidden lg:table-cell">
+   403→                      {med.morning || '—'}
+   404→                    </TableCell>
+   405→                    <TableCell className="hidden lg:table-cell">
+   406→                      {med.afternoon || '—'}
+   407→                    </TableCell>
+   408→                    <TableCell className="hidden lg:table-cell">
+   409→                      {med.evening || '—'}
+   410→                    </TableCell>
+   411→                    <TableCell className="hidden xl:table-cell">
+   412→                      {med.dose || '—'}
+   413→                    </TableCell>
+   414→                    <TableCell className="hidden xl:table-cell">
+   415→                      {med.tab}
+   416→                    </TableCell>
+   417→                    <TableCell>
+   418→                      <button
+   419→                        onClick={() => toggleMutation.mutate(med.id)}
+   420→                        disabled={toggleMutation.isPending}
+   421→                        className="cursor-pointer"
+   422→                      >
+   423→                        <Badge
+   424→                          variant="secondary"
+   425→                          className={
+   426→                            med.status === 'Active'
+   427→                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'
+   428→                              : 'bg-secondary text-muted-foreground'
+   429→                          }
+   430→                        >
+   431→                          {med.status}
+   432→                        </Badge>
+   433→                      </button>
+   434→                    </TableCell>
+   435→                    <TableCell className="text-right pr-4">
+   436→                      <div className="flex items-center justify-end gap-1">
+   437→                        <Button
+   438→                          variant="ghost"
+   439→                          size="icon"
+   440→                          className="h-8 w-8"
+   441→                          onClick={() => openEditDialog(med)}
+   442→                        >
+   443→                          <Pencil className="h-4 w-4" />
+   444→                          <span className="sr-only">Edit</span>
+   445→                        </Button>
+   446→                        <AlertDialog
+   447→                          open={deleteId === med.id}
+   448→                          onOpenChange={(open) =>
+   449→                            setDeleteId(open ? med.id : null)
+   450→                          }
+   451→                        >
+   452→                          <AlertDialogTrigger asChild>
+   453→                            <Button
+   454→                              variant="ghost"
+   455→                              size="icon"
+   456→                              className="h-8 w-8 text-destructive hover:text-destructive"
+   457→                            >
+   458→                              <Trash2 className="h-4 w-4" />
+   459→                              <span className="sr-only">Delete</span>
+   460→                            </Button>
+   461→                          </AlertDialogTrigger>
+   462→                          <AlertDialogContent>
+   463→                            <AlertDialogHeader>
+   464→                              <AlertDialogTitle>Delete Medicine?</AlertDialogTitle>
+   465→                              <AlertDialogDescription>
+   466→                                This will permanently delete &quot;{med.name}&quot; from the
+   467→                                medicine list. This action cannot be undone.
+   468→                              </AlertDialogDescription>
+   469→                            </AlertDialogHeader>
+   470→                            <AlertDialogFooter>
+   471→                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+   472→                              <AlertDialogAction
+   473→                                onClick={() => deleteMutation.mutate(med.id)}
+   474→                                className="bg-destructive text-white hover:bg-destructive/90"
+   475→                              >
+   476→                                Delete
+   477→                              </AlertDialogAction>
+   478→                            </AlertDialogFooter>
+   479→                          </AlertDialogContent>
+   480→                        </AlertDialog>
+   481→                      </div>
+   482→                    </TableCell>
+   483→                  </motion.tr>
+   484→                ))}
+   485→              </TableBody>
+   486→            </Table>
+   487→          </motion.div>
+   488→
+   489→          {/* Mobile Card Layout */}
+   490→          <motion.div
+   491→            variants={containerVariants}
+   492→            initial="hidden"
+   493→            animate="show"
+   494→            className="md:hidden space-y-3"
+   495→          >
+   496→            {medicines.map((med) => (
+   497→              <motion.div key={med.id} variants={itemVariants}>
+   498→                <Card className="overflow-hidden">
+   499→                  <CardContent className="p-4 space-y-3">
+   500→                    {/* Name + Status Row */}
+   501→                    <div className="flex items-start justify-between gap-2">
+   502→                      <h3 className="font-semibold text-base leading-tight">
+   503→                        {med.name}
+   504→                      </h3>
+   505→                      <button
+   506→                        onClick={() => toggleMutation.mutate(med.id)}
+   507→                        disabled={toggleMutation.isPending}
+   508→                        className="cursor-pointer shrink-0"
+   509→                      >
+   510→                        <Badge
+   511→                          variant="secondary"
+   512→                          className={
+   513→                            med.status === 'Active'
+   514→                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'
+   515→                              : 'bg-secondary text-muted-foreground'
+   516→                          }
+   517→                        >
+   518→                          {med.status}
+   519→                        </Badge>
+   520→                      </button>
+   521→                    </div>
+   522→
+   523→                    {/* Dose Info */}
+   524→                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+   525→                      {med.morning && (
+   526→                        <span className="inline-flex items-center gap-1">
+   527→                          <Sun className="h-3.5 w-3.5 text-amber-500" />
+   528→                          M: {med.morning}
+   529→                        </span>
+   530→                      )}
+   531→                      {med.afternoon && (
+   532→                        <span className="inline-flex items-center gap-1">
+   533→                          <CloudSun className="h-3.5 w-3.5 text-orange-500" />
+   534→                          A: {med.afternoon}
+   535→                        </span>
+   536→                      )}
+   537→                      {med.evening && (
+   538→                        <span className="inline-flex items-center gap-1">
+   539→                          <Moon className="h-3.5 w-3.5 text-violet-500" />
+   540→                          E: {med.evening}
+   541→                        </span>
+   542→                      )}
+   543→                    </div>
+   544→
+   545→                    {/* Extra Info */}
+   546→                    {(med.dose || med.tab) && (
+   547→                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+   548→                        {med.dose && <span>Dosage: {med.dose}</span>}
+   549→                        {med.tab && <span>Tabs: {med.tab}</span>}
+   550→                      </div>
+   551→                    )}
+   552→
+   553→                    {med.description && (
+   554→                      <p className="text-xs text-muted-foreground line-clamp-2">
+   555→                        {med.description}
+   556→                      </p>
+   557→                    )}
+   558→
+   559→                    {/* Actions */}
+   560→                    <div className="flex items-center gap-2 pt-1">
+   561→                      <Button
+   562→                        variant="outline"
+   563→                        size="sm"
+   564→                        onClick={() => openEditDialog(med)}
+   565→                      >
+   566→                        <Pencil className="mr-1.5 h-3.5 w-3.5" />
+   567→                        Edit
+   568→                      </Button>
+   569→                      <AlertDialog
+   570→                        open={deleteId === med.id}
+   571→                        onOpenChange={(open) =>
+   572→                          setDeleteId(open ? med.id : null)
+   573→                        }
+   574→                      >
+   575→                        <AlertDialogTrigger asChild>
+   576→                          <Button variant="destructive" size="sm">
+   577→                            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+   578→                            Delete
+   579→                          </Button>
+   580→                        </AlertDialogTrigger>
+   581→                        <AlertDialogContent>
+   582→                          <AlertDialogHeader>
+   583→                            <AlertDialogTitle>Delete Medicine?</AlertDialogTitle>
+   584→                            <AlertDialogDescription>
+   585→                              This will permanently delete &quot;{med.name}&quot; from
+   586→                              the medicine list. This action cannot be undone.
+   587→                            </AlertDialogDescription>
+   588→                          </AlertDialogHeader>
+   589→                          <AlertDialogFooter>
+   590→                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   591→                            <AlertDialogAction
+   592→                              onClick={() => deleteMutation.mutate(med.id)}
+   593→                              className="bg-destructive text-white hover:bg-destructive/90"
+   594→                            >
+   595→                              Delete
+   596→                            </AlertDialogAction>
+   597→                          </AlertDialogFooter>
+   598→                        </AlertDialogContent>
+   599→                      </AlertDialog>
+   600→                    </div>
+   601→                  </CardContent>
+   602→                </Card>
+   603→              </motion.div>
+   604→            ))}
+   605→          </motion.div>
+   606→        </>
+   607→      )}
+   608→
+   609→      {/* ========== F. ADD/EDIT DIALOG ========== */}
+   610→      <Dialog open={dialogOpen} onOpenChange={(open) => !open && closeDialog()}>
+   611→        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+   612→          <DialogHeader>
+   613→            <DialogTitle>
+   614→              {editingMedicine ? 'Edit Medicine' : 'Add Medicine'}
+   615→            </DialogTitle>
+   616→            <DialogDescription>
+   617→              {editingMedicine
+   618→                ? 'Update the medicine details below.'
+   619→                : 'Fill in the details to add a new medicine.'}
+   620→            </DialogDescription>
+   621→          </DialogHeader>
+   622→
+   623→          <div className="space-y-4 py-2">
+   624→            {/* Medicine Name */}
+   625→            <div className="space-y-2">
+   626→              <Label htmlFor="med-name">Medicine Name *</Label>
+   627→              <Input
+   628→                id="med-name"
+   629→                placeholder="e.g., Paracetamol 500mg"
+   630→                value={form.name}
+   631→                onChange={(e) =>
+   632→                  setForm((f) => ({ ...f, name: e.target.value }))
+   633→                }
+   634→              />
+   635→            </div>
+   636→
+   637→            {/* Dose Row */}
+   638→            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+   639→              <div className="space-y-2">
+   640→                <Label htmlFor="med-morning" className="inline-flex items-center gap-1">
+   641→                  <Sun className="h-3.5 w-3.5 text-amber-500" />
+   642→                  Morning
+   643→                </Label>
+   644→                <Input
+   645→                  id="med-morning"
+   646→                  placeholder="e.g., 1 tab"
+   647→                  value={form.morning}
+   648→                  onChange={(e) =>
+   649→                    setForm((f) => ({ ...f, morning: e.target.value }))
+   650→                  }
+   651→                />
+   652→              </div>
+   653→              <div className="space-y-2">
+   654→                <Label htmlFor="med-afternoon" className="inline-flex items-center gap-1">
+   655→                  <CloudSun className="h-3.5 w-3.5 text-orange-500" />
+   656→                  Afternoon
+   657→                </Label>
+   658→                <Input
+   659→                  id="med-afternoon"
+   660→                  placeholder="e.g., 0.5 tab"
+   661→                  value={form.afternoon}
+   662→                  onChange={(e) =>
+   663→                    setForm((f) => ({ ...f, afternoon: e.target.value }))
+   664→                  }
+   665→                />
+   666→              </div>
+   667→              <div className="space-y-2">
+   668→                <Label htmlFor="med-evening" className="inline-flex items-center gap-1">
+   669→                  <Moon className="h-3.5 w-3.5 text-violet-500" />
+   670→                  Evening
+   671→                </Label>
+   672→                <Input
+   673→                  id="med-evening"
+   674→                  placeholder="e.g., 1 tab"
+   675→                  value={form.evening}
+   676→                  onChange={(e) =>
+   677→                    setForm((f) => ({ ...f, evening: e.target.value }))
+   678→                  }
+   679→                />
+   680→              </div>
+   681→            </div>
+   682→
+   683→            {/* Dosage + Tab Count */}
+   684→            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+   685→              <div className="space-y-2">
+   686→                <Label htmlFor="med-dose">Dosage</Label>
+   687→                <Input
+   688→                  id="med-dose"
+   689→                  placeholder="e.g., After food"
+   690→                  value={form.dose}
+   691→                  onChange={(e) =>
+   692→                    setForm((f) => ({ ...f, dose: e.target.value }))
+   693→                  }
+   694→                />
+   695→              </div>
+   696→              <div className="space-y-2">
+   697→                <Label htmlFor="med-tab">Tab Count</Label>
+   698→                <Input
+   699→                  id="med-tab"
+   700→                  type="number"
+   701→                  min={0}
+   702→                  value={form.tab}
+   703→                  onChange={(e) =>
+   704→                    setForm((f) => ({
+   705→                      ...f,
+   706→                      tab: parseInt(e.target.value) || 0,
+   707→                    }))
+   708→                  }
+   709→                />
+   710→              </div>
+   711→            </div>
+   712→
+   713→            {/* Description */}
+   714→            <div className="space-y-2">
+   715→              <Label htmlFor="med-desc">Description</Label>
+   716→              <Textarea
+   717→                id="med-desc"
+   718→                placeholder="Additional notes about this medicine..."
+   719→                value={form.description}
+   720→                onChange={(e) =>
+   721→                  setForm((f) => ({ ...f, description: e.target.value }))
+   722→                }
+   723→                rows={3}
+   724→              />
+   725→            </div>
+   726→          </div>
+   727→
+   728→          <DialogFooter>
+   729→            <Button
+   730→              variant="outline"
+   731→              onClick={closeDialog}
+   732→              disabled={isSaving}
+   733→            >
+   734→              Cancel
+   735→            </Button>
+   736→            <Button
+   737→              onClick={handleSave}
+   738→              disabled={isSaving || !form.name.trim()}
+   739→              className="bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white"
+   740→            >
+   741→              {isSaving ? 'Saving...' : 'Save'}
+   742→            </Button>
+   743→          </DialogFooter>
+   744→        </DialogContent>
+   745→      </Dialog>
+   746→    </div>
+   747→  )
+   748→}
+   749→
