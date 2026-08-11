@@ -1691,3 +1691,29 @@ Stage Summary:
 - Patient booking page loads correctly with doctor info and calendar
 - Full E2E flow (book → approve → queue → prescription) needs manual testing in Preview Panel
 - Files changed: src/app/api/doctors/[id]/route.ts
+
+---
+Task ID: 15
+Agent: Main Agent
+Task: Analyze database, fix schema bugs, and populate comprehensive mock data
+
+Work Log:
+- Analyzed database: found it COMPLETELY EMPTY (all 31 tables had 0 rows)
+- Discovered schema bug: Receptionist, DoctorAssistant, DoctorPharmacist models had userId fields but NO @relation to User model
+- Fixed schema: added user User @relation to all 3 models + reverse relations on User model
+- Ran prisma db push --force-reset to apply schema changes
+- Wrote comprehensive seed file (prisma/seed.ts) with 272 records across 30 tables
+- Fixed Bun parser issue with chained .map() inside $transaction (used separate const arrays)
+- Successfully ran seed: all data populated without errors
+- Verified with prisma/verify_seed.ts: all 30 tables populated, User relations working correctly
+
+Stage Summary:
+- 27 users: 1 admin, 2 hospitals, 4 doctors (1 pending), 3 receptionists, 3 assistants, 3 pharmacists, 11 patients (8 active + 2 pending + 1 blocked)
+- 3 Active doctors with full teams (Dr. Rajesh=Cardiologist, Dr. Priya=Dermatologist, Dr. Amit=Orthopedic)
+- Each doctor has their own Receptionist + Assistant + Pharmacist (9 team members total)
+- 11 bookings: 3 Pending, 3 Approved, 3 Visited (with prescriptions), 1 Finished, 1 Canceled, 1 Walk-in
+- 4 prescriptions with full details: 11 medicines, 11 labels, 7 suggestions, 2 diagnosis tables
+- 21 doctor-specific medicines (8+6+7), 14 schedules, 4 holidays, 6 gallery images
+- 13 notifications, 4 ratings, 4 blog posts, 3 sliders, 2 hospital inquiries, 5 medical documents, 3 chat messages
+- 20 disease masters, 15 doctor types, 17 label masters, 15 chief complaints, 9 questions, 27 suggestion masters
+- Schema bug FIXED: Receptionist/DoctorAssistant/DoctorPharmacist now have User relations
