@@ -2124,3 +2124,36 @@ Stage Summary:
 - Doctor prescriptions page has 'Shared With Me' tab for viewing patient-approved prescriptions
 - Patient has 'Rx Access' page in sidebar to manage all access requests
 - All changes pass ESLint with zero errors
+
+---
+Task ID: 19
+Agent: Main Agent
+Task: Migrate from SQLite to Supabase PostgreSQL + Storage
+
+Work Log:
+- Analyzed current architecture: 31 Prisma models, 279 seed records, 6 file upload routes, zero raw SQL
+- Updated .env with Supabase connection strings (pooler URL for queries, direct URL for migrations)
+- Changed prisma/schema.prisma: provider sqlite → postgresql, added directUrl for migration support
+- Installed @supabase/supabase-js v2.112.3
+- Created src/lib/supabase.ts: uploadToStorage, deleteFromStorage, getStoragePublicUrl, ensureBucket helpers
+- Created src/lib/avatar-url.ts: centralized resolveAvatarUrl() that handles full URLs, relative paths, and bare filenames
+- Ran prisma db push — all 31 tables created in Supabase PostgreSQL successfully
+- Created 3 Supabase Storage buckets: avatars (public), medical-docs (public), sliders (public)
+- Migrated patient/avatar and receptionist/avatar routes from fs.writeFile to Supabase Storage upload
+- Migrated patient/medical-documents routes (list, create, update, delete, download) to Supabase Storage
+- Updated 5 API routes with inline avatarUrl() helpers to use shared resolveAvatarUrl()
+- Updated 3 frontend files (dashboard-header, profile page, prescription-access page) to handle Supabase URLs
+- Fixed seed.ts: replaced $transaction([...]) array syntax with sequential deleteMany (pgbouncer compatible)
+- Seeded 279 records into Supabase PostgreSQL (25 users, 3 doctors, 11 bookings, 4 prescriptions, etc.)
+- Verified server startup: homepage 200, /api/public/stats 200, /api/doctors 200 — all using PostgreSQL queries
+- Zero lint errors
+- Pushed to GitHub
+
+Stage Summary:
+- Complete SQLite → Supabase PostgreSQL migration done
+- Database: 31 tables in Supabase, 279 records seeded
+- File Storage: 3 Supabase Storage buckets created, 6 API routes migrated
+- Avatar URL resolution: centralized in lib/avatar-url.ts, handles old (filename) and new (full URL) formats
+- No code changes needed in any business logic — pure Prisma ORM migration
+- .env contains Supabase credentials (not committed to git — in .gitignore)
+- Note: bun's .env caching requires start-dev.sh script or explicit env vars for local development
