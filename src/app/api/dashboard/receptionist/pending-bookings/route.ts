@@ -11,26 +11,48 @@ export async function GET(req: NextRequest) {
 
     const receptionist = await db.receptionist.findUnique({
       where: { userId: user.id },
-      select: { doctorId: true },
+      select: { doctorId: true, hospitalId: true },
     })
     if (!receptionist) {
       return NextResponse.json({ error: 'Receptionist not found' }, { status: 404 })
     }
 
-    const pendingBookings = await db.booking.findMany({
-      where: {
-        status: 'Pending',
-        bookingType: 'By Self',
-        doctorId: receptionist.doctorId,
-      },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        user: { select: { id: true, name: true, email: true, profileImg: true, mobileNo: true } },
-        doctor: {
-          include: { user: { select: { name: true, profileImg: true } } },
+    // ── Hospital Mode: shared pool — all pending bookings for the hospital ──
+    const isHospitalMode = !!receptionist.hospitalId && !receptionist.doctorId
+
+    let pendingBookings
+    if (isHospitalMode) {
+      pendingBookings = await db.booking.findMany({
+        where: {
+          status: 'Pending',
+          bookingType: 'By Self',
+          hospitalId: receptionist.hospitalId,
         },
-      },
-    })
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, name: true, email: true, profileImg: true, mobileNo: true } },
+          doctor: {
+            include: { user: { select: { name: true, profileImg: true } } },
+          },
+        },
+      })
+    } else {
+      // ── Clinic Mode (unchanged) ──
+      pendingBookings = await db.booking.findMany({
+        where: {
+          status: 'Pending',
+          bookingType: 'By Self',
+          doctorId: receptionist.doctorId,
+        },
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, name: true, email: true, profileImg: true, mobileNo: true } },
+          doctor: {
+            include: { user: { select: { name: true, profileImg: true } } },
+          },
+        },
+      })
+    }
 
     // Calculate hypothetical queue position for each booking if it were approved
     const bookingsWithQueue = await Promise.all(
@@ -65,6 +87,7 @@ export async function GET(req: NextRequest) {
           createdAt: b.createdAt,
           doctorName: b.doctor.user?.name || 'Unknown',
           doctorSpecialization: b.doctor.specialization || '',
+          departmentId: b.departmentId || null,
           queuePosition: hypotheticalQueuePosition,
           opdCount: existingApproved,
           opdLimit: b.doctor.dailyLimit || 0,
@@ -72,7 +95,7 @@ export async function GET(req: NextRequest) {
       })
     )
 
-    return NextResponse.json({ bookings: bookingsWithQueue })
+    return NextResponse.json({ bookings: bookingsWithQueue, isHospitalMode })
   } catch (error) {
     console.error('Pending bookings list error:', error)
     return NextResponse.json({ error: 'Failed to load pending bookings' }, { status: 500 })

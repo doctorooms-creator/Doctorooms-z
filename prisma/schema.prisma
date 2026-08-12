@@ -127,6 +127,7 @@ model Hospital {
   departments  Department[]
   doctorLinks  DoctorHospital[]
   receptionists Receptionist[]
+  pharmacists  DoctorPharmacist[]
 }
 
 // ============ DEPARTMENT ============
@@ -136,6 +137,7 @@ model Department {
   hospitalId  String
   name        String   @default("")       // e.g. "Cardiology", "Orthopedics"
   nameHi      String   @default("")       // Hindi name
+  shortCode   String   @default("")       // Token prefix e.g. "CARD", "ORTH", "DERM"
   description String   @default("")
   icon        String   @default("")       // Lucide icon name: HeartPulse, Bone, Brain, etc.
   floorNo     String   @default("")       // e.g. "Floor 2", "Ground Floor"
@@ -202,6 +204,8 @@ model Booking {
   hospitalId       String?         // Hospital where booked (for multi-specialty)
   departmentId     String?         // Department selected (for multi-specialty)
   tokenNumber      String   @default("")  // OPD token number e.g. "CARD-015"
+  tokenOrder       Int      @default(0)   // Queue position (auto-increment per doctor per day)
+  receptionistId   String?         // Which receptionist processed this booking (User.id)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -230,20 +234,23 @@ model BookingChat {
 // ============ PRESCRIPTION ============
 
 model Prescription {
-  id           String   @id @default(cuid())
-  bookingId    String
-  patientName  String   @default("")
-  patientAge   String   @default("")
-  disease      String   @default("")
-  weight       String   @default("")
-  bp           String   @default("")
-  temperature  String   @default("")
-  description  String   @default("")
-  status       String   @default("Draft") // Draft, Active, Archived
-  nextVisit    DateTime?
-  assistantId  String?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id               String    @id @default(cuid())
+  bookingId        String
+  patientName      String    @default("")
+  patientAge       String    @default("")
+  disease          String    @default("")
+  weight           String    @default("")
+  bp               String    @default("")
+  temperature      String    @default("")
+  description      String    @default("")
+  status           String    @default("Draft") // Draft, Active, Archived
+  fulfillmentStatus String    @default("Pending") // Pending, Packed, Dispensed
+  nextVisit        DateTime?
+  assistantId      String?
+  packedBy         String?   // pharmacist user id who packed this
+  packedAt         DateTime? // when pharmacist marked as packed
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   booking      Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   doctor       Doctor   @relation(fields: [doctorId], references: [id])
@@ -505,18 +512,20 @@ model DoctorAssistant {
 // ============ DOCTOR PHARMACIST ============
 
 model DoctorPharmacist {
-  id          String   @id @default(cuid())
-  userId      String   @unique // pharmacist user id
-  doctorId    String // doctor id (Doctor model)
-  description String   @default("")
-  address     String   @default("")
-  dlNo        String   @default("") // Drug license number
+  id          String    @id @default(cuid())
+  userId      String    @unique // pharmacist user id
+  doctorId    String?   // doctor id (Doctor model) — for clinic-mode pharmacists
+  hospitalId  String?   // hospital id — for hospital-level pharmacists (sees all hospital doctors)
+  description String    @default("")
+  address     String    @default("")
+  dlNo        String    @default("") // Drug license number
   createdById String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  user        User     @relation("PharmacistUser", fields: [userId], references: [id], onDelete: Cascade)
-  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  user        User      @relation("PharmacistUser", fields: [userId], references: [id], onDelete: Cascade)
+  doctor      Doctor?   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  hospital    Hospital? @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
 }
 
 // ============ RECEPTIONIST ============
@@ -524,15 +533,15 @@ model DoctorPharmacist {
 model Receptionist {
   id          String   @id @default(cuid())
   userId      String   @unique // receptionist user id
-  doctorId    String          // doctor id (Doctor model) — for clinic-mode receptionists
-  hospitalId  String?         // hospital id — for multi-specialty hospital receptionists
+  doctorId    String?          // doctor id — for clinic-mode receptionists (null for hospital mode)
+  hospitalId  String           // hospital id — required (every receptionist belongs to a hospital or clinic)
   departmentId String?        // department id — if assigned to specific department OPD
   address     String   @default("")
   createdAt   DateTime @default(now())
 
-  user        User     @relation("ReceptionistUser", fields: [userId], references: [id], onDelete: Cascade)
-  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
-  hospital    Hospital? @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  user        User        @relation("ReceptionistUser", fields: [userId], references: [id], onDelete: Cascade)
+  doctor      Doctor?     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  hospital    Hospital    @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
   department  Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 }
 

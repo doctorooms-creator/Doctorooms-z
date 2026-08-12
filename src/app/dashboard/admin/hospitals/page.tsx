@@ -38,9 +38,11 @@ import {
   Globe,
   Mail,
   Calendar,
+  Users,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 interface HospitalItem {
   id: string
@@ -170,7 +172,7 @@ export default function AdminHospitalsPage() {
                     <TableHead className="hidden md:table-cell">Address</TableHead>
                     <TableHead className="hidden sm:table-cell">City</TableHead>
                     <TableHead className="hidden lg:table-cell">Contact</TableHead>
-                    <TableHead className="w-12">Actions</TableHead>
+                    <TableHead className="w-24">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -211,9 +213,17 @@ export default function AdminHospitalsPage() {
                           {hosp.contactNo || '—'}
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewHospital(hosp)}>
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                          <div className="flex items-center gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewHospital(hosp)}>
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="sm" className="h-8 gap-1.5 text-xs" asChild>
+                              <Link href={`/dashboard/admin/hospitals/${hosp.id}/staff`}>
+                                <Users className="h-3.5 w-3.5" />
+                                <span className="hidden xl:inline">Staff</span>
+                              </Link>
+                            </Button>
+                          </div>
                         </TableCell>
                       </motion.tr>
                     ))}

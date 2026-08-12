@@ -1,0 +1,680 @@
+     1→import { PrismaClient } from '@prisma/client'
+     2→import { hash } from 'bcryptjs'
+     3→
+     4→const db = new PrismaClient()
+     5→
+     6→// ============ HELPER: Parse OPD timings string into schedule entries ============
+     7→function parseOpdTimings(opdTimings: string): { day: string; startTime: string; endTime: string }[] {
+     8→  // Examples: "Mon/Wed/Fri 10:00-1:00" → [{day:"Monday", startTime:"10:00", endTime:"13:00"}]
+     9→  //           "Tue/Thu/Sat 9:00-12:00" → [{day:"Tuesday", startTime:"09:00", endTime:"12:00"}]
+    10→  //           "Mon-Sat 10:00-2:00" → [Mon..Sat]
+    11→  const dayMap: Record<string, string> = {
+    12→    Mon: 'Monday', Tue: 'Tuesday', Wed: 'Wednesday', Thu: 'Thursday',
+    13→    Fri: 'Friday', Sat: 'Saturday', Sun: 'Sunday',
+    14→  }
+    15→
+    16→  const schedules: { day: string; startTime: string; endTime: string }[] = []
+    17→  const parts = opdTimings.split(' ')
+    18→  if (parts.length < 2) return schedules
+    19→
+    20→  const daysPart = parts[0]
+    21→  const timePart = parts[1]
+    22→
+    23→  // Parse time: "10:00-1:00" or "10:00-13:00"
+    24→  const [startStr, endStr] = timePart.split('-')
+    25→  const startTime = padTime(startStr)
+    26→  const endTime = padTime(endStr)
+    27→
+    28→  // Parse days: "Mon/Wed/Fri" (slash = explicit list) or "Mon-Sat" (dash = range)
+    29→  const dayOrder = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    30→
+    31→  let dayAbbrs: string[]
+    32→  if (daysPart.includes('/')) {
+    33→    dayAbbrs = daysPart.split('/')
+    34→  } else {
+    35→    // Range: "Mon-Sat" → expand to Mon..Sat
+    36→    const [start, end] = daysPart.split('-')
+    37→    const startIdx = dayOrder.indexOf(start)
+    38→    const endIdx = dayOrder.indexOf(end)
+    39→    if (startIdx !== -1 && endIdx !== -1 && startIdx <= endIdx) {
+    40→      dayAbbrs = dayOrder.slice(startIdx, endIdx + 1)
+    41→    } else {
+    42→      dayAbbrs = [daysPart] // fallback
+    43→    }
+    44→  }
+    45→
+    46→  for (const abbr of dayAbbrs) {
+    47→    const fullDay = dayMap[abbr.trim()]
+    48→    if (fullDay) {
+    49→      schedules.push({ day: fullDay, startTime, endTime })
+    50→    }
+    51→  }
+    52→
+    53→  return schedules
+    54→}
+    55→
+    56→function padTime(t: string): string {
+    57→  const parts = t.split(':')
+    58→  if (parts.length === 2) return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`
+    59→  // If no colon, assume it's like "1:00" → "01:00" or just "1" → "01:00"
+    60→  return `${parts[0].padStart(2, '0')}:00`
+    61→}
+    62→
+    63→// ============ TYPES ============
+    64→interface HospitalSeed {
+    65→  name: string
+    66→  email: string
+    67→  password: string
+    68→  hospitalName: string
+    69→  address: string
+    70→  city: string
+    71→  state: string
+    72→  pincode: string
+    73→  contactNo: string
+    74→  departments: DepartmentSeed[]
+    75→}
+    76→
+    77→interface DepartmentSeed {
+    78→  name: string
+    79→  nameHi: string
+    80→  description: string
+    81→  icon: string
+    82→  floorNo: string
+    83→  opdRoom: string
+    84→  sortOrder: number
+    85→  doctors: DoctorSeed[]
+    86→}
+    87→
+    88→interface DoctorSeed {
+    89→  name: string
+    90→  email: string
+    91→  gender: string
+    92→  specialization: string
+    93→  experience: string
+    94→  education: string
+    95→  designation: string
+    96→  fees: number
+    97→  opdTimings: string
+    98→  existingDoctor?: boolean // if true, link existing doctor instead of creating new
+    99→}
+   100→
+   101→// ============ SEED DATA ============
+   102→
+   103→const hospitals: HospitalSeed[] = [
+   104→  // ---- ZYDUS HOSPITAL ----
+   105→  {
+   106→    name: 'Zydus Hospital',
+   107→    email: 'zydus@hospital.com',
+   108→    password: 'Hospital@123',
+   109→    hospitalName: 'Zydus Hospital',
+   110→    address: 'Zydus Hospitals, Thaltej',
+   111→    city: 'Ahmedabad',
+   112→    state: 'Gujarat',
+   113→    pincode: '380054',
+   114→    contactNo: '+91-79-6688-1000',
+   115→    departments: [
+   116→      {
+   117→        name: 'Cardiology',
+   118→        nameHi: 'कार्डियोलॉजी',
+   119→        description: 'Comprehensive heart care including interventional cardiology, cardiac surgery, and cardiac rehabilitation.',
+   120→        icon: 'HeartPulse',
+   121→        floorNo: 'Floor 2',
+   122→        opdRoom: 'OPD Room 201',
+   123→        sortOrder: 1,
+   124→        doctors: [
+   125→          { name: 'Dr. Amit Shah', email: 'amit.shah@zydus.com', gender: 'Male', specialization: 'Cardiology', experience: '18 years', education: 'MBBS, MD, DM (Cardiology)', designation: 'Senior Consultant', fees: 800, opdTimings: 'Mon/Wed/Fri 10:00-1:00' },
+   126→          { name: 'Dr. Priya Patel', email: 'priya.patel@zydus.com', gender: 'Female', specialization: 'Cardiology', experience: '12 years', education: 'MBBS, MD, DM (Cardiology)', designation: 'Consultant', fees: 500, opdTimings: 'Tue/Thu/Sat 9:00-12:00' },
+   127→        ],
+   128→      },
+   129→      {
+   130→        name: 'Orthopedics',
+   131→        nameHi: 'ऑर्थोपेडिक्स',
+   132→        description: 'Advanced orthopedic care including joint replacement, sports medicine, and spine surgery.',
+   133→        icon: 'Bone',
+   134→        floorNo: 'Floor 3',
+   135→        opdRoom: 'OPD Room 301',
+   136→        sortOrder: 2,
+   137→        doctors: [
+   138→          { name: 'Dr. Rakesh Gupta', email: 'rakesh.gupta@zydus.com', gender: 'Male', specialization: 'Orthopedics', experience: '22 years', education: 'MBBS, MS (Ortho)', designation: 'HOD', fees: 1000, opdTimings: 'Mon/Wed 2:00-5:00' },
+   139→          { name: 'Dr. Suresh Jain', email: 'suresh.jain@zydus.com', gender: 'Male', specialization: 'Orthopedics', experience: '10 years', education: 'MBBS, MS (Ortho)', designation: 'Consultant', fees: 600, opdTimings: 'Tue/Thu/Fri 10:00-1:00' },
+   140→        ],
+   141→      },
+   142→      {
+   143→        name: 'Dermatology',
+   144→        nameHi: 'डर्मेटोलॉजी',
+   145→        description: 'Expert skin care including cosmetic dermatology, laser treatments, and allergy management.',
+   146→        icon: 'Scan',
+   147→        floorNo: 'Floor 1',
+   148→        opdRoom: 'OPD Room 105',
+   149→        sortOrder: 3,
+   150→        doctors: [
+   151→          { name: 'Dr. Rajesh Kumar', email: 'rajesh@skinclinic.com', gender: 'Male', specialization: 'Dermatology', experience: '15 years', education: 'MBBS, MD (Dermatology)', designation: 'Consultant', fees: 400, opdTimings: 'Mon-Sat 10:00-2:00', existingDoctor: true },
+   152→          { name: 'Dr. Neha Patel', email: 'neha.patel@zydus.com', gender: 'Female', specialization: 'Dermatology', experience: '6 years', education: 'MBBS, MD (Dermatology)', designation: 'Junior Consultant', fees: 200, opdTimings: 'Mon/Wed/Fri 3:00-5:00' },
+   153→        ],
+   154→      },
+   155→      {
+   156→        name: 'Neurology',
+   157→        nameHi: 'न्यूरोलॉजी',
+   158→        description: 'Specialized neurological care for brain, spine, and nervous system disorders.',
+   159→        icon: 'Brain',
+   160→        floorNo: 'Floor 4',
+   161→        opdRoom: 'OPD Room 401',
+   162→        sortOrder: 4,
+   163→        doctors: [
+   164→          { name: 'Dr. Vikram Singh', email: 'vikram.singh@zydus.com', gender: 'Male', specialization: 'Neurology', experience: '20 years', education: 'MBBS, MD, DM (Neurology)', designation: 'Senior Consultant', fees: 900, opdTimings: 'Mon/Tue/Thu 11:00-2:00' },
+   165→          { name: 'Dr. Anita Desai', email: 'anita.desai@zydus.com', gender: 'Female', specialization: 'Neurology', experience: '8 years', education: 'MBBS, MD, DM (Neurology)', designation: 'Consultant', fees: 500, opdTimings: 'Wed/Fri/Sat 10:00-1:00' },
+   166→        ],
+   167→      },
+   168→      {
+   169→        name: 'General Medicine',
+   170→        nameHi: 'सामान्य चिकित्सा',
+   171→        description: 'Comprehensive internal medicine for routine health checkups, chronic disease management, and preventive care.',
+   172→        icon: 'Stethoscope',
+   173→        floorNo: 'Ground Floor',
+   174→        opdRoom: 'OPD Room 101',
+   175→        sortOrder: 5,
+   176→        doctors: [
+   177→          { name: 'Dr. Mahesh Mehta', email: 'mahesh.mehta@zydus.com', gender: 'Male', specialization: 'General Medicine', experience: '16 years', education: 'MBBS, MD (Medicine)', designation: 'Senior Consultant', fees: 400, opdTimings: 'Mon-Sat 9:00-12:00' },
+   178→          { name: 'Dr. Swati Rao', email: 'swati.rao@zydus.com', gender: 'Female', specialization: 'General Medicine', experience: '9 years', education: 'MBBS, MD (Medicine)', designation: 'Consultant', fees: 300, opdTimings: 'Mon/Wed/Fri 2:00-5:00' },
+   179→        ],
+   180→      },
+   181→      {
+   182→        name: 'Ophthalmology',
+   183→        nameHi: 'नेत्र विज्ञान',
+   184→        description: 'Complete eye care services including cataract surgery, LASIK, glaucoma treatment, and retinal care.',
+   185→        icon: 'Eye',
+   186→        floorNo: 'Floor 2',
+   187→        opdRoom: 'OPD Room 205',
+   188→        sortOrder: 6,
+   189→        doctors: [
+   190→          { name: 'Dr. Sanjay Verma', email: 'sanjay.verma@zydus.com', gender: 'Male', specialization: 'Ophthalmology', experience: '14 years', education: 'MBBS, MS (Ophthalmology)', designation: 'Consultant', fees: 500, opdTimings: 'Tue/Thu/Sat 10:00-1:00' },
+   191→          { name: 'Dr. Kavita Sharma', email: 'kavita.sharma@zydus.com', gender: 'Female', specialization: 'Ophthalmology', experience: '7 years', education: 'MBBS, MS (Ophthalmology)', designation: 'Junior Consultant', fees: 300, opdTimings: 'Mon/Wed/Fri 11:00-2:00' },
+   192→        ],
+   193→      },
+   194→      {
+   195→        name: 'Pediatrics',
+   196→        nameHi: 'बाल चिकित्सा',
+   197→        description: 'Specialized child healthcare from newborn care to adolescent medicine, including vaccinations.',
+   198→        icon: 'Baby',
+   199→        floorNo: 'Floor 1',
+   200→        opdRoom: 'OPD Room 102',
+   201→        sortOrder: 7,
+   202→        doctors: [
+   203→          { name: 'Dr. Pooja Iyer', email: 'pooja.iyer@zydus.com', gender: 'Female', specialization: 'Pediatrics', experience: '11 years', education: 'MBBS, MD (Pediatrics)', designation: 'Consultant', fees: 400, opdTimings: 'Mon/Tue/Wed 10:00-1:00' },
+   204→          { name: 'Dr. Rajiv Nair', email: 'rajiv.nair@zydus.com', gender: 'Male', specialization: 'Pediatrics', experience: '8 years', education: 'MBBS, DCH, MD (Pediatrics)', designation: 'Consultant', fees: 350, opdTimings: 'Thu/Fri/Sat 10:00-1:00' },
+   205→        ],
+   206→      },
+   207→      {
+   208→        name: 'ENT',
+   209→        nameHi: 'ईएनटी',
+   210→        description: 'Ear, Nose, and Throat specialist care including endoscopic sinus surgery and audiology.',
+   211→        icon: 'Ear',
+   212→        floorNo: 'Floor 2',
+   213→        opdRoom: 'OPD Room 210',
+   214→        sortOrder: 8,
+   215→        doctors: [
+   216→          { name: 'Dr. Deepak Joshi', email: 'deepak.joshi@zydus.com', gender: 'Male', specialization: 'ENT', experience: '15 years', education: 'MBBS, MS (ENT)', designation: 'Senior Consultant', fees: 500, opdTimings: 'Mon/Wed/Fri 9:00-12:00' },
+   217→          { name: 'Dr. Meera Reddy', email: 'meera.reddy@zydus.com', gender: 'Female', specialization: 'ENT', experience: '6 years', education: 'MBBS, MS (ENT)', designation: 'Junior Consultant', fees: 300, opdTimings: 'Tue/Thu/Sat 2:00-5:00' },
+   218→        ],
+   219→      },
+   220→      {
+   221→        name: 'Gynecology',
+   222→        nameHi: 'स्त्री रोग विज्ञान',
+   223→        description: "Women's health services including obstetrics, fertility treatments, and laparoscopic surgeries.",
+   224→        icon: 'Heart',
+   225→        floorNo: 'Floor 3',
+   226→        opdRoom: 'OPD Room 310',
+   227→        sortOrder: 9,
+   228→        doctors: [
+   229→          { name: 'Dr. Nisha Agarwal', email: 'nisha.agarwal@zydus.com', gender: 'Female', specialization: 'Gynecology', experience: '18 years', education: 'MBBS, MS (OBG)', designation: 'Senior Consultant', fees: 600, opdTimings: 'Mon/Tue/Thu 10:00-1:00' },
+   230→          { name: 'Dr. Sneha Kapoor', email: 'sneha.kapoor@zydus.com', gender: 'Female', specialization: 'Gynecology', experience: '9 years', education: 'MBBS, DNB (OBG)', designation: 'Consultant', fees: 400, opdTimings: 'Wed/Fri/Sat 10:00-1:00' },
+   231→        ],
+   232→      },
+   233→      {
+   234→        name: 'Urology',
+   235→        nameHi: 'यूरोलॉजी',
+   236→        description: 'Specialized care for kidney stones, prostate issues, urological cancers, and minimally invasive surgeries.',
+   237→        icon: 'Droplets',
+   238→        floorNo: 'Floor 3',
+   239→        opdRoom: 'OPD Room 315',
+   240→        sortOrder: 10,
+   241→        doctors: [
+   242→          { name: 'Dr. Arvind Menon', email: 'arvind.menon@zydus.com', gender: 'Male', specialization: 'Urology', experience: '16 years', education: 'MBBS, MS, MCh (Urology)', designation: 'Senior Consultant', fees: 700, opdTimings: 'Mon/Wed/Fri 11:00-2:00' },
+   243→          { name: 'Dr. Tanvi Bhatt', email: 'tanvi.bhatt@zydus.com', gender: 'Female', specialization: 'Urology', experience: '7 years', education: 'MBBS, MS, MCh (Urology)', designation: 'Consultant', fees: 500, opdTimings: 'Tue/Thu/Sat 10:00-1:00' },
+   244→        ],
+   245→      },
+   246→    ],
+   247→  },
+   248→
+   249→  // ---- SHALBY HOSPITAL ----
+   250→  {
+   251→    name: 'Shalby Hospital',
+   252→    email: 'shalby@hospital.com',
+   253→    password: 'Hospital@123',
+   254→    hospitalName: 'Shalby Hospital',
+   255→    address: 'Shalby Hospitals, SG Highway',
+   256→    city: 'Ahmedabad',
+   257→    state: 'Gujarat',
+   258→    pincode: '380015',
+   259→    contactNo: '+91-79-4020-4000',
+   260→    departments: [
+   261→      {
+   262→        name: 'Cardiology',
+   263→        nameHi: 'कार्डियोलॉजी',
+   264→        description: 'World-class cardiac care with advanced catheterization lab and cardiac surgery facilities.',
+   265→        icon: 'HeartPulse',
+   266→        floorNo: 'Floor 1',
+   267→        opdRoom: 'OPD Room 101',
+   268→        sortOrder: 1,
+   269→        doctors: [
+   270→          { name: 'Dr. Hitesh Patel', email: 'hitesh.patel@shalby.com', gender: 'Male', specialization: 'Cardiology', experience: '20 years', education: 'MBBS, MD, DM (Cardiology)', designation: 'Director', fees: 1000, opdTimings: 'Mon/Wed 10:00-1:00' },
+   271→          { name: 'Dr. Aarti Shah', email: 'aarti.shah@shalby.com', gender: 'Female', specialization: 'Cardiology', experience: '13 years', education: 'MBBS, MD, DM (Cardiology)', designation: 'Senior Consultant', fees: 700, opdTimings: 'Tue/Thu/Sat 9:00-12:00' },
+   272→        ],
+   273→      },
+   274→      {
+   275→        name: 'Orthopedics',
+   276→        nameHi: 'ऑर्थोपेडिक्स',
+   277→        description: 'Renowned joint replacement center with robotic surgery and sports injury rehabilitation.',
+   278→        icon: 'Bone',
+   279→        floorNo: 'Floor 2',
+   280→        opdRoom: 'OPD Room 201',
+   281→        sortOrder: 2,
+   282→        doctors: [
+   283→          { name: 'Dr. Bharat Trivedi', email: 'bharat.trivedi@shalby.com', gender: 'Male', specialization: 'Orthopedics', experience: '25 years', education: 'MBBS, MS (Ortho)', designation: 'HOD', fees: 1200, opdTimings: 'Mon/Tue/Thu 10:00-1:00' },
+   284→          { name: 'Dr. Kiran Rao', email: 'kiran.rao@shalby.com', gender: 'Male', specialization: 'Orthopedics', experience: '12 years', education: 'MBBS, MS (Ortho)', designation: 'Consultant', fees: 700, opdTimings: 'Wed/Fri/Sat 10:00-1:00' },
+   285→        ],
+   286→      },
+   287→      {
+   288→        name: 'General Surgery',
+   289→        nameHi: 'सामान्य सर्जरी',
+   290→        description: 'Minimally invasive and open surgical procedures for hernia, gallbladder, appendicitis, and more.',
+   291→        icon: 'Scissors',
+   292→        floorNo: 'Floor 3',
+   293→        opdRoom: 'OPD Room 301',
+   294→        sortOrder: 3,
+   295→        doctors: [
+   296→          { name: 'Dr. Yogesh Pandey', email: 'yogesh.pandey@shalby.com', gender: 'Male', specialization: 'General Surgery', experience: '17 years', education: 'MBBS, MS (General Surgery)', designation: 'Senior Consultant', fees: 600, opdTimings: 'Mon/Wed/Fri 11:00-2:00' },
+   297→          { name: 'Dr. Rekha Saxena', email: 'rekha.saxena@shalby.com', gender: 'Female', specialization: 'General Surgery', experience: '10 years', education: 'MBBS, MS (General Surgery)', designation: 'Consultant', fees: 450, opdTimings: 'Tue/Thu/Sat 10:00-1:00' },
+   298→        ],
+   299→      },
+   300→      {
+   301→        name: 'Neurology',
+   302→        nameHi: 'न्यूरोलॉजी',
+   303→        description: 'Comprehensive neurological services for stroke, epilepsy, movement disorders, and headaches.',
+   304→        icon: 'Brain',
+   305→        floorNo: 'Floor 4',
+   306→        opdRoom: 'OPD Room 401',
+   307→        sortOrder: 4,
+   308→        doctors: [
+   309→          { name: 'Dr. Sunil Chauhan', email: 'sunil.chauhan@shalby.com', gender: 'Male', specialization: 'Neurology', experience: '19 years', education: 'MBBS, MD, DM (Neurology)', designation: 'Senior Consultant', fees: 800, opdTimings: 'Mon/Tue/Thu 10:00-1:00' },
+   310→          { name: 'Dr. Divya Iyer', email: 'divya.iyer@shalby.com', gender: 'Female', specialization: 'Neurology', experience: '8 years', education: 'MBBS, MD, DM (Neurology)', designation: 'Consultant', fees: 500, opdTimings: 'Wed/Fri/Sat 10:00-1:00' },
+   311→        ],
+   312→      },
+   313→      {
+   314→        name: 'Dermatology',
+   315→        nameHi: 'डर्मेटोलॉजी',
+   316→        description: 'Skin, hair, and nail care with advanced laser treatments and cosmetic procedures.',
+   317→        icon: 'Scan',
+   318→        floorNo: 'Ground Floor',
+   319→        opdRoom: 'OPD Room 105',
+   320→        sortOrder: 5,
+   321→        doctors: [
+   322→          { name: 'Dr. Manish Agarwal', email: 'manish.agarwal@shalby.com', gender: 'Male', specialization: 'Dermatology', experience: '14 years', education: 'MBBS, MD (Dermatology)', designation: 'Consultant', fees: 500, opdTimings: 'Mon/Tue/Wed 10:00-1:00' },
+   323→          { name: 'Dr. Prachi Goyal', email: 'prachi.goyal@shalby.com', gender: 'Female', specialization: 'Dermatology', experience: '5 years', education: 'MBBS, MD (Dermatology)', designation: 'Junior Consultant', fees: 300, opdTimings: 'Thu/Fri/Sat 10:00-1:00' },
+   324→        ],
+   325→      },
+   326→      {
+   327→        name: 'ENT',
+   328→        nameHi: 'ईएनटी',
+   329→        description: 'Ear, Nose, and Throat care with modern endoscopic and microscopic techniques.',
+   330→        icon: 'Ear',
+   331→        floorNo: 'Floor 1',
+   332→        opdRoom: 'OPD Room 110',
+   333→        sortOrder: 6,
+   334→        doctors: [
+   335→          { name: 'Dr. Anil Tiwari', email: 'anil.tiwari@shalby.com', gender: 'Male', specialization: 'ENT', experience: '16 years', education: 'MBBS, MS (ENT)', designation: 'Senior Consultant', fees: 500, opdTimings: 'Mon/Wed/Fri 10:00-1:00' },
+   336→          { name: 'Dr. Shikha Bhatnagar', email: 'shikha.bhatnagar@shalby.com', gender: 'Female', specialization: 'ENT', experience: '7 years', education: 'MBBS, MS (ENT)', designation: 'Consultant', fees: 350, opdTimings: 'Tue/Thu/Sat 2:00-5:00' },
+   337→        ],
+   338→      },
+   339→      {
+   340→        name: 'Ophthalmology',
+   341→        nameHi: 'नेत्र विज्ञान',
+   342→        description: 'Advanced eye care including phacoemulsification, retinal surgery, and corneal treatments.',
+   343→        icon: 'Eye',
+   344→        floorNo: 'Floor 2',
+   345→        opdRoom: 'OPD Room 210',
+   346→        sortOrder: 7,
+   347→        doctors: [
+   348→          { name: 'Dr. Rajat Gupta', email: 'rajat.gupta@shalby.com', gender: 'Male', specialization: 'Ophthalmology', experience: '13 years', education: 'MBBS, MS (Ophthalmology)', designation: 'Consultant', fees: 500, opdTimings: 'Mon/Wed/Fri 10:00-1:00' },
+   349→          { name: 'Dr. Sumanlata Devi', email: 'suman.devi@shalby.com', gender: 'Female', specialization: 'Ophthalmology', experience: '8 years', education: 'MBBS, MS (Ophthalmology)', designation: 'Junior Consultant', fees: 350, opdTimings: 'Tue/Thu/Sat 10:00-1:00' },
+   350→        ],
+   351→      },
+   352→      {
+   353→        name: 'Pediatrics',
+   354→        nameHi: 'बाल चिकित्सा',
+   355→        description: 'Child-friendly pediatric care with vaccination programs, growth monitoring, and neonatal ICU.',
+   356→        icon: 'Baby',
+   357→        floorNo: 'Ground Floor',
+   358→        opdRoom: 'OPD Room 102',
+   359→        sortOrder: 8,
+   360→        doctors: [
+   361→          { name: 'Dr. Neha Khanna', email: 'neha.khanna@shalby.com', gender: 'Female', specialization: 'Pediatrics', experience: '12 years', education: 'MBBS, MD (Pediatrics)', designation: 'Senior Consultant', fees: 450, opdTimings: 'Mon/Tue/Wed 10:00-1:00' },
+   362→          { name: 'Dr. Varun Malik', email: 'varun.malik@shalby.com', gender: 'Male', specialization: 'Pediatrics', experience: '7 years', education: 'MBBS, DCH, MD (Pediatrics)', designation: 'Consultant', fees: 350, opdTimings: 'Thu/Fri/Sat 10:00-1:00' },
+   363→        ],
+   364→      },
+   365→    ],
+   366→  },
+   367→
+   368→  // ---- AIIMS HOSPITAL ----
+   369→  {
+   370→    name: 'AIIMS Hospital',
+   371→    email: 'aiims@hospital.com',
+   372→    password: 'Hospital@123',
+   373→    hospitalName: 'AIIMS Hospital',
+   374→    address: 'AIIMS, Ansari Nagar',
+   375→    city: 'New Delhi',
+   376→    state: 'Delhi',
+   377→    pincode: '110029',
+   378→    contactNo: '+91-11-2658-8500',
+   379→    departments: [
+   380→      {
+   381→        name: 'Cardiology',
+   382→        nameHi: 'कार्डियोलॉजी',
+   383→        description: "India's premier cardiac center with cutting-edge interventional and surgical cardiology.",
+   384→        icon: 'HeartPulse',
+   385→        floorNo: 'Floor 3',
+   386→        opdRoom: 'OPD Room 301',
+   387→        sortOrder: 1,
+   388→        doctors: [
+   389→          { name: 'Dr. Srinivas Kulkarni', email: 'srinivas.k@aiims.com', gender: 'Male', specialization: 'Cardiology', experience: '25 years', education: 'MBBS, MD, DM (Cardiology), FACC', designation: 'Professor & HOD', fees: 300, opdTimings: 'Mon/Tue/Thu 9:00-12:00' },
+   390→          { name: 'Dr. Madhuri Dixit', email: 'madhuri.d@aiims.com', gender: 'Female', specialization: 'Cardiology', experience: '15 years', education: 'MBBS, MD, DM (Cardiology)', designation: 'Associate Professor', fees: 200, opdTimings: 'Wed/Fri/Sat 10:00-1:00' },
+   391→          { name: 'Dr. Rohit Kumar', email: 'rohit.kumar@aiims.com', gender: 'Male', specialization: 'Cardiology', experience: '8 years', education: 'MBBS, MD, DM (Cardiology)', designation: 'Assistant Professor', fees: 100, opdTimings: 'Mon/Wed/Fri 2:00-5:00' },
+   392→        ],
+   393→      },
+   394→      {
+   395→        name: 'Neurology',
+   396→        nameHi: 'न्यूरोलॉजी',
+   397→        description: 'Advanced neuroscience center with neurosurgery, neuro-rehabilitation, and EEG facilities.',
+   398→        icon: 'Brain',
+   399→        floorNo: 'Floor 5',
+   400→        opdRoom: 'OPD Room 501',
+   401→        sortOrder: 2,
+   402→        doctors: [
+   403→          { name: 'Dr. Ashok Jha', email: 'ashok.jha@aiims.com', gender: 'Male', specialization: 'Neurology', experience: '28 years', education: 'MBBS, MD, DM (Neurology)', designation: 'Professor & HOD', fees: 300, opdTimings: 'Mon/Tue/Wed 9:00-12:00' },
+   404→          { name: 'Dr. Pallavi Nair', email: 'pallavi.nair@aiims.com', gender: 'Female', specialization: 'Neurology', experience: '12 years', education: 'MBBS, MD, DM (Neurology)', designation: 'Associate Professor', fees: 200, opdTimings: 'Thu/Fri/Sat 10:00-1:00' },
+   405→        ],
+   406→      },
+   407→      {
+   408→        name: 'Orthopedics',
+   409→        nameHi: 'ऑर्थोपेडिक्स',
+   410→        description: 'National referral center for complex orthopedic cases, trauma, and joint replacements.',
+   411→        icon: 'Bone',
+   412→        floorNo: 'Floor 4',
+   413→        opdRoom: 'OPD Room 401',
+   414→        sortOrder: 3,
+   415→        doctors: [
+   416→          { name: 'Dr. Pradeep Sharma', email: 'pradeep.s@aiims.com', gender: 'Male', specialization: 'Orthopedics', experience: '22 years', education: 'MBBS, MS (Ortho), MCh', designation: 'Professor', fees: 300, opdTimings: 'Mon/Wed/Fri 10:00-1:00' },
+   417→          { name: 'Dr. Kavitha Menon', email: 'kavitha.m@aiims.com', gender: 'Female', specialization: 'Orthopedics', experience: '10 years', education: 'MBBS, MS (Ortho)', designation: 'Assistant Professor', fees: 150, opdTimings: 'Tue/Thu/Sat 10:00-1:00' },
+   418→        ],
+   419→      },
+   420→      {
+   421→        name: 'General Medicine',
+   422→        nameHi: 'सामान्य चिकित्सा',
+   423→        description: 'Primary internal medicine department handling complex medical cases and referrals.',
+   424→        icon: 'Stethoscope',
+   425→        floorNo: 'Ground Floor',
+   426→        opdRoom: 'OPD Room 101',
+   427→        sortOrder: 4,
+   428→        doctors: [
+   429→          { name: 'Dr. Vinod Tiwari', email: 'vinod.t@aiims.com', gender: 'Male', specialization: 'General Medicine', experience: '20 years', education: 'MBBS, MD (Medicine)', designation: 'Professor', fees: 200, opdTimings: 'Mon-Sat 9:00-12:00' },
+   430→          { name: 'Dr. Sangeeta Roy', email: 'sangeeta.r@aiims.com', gender: 'Female', specialization: 'General Medicine', experience: '14 years', education: 'MBBS, MD (Medicine)', designation: 'Associate Professor', fees: 150, opdTimings: 'Mon/Wed/Fri 2:00-5:00' },
+   431→        ],
+   432→      },
+   433→      {
+   434→        name: 'Dermatology',
+   435→        nameHi: 'डर्मेटोलॉजी',
+   436→        description: 'Specialized dermatology and venereology services for skin diseases, leprosy, and cosmetic dermatology.',
+   437→        icon: 'Scan',
+   438→        floorNo: 'Floor 2',
+   439→        opdRoom: 'OPD Room 205',
+   440→        sortOrder: 5,
+   441→        doctors: [
+   442→          { name: 'Dr. Girish Rathi', email: 'girish.r@aiims.com', gender: 'Male', specialization: 'Dermatology', experience: '18 years', education: 'MBBS, MD (Dermatology)', designation: 'Professor', fees: 200, opdTimings: 'Mon/Tue/Thu 10:00-1:00' },
+   443→          { name: 'Dr. Priyanka Sen', email: 'priyanka.s@aiims.com', gender: 'Female', specialization: 'Dermatology', experience: '9 years', education: 'MBBS, MD (Dermatology)', designation: 'Assistant Professor', fees: 100, opdTimings: 'Wed/Fri/Sat 10:00-1:00' },
+   444→        ],
+   445→      },
+   446→      {
+   447→        name: 'Ophthalmology',
+   448→        nameHi: 'नेत्र विज्ञान',
+   449→        description: 'Comprehensive eye care including corneal transplantation, retinal surgery, and ocular oncology.',
+   450→        icon: 'Eye',
+   451→        floorNo: 'Floor 3',
+   452→        opdRoom: 'OPD Room 310',
+   453→        sortOrder: 6,
+   454→        doctors: [
+   455→          { name: 'Dr. Rajendra Prasad', email: 'rajendra.p@aiims.com', gender: 'Male', specialization: 'Ophthalmology', experience: '21 years', education: 'MBBS, MS (Ophthalmology)', designation: 'Professor', fees: 200, opdTimings: 'Mon/Wed/Fri 10:00-1:00' },
+   456→          { name: 'Dr. Alpana Verma', email: 'alpana.v@aiims.com', gender: 'Female', specialization: 'Ophthalmology', experience: '11 years', education: 'MBBS, MS (Ophthalmology)', designation: 'Associate Professor', fees: 150, opdTimings: 'Tue/Thu/Sat 10:00-1:00' },
+   457→        ],
+   458→      },
+   459→      {
+   460→        name: 'Pediatrics',
+   461→        nameHi: 'बाल चिकित्सा',
+   462→        description: 'Tertiary-level pediatric care with dedicated PICU, NICU, and specialized pediatric clinics.',
+   463→        icon: 'Baby',
+   464→        floorNo: 'Floor 1',
+   465→        opdRoom: 'OPD Room 102',
+   466→        sortOrder: 7,
+   467→        doctors: [
+   468→          { name: 'Dr. Suresh Mohan', email: 'suresh.m@aiims.com', gender: 'Male', specialization: 'Pediatrics', experience: '19 years', education: 'MBBS, MD (Pediatrics), Fellowship', designation: 'Professor', fees: 200, opdTimings: 'Mon/Tue/Wed 9:00-12:00' },
+   469→          { name: 'Dr. Anjali Bhatia', email: 'anjali.b@aiims.com', gender: 'Female', specialization: 'Pediatrics', experience: '10 years', education: 'MBBS, MD (Pediatrics)', designation: 'Assistant Professor', fees: 100, opdTimings: 'Thu/Fri/Sat 10:00-1:00' },
+   470→        ],
+   471→      },
+   472→      {
+   473→        name: 'Gastroenterology',
+   474→        nameHi: 'गैस्ट्रोएंटेरोलॉजी',
+   475→        description: 'Advanced GI care including endoscopy, ERCP, liver diseases, and inflammatory bowel disease management.',
+   476→        icon: 'Pill',
+   477→        floorNo: 'Floor 4',
+   478→        opdRoom: 'OPD Room 405',
+   479→        sortOrder: 8,
+   480→        doctors: [
+   481→          { name: 'Dr. Narendra Singh', email: 'narendra.s@aiims.com', gender: 'Male', specialization: 'Gastroenterology', experience: '23 years', education: 'MBBS, MD, DM (Gastro)', designation: 'Professor & HOD', fees: 300, opdTimings: 'Mon/Wed 10:00-1:00' },
+   482→          { name: 'Dr. Ritu Agarwal', email: 'ritu.a@aiims.com', gender: 'Female', specialization: 'Gastroenterology', experience: '11 years', education: 'MBBS, MD, DM (Gastro)', designation: 'Associate Professor', fees: 200, opdTimings: 'Tue/Thu/Fri 10:00-1:00' },
+   483→        ],
+   484→      },
+   485→    ],
+   486→  },
+   487→]
+   488→
+   489→// ============ MAIN SEED FUNCTION ============
+   490→
+   491→async function main() {
+   492→  console.log('🌱 Starting multi-specialty hospital seed...\n')
+   493→
+   494→  const HOSPITAL_PWD = await hash('Hospital@123', 10)
+   495→  const DOCTOR_PWD = await hash('Doctor@123', 10)
+   496→
+   497→  // Check for existing Dr. Rajesh
+   498→  const existingRajesh = await db.user.findUnique({
+   499→    where: { email: 'rajesh@skinclinic.com' },
+   500→    include: { doctor: true },
+   501→  })
+   502→  if (existingRajesh?.doctor) {
+   503→    console.log(`✅ Found existing Dr. Rajesh (userId: ${existingRajesh.id}, doctorId: ${existingRajesh.doctor.id})`)
+   504→  }
+   505→
+   506→  // Collect all doctor emails that already exist in the DB
+   507→  const allNewDoctorEmails = hospitals.flatMap(h =>
+   508→    h.departments.flatMap(d =>
+   509→      d.doctors.filter(doc => !doc.existingDoctor).map(doc => doc.email)
+   510→    )
+   511→  )
+   512→  const existingDoctors = await db.user.findMany({
+   513→    where: { email: { in: allNewDoctorEmails } },
+   514→    select: { email: true },
+   515→  })
+   516→  const existingEmails = new Set(existingDoctors.map(u => u.email))
+   517→
+   518→  let totalHospitalsCreated = 0
+   519→  let totalDepartmentsCreated = 0
+   520→  let totalDoctorsCreated = 0
+   521→  let totalDoctorLinksCreated = 0
+   522→  let totalSchedulesCreated = 0
+   523→
+   524→  for (const hospitalData of hospitals) {
+   525→    console.log(`\n🏥 Processing: ${hospitalData.hospitalName}`)
+   526→
+   527→    // ---- 1. Create Hospital User (upsert) ----
+   528→    const hospitalUser = await db.user.upsert({
+   529→      where: { email: hospitalData.email },
+   530→      update: {},
+   531→      create: {
+   532→        name: hospitalData.name,
+   533→        email: hospitalData.email,
+   534→        password: HOSPITAL_PWD,
+   535→        role: 'hospital',
+   536→        status: 'Active',
+   537→        mobileNo: hospitalData.contactNo,
+   538→      },
+   539→    })
+   540→    console.log(`   👤 Hospital user: ${hospitalUser.email} (id: ${hospitalUser.id})`)
+   541→
+   542→    // ---- 2. Create Hospital record (upsert) ----
+   543→    const hospital = await db.hospital.upsert({
+   544→      where: { userId: hospitalUser.id },
+   545→      update: {},
+   546→      create: {
+   547→        userId: hospitalUser.id,
+   548→        hospitalName: hospitalData.hospitalName,
+   549→        address: hospitalData.address,
+   550→        city: hospitalData.city,
+   551→        state: hospitalData.state,
+   552→        pincode: hospitalData.pincode,
+   553→        email: hospitalData.email,
+   554→        contactNo: hospitalData.contactNo,
+   555→        hospitalType: 'Multi-Specialty',
+   556→        status: 'Active',
+   557→      },
+   558→    })
+   559→    totalHospitalsCreated++
+   560→    console.log(`   🏢 Hospital record: ${hospital.hospitalName} (id: ${hospital.id})`)
+   561→
+   562→    // ---- 3. Create Departments ----
+   563→    for (const deptData of hospitalData.departments) {
+   564→      const department = await db.department.create({
+   565→        data: {
+   566→          hospitalId: hospital.id,
+   567→          name: deptData.name,
+   568→          nameHi: deptData.nameHi,
+   569→          description: deptData.description,
+   570→          icon: deptData.icon,
+   571→          floorNo: deptData.floorNo,
+   572→          opdRoom: deptData.opdRoom,
+   573→          status: 'Active',
+   574→          sortOrder: deptData.sortOrder,
+   575→        },
+   576→      })
+   577→      totalDepartmentsCreated++
+   578→      console.log(`   🏷️  Department: ${deptData.name} (${deptData.floorNo}, ${deptData.opdRoom})`)
+   579→
+   580→      // ---- 4. Create Doctors + DoctorRecords + Schedules + DoctorHospital Links ----
+   581→      for (const docData of deptData.doctors) {
+   582→        let doctorId: string
+   583→
+   584→        if (docData.existingDoctor && existingRajesh?.doctor) {
+   585→          // Link existing doctor
+   586→          doctorId = existingRajesh.doctor.id
+   587→          console.log(`      🔗 Linked existing doctor: ${docData.name} (${docData.email})`)
+   588→        } else {
+   589→          if (existingEmails.has(docData.email)) {
+   590→            console.log(`      ⏭️  Skipping existing doctor: ${docData.name} (${docData.email})`)
+   591→            continue
+   592→          }
+   593→
+   594→          // Create User
+   595→          const doctorUser = await db.user.create({
+   596→            data: {
+   597→              name: docData.name,
+   598→              email: docData.email,
+   599→              password: DOCTOR_PWD,
+   600→              role: 'doctor',
+   601→              status: 'Active',
+   602→              gender: docData.gender,
+   603→            },
+   604→          })
+   605→
+   606→          // Create Doctor record
+   607→          const doctor = await db.doctor.create({
+   608→            data: {
+   609→              userId: doctorUser.id,
+   610→              specialization: docData.specialization,
+   611→              experience: docData.experience,
+   612→              education: docData.education,
+   613→              fees: docData.fees,
+   614→              city: hospitalData.city,
+   615→              state: hospitalData.state,
+   616→            },
+   617→          })
+   618→          doctorId = doctor.id
+   619→          totalDoctorsCreated++
+   620→          console.log(`      👨‍⚕️  New doctor: ${docData.name} (${docData.email})`)
+   621→        }
+   622→
+   623→        // Create DoctorHospital link
+   624→        const doctorHospital = await db.doctorHospital.create({
+   625→          data: {
+   626→            doctorId,
+   627→            hospitalId: hospital.id,
+   628→            departmentId: department.id,
+   629→            designation: docData.designation,
+   630→            fees: docData.fees,
+   631→            opdTimings: docData.opdTimings,
+   632→            isAvailable: true,
+   633→            status: 'Active',
+   634→          },
+   635→        })
+   636→        totalDoctorLinksCreated++
+   637→
+   638→        // Create DoctorSchedule entries based on OPD timings
+   639→        const schedules = parseOpdTimings(docData.opdTimings)
+   640→        for (const sched of schedules) {
+   641→          await db.doctorSchedule.create({
+   642→            data: {
+   643→              doctorId,
+   644→              day: sched.day,
+   645→              startTime: sched.startTime,
+   646→              endTime: sched.endTime,
+   647→              slotDuration: 15,
+   648→            },
+   649→          })
+   650→          totalSchedulesCreated++
+   651→        }
+   652→
+   653→        if (schedules.length > 0) {
+   654→          console.log(`      📅 Created ${schedules.length} schedule entries for ${docData.name} (${docData.opdTimings})`)
+   655→        }
+   656→      }
+   657→    }
+   658→  }
+   659→
+   660→  // ============ SUMMARY ============
+   661→  console.log('\n\n' + '='.repeat(60))
+   662→  console.log('📊 SEED COMPLETE — SUMMARY')
+   663→  console.log('='.repeat(60))
+   664→  console.log(`   Hospitals created:     ${totalHospitalsCreated}`)
+   665→  console.log(`   Departments created:    ${totalDepartmentsCreated}`)
+   666→  console.log(`   New doctors created:    ${totalDoctorsCreated}`)
+   667→  console.log(`   DoctorHospital links:   ${totalDoctorLinksCreated}`)
+   668→  console.log(`   Schedule entries:       ${totalSchedulesCreated}`)
+   669→  console.log('='.repeat(60))
+   670→}
+   671→
+   672→main()
+   673→  .catch((e) => {
+   674→    console.error('❌ Seed failed:', e)
+   675→    process.exit(1)
+   676→  })
+   677→  .finally(async () => {
+   678→    await db.$disconnect()
+   679→  })
+   680→

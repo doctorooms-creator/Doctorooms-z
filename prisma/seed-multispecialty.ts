@@ -72,17 +72,28 @@ interface HospitalSeed {
   pincode: string
   contactNo: string
   departments: DepartmentSeed[]
+  staff: StaffSeed[]
 }
 
 interface DepartmentSeed {
   name: string
   nameHi: string
+  shortCode: string // Token prefix e.g. CARD, ORTH, DERM
   description: string
   icon: string
   floorNo: string
   opdRoom: string
   sortOrder: number
   doctors: DoctorSeed[]
+}
+
+interface StaffSeed {
+  name: string
+  email: string
+  gender: string
+  role: 'receptionist' | 'pharmacist' | 'assistant'
+  departmentId?: string // for dept-assigned receptionists
+  doctorId?: string // for assistants (doctor email to link)
 }
 
 interface DoctorSeed {
@@ -116,6 +127,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Cardiology',
         nameHi: 'कार्डियोलॉजी',
+        shortCode: 'CARD',
         description: 'Comprehensive heart care including interventional cardiology, cardiac surgery, and cardiac rehabilitation.',
         icon: 'HeartPulse',
         floorNo: 'Floor 2',
@@ -129,6 +141,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Orthopedics',
         nameHi: 'ऑर्थोपेडिक्स',
+        shortCode: 'ORTH',
         description: 'Advanced orthopedic care including joint replacement, sports medicine, and spine surgery.',
         icon: 'Bone',
         floorNo: 'Floor 3',
@@ -142,6 +155,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Dermatology',
         nameHi: 'डर्मेटोलॉजी',
+        shortCode: 'DERM',
         description: 'Expert skin care including cosmetic dermatology, laser treatments, and allergy management.',
         icon: 'Scan',
         floorNo: 'Floor 1',
@@ -155,6 +169,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Neurology',
         nameHi: 'न्यूरोलॉजी',
+        shortCode: 'NEUR',
         description: 'Specialized neurological care for brain, spine, and nervous system disorders.',
         icon: 'Brain',
         floorNo: 'Floor 4',
@@ -168,6 +183,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'General Medicine',
         nameHi: 'सामान्य चिकित्सा',
+        shortCode: 'GMED',
         description: 'Comprehensive internal medicine for routine health checkups, chronic disease management, and preventive care.',
         icon: 'Stethoscope',
         floorNo: 'Ground Floor',
@@ -181,6 +197,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Ophthalmology',
         nameHi: 'नेत्र विज्ञान',
+        shortCode: 'OPHT',
         description: 'Complete eye care services including cataract surgery, LASIK, glaucoma treatment, and retinal care.',
         icon: 'Eye',
         floorNo: 'Floor 2',
@@ -194,6 +211,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Pediatrics',
         nameHi: 'बाल चिकित्सा',
+        shortCode: 'PEDS',
         description: 'Specialized child healthcare from newborn care to adolescent medicine, including vaccinations.',
         icon: 'Baby',
         floorNo: 'Floor 1',
@@ -207,6 +225,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'ENT',
         nameHi: 'ईएनटी',
+        shortCode: 'ENT',
         description: 'Ear, Nose, and Throat specialist care including endoscopic sinus surgery and audiology.',
         icon: 'Ear',
         floorNo: 'Floor 2',
@@ -220,6 +239,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Gynecology',
         nameHi: 'स्त्री रोग विज्ञान',
+        shortCode: 'GYNE',
         description: "Women's health services including obstetrics, fertility treatments, and laparoscopic surgeries.",
         icon: 'Heart',
         floorNo: 'Floor 3',
@@ -233,6 +253,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Urology',
         nameHi: 'यूरोलॉजी',
+        shortCode: 'UROL',
         description: 'Specialized care for kidney stones, prostate issues, urological cancers, and minimally invasive surgeries.',
         icon: 'Droplets',
         floorNo: 'Floor 3',
@@ -243,6 +264,13 @@ const hospitals: HospitalSeed[] = [
           { name: 'Dr. Tanvi Bhatt', email: 'tanvi.bhatt@zydus.com', gender: 'Female', specialization: 'Urology', experience: '7 years', education: 'MBBS, MS, MCh (Urology)', designation: 'Consultant', fees: 500, opdTimings: 'Tue/Thu/Sat 10:00-1:00' },
         ],
       },
+    ],
+    staff: [
+      { name: 'Rina Patel', email: 'rina.reception@zydus.com', gender: 'Female', role: 'receptionist' as const },
+      { name: 'Meena Shah', email: 'meena.reception@zydus.com', gender: 'Female', role: 'receptionist' as const },
+      { name: 'Karan Desai', email: 'karan.pharma@zydus.com', gender: 'Male', role: 'pharmacist' as const },
+      { name: 'Jignesh Patel', email: 'jignesh.assistant@zydus.com', gender: 'Male', role: 'assistant' as const, doctorId: 'amit.shah@zydus.com' },
+      { name: 'Pooja Sharma', email: 'pooja.assistant@zydus.com', gender: 'Female', role: 'assistant' as const, doctorId: 'priya.patel@zydus.com' },
     ],
   },
 
@@ -261,7 +289,8 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Cardiology',
         nameHi: 'कार्डियोलॉजी',
-        description: 'World-class cardiac care with advanced catheterization lab and cardiac surgery facilities.',
+        shortCode: 'CARD',
+        description: 'World-class cardiac care with advanced catheterization lab and cardiac surgery facilities.', 
         icon: 'HeartPulse',
         floorNo: 'Floor 1',
         opdRoom: 'OPD Room 101',
@@ -274,7 +303,8 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Orthopedics',
         nameHi: 'ऑर्थोपेडिक्स',
-        description: 'Renowned joint replacement center with robotic surgery and sports injury rehabilitation.',
+        shortCode: 'ORTH',
+        description: 'Renowned joint replacement center with robotic surgery and sports injury rehabilitation.', 
         icon: 'Bone',
         floorNo: 'Floor 2',
         opdRoom: 'OPD Room 201',
@@ -287,7 +317,8 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'General Surgery',
         nameHi: 'सामान्य सर्जरी',
-        description: 'Minimally invasive and open surgical procedures for hernia, gallbladder, appendicitis, and more.',
+        shortCode: 'GSUR',
+        description: 'Minimally invasive and open surgical procedures for hernia, gallbladder, appendicitis, and more.', 
         icon: 'Scissors',
         floorNo: 'Floor 3',
         opdRoom: 'OPD Room 301',
@@ -300,7 +331,8 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Neurology',
         nameHi: 'न्यूरोलॉजी',
-        description: 'Comprehensive neurological services for stroke, epilepsy, movement disorders, and headaches.',
+        shortCode: 'NEUR',
+        description: 'Comprehensive neurological services for stroke, epilepsy, movement disorders, and headaches.', 
         icon: 'Brain',
         floorNo: 'Floor 4',
         opdRoom: 'OPD Room 401',
@@ -313,7 +345,8 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Dermatology',
         nameHi: 'डर्मेटोलॉजी',
-        description: 'Skin, hair, and nail care with advanced laser treatments and cosmetic procedures.',
+        shortCode: 'DERM',
+        description: 'Skin, hair, and nail care with advanced laser treatments and cosmetic procedures.', 
         icon: 'Scan',
         floorNo: 'Ground Floor',
         opdRoom: 'OPD Room 105',
@@ -326,7 +359,8 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'ENT',
         nameHi: 'ईएनटी',
-        description: 'Ear, Nose, and Throat care with modern endoscopic and microscopic techniques.',
+        shortCode: 'ENT',
+        description: 'Ear, Nose, and Throat care with modern endoscopic and microscopic techniques.', 
         icon: 'Ear',
         floorNo: 'Floor 1',
         opdRoom: 'OPD Room 110',
@@ -339,7 +373,8 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Ophthalmology',
         nameHi: 'नेत्र विज्ञान',
-        description: 'Advanced eye care including phacoemulsification, retinal surgery, and corneal treatments.',
+        shortCode: 'OPHT',
+        description: 'Advanced eye care including phacoemulsification, retinal surgery, and corneal treatments.', 
         icon: 'Eye',
         floorNo: 'Floor 2',
         opdRoom: 'OPD Room 210',
@@ -352,7 +387,8 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Pediatrics',
         nameHi: 'बाल चिकित्सा',
-        description: 'Child-friendly pediatric care with vaccination programs, growth monitoring, and neonatal ICU.',
+        shortCode: 'PEDS',
+        description: 'Child-friendly pediatric care with vaccination programs, growth monitoring, and neonatal ICU.', 
         icon: 'Baby',
         floorNo: 'Ground Floor',
         opdRoom: 'OPD Room 102',
@@ -362,6 +398,11 @@ const hospitals: HospitalSeed[] = [
           { name: 'Dr. Varun Malik', email: 'varun.malik@shalby.com', gender: 'Male', specialization: 'Pediatrics', experience: '7 years', education: 'MBBS, DCH, MD (Pediatrics)', designation: 'Consultant', fees: 350, opdTimings: 'Thu/Fri/Sat 10:00-1:00' },
         ],
       },
+    ],
+    staff: [
+      { name: 'Neha Joshi', email: 'neha.reception@shalby.com', gender: 'Female', role: 'receptionist' as const },
+      { name: 'Amita Rao', email: 'amita.reception@shalby.com', gender: 'Female', role: 'receptionist' as const },
+      { name: 'Ravi Kumar', email: 'ravi.pharma@shalby.com', gender: 'Male', role: 'pharmacist' as const },
     ],
   },
 
@@ -380,6 +421,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Cardiology',
         nameHi: 'कार्डियोलॉजी',
+        shortCode: 'CARD',
         description: "India's premier cardiac center with cutting-edge interventional and surgical cardiology.",
         icon: 'HeartPulse',
         floorNo: 'Floor 3',
@@ -394,6 +436,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Neurology',
         nameHi: 'न्यूरोलॉजी',
+        shortCode: 'NEUR',
         description: 'Advanced neuroscience center with neurosurgery, neuro-rehabilitation, and EEG facilities.',
         icon: 'Brain',
         floorNo: 'Floor 5',
@@ -407,6 +450,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Orthopedics',
         nameHi: 'ऑर्थोपेडिक्स',
+        shortCode: 'ORTH',
         description: 'National referral center for complex orthopedic cases, trauma, and joint replacements.',
         icon: 'Bone',
         floorNo: 'Floor 4',
@@ -420,6 +464,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'General Medicine',
         nameHi: 'सामान्य चिकित्सा',
+        shortCode: 'GMED',
         description: 'Primary internal medicine department handling complex medical cases and referrals.',
         icon: 'Stethoscope',
         floorNo: 'Ground Floor',
@@ -433,6 +478,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Dermatology',
         nameHi: 'डर्मेटोलॉजी',
+        shortCode: 'DERM',
         description: 'Specialized dermatology and venereology services for skin diseases, leprosy, and cosmetic dermatology.',
         icon: 'Scan',
         floorNo: 'Floor 2',
@@ -446,6 +492,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Ophthalmology',
         nameHi: 'नेत्र विज्ञान',
+        shortCode: 'OPHT',
         description: 'Comprehensive eye care including corneal transplantation, retinal surgery, and ocular oncology.',
         icon: 'Eye',
         floorNo: 'Floor 3',
@@ -459,6 +506,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Pediatrics',
         nameHi: 'बाल चिकित्सा',
+        shortCode: 'PEDS',
         description: 'Tertiary-level pediatric care with dedicated PICU, NICU, and specialized pediatric clinics.',
         icon: 'Baby',
         floorNo: 'Floor 1',
@@ -472,6 +520,7 @@ const hospitals: HospitalSeed[] = [
       {
         name: 'Gastroenterology',
         nameHi: 'गैस्ट्रोएंटेरोलॉजी',
+        shortCode: 'GAST',
         description: 'Advanced GI care including endoscopy, ERCP, liver diseases, and inflammatory bowel disease management.',
         icon: 'Pill',
         floorNo: 'Floor 4',
@@ -482,6 +531,12 @@ const hospitals: HospitalSeed[] = [
           { name: 'Dr. Ritu Agarwal', email: 'ritu.a@aiims.com', gender: 'Female', specialization: 'Gastroenterology', experience: '11 years', education: 'MBBS, MD, DM (Gastro)', designation: 'Associate Professor', fees: 200, opdTimings: 'Tue/Thu/Fri 10:00-1:00' },
         ],
       },
+    ],
+    staff: [
+      { name: 'Sunita Devi', email: 'sunita.reception@aiims.com', gender: 'Female', role: 'receptionist' as const },
+      { name: 'Rajendra Kumar', email: 'rajendra.reception@aiims.com', gender: 'Male', role: 'receptionist' as const },
+      { name: 'Vikas Sharma', email: 'vikas.pharma@aiims.com', gender: 'Male', role: 'pharmacist' as const },
+      { name: 'Anita Kumari', email: 'anita.assistant@aiims.com', gender: 'Female', role: 'assistant' as const, doctorId: 'sanjay.k@aiims.com' },
     ],
   },
 ]
@@ -520,6 +575,9 @@ async function main() {
   let totalDoctorsCreated = 0
   let totalDoctorLinksCreated = 0
   let totalSchedulesCreated = 0
+  let totalReceptionistsCreated = 0
+  let totalPharmacistsCreated = 0
+  let totalAssistantsCreated = 0
 
   for (const hospitalData of hospitals) {
     console.log(`\n🏥 Processing: ${hospitalData.hospitalName}`)
@@ -566,6 +624,7 @@ async function main() {
           hospitalId: hospital.id,
           name: deptData.name,
           nameHi: deptData.nameHi,
+          shortCode: deptData.shortCode,
           description: deptData.description,
           icon: deptData.icon,
           floorNo: deptData.floorNo,
@@ -655,6 +714,65 @@ async function main() {
         }
       }
     }
+
+    // ---- 5. Create Hospital Staff (Receptionists, Pharmacists, Assistants) ----
+    for (const staffData of hospitalData.staff) {
+      const staffPwd = await hash('Staff@123', 10)
+      const staffUser = await db.user.upsert({
+        where: { email: staffData.email },
+        update: {},
+        create: {
+          name: staffData.name,
+          email: staffData.email,
+          password: staffPwd,
+          role: staffData.role,
+          status: 'Active',
+          gender: staffData.gender,
+        },
+      })
+
+      if (staffData.role === 'receptionist') {
+        await db.receptionist.upsert({
+          where: { userId: staffUser.id },
+          update: {},
+          create: {
+            userId: staffUser.id,
+            hospitalId: hospital.id,
+            departmentId: staffData.departmentId || null,
+          },
+        })
+        totalReceptionistsCreated++
+        console.log(`   👩‍💼 Receptionist: ${staffData.name}`)
+      } else if (staffData.role === 'pharmacist') {
+        await db.doctorPharmacist.upsert({
+          where: { userId: staffUser.id },
+          update: {},
+          create: {
+            userId: staffUser.id,
+            hospitalId: hospital.id,
+          },
+        })
+        totalPharmacistsCreated++
+        console.log(`   💊 Pharmacist: ${staffData.name}`)
+      } else if (staffData.role === 'assistant' && staffData.doctorId) {
+        // Find the doctor by email in this hospital
+        const targetDoctor = await db.doctor.findFirst({
+          where: { user: { email: staffData.doctorId } },
+        })
+        if (targetDoctor) {
+          await db.doctorAssistant.upsert({
+            where: { userId: staffUser.id },
+            update: {},
+            create: {
+              userId: staffUser.id,
+              doctorId: targetDoctor.id,
+            },
+          })
+          totalAssistantsCreated++
+          console.log(`   🤝 Assistant: ${staffData.name} → ${staffData.doctorId}`)
+        }
+      }
+    }
   }
 
   // ============ SUMMARY ============
@@ -666,6 +784,9 @@ async function main() {
   console.log(`   New doctors created:    ${totalDoctorsCreated}`)
   console.log(`   DoctorHospital links:   ${totalDoctorLinksCreated}`)
   console.log(`   Schedule entries:       ${totalSchedulesCreated}`)
+  console.log(`   Receptionists created:  ${totalReceptionistsCreated}`)
+  console.log(`   Pharmacists created:    ${totalPharmacistsCreated}`)
+  console.log(`   Assistants created:     ${totalAssistantsCreated}`)
   console.log('='.repeat(60))
 }
 
