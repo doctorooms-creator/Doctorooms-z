@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
-import { deleteFromStorage } from '@/lib/supabase'
+import { deleteFromStorage } from '@/lib/cloudinary'
 
 const BUCKET = 'medical-docs'
 
@@ -75,7 +75,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    // Delete file from Supabase Storage
+    // Delete file from Cloudinary / local storage
     if (doc.fileUrl) {
       try {
         await deleteFromStorage(BUCKET, doc.fileUrl)

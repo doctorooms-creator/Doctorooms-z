@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
-import { uploadToStorage } from '@/lib/supabase'
+import { uploadToStorage } from '@/lib/cloudinary'
 
 const ALLOWED_TYPES = [
   'application/pdf',

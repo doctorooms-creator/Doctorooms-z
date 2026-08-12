@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
-import { uploadToStorage, deleteFromStorage } from '@/lib/supabase'
+import { uploadToStorage, deleteFromStorage } from '@/lib/cloudinary'
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const MAX_SIZE = 2 * 1024 * 1024 // 2MB
