@@ -1,0 +1,692 @@
+     1→'use client'
+     2→
+     3→import { useState } from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Label } from '@/components/ui/label'
+    10→import {
+    11→  Table,
+    12→  TableBody,
+    13→  TableCell,
+    14→  TableHead,
+    15→  TableHeader,
+    16→  TableRow,
+    17→} from '@/components/ui/table'
+    18→import {
+    19→  Select,
+    20→  SelectContent,
+    21→  SelectItem,
+    22→  SelectTrigger,
+    23→  SelectValue,
+    24→} from '@/components/ui/select'
+    25→import {
+    26→  Dialog,
+    27→  DialogContent,
+    28→  DialogHeader,
+    29→  DialogTitle,
+    30→  DialogFooter,
+    31→} from '@/components/ui/dialog'
+    32→import {
+    33→  AlertDialog,
+    34→  AlertDialogAction,
+    35→  AlertDialogCancel,
+    36→  AlertDialogContent,
+    37→  AlertDialogDescription,
+    38→  AlertDialogFooter,
+    39→  AlertDialogHeader,
+    40→  AlertDialogTitle,
+    41→} from '@/components/ui/alert-dialog'
+    42→import { Thermometer, Plus, Search, Edit, Trash2, Languages, Tag, Hash } from 'lucide-react'
+    43→import { toast } from 'sonner'
+    44→import { cn } from '@/lib/utils'
+    45→
+    46→/* ------------------------------------------------------------------ */
+    47→/*  Types                                                              */
+    48→/* ------------------------------------------------------------------ */
+    49→
+    50→interface CategoryOption {
+    51→  id: string
+    52→  name: string
+    53→  nameEn: string
+    54→}
+    55→
+    56→interface Complaint {
+    57→  id: string
+    58→  coCode: string
+    59→  coDetail: string
+    60→  coDetailEn: string
+    61→  categoryId: string | null
+    62→  status: string
+    63→  createdAt: string
+    64→  updatedAt: string
+    65→  category: CategoryOption | null
+    66→}
+    67→
+    68→interface FormData {
+    69→  coCode: string
+    70→  coDetail: string
+    71→  coDetailEn: string
+    72→  categoryId: string
+    73→  status: string
+    74→}
+    75→
+    76→const emptyForm: FormData = {
+    77→  coCode: '',
+    78→  coDetail: '',
+    79→  coDetailEn: '',
+    80→  categoryId: '',
+    81→  status: 'Active',
+    82→}
+    83→
+    84→/* ------------------------------------------------------------------ */
+    85→/*  Main Page                                                          */
+    86→/* ------------------------------------------------------------------ */
+    87→
+    88→export default function ComplaintsPage() {
+    89→  const queryClient = useQueryClient()
+    90→  const [search, setSearch] = useState('')
+    91→  const [statusFilter, setStatusFilter] = useState<'Active' | 'Inactive' | 'All'>('Active')
+    92→  const [categoryFilter, setCategoryFilter] = useState('')
+    93→  const [dialogOpen, setDialogOpen] = useState(false)
+    94→  const [editingItem, setEditingItem] = useState<Complaint | null>(null)
+    95→  const [form, setForm] = useState<FormData>(emptyForm)
+    96→  const [deleteTarget, setDeleteTarget] = useState<Complaint | null>(null)
+    97→
+    98→  // Fetch categories for dropdown (active only, no pagination needed)
+    99→  const { data: catData } = useQuery<{ categories: CategoryOption[] }>({
+   100→    queryKey: ['doctor-categories-dropdown'],
+   101→    queryFn: () =>
+   102→      fetch('/api/dashboard/doctor/prescription-settings/categories?status=Active').then((r) => r.json()),
+   103→    staleTime: 30_000,
+   104→  })
+   105→  const categoryOptions = catData?.categories || []
+   106→
+   107→  // Build query string for complaints
+   108→  const queryString = new URLSearchParams()
+   109→  if (search.trim()) queryString.set('search', search.trim())
+   110→  if (statusFilter !== 'All') queryString.set('status', statusFilter)
+   111→  if (categoryFilter) queryString.set('categoryId', categoryFilter)
+   112→
+   113→  const { data, isLoading } = useQuery<{ complaints: Complaint[] }>({
+   114→    queryKey: ['doctor-complaints', search, statusFilter, categoryFilter],
+   115→    queryFn: () =>
+   116→      fetch(`/api/dashboard/doctor/prescription-settings/complaints?${queryString.toString()}`).then((r) => r.json()),
+   117→  })
+   118→
+   119→  const complaints = data?.complaints || []
+   120→
+   121→  // Create mutation
+   122→  const createMutation = useMutation({
+   123→    mutationFn: (body: FormData) =>
+   124→      fetch('/api/dashboard/doctor/prescription-settings/complaints', {
+   125→        method: 'POST',
+   126→        headers: { 'Content-Type': 'application/json' },
+   127→        body: JSON.stringify(body),
+   128→      }).then((r) => {
+   129→        if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Failed to create') })
+   130→        return r.json()
+   131→      }),
+   132→    onMutate: async (newItem) => {
+   133→      await queryClient.cancelQueries({ queryKey: ['doctor-complaints'] })
+   134→      const prev = queryClient.getQueryData<{ complaints: Complaint[] }>(['doctor-complaints', search, statusFilter, categoryFilter])
+   135→      const cat = categoryOptions.find((c) => c.id === newItem.categoryId) || null
+   136→      queryClient.setQueryData<{ complaints: Complaint[] }>(['doctor-complaints', search, statusFilter, categoryFilter], (old) => ({
+   137→        complaints: [
+   138→          {
+   139→            id: 'optimistic-' + Date.now(),
+   140→            coCode: newItem.coCode,
+   141→            coDetail: newItem.coDetail,
+   142→            coDetailEn: newItem.coDetailEn,
+   143→            categoryId: newItem.categoryId || null,
+   144→            status: 'Active',
+   145→            createdAt: new Date().toISOString(),
+   146→            updatedAt: new Date().toISOString(),
+   147→            category: cat,
+   148→          },
+   149→          ...(old?.complaints || []),
+   150→        ],
+   151→      }))
+   152→      return { prev }
+   153→    },
+   154→    onSuccess: () => {
+   155→      queryClient.invalidateQueries({ queryKey: ['doctor-complaints'] })
+   156→      toast.success('Complaint added successfully')
+   157→      closeDialog()
+   158→    },
+   159→    onError: (err, _vars, context) => {
+   160→      if (context?.prev) {
+   161→        queryClient.setQueryData(['doctor-complaints', search, statusFilter, categoryFilter], context.prev)
+   162→      }
+   163→      toast.error(err.message || 'Failed to add complaint')
+   164→    },
+   165→  })
+   166→
+   167→  // Update mutation
+   168→  const updateMutation = useMutation({
+   169→    mutationFn: ({ id, body }: { id: string; body: FormData }) =>
+   170→      fetch(`/api/dashboard/doctor/prescription-settings/complaints/${id}`, {
+   171→        method: 'PUT',
+   172→        headers: { 'Content-Type': 'application/json' },
+   173→        body: JSON.stringify(body),
+   174→      }).then((r) => {
+   175→        if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Failed to update') })
+   176→        return r.json()
+   177→      }),
+   178→    onMutate: async ({ id, body }) => {
+   179→      await queryClient.cancelQueries({ queryKey: ['doctor-complaints'] })
+   180→      const prev = queryClient.getQueryData<{ complaints: Complaint[] }>(['doctor-complaints', search, statusFilter, categoryFilter])
+   181→      queryClient.setQueryData<{ complaints: Complaint[] }>(['doctor-complaints', search, statusFilter, categoryFilter], (old) => {
+   182→        const cat = categoryOptions.find((c) => c.id === body.categoryId) || null
+   183→        return {
+   184→          complaints: (old?.complaints || []).map((c) =>
+   185→            c.id === id
+   186→              ? {
+   187→                  ...c,
+   188→                  coCode: body.coCode ?? c.coCode,
+   189→                  coDetail: body.coDetail ?? c.coDetail,
+   190→                  coDetailEn: body.coDetailEn ?? c.coDetailEn,
+   191→                  categoryId: body.categoryId || null,
+   192→                  status: body.status ?? c.status,
+   193→                  category: cat,
+   194→                  updatedAt: new Date().toISOString(),
+   195→                }
+   196→              : c
+   197→          ),
+   198→        }
+   199→      })
+   200→      return { prev }
+   201→    },
+   202→    onSuccess: () => {
+   203→      queryClient.invalidateQueries({ queryKey: ['doctor-complaints'] })
+   204→      toast.success('Complaint updated successfully')
+   205→      closeDialog()
+   206→    },
+   207→    onError: (err, _vars, context) => {
+   208→      if (context?.prev) {
+   209→        queryClient.setQueryData(['doctor-complaints', search, statusFilter, categoryFilter], context.prev)
+   210→      }
+   211→      toast.error(err.message || 'Failed to update complaint')
+   212→    },
+   213→  })
+   214→
+   215→  // Delete mutation (soft delete)
+   216→  const deleteMutation = useMutation({
+   217→    mutationFn: (id: string) =>
+   218→      fetch(`/api/dashboard/doctor/prescription-settings/complaints/${id}`, {
+   219→        method: 'DELETE',
+   220→      }).then((r) => {
+   221→        if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Failed to delete') })
+   222→        return r.json()
+   223→      }),
+   224→    onMutate: async (id) => {
+   225→      await queryClient.cancelQueries({ queryKey: ['doctor-complaints'] })
+   226→      const prev = queryClient.getQueryData<{ complaints: Complaint[] }>(['doctor-complaints', search, statusFilter, categoryFilter])
+   227→      queryClient.setQueryData<{ complaints: Complaint[] }>(['doctor-complaints', search, statusFilter, categoryFilter], (old) => ({
+   228→        complaints: (old?.complaints || []).filter((c) => c.id !== id),
+   229→      }))
+   230→      return { prev }
+   231→    },
+   232→    onSuccess: () => {
+   233→      queryClient.invalidateQueries({ queryKey: ['doctor-complaints'] })
+   234→      toast.success('Complaint deactivated')
+   235→      setDeleteTarget(null)
+   236→    },
+   237→    onError: (err, _vars, context) => {
+   238→      if (context?.prev) {
+   239→        queryClient.setQueryData(['doctor-complaints', search, statusFilter, categoryFilter], context.prev)
+   240→      }
+   241→      toast.error(err.message || 'Failed to delete complaint')
+   242→    },
+   243→  })
+   244→
+   245→  const openCreateDialog = () => {
+   246→    setEditingItem(null)
+   247→    setForm(emptyForm)
+   248→    setDialogOpen(true)
+   249→  }
+   250→
+   251→  const openEditDialog = (comp: Complaint) => {
+   252→    setEditingItem(comp)
+   253→    setForm({
+   254→      coCode: comp.coCode || '',
+   255→      coDetail: comp.coDetail,
+   256→      coDetailEn: comp.coDetailEn || '',
+   257→      categoryId: comp.categoryId || '',
+   258→      status: comp.status,
+   259→    })
+   260→    setDialogOpen(true)
+   261→  }
+   262→
+   263→  const closeDialog = () => {
+   264→    setDialogOpen(false)
+   265→    setEditingItem(null)
+   266→    setForm(emptyForm)
+   267→  }
+   268→
+   269→  const handleSubmit = () => {
+   270→    if (!form.coDetail.trim()) {
+   271→      toast.error('Complaint detail is required')
+   272→      return
+   273→    }
+   274→    if (editingItem) {
+   275→      updateMutation.mutate({ id: editingItem.id, body: form })
+   276→    } else {
+   277→      createMutation.mutate(form)
+   278→    }
+   279→  }
+   280→
+   281→  const handleDelete = () => {
+   282→    if (deleteTarget) {
+   283→      deleteMutation.mutate(deleteTarget.id)
+   284→    }
+   285→  }
+   286→
+   287→  const getCategoryName = (comp: Complaint) => {
+   288→    if (comp.category) return comp.category.name
+   289→    return null
+   290→  }
+   291→
+   292→  return (
+   293→    <div className="space-y-6">
+   294→      {/* Header */}
+   295→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   296→        <div>
+   297→          <h2 className="text-lg font-semibold flex items-center gap-2">
+   298→            <Thermometer className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   299→            Complaints (C/O)
+   300→          </h2>
+   301→          <p className="text-sm text-muted-foreground mt-1">
+   302→            Manage chief complaints for your prescriptions
+   303→          </p>
+   304→        </div>
+   305→        <Button
+   306→          className="bg-teal-600 hover:bg-teal-700"
+   307→          onClick={openCreateDialog}
+   308→        >
+   309→          <Plus className="mr-2 h-4 w-4" />
+   310→          Add Complaint
+   311→        </Button>
+   312→      </div>
+   313→
+   314→      {/* Search & Filter Bar */}
+   315→      <div className="flex flex-col sm:flex-row gap-3">
+   316→        <div className="relative flex-1">
+   317→          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   318→          <Input
+   319→            placeholder="Search complaints..."
+   320→            value={search}
+   321→            onChange={(e) => setSearch(e.target.value)}
+   322→            className="pl-9"
+   323→          />
+   324→        </div>
+   325→        <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v === '__all__' ? '' : v)}>
+   326→          <SelectTrigger className="w-full sm:w-[180px]">
+   327→            <SelectValue placeholder="All Categories" />
+   328→          </SelectTrigger>
+   329→          <SelectContent>
+   330→            <SelectItem value="__all__">All Categories</SelectItem>
+   331→            {categoryOptions.map((cat) => (
+   332→              <SelectItem key={cat.id} value={cat.id}>
+   333→                {cat.name}{cat.nameEn ? ` (${cat.nameEn})` : ''}
+   334→              </SelectItem>
+   335→            ))}
+   336→          </SelectContent>
+   337→        </Select>
+   338→        <div className="flex gap-1.5 rounded-lg border border-border bg-card p-1">
+   339→          {(['Active', 'Inactive', 'All'] as const).map((s) => (
+   340→            <button
+   341→              key={s}
+   342→              onClick={() => setStatusFilter(s)}
+   343→              className={cn(
+   344→                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+   345→                statusFilter === s
+   346→                  ? 'bg-teal-600 text-white shadow-sm'
+   347→                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+   348→              )}
+   349→            >
+   350→              {s}
+   351→            </button>
+   352→          ))}
+   353→        </div>
+   354→      </div>
+   355→
+   356→      {/* Table */}
+   357→      {isLoading ? (
+   358→        <div className="rounded-xl border border-border overflow-hidden">
+   359→          <div className="space-y-0">
+   360→            {Array.from({ length: 5 }).map((_, i) => (
+   361→              <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border last:border-b-0">
+   362→                <div className="h-4 w-12 animate-pulse rounded bg-muted" />
+   363→                <div className="h-4 w-40 animate-pulse rounded bg-muted" />
+   364→                <div className="h-4 w-32 animate-pulse rounded bg-muted" />
+   365→                <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+   366→              </div>
+   367→            ))}
+   368→          </div>
+   369→        </div>
+   370→      ) : complaints.length === 0 ? (
+   371→        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16">
+   372→          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-teal-50 dark:bg-teal-900/30 mb-4">
+   373→            <Thermometer className="h-8 w-8 text-teal-600 dark:text-teal-400" />
+   374→          </div>
+   375→          <h3 className="text-sm font-medium">
+   376→            {search || categoryFilter ? 'No complaints found' : 'No complaints added yet'}
+   377→          </h3>
+   378→          <p className="text-sm text-muted-foreground mt-1 text-center max-w-xs">
+   379→            {search || categoryFilter
+   380→              ? 'Try a different search term or adjust the filters'
+   381→              : 'Add chief complaints that you commonly encounter for quick selection in prescriptions'}
+   382→          </p>
+   383→          {!search && !categoryFilter && (
+   384→            <Button
+   385→              variant="outline"
+   386→              className="mt-4 text-teal-600 border-teal-300 hover:bg-teal-50 dark:text-teal-400 dark:border-teal-700 dark:hover:bg-teal-900/30"
+   387→              onClick={openCreateDialog}
+   388→            >
+   389→              <Plus className="mr-2 h-4 w-4" />
+   390→              Add Your First Complaint
+   391→            </Button>
+   392→          )}
+   393→        </div>
+   394→      ) : (
+   395→        <div className="rounded-xl border border-border overflow-hidden">
+   396→          <div className="overflow-x-auto">
+   397→            <Table>
+   398→              <TableHeader>
+   399→                <TableRow className="bg-muted/40 hover:bg-muted/40">
+   400→                  <TableHead className="w-[70px] text-xs">Code</TableHead>
+   401→                  <TableHead className="text-xs">Detail</TableHead>
+   402→                  <TableHead className="text-xs hidden md:table-cell">English</TableHead>
+   403→                  <TableHead className="text-xs hidden sm:table-cell">Category</TableHead>
+   404→                  <TableHead className="w-[80px] text-xs">Status</TableHead>
+   405→                  <TableHead className="w-[80px] text-xs text-right">Actions</TableHead>
+   406→                </TableRow>
+   407→              </TableHeader>
+   408→              <TableBody>
+   409→                <AnimatePresence mode="popLayout">
+   410→                  {complaints.map((comp, i) => (
+   411→                    <motion.tr
+   412→                      key={comp.id}
+   413→                      layout
+   414→                      initial={{ opacity: 0, y: 10 }}
+   415→                      animate={{ opacity: 1, y: 0 }}
+   416→                      exit={{ opacity: 0, x: -20 }}
+   417→                      transition={{ delay: i * 0.02 }}
+   418→                      className="group border-b border-border last:border-b-0 hover:bg-muted/30 transition-colors"
+   419→                    >
+   420→                      <TableCell className="py-3">
+   421→                        {comp.coCode ? (
+   422→                          <span className="inline-flex items-center gap-1 text-xs font-mono text-muted-foreground">
+   423→                            <Hash className="h-3 w-3" />
+   424→                            {comp.coCode}
+   425→                          </span>
+   426→                        ) : (
+   427→                          <span className="text-xs text-muted-foreground/40">—</span>
+   428→                        )}
+   429→                      </TableCell>
+   430→                      <TableCell className="py-3">
+   431→                        <span className="text-sm font-medium">{comp.coDetail}</span>
+   432→                      </TableCell>
+   433→                      <TableCell className="py-3 hidden md:table-cell">
+   434→                        {comp.coDetailEn ? (
+   435→                          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+   436→                            <Languages className="h-3 w-3 shrink-0" />
+   437→                            {comp.coDetailEn}
+   438→                          </span>
+   439→                        ) : (
+   440→                          <span className="text-xs text-muted-foreground/40">—</span>
+   441→                        )}
+   442→                      </TableCell>
+   443→                      <TableCell className="py-3 hidden sm:table-cell">
+   444→                        {getCategoryName(comp) ? (
+   445→                          <Badge
+   446→                            variant="outline"
+   447→                            className="text-[10px] px-2 py-0 border-teal-200 text-teal-700 bg-teal-50 dark:border-teal-800 dark:text-teal-300 dark:bg-teal-900/20"
+   448→                          >
+   449→                            <Tag className="h-2.5 w-2.5 mr-1" />
+   450→                            {getCategoryName(comp)}
+   451→                          </Badge>
+   452→                        ) : (
+   453→                          <span className="text-xs text-muted-foreground/40">—</span>
+   454→                        )}
+   455→                      </TableCell>
+   456→                      <TableCell className="py-3">
+   457→                        {comp.status === 'Active' ? (
+   458→                          <Badge variant="secondary" className="bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800 text-[10px]">
+   459→                            Active
+   460→                          </Badge>
+   461→                        ) : (
+   462→                          <Badge variant="secondary" className="bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 text-[10px]">
+   463→                            Inactive
+   464→                          </Badge>
+   465→                        )}
+   466→                      </TableCell>
+   467→                      <TableCell className="py-3 text-right">
+   468→                        <div className="flex items-center justify-end gap-0.5">
+   469→                          <Button
+   470→                            variant="ghost"
+   471→                            size="icon"
+   472→                            className="h-7 w-7"
+   473→                            onClick={() => openEditDialog(comp)}
+   474→                          >
+   475→                            <Edit className="h-3.5 w-3.5" />
+   476→                          </Button>
+   477→                          {comp.status === 'Active' && (
+   478→                            <Button
+   479→                              variant="ghost"
+   480→                              size="icon"
+   481→                              className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
+   482→                              onClick={() => setDeleteTarget(comp)}
+   483→                            >
+   484→                              <Trash2 className="h-3.5 w-3.5" />
+   485→                            </Button>
+   486→                          )}
+   487→                        </div>
+   488→                      </TableCell>
+   489→                    </motion.tr>
+   490→                  ))}
+   491→                </AnimatePresence>
+   492→              </TableBody>
+   493→            </Table>
+   494→          </div>
+   495→
+   496→          {/* Mobile card view for very small screens (hidden on sm+) */}
+   497→          <div className="sm:hidden divide-y divide-border">
+   498→            {complaints.map((comp) => (
+   499→              <div key={comp.id} className="p-3 space-y-2">
+   500→                <div className="flex items-start justify-between gap-2">
+   501→                  <div className="min-w-0 flex-1">
+   502→                    <div className="flex items-center gap-2">
+   503→                      {comp.coCode && (
+   504→                        <span className="text-[10px] font-mono text-muted-foreground bg-muted rounded px-1 py-0.5">
+   505→                          {comp.coCode}
+   506→                        </span>
+   507→                      )}
+   508→                      <span className="text-sm font-medium truncate">{comp.coDetail}</span>
+   509→                    </div>
+   510→                    {comp.coDetailEn && (
+   511→                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{comp.coDetailEn}</p>
+   512→                    )}
+   513→                  </div>
+   514→                  {comp.status === 'Active' ? (
+   515→                    <Badge variant="secondary" className="bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800 text-[10px] shrink-0">
+   516→                      Active
+   517→                    </Badge>
+   518→                  ) : (
+   519→                    <Badge variant="secondary" className="bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 text-[10px] shrink-0">
+   520→                      Inactive
+   521→                    </Badge>
+   522→                  )}
+   523→                </div>
+   524→                {getCategoryName(comp) && (
+   525→                  <Badge variant="outline" className="text-[10px] px-2 py-0 border-teal-200 text-teal-700 bg-teal-50 dark:border-teal-800 dark:text-teal-300 dark:bg-teal-900/20">
+   526→                    <Tag className="h-2.5 w-2.5 mr-1" />
+   527→                    {getCategoryName(comp)}
+   528→                  </Badge>
+   529→                )}
+   530→                <div className="flex gap-2 pt-1">
+   531→                  <Button
+   532→                    variant="outline"
+   533→                    size="sm"
+   534→                    className="flex-1 h-7 text-xs text-teal-600 border-teal-300 hover:bg-teal-50 dark:text-teal-400 dark:border-teal-700 dark:hover:bg-teal-900/30"
+   535→                    onClick={() => openEditDialog(comp)}
+   536→                  >
+   537→                    <Edit className="mr-1 h-3 w-3" />
+   538→                    Edit
+   539→                  </Button>
+   540→                  {comp.status === 'Active' && (
+   541→                    <Button
+   542→                      variant="outline"
+   543→                      size="sm"
+   544→                      className="flex-1 h-7 text-xs text-red-500 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30"
+   545→                      onClick={() => setDeleteTarget(comp)}
+   546→                    >
+   547→                      <Trash2 className="mr-1 h-3 w-3" />
+   548→                      Remove
+   549→                    </Button>
+   550→                  )}
+   551→                </div>
+   552→              </div>
+   553→            ))}
+   554→          </div>
+   555→        </div>
+   556→      )}
+   557→
+   558→      {/* Add/Edit Dialog */}
+   559→      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); else setDialogOpen(true) }}>
+   560→        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   561→          <DialogHeader>
+   562→            <DialogTitle>
+   563→              {editingItem ? 'Edit Complaint' : 'Add New Complaint'}
+   564→            </DialogTitle>
+   565→          </DialogHeader>
+   566→          <div className="space-y-4 py-2">
+   567→            {/* Code */}
+   568→            <div className="space-y-2">
+   569→              <Label htmlFor="co-code" className="flex items-center gap-1.5">
+   570→                <Hash className="h-3.5 w-3.5 text-muted-foreground" />
+   571→                Code
+   572→              </Label>
+   573→              <Input
+   574→                id="co-code"
+   575→                placeholder="e.g. F001 (optional)"
+   576→                value={form.coCode}
+   577→                onChange={(e) => setForm({ ...form, coCode: e.target.value })}
+   578→              />
+   579→            </div>
+   580→
+   581→            {/* Detail (Primary) */}
+   582→            <div className="space-y-2">
+   583→              <Label htmlFor="co-detail">
+   584→                Detail <span className="text-red-500">*</span>
+   585→              </Label>
+   586→              <Input
+   587→                id="co-detail"
+   588→                placeholder="e.g. તાવો આવે છે"
+   589→                value={form.coDetail}
+   590→                onChange={(e) => setForm({ ...form, coDetail: e.target.value })}
+   591→                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+   592→              />
+   593→              <p className="text-[11px] text-muted-foreground">
+   594→                Primary language — shown in the prescription stepper
+   595→              </p>
+   596→            </div>
+   597→
+   598→            {/* Detail (English) */}
+   599→            <div className="space-y-2">
+   600→              <Label htmlFor="co-detail-en" className="flex items-center gap-1.5">
+   601→                <Languages className="h-3.5 w-3.5 text-muted-foreground" />
+   602→                Detail (English)
+   603→              </Label>
+   604→              <Input
+   605→                id="co-detail-en"
+   606→                placeholder="e.g. Fever"
+   607→                value={form.coDetailEn}
+   608→                onChange={(e) => setForm({ ...form, coDetailEn: e.target.value })}
+   609→              />
+   610→              <p className="text-[11px] text-muted-foreground">
+   611→                Optional — used in print output
+   612→              </p>
+   613→            </div>
+   614→
+   615→            {/* Category Dropdown */}
+   616→            <div className="space-y-2">
+   617→              <Label className="flex items-center gap-1.5">
+   618→                <Tag className="h-3.5 w-3.5 text-muted-foreground" />
+   619→                Category
+   620→              </Label>
+   621→              <Select value={form.categoryId} onValueChange={(v) => setForm({ ...form, categoryId: v === '__none__' ? '' : v })}>
+   622→                <SelectTrigger className="w-full">
+   623→                  <SelectValue placeholder="None (uncategorized)" />
+   624→                </SelectTrigger>
+   625→                <SelectContent>
+   626→                  <SelectItem value="__none__">None (uncategorized)</SelectItem>
+   627→                  {categoryOptions.map((cat) => (
+   628→                    <SelectItem key={cat.id} value={cat.id}>
+   629→                      {cat.name}{cat.nameEn ? ` (${cat.nameEn})` : ''}
+   630→                    </SelectItem>
+   631→                  ))}
+   632→                </SelectContent>
+   633→              </Select>
+   634→            </div>
+   635→
+   636→            {/* Status (only in edit) */}
+   637→            {editingItem && (
+   638→              <div className="space-y-2">
+   639→                <Label>Status</Label>
+   640→                <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v })}>
+   641→                  <SelectTrigger className="w-full">
+   642→                    <SelectValue />
+   643→                  </SelectTrigger>
+   644→                  <SelectContent>
+   645→                    <SelectItem value="Active">Active</SelectItem>
+   646→                    <SelectItem value="Inactive">Inactive</SelectItem>
+   647→                  </SelectContent>
+   648→                </Select>
+   649→              </div>
+   650→            )}
+   651→          </div>
+   652→          <DialogFooter>
+   653→            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+   654→            <Button
+   655→              className="bg-teal-600 hover:bg-teal-700"
+   656→              onClick={handleSubmit}
+   657→              disabled={createMutation.isPending || updateMutation.isPending}
+   658→            >
+   659→              {editingItem
+   660→                ? updateMutation.isPending ? 'Saving...' : 'Save Changes'
+   661→                : createMutation.isPending ? 'Adding...' : 'Add Complaint'
+   662→              }
+   663→            </Button>
+   664→          </DialogFooter>
+   665→        </DialogContent>
+   666→      </Dialog>
+   667→
+   668→      {/* Delete Confirmation */}
+   669→      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+   670→        <AlertDialogContent>
+   671→          <AlertDialogHeader>
+   672→            <AlertDialogTitle>Deactivate Complaint</AlertDialogTitle>
+   673→            <AlertDialogDescription>
+   674→              Are you sure you want to deactivate &quot;{deleteTarget?.coDetail}&quot;? It will be marked as inactive and won&apos;t appear in your active list.
+   675→            </AlertDialogDescription>
+   676→          </AlertDialogHeader>
+   677→          <AlertDialogFooter>
+   678→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   679→            <AlertDialogAction
+   680→              onClick={handleDelete}
+   681→              disabled={deleteMutation.isPending}
+   682→              className="bg-red-600 hover:bg-red-700"
+   683→            >
+   684→              {deleteMutation.isPending ? 'Deactivating...' : 'Deactivate'}
+   685→            </AlertDialogAction>
+   686→          </AlertDialogFooter>
+   687→        </AlertDialogContent>
+   688→      </AlertDialog>
+   689→    </div>
+   690→  )
+   691→}
+   692→

@@ -1,0 +1,757 @@
+     1→     1→     1→'use client'
+     2→     2→     2→
+     3→     3→     3→import { useState, useRef, KeyboardEvent } from 'react'
+     4→     4→     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→     5→     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→     6→     6→import { Card, CardContent } from '@/components/ui/card'
+     7→     7→     7→import { Button } from '@/components/ui/button'
+     8→     8→     8→import { Input } from '@/components/ui/input'
+     9→     9→     9→import { Label } from '@/components/ui/label'
+    10→    10→    10→import { Badge } from '@/components/ui/badge'
+    11→    11→    11→import {
+    12→    12→    12→  Dialog,
+    13→    13→    13→  DialogContent,
+    14→    14→    14→  DialogHeader,
+    15→    15→    15→  DialogTitle,
+    16→    16→    16→  DialogFooter,
+    17→    17→    17→} from '@/components/ui/dialog'
+    18→    18→    18→import {
+    19→    19→    19→  AlertDialog,
+    20→    20→    20→  AlertDialogAction,
+    21→    21→    21→  AlertDialogCancel,
+    22→    22→    22→  AlertDialogContent,
+    23→    23→    23→  AlertDialogDescription,
+    24→    24→    24→  AlertDialogFooter,
+    25→    25→    25→  AlertDialogHeader,
+    26→    26→    26→  AlertDialogTitle,
+    27→    27→    27→} from '@/components/ui/alert-dialog'
+    28→    28→    28→import {
+    29→    29→    29→  Pill,
+    30→    30→    30→  Plus,
+    31→    31→    31→  Search,
+    32→    32→    32→  Edit,
+    33→    33→    33→  Trash2,
+    34→    34→    34→  Sun,
+    35→    35→    35→  CloudSun,
+    36→    36→    36→  Moon,
+    37→    37→    37→  X,
+    38→    38→    38→  Clock,
+    39→    39→    39→  CalendarDays,
+    40→    40→    40→} from 'lucide-react'
+    41→    41→    41→import { toast } from 'sonner'
+    42→    42→    42→import { cn } from '@/lib/utils'
+    43→    43→    43→
+    44→    44→    44→/* ------------------------------------------------------------------ */
+    45→    45→    45→/*  Types                                                              */
+    46→    46→    46→/* ------------------------------------------------------------------ */
+    47→    47→    47→
+    48→    48→    48→interface Medicine {
+    49→    49→    49→  id: string
+    50→    50→    50→  name: string
+    51→    51→    51→  morning: number
+    52→    52→    52→  afternoon: number
+    53→    53→    53→  evening: number
+    54→    54→    54→  dose: string           // raw JSON string from DB
+    55→    55→    55→  doseArray: string[]    // parsed by API
+    56→    56→    56→  tab: number
+    57→    57→    57→  description: string
+    58→    58→    58→  status: string
+    59→    59→    59→  createdAt: string
+    60→    60→    60→  updatedAt: string
+    61→    61→    61→}
+    62→    62→    62→
+    63→    63→    63→interface FormData {
+    64→    64→    64→  name: string
+    65→    65→    65→  doseArray: string[]
+    66→    66→    66→  tab: number
+    67→    67→    67→  morning: number
+    68→    68→    68→  afternoon: number
+    69→    69→    69→  evening: number
+    70→    70→    70→  description: string
+    71→    71→    71→}
+    72→    72→    72→
+    73→    73→    73→const emptyForm: FormData = {
+    74→    74→    74→  name: '',
+    75→    75→    75→  doseArray: [],
+    76→    76→    76→  tab: 1,
+    77→    77→    77→  morning: 0,
+    78→    78→    78→  afternoon: 0,
+    79→    79→    79→  evening: 0,
+    80→    80→    80→  description: '',
+    81→    81→    81→}
+    82→    82→    82→
+    83→    83→    83→/* ------------------------------------------------------------------ */
+    84→    84→    84→/*  Dose Tag Input (inline component)                                  */
+    85→    85→    85→/* ------------------------------------------------------------------ */
+    86→    86→    86→
+    87→    87→    87→function DoseTagInput({
+    88→    88→    88→  tags,
+    89→    89→    89→  onChange,
+    90→    90→    90→}: {
+    91→    91→    91→  tags: string[]
+    92→    92→    92→  onChange: (tags: string[]) => void
+    93→    93→    93→}) {
+    94→    94→    94→  const [input, setInput] = useState('')
+    95→    95→    95→  const inputRef = useRef<HTMLInputElement>(null)
+    96→    96→    96→
+    97→    97→    97→  const addTag = (value: string) => {
+    98→    98→    98→    const trimmed = value.trim()
+    99→    99→    99→    if (!trimmed) return
+   100→   100→   100→    if (tags.includes(trimmed)) {
+   101→   101→   101→      toast.error('This dose option already exists')
+   102→   102→   102→      return
+   103→   103→   103→    }
+   104→   104→   104→    onChange([...tags, trimmed])
+   105→   105→   105→    setInput('')
+   106→   106→   106→  }
+   107→   107→   107→
+   108→   108→   108→  const removeTag = (index: number) => {
+   109→   109→   109→    const next = [...tags]
+   110→   110→   110→    next.splice(index, 1)
+   111→   111→   111→    onChange(next)
+   112→   112→   112→  }
+   113→   113→   113→
+   114→   114→   114→  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+   115→   115→   115→    if (e.key === 'Enter' || e.key === ',') {
+   116→   116→   116→      e.preventDefault()
+   117→   117→   117→      addTag(input)
+   118→   118→   118→    }
+   119→   119→   119→    if (e.key === 'Backspace' && input === '' && tags.length > 0) {
+   120→   120→   120→      removeTag(tags.length - 1)
+   121→   121→   121→    }
+   122→   122→   122→  }
+   123→   123→   123→
+   124→   124→   124→  return (
+   125→   125→   125→    <div
+   126→   126→   126→      className="flex flex-wrap items-center gap-1.5 min-h-[42px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-within:ring-1 focus-within:ring-ring cursor-text"
+   127→   127→   127→      onClick={() => inputRef.current?.focus()}
+   128→   128→   128→    >
+   129→   129→   129→      {tags.map((tag, i) => (
+   130→   130→   130→        <span
+   131→   131→   131→          key={i}
+   132→   132→   132→          className={cn(
+   133→   133→   133→            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
+   134→   134→   134→            i === 0
+   135→   135→   135→              ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800'
+   136→   136→   136→              : 'bg-muted text-muted-foreground border border-border'
+   137→   137→   137→          )}
+   138→   138→   138→        >
+   139→   139→   139→          {tag}
+   140→   140→   140→          <button
+   141→   141→   141→            type="button"
+   142→   142→   142→            className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+   143→   143→   143→            onClick={(e) => {
+   144→   144→   144→              e.stopPropagation()
+   145→   145→   145→              removeTag(i)
+   146→   146→   146→            }}
+   147→   147→   147→          >
+   148→   148→   148→            <X className="h-3 w-3" />
+   149→   149→   149→          </button>
+   150→   150→   150→          {i === 0 && (
+   151→   151→   151→            <span className="ml-0.5 text-[9px] font-bold uppercase tracking-wider opacity-60">default</span>
+   152→   152→   152→          )}
+   153→   153→   153→        </span>
+   154→   154→   154→      ))}
+   155→   155→   155→      <input
+   156→   156→   156→        ref={inputRef}
+   157→   157→   157→        value={input}
+   158→   158→   158→        onChange={(e) => setInput(e.target.value)}
+   159→   159→   159→        onKeyDown={handleKeyDown}
+   160→   160→   160→        onBlur={() => {
+   161→   161→   161→          if (input.trim()) addTag(input)
+   162→   162→   162→        }}
+   163→   163→   163→        placeholder={tags.length === 0 ? 'e.g. 500mg, then Enter' : 'Add more...'}
+   164→   164→   164→        className="flex-1 min-w-[100px] bg-transparent outline-none placeholder:text-muted-foreground text-sm"
+   165→   165→   165→      />
+   166→   166→   166→    </div>
+   167→   167→   167→  )
+   168→   168→   168→}
+   169→   169→   169→
+   170→   170→   170→/* ------------------------------------------------------------------ */
+   171→   171→   171→/*  Main Page                                                          */
+   172→   172→   172→/* ------------------------------------------------------------------ */
+   173→   173→   173→
+   174→   174→   174→export default function DoctorMedicinesPage() {
+   175→   175→   175→  const queryClient = useQueryClient()
+   176→   176→   176→  const [search, setSearch] = useState('')
+   177→   177→   177→  const [statusFilter, setStatusFilter] = useState<'Active' | 'Inactive' | 'All'>('Active')
+   178→   178→   178→  const [dialogOpen, setDialogOpen] = useState(false)
+   179→   179→   179→  const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null)
+   180→   180→   180→  const [form, setForm] = useState<FormData>(emptyForm)
+   181→   181→   181→  const [deleteTarget, setDeleteTarget] = useState<Medicine | null>(null)
+   182→   182→   182→
+   183→   183→   183→  // Build query string
+   184→   184→   184→  const queryString = new URLSearchParams()
+   185→   185→   185→  if (search.trim()) queryString.set('search', search.trim())
+   186→   186→   186→  if (statusFilter !== 'All') queryString.set('status', statusFilter)
+   187→   187→   187→
+   188→   188→   188→  const { data, isLoading } = useQuery<{ medicines: Medicine[] }>({
+   189→   189→   189→    queryKey: ['doctor-medicines', search, statusFilter],
+   190→   190→   190→    queryFn: () =>
+   191→   191→   191→      fetch(`/api/dashboard/doctor/medicines?${queryString.toString()}`).then((r) => r.json()),
+   192→   192→   192→  })
+   193→   193→   193→
+   194→   194→   194→  const medicines = data?.medicines || []
+   195→   195→   195→
+   196→   196→   196→  // Create mutation
+   197→   197→   197→  const createMutation = useMutation({
+   198→   198→   198→    mutationFn: (body: FormData) =>
+   199→   199→   199→      fetch('/api/dashboard/doctor/medicines', {
+   200→   200→   200→        method: 'POST',
+   201→   201→   201→        headers: { 'Content-Type': 'application/json' },
+   202→   202→   202→        body: JSON.stringify(body),
+   203→   203→   203→      }).then((r) => {
+   204→   204→   204→        if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Failed to create') })
+   205→   205→   205→        return r.json()
+   206→   206→   206→      }),
+   207→   207→   207→    onMutate: async (newMed) => {
+   208→   208→   208→      await queryClient.cancelQueries({ queryKey: ['doctor-medicines'] })
+   209→   209→   209→      const prev = queryClient.getQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter])
+   210→   210→   210→      queryClient.setQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter], (old) => ({
+   211→   211→   211→        medicines: [
+   212→   212→   212→          {
+   213→   213→   213→            id: 'optimistic-' + Date.now(),
+   214→   214→   214→            name: newMed.name,
+   215→   215→   215→            morning: newMed.morning,
+   216→   216→   216→            afternoon: newMed.afternoon,
+   217→   217→   217→            evening: newMed.evening,
+   218→   218→   218→            dose: JSON.stringify(newMed.doseArray),
+   219→   219→   219→            doseArray: newMed.doseArray,
+   220→   220→   220→            tab: newMed.tab,
+   221→   221→   221→            description: newMed.description,
+   222→   222→   222→            status: 'Active',
+   223→   223→   223→            createdAt: new Date().toISOString(),
+   224→   224→   224→            updatedAt: new Date().toISOString(),
+   225→   225→   225→          },
+   226→   226→   226→          ...(old?.medicines || []),
+   227→   227→   227→        ],
+   228→   228→   228→      }))
+   229→   229→   229→      return { prev }
+   230→   230→   230→    },
+   231→   231→   231→    onSuccess: () => {
+   232→   232→   232→      queryClient.invalidateQueries({ queryKey: ['doctor-medicines'] })
+   233→   233→   233→      toast.success('Medicine added successfully')
+   234→   234→   234→      closeDialog()
+   235→   235→   235→    },
+   236→   236→   236→    onError: (err, _vars, context) => {
+   237→   237→   237→      if (context?.prev) {
+   238→   238→   238→        queryClient.setQueryData(['doctor-medicines', search, statusFilter], context.prev)
+   239→   239→   239→      }
+   240→   240→   240→      toast.error(err.message || 'Failed to add medicine')
+   241→   241→   241→    },
+   242→   242→   242→  })
+   243→   243→   243→
+   244→   244→   244→  // Update mutation
+   245→   245→   245→  const updateMutation = useMutation({
+   246→   246→   246→    mutationFn: ({ id, body }: { id: string; body: FormData }) =>
+   247→   247→   247→      fetch(`/api/dashboard/doctor/medicines/${id}`, {
+   248→   248→   248→        method: 'PUT',
+   249→   249→   249→        headers: { 'Content-Type': 'application/json' },
+   250→   250→   250→        body: JSON.stringify(body),
+   251→   251→   251→      }).then((r) => {
+   252→   252→   252→        if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Failed to update') })
+   253→   253→   253→        return r.json()
+   254→   254→   254→      }),
+   255→   255→   255→    onMutate: async ({ id, body }) => {
+   256→   256→   256→      await queryClient.cancelQueries({ queryKey: ['doctor-medicines'] })
+   257→   257→   257→      const prev = queryClient.getQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter])
+   258→   258→   258→      queryClient.setQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter], (old) => ({
+   259→   259→   259→        medicines: (old?.medicines || []).map((m) =>
+   260→   260→   260→          m.id === id
+   261→   261→   261→            ? {
+   262→   262→   262→                ...m,
+   263→   263→   263→                name: body.name,
+   264→   264→   264→                morning: body.morning,
+   265→   265→   265→                afternoon: body.afternoon,
+   266→   266→   266→                evening: body.evening,
+   267→   267→   267→                dose: JSON.stringify(body.doseArray),
+   268→   268→   268→                doseArray: body.doseArray,
+   269→   269→   269→                tab: body.tab,
+   270→   270→   270→                description: body.description,
+   271→   271→   271→                updatedAt: new Date().toISOString(),
+   272→   272→   272→              }
+   273→   273→   273→            : m
+   274→   274→   274→        ),
+   275→   275→   275→      }))
+   276→   276→   276→      return { prev }
+   277→   277→   277→    },
+   278→   278→   278→    onSuccess: () => {
+   279→   279→   279→      queryClient.invalidateQueries({ queryKey: ['doctor-medicines'] })
+   280→   280→   280→      toast.success('Medicine updated successfully')
+   281→   281→   281→      closeDialog()
+   282→   282→   282→    },
+   283→   283→   283→    onError: (err, _vars, context) => {
+   284→   284→   284→      if (context?.prev) {
+   285→   285→   285→        queryClient.setQueryData(['doctor-medicines', search, statusFilter], context.prev)
+   286→   286→   286→      }
+   287→   287→   287→      toast.error(err.message || 'Failed to update medicine')
+   288→   288→   288→    },
+   289→   289→   289→  })
+   290→   290→   290→
+   291→   291→   291→  // Delete mutation (soft delete)
+   292→   292→   292→  const deleteMutation = useMutation({
+   293→   293→   293→    mutationFn: (id: string) =>
+   294→   294→   294→      fetch(`/api/dashboard/doctor/medicines/${id}`, {
+   295→   295→   295→        method: 'DELETE',
+   296→   296→   296→      }).then((r) => {
+   297→   297→   297→        if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Failed to delete') })
+   298→   298→   298→        return r.json()
+   299→   299→   299→      }),
+   300→   300→   300→    onMutate: async (id) => {
+   301→   301→   301→      await queryClient.cancelQueries({ queryKey: ['doctor-medicines'] })
+   302→   302→   302→      const prev = queryClient.getQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter])
+   303→   303→   303→      queryClient.setQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter], (old) => ({
+   304→   304→   304→        medicines: (old?.medicines || []).filter((m) => m.id !== id),
+   305→   305→   305→      }))
+   306→   306→   306→      return { prev }
+   307→   307→   307→    },
+   308→   308→   308→    onSuccess: () => {
+   309→   309→   309→      queryClient.invalidateQueries({ queryKey: ['doctor-medicines'] })
+   310→   310→   310→      toast.success('Medicine deactivated')
+   311→   311→   311→      setDeleteTarget(null)
+   312→   312→   312→    },
+   313→   313→   313→    onError: (err, _vars, context) => {
+   314→   314→   314→      if (context?.prev) {
+   315→   315→   315→        queryClient.setQueryData(['doctor-medicines', search, statusFilter], context.prev)
+   316→   316→   316→      }
+   317→   317→   317→      toast.error(err.message || 'Failed to delete medicine')
+   318→   318→   318→    },
+   319→   319→   319→  })
+   320→   320→   320→
+   321→   321→   321→  const openCreateDialog = () => {
+   322→   322→   322→    setEditingMedicine(null)
+   323→   323→   323→    setForm(emptyForm)
+   324→   324→   324→    setDialogOpen(true)
+   325→   325→   325→  }
+   326→   326→   326→
+   327→   327→   327→  const openEditDialog = (med: Medicine) => {
+   328→   328→   328→    setEditingMedicine(med)
+   329→   329→   329→    setForm({
+   330→   330→   330→      name: med.name,
+   331→   331→   331→      doseArray: med.doseArray || [],
+   332→   332→   332→      tab: med.tab,
+   333→   333→   333→      morning: med.morning ?? 0,
+   334→   334→   334→      afternoon: med.afternoon ?? 0,
+   335→   335→   335→      evening: med.evening ?? 0,
+   336→   336→   336→      description: med.description || '',
+   337→   337→   337→    })
+   338→   338→   338→    setDialogOpen(true)
+   339→   339→   339→  }
+   340→   340→   340→
+   341→   341→   341→  const closeDialog = () => {
+   342→   342→   342→    setDialogOpen(false)
+   343→   343→   343→    setEditingMedicine(null)
+   344→   344→   344→    setForm(emptyForm)
+   345→   345→   345→  }
+   346→   346→   346→
+   347→   347→   347→  const handleSubmit = () => {
+   348→   348→   348→    if (!form.name.trim()) {
+   349→   349→   349→      toast.error('Medicine name is required')
+   350→   350→   350→      return
+   351→   351→   351→    }
+   352→   352→   352→    if (form.doseArray.length === 0) {
+   353→   353→   353→      toast.error('Add at least one dose option')
+   354→   354→   354→      return
+   355→   355→   355→    }
+   356→   356→   356→    if (editingMedicine) {
+   357→   357→   357→      updateMutation.mutate({ id: editingMedicine.id, body: form })
+   358→   358→   358→    } else {
+   359→   359→   359→      createMutation.mutate(form)
+   360→   360→   360→    }
+   361→   361→   361→  }
+   362→   362→   362→
+   363→   363→   363→  const handleDelete = () => {
+   364→   364→   364→    if (deleteTarget) {
+   365→   365→   365→      deleteMutation.mutate(deleteTarget.id)
+   366→   366→   366→    }
+   367→   367→   367→  }
+   368→   368→   368→
+   369→   369→   369→  const formatTiming = (m: Medicine) => `${m.morning ?? 0}-${m.afternoon ?? 0}-${m.evening ?? 0}`
+   370→   370→   370→  const hasTimings = (m: Medicine) => (m.morning ?? 0) > 0 || (m.afternoon ?? 0) > 0 || (m.evening ?? 0) > 0
+   371→   371→   371→
+   372→   372→   372→  return (
+   373→   373→   373→    <div className="space-y-6">
+   374→   374→   374→      {/* Header */}
+   375→   375→   375→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   376→   376→   376→        <div>
+   377→   377→   377→          <h2 className="text-lg font-semibold flex items-center gap-2">
+   378→   378→   378→            <Pill className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   379→   379→   379→            Medicine Master
+   380→   380→   380→          </h2>
+   381→   381→   381→          <p className="text-sm text-muted-foreground mt-1">
+   382→   382→   382→            Manage your frequently prescribed medicines
+   383→   383→   383→          </p>
+   384→   384→   384→        </div>
+   385→   385→   385→        <Button
+   386→   386→   386→          className="bg-teal-600 hover:bg-teal-700"
+   387→   387→   387→          onClick={openCreateDialog}
+   388→   388→   388→        >
+   389→   389→   389→          <Plus className="mr-2 h-4 w-4" />
+   390→   390→   390→          Add Medicine
+   391→   391→   391→        </Button>
+   392→   392→   392→      </div>
+   393→   393→   393→
+   394→   394→   394→      {/* Search & Filter Bar */}
+   395→   395→   395→      <div className="flex flex-col sm:flex-row gap-3">
+   396→   396→   396→        <div className="relative flex-1">
+   397→   397→   397→          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   398→   398→   398→          <Input
+   399→   399→   399→            placeholder="Search medicines..."
+   400→   400→   400→            value={search}
+   401→   401→   401→            onChange={(e) => setSearch(e.target.value)}
+   402→   402→   402→            className="pl-9"
+   403→   403→   403→          />
+   404→   404→   404→        </div>
+   405→   405→   405→        <div className="flex gap-1.5 rounded-lg border border-border bg-card p-1">
+   406→   406→   406→          {(['Active', 'Inactive', 'All'] as const).map((s) => (
+   407→   407→   407→            <button
+   408→   408→   408→              key={s}
+   409→   409→   409→              onClick={() => setStatusFilter(s)}
+   410→   410→   410→              className={cn(
+   411→   411→   411→                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+   412→   412→   412→                statusFilter === s
+   413→   413→   413→                  ? 'bg-teal-600 text-white shadow-sm'
+   414→   414→   414→                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+   415→   415→   415→              )}
+   416→   416→   416→            >
+   417→   417→   417→              {s}
+   418→   418→   418→            </button>
+   419→   419→   419→          ))}
+   420→   420→   420→        </div>
+   421→   421→   421→      </div>
+   422→   422→   422→
+   423→   423→   423→      {/* Medicine List */}
+   424→   424→   424→      {isLoading ? (
+   425→   425→   425→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   426→   426→   426→          {Array.from({ length: 6 }).map((_, i) => (
+   427→   427→   427→            <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-3">
+   428→   428→   428→              <div className="h-5 w-36 animate-pulse rounded bg-muted" />
+   429→   429→   429→              <div className="space-y-2">
+   430→   430→   430→                <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+   431→   431→   431→                <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+   432→   432→   432→              </div>
+   433→   433→   433→            </div>
+   434→   434→   434→          ))}
+   435→   435→   435→        </div>
+   436→   436→   436→      ) : medicines.length === 0 ? (
+   437→   437→   437→        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16">
+   438→   438→   438→          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-teal-50 dark:bg-teal-900/30 mb-4">
+   439→   439→   439→            <Pill className="h-8 w-8 text-teal-600 dark:text-teal-400" />
+   440→   440→   440→          </div>
+   441→   441→   441→          <h3 className="text-sm font-medium">
+   442→   442→   442→            {search ? 'No medicines found' : 'No medicines added yet'}
+   443→   443→   443→          </h3>
+   444→   444→   444→          <p className="text-sm text-muted-foreground mt-1 text-center max-w-xs">
+   445→   445→   445→            {search
+   446→   446→   446→              ? 'Try a different search term or adjust the filter'
+   447→   447→   447→              : 'Add medicines you frequently prescribe for quick access when writing prescriptions'}
+   448→   448→   448→          </p>
+   449→   449→   449→          {!search && (
+   450→   450→   450→            <Button
+   451→   451→   451→              variant="outline"
+   452→   452→   452→              className="mt-4 text-teal-600 border-teal-300 hover:bg-teal-50 dark:text-teal-400 dark:border-teal-700 dark:hover:bg-teal-900/30"
+   453→   453→   453→              onClick={openCreateDialog}
+   454→   454→   454→            >
+   455→   455→   455→              <Plus className="mr-2 h-4 w-4" />
+   456→   456→   456→              Add Your First Medicine
+   457→   457→   457→            </Button>
+   458→   458→   458→          )}
+   459→   459→   459→        </div>
+   460→   460→   460→      ) : (
+   461→   461→   461→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   462→   462→   462→          <AnimatePresence mode="popLayout">
+   463→   463→   463→            {medicines.map((med, i) => (
+   464→   464→   464→              <motion.div
+   465→   465→   465→                key={med.id}
+   466→   466→   466→                layout
+   467→   467→   467→                initial={{ opacity: 0, y: 15 }}
+   468→   468→   468→                animate={{ opacity: 1, y: 0 }}
+   469→   469→   469→                exit={{ opacity: 0, scale: 0.95 }}
+   470→   470→   470→                transition={{ delay: i * 0.03 }}
+   471→   471→   471→              >
+   472→   472→   472→                <Card className="group relative overflow-hidden hover:shadow-md transition-shadow">
+   473→   473→   473→                  <CardContent className="p-4">
+   474→   474→   474→                    {/* Top Row: Name + Actions */}
+   475→   475→   475→                    <div className="flex items-start justify-between gap-2">
+   476→   476→   476→                      <div className="min-w-0 flex-1">
+   477→   477→   477→                        <div className="flex items-center gap-2">
+   478→   478→   478→                          <h3 className="font-semibold text-sm truncate">{med.name}</h3>
+   479→   479→   479→                          {med.status === 'Active' ? (
+   480→   480→   480→                            <Badge variant="secondary" className="bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800 text-[10px] shrink-0">
+   481→   481→   481→                              Active
+   482→   482→   482→                            </Badge>
+   483→   483→   483→                          ) : (
+   484→   484→   484→                            <Badge variant="secondary" className="bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 text-[10px] shrink-0">
+   485→   485→   485→                              Inactive
+   486→   486→   486→                            </Badge>
+   487→   487→   487→                          )}
+   488→   488→   488→                        </div>
+   489→   489→   489→                      </div>
+   490→   490→   490→                      <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+   491→   491→   491→                        <Button
+   492→   492→   492→                          variant="ghost"
+   493→   493→   493→                          size="icon"
+   494→   494→   494→                          className="h-7 w-7"
+   495→   495→   495→                          onClick={() => openEditDialog(med)}
+   496→   496→   496→                        >
+   497→   497→   497→                          <Edit className="h-3.5 w-3.5" />
+   498→   498→   498→                        </Button>
+   499→   499→   499→                        {med.status === 'Active' && (
+   500→   500→   500→                          <Button
+   501→   501→   501→                            variant="ghost"
+   502→   502→   502→                            size="icon"
+   503→   503→   503→                            className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
+   504→   504→   504→                            onClick={() => setDeleteTarget(med)}
+   505→   505→   505→                          >
+   506→   506→   506→                            <Trash2 className="h-3.5 w-3.5" />
+   507→   507→   507→                          </Button>
+   508→   508→   508→                        )}
+   509→   509→   509→                      </div>
+   510→   510→   510→                    </div>
+   511→   511→   511→
+   512→   512→   512→                    {/* Dose Tags */}
+   513→   513→   513→                    {med.doseArray && med.doseArray.length > 0 && (
+   514→   514→   514→                      <div className="flex flex-wrap gap-1 mt-2.5">
+   515→   515→   515→                        {med.doseArray.map((d, di) => (
+   516→   516→   516→                          <Badge
+   517→   517→   517→                            key={di}
+   518→   518→   518→                            variant="outline"
+   519→   519→   519→                            className={cn(
+   520→   520→   520→                              'text-[10px] px-1.5 py-0 gap-0.5',
+   521→   521→   521→                              di === 0
+   522→   522→   522→                                ? 'border-teal-200 text-teal-700 bg-teal-50 dark:border-teal-800 dark:text-teal-300 dark:bg-teal-900/20'
+   523→   523→   523→                                : 'border-border text-muted-foreground'
+   524→   524→   524→                            )}
+   525→   525→   525→                          >
+   526→   526→   526→                            <Pill className="h-2.5 w-2.5" />
+   527→   527→   527→                            {d}
+   528→   528→   528→                          </Badge>
+   529→   529→   529→                        ))}
+   530→   530→   530→                      </div>
+   531→   531→   531→                    )}
+   532→   532→   532→
+   533→   533→   533→                    {/* Timing + Duration row */}
+   534→   534→   534→                    <div className="flex flex-wrap items-center gap-2 mt-3">
+   535→   535→   535→                      {hasTimings(med) && (
+   536→   536→   536→                        <Badge
+   537→   537→   537→                          variant="outline"
+   538→   538→   538→                          className="text-[10px] px-1.5 py-0 gap-1 border-teal-300 text-teal-700 bg-teal-50/60 dark:border-teal-700 dark:text-teal-300 dark:bg-teal-900/20"
+   539→   539→   539→                        >
+   540→   540→   540→                          <Clock className="h-2.5 w-2.5" />
+   541→   541→   541→                          {formatTiming(med)}
+   542→   542→   542→                        </Badge>
+   543→   543→   543→                      )}
+   544→   544→   544→                      <Badge
+   545→   545→   545→                        variant="outline"
+   546→   546→   546→                        className="text-[10px] px-1.5 py-0 gap-1 border-border text-muted-foreground"
+   547→   547→   547→                      >
+   548→   548→   548→                        <CalendarDays className="h-2.5 w-2.5" />
+   549→   549→   549→                        {med.tab} day{med.tab !== 1 ? 's' : ''}
+   550→   550→   550→                      </Badge>
+   551→   551→   551→                      {med.description && (
+   552→   552→   552→                        <Badge
+   553→   553→   553→                          variant="outline"
+   554→   554→   554→                          className="text-[10px] px-1.5 py-0 border-amber-200 text-amber-700 bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:bg-amber-900/20"
+   555→   555→   555→                        >
+   556→   556→   556→                          {med.description}
+   557→   557→   557→                        </Badge>
+   558→   558→   558→                      )}
+   559→   559→   559→                    </div>
+   560→   560→   560→
+   561→   561→   561→                    {/* Mobile action buttons (always visible on small screens) */}
+   562→   562→   562→                    <div className="flex sm:hidden gap-2 mt-3 pt-3 border-t border-border/50">
+   563→   563→   563→                      <Button
+   564→   564→   564→                        variant="outline"
+   565→   565→   565→                        size="sm"
+   566→   566→   566→                        className="flex-1 h-8 text-xs text-teal-600 border-teal-300 hover:bg-teal-50 dark:text-teal-400 dark:border-teal-700 dark:hover:bg-teal-900/30"
+   567→   567→   567→                        onClick={() => openEditDialog(med)}
+   568→   568→   568→                      >
+   569→   569→   569→                        <Edit className="mr-1.5 h-3 w-3" />
+   570→   570→   570→                        Edit
+   571→   571→   571→                      </Button>
+   572→   572→   572→                      {med.status === 'Active' && (
+   573→   573→   573→                        <Button
+   574→   574→   574→                          variant="outline"
+   575→   575→   575→                          size="sm"
+   576→   576→   576→                          className="flex-1 h-8 text-xs text-red-500 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30"
+   577→   577→   577→                          onClick={() => setDeleteTarget(med)}
+   578→   578→   578→                        >
+   579→   579→   579→                          <Trash2 className="mr-1.5 h-3 w-3" />
+   580→   580→   580→                          Remove
+   581→   581→   581→                        </Button>
+   582→   582→   582→                      )}
+   583→   583→   583→                    </div>
+   584→   584→   584→                  </CardContent>
+   585→   585→   585→                </Card>
+   586→   586→   586→              </motion.div>
+   587→   587→   587→            ))}
+   588→   588→   588→          </AnimatePresence>
+   589→   589→   589→        </div>
+   590→   590→   590→      )}
+   591→   591→   591→
+   592→   592→   592→      {/* Add/Edit Dialog */}
+   593→   593→   593→      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); else setDialogOpen(true) }}>
+   594→   594→   594→        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   595→   595→   595→          <DialogHeader>
+   596→   596→   596→            <DialogTitle>
+   597→   597→   597→              {editingMedicine ? 'Edit Medicine' : 'Add New Medicine'}
+   598→   598→   598→            </DialogTitle>
+   599→   599→   599→          </DialogHeader>
+   600→   600→   600→          <div className="space-y-4 py-2">
+   601→   601→   601→            {/* Medicine Name */}
+   602→   602→   602→            <div className="space-y-2">
+   603→   603→   603→              <Label htmlFor="med-name">
+   604→   604→   604→                Medicine Name <span className="text-red-500">*</span>
+   605→   605→   605→              </Label>
+   606→   606→   606→              <Input
+   607→   607→   607→                id="med-name"
+   608→   608→   608→                placeholder="e.g. Paracetamol"
+   609→   609→   609→                value={form.name}
+   610→   610→   610→                onChange={(e) => setForm({ ...form, name: e.target.value })}
+   611→   611→   611→                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+   612→   612→   612→              />
+   613→   613→   613→            </div>
+   614→   614→   614→
+   615→   615→   615→            {/* Dose Tag Input */}
+   616→   616→   616→            <div className="space-y-2">
+   617→   617→   617→              <Label>Dose Options <span className="text-red-500">*</span></Label>
+   618→   618→   618→              <DoseTagInput
+   619→   619→   619→                tags={form.doseArray}
+   620→   620→   620→                onChange={(doseArray) => setForm({ ...form, doseArray })}
+   621→   621→   621→              />
+   622→   622→   622→              <p className="text-[11px] text-muted-foreground">
+   623→   623→   623→                Type a dose and press <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-[10px]">Enter</kbd> or <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-[10px]">,</kbd> to add. First option is the default.
+   624→   624→   624→              </p>
+   625→   625→   625→            </div>
+   626→   626→   626→
+   627→   627→   627→            {/* Morning / Afternoon / Evening — Number inputs */}
+   628→   628→   628→            <div className="space-y-3">
+   629→   629→   629→              <Label>Timing (Tablet Count)</Label>
+   630→   630→   630→              <div className="grid gap-3">
+   631→   631→   631→                {/* Morning */}
+   632→   632→   632→                <div className="flex items-center gap-3">
+   633→   633→   633→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+   634→   634→   634→                    <Sun className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+   635→   635→   635→                  </div>
+   636→   636→   636→                  <div className="flex-1">
+   637→   637→   637→                    <div className="text-xs text-muted-foreground mb-1">Morning Tablets</div>
+   638→   638→   638→                    <Input
+   639→   639→   639→                      type="number"
+   640→   640→   640→                      min={0}
+   641→   641→   641→                      value={form.morning}
+   642→   642→   642→                      onChange={(e) => setForm({ ...form, morning: Math.max(0, parseInt(e.target.value) || 0) })}
+   643→   643→   643→                      className="w-24"
+   644→   644→   644→                      placeholder="0"
+   645→   645→   645→                    />
+   646→   646→   646→                  </div>
+   647→   647→   647→                  <span className="text-[11px] text-muted-foreground italic">0 = skip</span>
+   648→   648→   648→                </div>
+   649→   649→   649→
+   650→   650→   650→                {/* Afternoon */}
+   651→   651→   651→                <div className="flex items-center gap-3">
+   652→   652→   652→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
+   653→   653→   653→                    <CloudSun className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+   654→   654→   654→                  </div>
+   655→   655→   655→                  <div className="flex-1">
+   656→   656→   656→                    <div className="text-xs text-muted-foreground mb-1">Afternoon Tablets</div>
+   657→   657→   657→                    <Input
+   658→   658→   658→                      type="number"
+   659→   659→   659→                      min={0}
+   660→   660→   660→                      value={form.afternoon}
+   661→   661→   661→                      onChange={(e) => setForm({ ...form, afternoon: Math.max(0, parseInt(e.target.value) || 0) })}
+   662→   662→   662→                      className="w-24"
+   663→   663→   663→                      placeholder="0"
+   664→   664→   664→                    />
+   665→   665→   665→                  </div>
+   666→   666→   666→                  <span className="text-[11px] text-muted-foreground italic">0 = skip</span>
+   667→   667→   667→                </div>
+   668→   668→   668→
+   669→   669→   669→                {/* Evening */}
+   670→   670→   670→                <div className="flex items-center gap-3">
+   671→   671→   671→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700/40">
+   672→   672→   672→                    <Moon className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+   673→   673→   673→                  </div>
+   674→   674→   674→                  <div className="flex-1">
+   675→   675→   675→                    <div className="text-xs text-muted-foreground mb-1">Evening Tablets</div>
+   676→   676→   676→                    <Input
+   677→   677→   677→                      type="number"
+   678→   678→   678→                      min={0}
+   679→   679→   679→                      value={form.evening}
+   680→   680→   680→                      onChange={(e) => setForm({ ...form, evening: Math.max(0, parseInt(e.target.value) || 0) })}
+   681→   681→   681→                      className="w-24"
+   682→   682→   682→                      placeholder="0"
+   683→   683→   683→                    />
+   684→   684→   684→                  </div>
+   685→   685→   685→                  <span className="text-[11px] text-muted-foreground italic">0 = skip</span>
+   686→   686→   686→                </div>
+   687→   687→   687→              </div>
+   688→   688→   688→            </div>
+   689→   689→   689→
+   690→   690→   690→            {/* Duration (Days) */}
+   691→   691→   691→            <div className="space-y-2">
+   692→   692→   692→              <Label htmlFor="med-tab">Duration (Days)</Label>
+   693→   693→   693→              <Input
+   694→   694→   694→                id="med-tab"
+   695→   695→   695→                type="number"
+   696→   696→   696→                min={1}
+   697→   697→   697→                value={form.tab}
+   698→   698→   698→                onChange={(e) => setForm({ ...form, tab: Math.max(1, parseInt(e.target.value) || 1) })}
+   699→   699→   699→                placeholder="e.g. 5"
+   700→   700→   700→              />
+   701→   701→   701→            </div>
+   702→   702→   702→
+   703→   703→   703→            {/* Instructions (description) */}
+   704→   704→   704→            <div className="space-y-2">
+   705→   705→   705→              <Label htmlFor="med-desc">Instructions</Label>
+   706→   706→   706→              <Input
+   707→   707→   707→                id="med-desc"
+   708→   708→   708→                placeholder='e.g. AF (After Food), BF (Before Food)'
+   709→   709→   709→                value={form.description}
+   710→   710→   710→                onChange={(e) => setForm({ ...form, description: e.target.value })}
+   711→   711→   711→              />
+   712→   712→   712→              <p className="text-[11px] text-muted-foreground">
+   713→   713→   713→                Common: AF = After Food, BF = Before Food, AC = Before Meals, PC = After Meals
+   714→   714→   714→              </p>
+   715→   715→   715→            </div>
+   716→   716→   716→          </div>
+   717→   717→   717→          <DialogFooter>
+   718→   718→   718→            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+   719→   719→   719→            <Button
+   720→   720→   720→              className="bg-teal-600 hover:bg-teal-700"
+   721→   721→   721→              onClick={handleSubmit}
+   722→   722→   722→              disabled={createMutation.isPending || updateMutation.isPending}
+   723→   723→   723→            >
+   724→   724→   724→              {editingMedicine
+   725→   725→   725→                ? updateMutation.isPending ? 'Saving...' : 'Save Changes'
+   726→   726→   726→                : createMutation.isPending ? 'Adding...' : 'Add Medicine'
+   727→   727→   727→              }
+   728→   728→   728→            </Button>
+   729→   729→   729→          </DialogFooter>
+   730→   730→   730→        </DialogContent>
+   731→   731→   731→      </Dialog>
+   732→   732→   732→
+   733→   733→   733→      {/* Delete Confirmation */}
+   734→   734→   734→      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+   735→   735→   735→        <AlertDialogContent>
+   736→   736→   736→          <AlertDialogHeader>
+   737→   737→   737→            <AlertDialogTitle>Deactivate Medicine</AlertDialogTitle>
+   738→   738→   738→            <AlertDialogDescription>
+   739→   739→   739→              Are you sure you want to deactivate &quot;{deleteTarget?.name}&quot;? It will be marked as inactive and won&apos;t appear in your active medicine list. You can reactivate it later by editing.
+   740→   740→   740→            </AlertDialogDescription>
+   741→   741→   741→          </AlertDialogHeader>
+   742→   742→   742→          <AlertDialogFooter>
+   743→   743→   743→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   744→   744→   744→            <AlertDialogAction
+   745→   745→   745→              onClick={handleDelete}
+   746→   746→   746→              disabled={deleteMutation.isPending}
+   747→   747→   747→              className="bg-red-600 hover:bg-red-700"
+   748→   748→   748→            >
+   749→   749→   749→              {deleteMutation.isPending ? 'Deactivating...' : 'Deactivate'}
+   750→   750→   750→            </AlertDialogAction>
+   751→   751→   751→          </AlertDialogFooter>
+   752→   752→   752→        </AlertDialogContent>
+   753→   753→   753→      </AlertDialog>
+   754→   754→   754→    </div>
+   755→   755→   755→  )
+   756→   756→   756→}
+   757→   757→   757→

@@ -7,72 +7,116 @@ import { X } from 'lucide-react'
 
 // ─── Data Types ───────────────────────────────────────────
 
-export interface PrintMedicine {
-  id?: string
-  medicine: string
-  morning: boolean
-  afternoon: boolean
-  evening: boolean
-  tab: number
-  dose: string
-  description: string
-}
-
-export interface PrintLabel {
-  id?: string
-  label: string
-  value: string
-  labelUnit: string
-}
-
-export interface PrintSuggestion {
-  id?: string
-  question: string
-  suggestions: string
-}
-
-export interface PrintDoctor {
-  name?: string
-  specialization?: string
-  education?: string
-  registrationDetail?: string
-  city?: string
-  state?: string
-  address?: string
-  hospitalAddress?: string
-  phoneNo?: string
-  mobileNo?: string
-  fees?: number | string
-  experience?: string
-}
-
-export interface PrescriptionPrintData {
-  patientName: string
-  patientAge?: string
-  gender?: string
-  bloodGroup?: string
-  weight?: string
-  bp?: string
-  temperature?: string
-  disease?: string
-  description?: string
+export interface PrintData {
+  patient: {
+    name: string
+    age: string
+    gender: string
+    bloodGroup: string
+  }
+  doctor: {
+    name: string
+    specialization: string
+    education: string
+    registrationDetail: string
+    city: string
+    state: string
+    address: string
+    hospitalAddress: string
+    phoneNo: string
+    mobileNo: string
+  }
+  settings: {
+    logo: string
+    header: string
+    fullHeader: string
+    isFullHeader: boolean
+    footer: string
+    showCoInPrint: boolean
+    showNextVisit: boolean
+    printLayout: string
+  }
+  complaints: {
+    coDetail: string
+    coDetailEn: string
+  }[]
+  vitals: {
+    weight: string
+    bp: string
+    temperature: string
+    pulse: string
+    spo2: string
+  }
+  labels: {
+    label: string
+    labelEn: string
+    value: string
+    labelUnit: string
+    showUnit: boolean
+  }[]
+  medicines: {
+    medicine: string
+    dose: string
+    morning: number
+    afternoon: number
+    evening: number
+    tab: number
+    description: string
+  }[]
+  tables: {
+    rows: number
+    cols: number
+    headerLabel: string[]
+    colsLabel: string[]
+    footerLabel: string[]
+    extraLabel: string
+  }[]
+  suggestions: {
+    question: string
+    questionEn: string
+    suggestions: string
+    suggestionsEn: string
+  }[]
+  nextVisit?: string
   createdAt: string
-  medicines: PrintMedicine[]
-  labels: PrintLabel[]
-  suggestions?: PrintSuggestion[]
-  doctor: PrintDoctor
 }
+
+// ─── Legacy type alias for backward compatibility ─────────
+export type PrescriptionPrintData = PrintData
 
 interface PrescriptionPrintViewProps {
-  data: PrescriptionPrintData
+  data: PrintData
   onClose: () => void
   onPrint: () => void
 }
 
-// ─── Component ────────────────────────────────────────────
+// ─── Shared styles ────────────────────────────────────────
+
+const COLORS = {
+  teal: '#0d9488',
+  tealLight: '#f0fdfa',
+  tealBorder: '#99f6e4',
+  gray700: '#374151',
+  gray500: '#6b7280',
+  gray400: '#9ca3af',
+  gray100: '#f9fafb',
+  border: '#e5e7eb',
+  text: '#1a1a1a',
+}
+
+const sectionTitle: React.CSSProperties = {
+  margin: '0 0 6px 0',
+  fontSize: '12px',
+  fontWeight: 700,
+  color: COLORS.teal,
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+}
+
+// ─── Component ───────────────────────────────────────────
 
 export function PrescriptionPrintView({ data, onClose, onPrint }: PrescriptionPrintViewProps) {
-  const { patientName, patientAge, gender, bloodGroup, weight, bp, temperature, disease, description, createdAt, medicines, labels, suggestions, doctor } = data
+  const { patient, doctor, settings, complaints, vitals, labels, medicines, tables, suggestions, nextVisit, createdAt } = data
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -81,10 +125,10 @@ export function PrescriptionPrintView({ data, onClose, onPrint }: PrescriptionPr
     return () => clearTimeout(timer)
   }, [])
 
-  const timeSlots: string[] = []
-  if (medicines.some((m) => m.morning)) timeSlots.push('Morning')
-  if (medicines.some((m) => m.afternoon)) timeSlots.push('Afternoon')
-  if (medicines.some((m) => m.evening)) timeSlots.push('Evening')
+  // Determine which time columns are needed based on medicine data
+  const hasMorning = medicines.some((m) => m.morning > 0)
+  const hasAfternoon = medicines.some((m) => m.afternoon > 0)
+  const hasEvening = medicines.some((m) => m.evening > 0)
 
   return (
     <>
@@ -125,146 +169,222 @@ export function PrescriptionPrintView({ data, onClose, onPrint }: PrescriptionPr
             exit={{ opacity: 0, y: 30, scale: 0.97 }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           >
-            <div style={{ padding: '24px 32px', fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif', color: '#1a1a1a', fontSize: '13px', lineHeight: '1.5' }}>
+            <div style={{ padding: '24px 32px', fontFamily: '"Segoe UI", Tahoma, Geneva, Verdana, sans-serif', color: COLORS.text, fontSize: '13px', lineHeight: '1.5' }}>
 
               {/* ── Header ── */}
-              <div style={{ borderBottom: '2px solid #0d9488', paddingBottom: '14px', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h1 style={{ margin: '0 0 2px 0', fontSize: '20px', fontWeight: 700, color: '#0d9488', letterSpacing: '0.3px' }}>
-                      Dr. {doctor.name || 'Unknown'}
-                    </h1>
-                    {doctor.specialization && (
-                      <p style={{ margin: '0 0 3px 0', fontSize: '13px', color: '#374151', fontWeight: 500 }}>
-                        {doctor.specialization}
-                      </p>
-                    )}
-                    {doctor.education && (
-                      <p style={{ margin: '0 0 3px 0', fontSize: '12px', color: '#6b7280' }}>
-                        {doctor.education}
-                      </p>
-                    )}
-                    {doctor.registrationDetail && (
-                      <p style={{ margin: '0', fontSize: '11px', color: '#6b7280' }}>
-                        Reg. No: {doctor.registrationDetail}
-                      </p>
-                    )}
+              <div style={{ borderBottom: `2px solid ${COLORS.teal}`, paddingBottom: '14px', marginBottom: '16px' }}>
+                {/* Full header image mode */}
+                {settings.isFullHeader && settings.fullHeader ? (
+                  <div style={{ textAlign: 'center', marginBottom: '8px' }}>
+                    <img
+                      src={settings.fullHeader}
+                      alt="Doctor Header"
+                      style={{ maxHeight: '120px', maxWidth: '100%', objectFit: 'contain' }}
+                    />
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#374151', fontWeight: 600 }}>
-                      PRESCRIPTION
-                    </p>
-                    <p style={{ margin: '0 0 2px 0', fontSize: '11px', color: '#6b7280' }}>
-                      Date: {format(new Date(createdAt), 'dd MMM yyyy')}
-                    </p>
-                    {(doctor.phoneNo || doctor.mobileNo) && (
-                      <p style={{ margin: '0', fontSize: '11px', color: '#6b7280' }}>
-                        Ph: {doctor.phoneNo || doctor.mobileNo}
+                ) : (
+                  /* Standard header: logo + doctor info text */
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                      {settings.logo && (
+                        <div style={{ flexShrink: 0 }}>
+                          <img
+                            src={settings.logo}
+                            alt="Logo"
+                            style={{ height: '60px', width: '60px', objectFit: 'contain', borderRadius: '4px' }}
+                          />
+                        </div>
+                      )}
+                      <div>
+                        <h1 style={{ margin: '0 0 2px 0', fontSize: '20px', fontWeight: 700, color: COLORS.teal, letterSpacing: '0.3px' }}>
+                          Dr. {doctor.name || 'Unknown'}
+                        </h1>
+                        {doctor.specialization && (
+                          <p style={{ margin: '0 0 3px 0', fontSize: '13px', color: COLORS.gray700, fontWeight: 500 }}>
+                            {doctor.specialization}
+                          </p>
+                        )}
+                        {doctor.education && (
+                          <p style={{ margin: '0 0 3px 0', fontSize: '12px', color: COLORS.gray500 }}>
+                            {doctor.education}
+                          </p>
+                        )}
+                        {doctor.registrationDetail && (
+                          <p style={{ margin: '0', fontSize: '11px', color: COLORS.gray500 }}>
+                            Reg. No: {doctor.registrationDetail}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: COLORS.gray700, fontWeight: 600 }}>
+                        PRESCRIPTION
                       </p>
-                    )}
+                      <p style={{ margin: '0 0 2px 0', fontSize: '11px', color: COLORS.gray500 }}>
+                        Date: {format(new Date(createdAt), 'dd MMM yyyy')}
+                      </p>
+                      {(doctor.phoneNo || doctor.mobileNo) && (
+                        <p style={{ margin: '0', fontSize: '11px', color: COLORS.gray500 }}>
+                          Ph: {doctor.phoneNo || doctor.mobileNo}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
+                {/* Address line */}
                 {(doctor.hospitalAddress || doctor.address) && (
-                  <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: '#6b7280' }}>
-                    📍 {doctor.hospitalAddress || doctor.address}{doctor.city ? `, ${doctor.city}` : ''}{doctor.state ? `, ${doctor.state}` : ''}
+                  <p style={{ margin: settings.isFullHeader && settings.fullHeader ? '4px 0 0 0' : '8px 0 0 0', fontSize: '11px', color: COLORS.gray500 }}>
+                    {doctor.hospitalAddress || doctor.address}{doctor.city ? `, ${doctor.city}` : ''}{doctor.state ? `, ${doctor.state}` : ''}
                   </p>
                 )}
               </div>
 
               {/* ── Patient Info ── */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '6px 24px', padding: '10px 14px', backgroundColor: '#f9fafb', borderRadius: '6px', marginBottom: '16px', fontSize: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '6px 24px', padding: '10px 14px', backgroundColor: COLORS.gray100, borderRadius: '6px', marginBottom: '16px', fontSize: '12px' }}>
                 <div>
-                  <span style={{ color: '#6b7280' }}>Patient: </span>
-                  <span style={{ fontWeight: 600 }}>{patientName}</span>
+                  <span style={{ color: COLORS.gray500 }}>Patient: </span>
+                  <span style={{ fontWeight: 600 }}>{patient.name}</span>
                 </div>
-                {patientAge && (
+                {patient.age && (
                   <div>
-                    <span style={{ color: '#6b7280' }}>Age: </span>
-                    <span style={{ fontWeight: 500 }}>{patientAge}</span>
+                    <span style={{ color: COLORS.gray500 }}>Age: </span>
+                    <span style={{ fontWeight: 500 }}>{patient.age}</span>
                   </div>
                 )}
-                {gender && (
+                {patient.gender && (
                   <div>
-                    <span style={{ color: '#6b7280' }}>Gender: </span>
-                    <span style={{ fontWeight: 500 }}>{gender}</span>
+                    <span style={{ color: COLORS.gray500 }}>Gender: </span>
+                    <span style={{ fontWeight: 500 }}>{patient.gender}</span>
                   </div>
                 )}
-                {weight && (
+                {patient.bloodGroup && (
                   <div>
-                    <span style={{ color: '#6b7280' }}>Weight: </span>
-                    <span style={{ fontWeight: 500 }}>{weight} kg</span>
-                  </div>
-                )}
-                {bloodGroup && (
-                  <div>
-                    <span style={{ color: '#6b7280' }}>Blood Group: </span>
-                    <span style={{ fontWeight: 500 }}>{bloodGroup}</span>
+                    <span style={{ color: COLORS.gray500 }}>Blood Group: </span>
+                    <span style={{ fontWeight: 500 }}>{patient.bloodGroup}</span>
                   </div>
                 )}
               </div>
 
-              {/* ── Chief Complaints / Disease ── */}
-              {disease && (
+              {/* ── C/O Section (Chief Complaints) ── */}
+              {settings.showCoInPrint && complaints && complaints.length > 0 && (
                 <div style={{ marginBottom: '14px' }}>
-                  <h3 style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Chief Complaints / Diagnosis
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '13px', color: '#1a1a1a' }}>{disease}</p>
+                  <h3 style={sectionTitle}>Chief Complaints</h3>
+                  <p style={{ margin: 0, fontSize: '13px', color: COLORS.text }}>
+                    C/O: {complaints.map((c) => c.coDetailEn || c.coDetail).filter(Boolean).join(', ')}
+                  </p>
                 </div>
               )}
 
               {/* ── Vitals ── */}
-              {(bp || temperature || weight) && (
-                <div style={{ display: 'flex', gap: '16px', marginBottom: '14px', flexWrap: 'wrap' }}>
-                  {bp && (
-                    <div style={{ padding: '6px 12px', border: '1px solid #e5e7eb', borderRadius: '4px', fontSize: '12px' }}>
-                      <span style={{ color: '#6b7280' }}>BP: </span>
-                      <span style={{ fontWeight: 600 }}>{bp} mmHg</span>
-                    </div>
-                  )}
-                  {temperature && (
-                    <div style={{ padding: '6px 12px', border: '1px solid #e5e7eb', borderRadius: '4px', fontSize: '12px' }}>
-                      <span style={{ color: '#6b7280' }}>Temp: </span>
-                      <span style={{ fontWeight: 600 }}>{temperature}°F</span>
-                    </div>
-                  )}
+              {(vitals.bp || vitals.temperature || vitals.weight || vitals.pulse || vitals.spo2) && (
+                <div style={{ marginBottom: '14px' }}>
+                  <h3 style={sectionTitle}>Vitals</h3>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    {vitals.weight && (
+                      <div style={{ padding: '5px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '4px', fontSize: '12px' }}>
+                        <span style={{ color: COLORS.gray500 }}>Weight: </span>
+                        <span style={{ fontWeight: 600 }}>{vitals.weight} kg</span>
+                      </div>
+                    )}
+                    {vitals.bp && (
+                      <div style={{ padding: '5px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '4px', fontSize: '12px' }}>
+                        <span style={{ color: COLORS.gray500 }}>BP: </span>
+                        <span style={{ fontWeight: 600 }}>{vitals.bp} mmHg</span>
+                      </div>
+                    )}
+                    {vitals.temperature && (
+                      <div style={{ padding: '5px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '4px', fontSize: '12px' }}>
+                        <span style={{ color: COLORS.gray500 }}>Temp: </span>
+                        <span style={{ fontWeight: 600 }}>{vitals.temperature}°F</span>
+                      </div>
+                    )}
+                    {vitals.pulse && (
+                      <div style={{ padding: '5px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '4px', fontSize: '12px' }}>
+                        <span style={{ color: COLORS.gray500 }}>Pulse: </span>
+                        <span style={{ fontWeight: 600 }}>{vitals.pulse} bpm</span>
+                      </div>
+                    )}
+                    {vitals.spo2 && (
+                      <div style={{ padding: '5px 12px', border: `1px solid ${COLORS.border}`, borderRadius: '4px', fontSize: '12px' }}>
+                        <span style={{ color: COLORS.gray500 }}>SpO2: </span>
+                        <span style={{ fontWeight: 600 }}>{vitals.spo2}%</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Labels / Lab Results ── */}
+              {labels && labels.length > 0 && (
+                <div style={{ marginBottom: '14px' }}>
+                  <h3 style={sectionTitle}>Lab Results</h3>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                    {labels.map((l, i) => (
+                      <span
+                        key={i}
+                        style={{
+                          padding: '3px 10px',
+                          backgroundColor: COLORS.tealLight,
+                          border: `1px solid ${COLORS.tealBorder}`,
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          color: COLORS.teal,
+                          fontWeight: 500,
+                        }}
+                      >
+                        {l.label || l.labelEn}: {l.value}{l.showUnit && l.labelUnit ? ` ${l.labelUnit}` : ''}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
 
               {/* ── Medicines Table ── */}
-              {medicines.length > 0 && (
+              {medicines && medicines.length > 0 && (
                 <div style={{ marginBottom: '14px' }}>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Rx — Medicines
-                  </h3>
+                  <h3 style={sectionTitle}>Rx - Medicines</h3>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                     <thead>
-                      <tr style={{ borderBottom: '2px solid #0d9488' }}>
-                        <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#374151', fontSize: '11px' }}>#</th>
-                        <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#374151', fontSize: '11px' }}>Medicine</th>
-                        <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#374151', fontSize: '11px' }}>Dose</th>
-                        {timeSlots.map((slot) => (
-                          <th key={slot} style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: '#374151', fontSize: '11px' }}>
-                            {slot === 'Morning' ? 'M' : slot === 'Afternoon' ? 'A' : 'E'}
-                          </th>
-                        ))}
-                        <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: '#374151', fontSize: '11px' }}>Instructions</th>
+                      <tr style={{ borderBottom: `2px solid ${COLORS.teal}` }}>
+                        <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: COLORS.gray700, fontSize: '11px' }}>#</th>
+                        <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: COLORS.gray700, fontSize: '11px' }}>Medicine</th>
+                        <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: COLORS.gray700, fontSize: '11px' }}>Dose</th>
+                        {hasMorning && (
+                          <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: COLORS.gray700, fontSize: '11px' }}>M</th>
+                        )}
+                        {hasAfternoon && (
+                          <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: COLORS.gray700, fontSize: '11px' }}>A</th>
+                        )}
+                        {hasEvening && (
+                          <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: COLORS.gray700, fontSize: '11px' }}>E</th>
+                        )}
+                        <th style={{ padding: '6px 8px', textAlign: 'center', fontWeight: 600, color: COLORS.gray700, fontSize: '11px' }}>Days</th>
+                        <th style={{ padding: '6px 8px', textAlign: 'left', fontWeight: 600, color: COLORS.gray700, fontSize: '11px' }}>Instructions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {medicines.map((med, i) => (
-                        <tr key={med.id || i} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                          <td style={{ padding: '5px 8px', color: '#6b7280' }}>{i + 1}</td>
+                        <tr key={i} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                          <td style={{ padding: '5px 8px', color: COLORS.gray500 }}>{i + 1}</td>
                           <td style={{ padding: '5px 8px', fontWeight: 600 }}>{med.medicine}</td>
-                          <td style={{ padding: '5px 8px', textAlign: 'center' }}>{med.tab}× {med.dose || '—'}</td>
-                          {timeSlots.map((slot) => (
-                            <td key={slot} style={{ padding: '5px 8px', textAlign: 'center' }}>
-                              {slot === 'Morning' && med.morning ? '✓' : ''}
-                              {slot === 'Afternoon' && med.afternoon ? '✓' : ''}
-                              {slot === 'Evening' && med.evening ? '✓' : ''}
+                          <td style={{ padding: '5px 8px', textAlign: 'center' }}>{med.dose || '-'}</td>
+                          {hasMorning && (
+                            <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                              {med.morning > 0 ? med.morning : '-'}
                             </td>
-                          ))}
-                          <td style={{ padding: '5px 8px', color: '#6b7280' }}>{med.description || '—'}</td>
+                          )}
+                          {hasAfternoon && (
+                            <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                              {med.afternoon > 0 ? med.afternoon : '-'}
+                            </td>
+                          )}
+                          {hasEvening && (
+                            <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                              {med.evening > 0 ? med.evening : '-'}
+                            </td>
+                          )}
+                          <td style={{ padding: '5px 8px', textAlign: 'center' }}>{med.tab > 0 ? med.tab : '-'}</td>
+                          <td style={{ padding: '5px 8px', color: COLORS.gray500 }}>{med.description || '-'}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -272,71 +392,107 @@ export function PrescriptionPrintView({ data, onClose, onPrint }: PrescriptionPr
                 </div>
               )}
 
-              {/* ── Labels / Lab Results ── */}
-              {labels.length > 0 && (
+              {/* ── Diagnosis Tables ── */}
+              {tables && tables.length > 0 && (
                 <div style={{ marginBottom: '14px' }}>
-                  <h3 style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Lab Results / Labels
-                  </h3>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {labels.map((l) => (
-                      <span
-                        key={l.id || l.label}
-                        style={{
-                          padding: '3px 10px',
-                          backgroundColor: '#f0fdfa',
-                          border: '1px solid #99f6e4',
-                          borderRadius: '4px',
-                          fontSize: '11px',
-                          color: '#0d9488',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {l.label}: {l.value} {l.labelUnit}
-                      </span>
-                    ))}
-                  </div>
+                  <h3 style={sectionTitle}>Diagnosis Tables</h3>
+                  {tables.map((table, ti) => (
+                    <div key={ti} style={{ marginBottom: '12px' }}>
+                      {table.extraLabel && (
+                        <p style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 600, color: COLORS.gray700 }}>
+                          {table.extraLabel}
+                        </p>
+                      )}
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', border: `1px solid ${COLORS.border}` }}>
+                        {/* Column headers */}
+                        {table.headerLabel && table.headerLabel.length > 0 && (
+                          <thead>
+                            <tr style={{ backgroundColor: COLORS.tealLight }}>
+                              <th style={{ padding: '5px 8px', border: `1px solid ${COLORS.border}`, fontWeight: 600, color: COLORS.gray700, fontSize: '11px', textAlign: 'left' }}>
+                                #
+                              </th>
+                              {table.headerLabel.map((h, hi) => (
+                                <th key={hi} style={{ padding: '5px 8px', border: `1px solid ${COLORS.border}`, fontWeight: 600, color: COLORS.gray700, fontSize: '11px', textAlign: 'left' }}>
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                        )}
+                        <tbody>
+                          {Array.from({ length: table.rows }).map((_, ri) => (
+                            <tr key={ri}>
+                              <td style={{ padding: '4px 8px', border: `1px solid ${COLORS.border}`, fontWeight: 500, color: COLORS.gray500, fontSize: '11px' }}>
+                                {table.colsLabel[ri] || ''}
+                              </td>
+                              {Array.from({ length: table.cols }).map((_, ci) => (
+                                <td key={ci} style={{ padding: '4px 8px', border: `1px solid ${COLORS.border}`, color: COLORS.text }}>
+                                  {/* Empty cells for user-filled data or template placeholders */}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                          {/* Footer rows */}
+                          {table.footerLabel && table.footerLabel.length > 0 && table.footerLabel.map((f, fi) => (
+                            <tr key={`footer-${fi}`}>
+                              <td
+                                colSpan={table.cols + 1}
+                                style={{ padding: '4px 8px', border: `1px solid ${COLORS.border}`, fontWeight: 500, color: COLORS.gray700, fontSize: '11px', textAlign: 'center' }}
+                              >
+                                {f}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
                 </div>
               )}
 
               {/* ── Suggestions / Advice ── */}
               {suggestions && suggestions.length > 0 && (
                 <div style={{ marginBottom: '14px' }}>
-                  <h3 style={{ margin: '0 0 6px 0', fontSize: '12px', fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Advice / Suggestions
-                  </h3>
+                  <h3 style={sectionTitle}>Advice / Suggestions</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {suggestions.map((s) => (
-                      <div key={s.id || s.question} style={{ display: 'flex', gap: '8px', fontSize: '12px' }}>
-                        <span style={{ color: '#0d9488', fontWeight: 600, whiteSpace: 'nowrap' }}>• {s.question}:</span>
-                        <span style={{ color: '#374151' }}>{s.suggestions}</span>
+                    {suggestions.map((s, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '12px' }}>
+                        <span style={{ color: COLORS.teal, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          &bull; {s.questionEn || s.question}:
+                        </span>
+                        <span style={{ color: COLORS.gray700 }}>{s.suggestionsEn || s.suggestions}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* ── Doctor's Notes ── */}
-              {description && (
+              {/* ── Next Visit ── */}
+              {settings.showNextVisit && nextVisit && (
                 <div style={{ marginBottom: '14px' }}>
-                  <h3 style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: 700, color: '#0d9488', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Doctor's Notes
-                  </h3>
-                  <p style={{ margin: 0, fontSize: '12px', color: '#374151', whiteSpace: 'pre-wrap' }}>{description}</p>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 14px', backgroundColor: COLORS.tealLight, border: `1px solid ${COLORS.tealBorder}`, borderRadius: '4px', fontSize: '12px' }}>
+                    <span style={{ color: COLORS.gray500, fontWeight: 600 }}>Next Visit:</span>
+                    <span style={{ color: COLORS.teal, fontWeight: 700 }}>{nextVisit}</span>
+                  </div>
                 </div>
               )}
 
               {/* ── Footer / Signature ── */}
-              <div style={{ marginTop: '24px', paddingTop: '14px', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                <div style={{ fontSize: '10px', color: '#9ca3af' }}>
+              <div style={{ marginTop: '24px', paddingTop: '14px', borderTop: `1px solid ${COLORS.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                <div style={{ fontSize: '10px', color: COLORS.gray400 }}>
+                  {settings.footer && (
+                    <p style={{ margin: '0 0 6px 0', fontSize: '11px', color: COLORS.gray500, fontStyle: 'italic', maxWidth: '280px' }}>
+                      {settings.footer}
+                    </p>
+                  )}
                   <p style={{ margin: 0 }}>This is a computer-generated prescription.</p>
                   <p style={{ margin: '2px 0 0 0' }}>Generated on {format(new Date(createdAt), 'dd MMM yyyy \'at\' hh:mm a')}</p>
                 </div>
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ width: '140px', borderBottom: '1px solid #1a1a1a', marginBottom: '4px' }} />
-                  <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: '#1a1a1a' }}>Dr. {doctor.name || ''}</p>
+                  <div style={{ width: '140px', borderBottom: `1px solid ${COLORS.text}`, marginBottom: '4px' }} />
+                  <p style={{ margin: 0, fontSize: '12px', fontWeight: 600, color: COLORS.text }}>Dr. {doctor.name || ''}</p>
                   {doctor.specialization && (
-                    <p style={{ margin: '2px 0 0 0', fontSize: '10px', color: '#6b7280' }}>{doctor.specialization}</p>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '10px', color: COLORS.gray500 }}>{doctor.specialization}</p>
                   )}
                 </div>
               </div>

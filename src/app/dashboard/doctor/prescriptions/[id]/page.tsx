@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
@@ -27,7 +27,7 @@ import {
 import { toast } from 'sonner'
 import { format } from 'date-fns'
 import Link from 'next/link'
-import { PrescriptionPrintView, type PrescriptionPrintData } from '@/components/prescription/print-view'
+import { PrescriptionPrintView, type PrintData } from '@/components/prescription/print-view'
 
 interface Medicine {
   id: string
@@ -172,36 +172,11 @@ export default function ViewPrescriptionPage() {
     setIsEditing(true)
   }
 
-  const getPrintData = useCallback((): PrescriptionPrintData | null => {
-    if (!rx) return null
-    return {
-      patientName: rx.patientName,
-      patientAge: rx.patientAge || undefined,
-      weight: rx.weight || undefined,
-      bp: rx.bp || undefined,
-      temperature: rx.temperature || undefined,
-      disease: rx.disease || undefined,
-      description: rx.description || undefined,
-      createdAt: rx.createdAt,
-      medicines: rx.medicines,
-      labels: rx.labels,
-      suggestions: rx.suggestions,
-      doctor: {
-        name: rx.doctor?.user?.name,
-        specialization: rx.doctor?.specialization,
-        education: rx.doctor?.education,
-        registrationDetail: rx.doctor?.registrationDetail,
-        city: rx.doctor?.city,
-        state: rx.doctor?.state,
-        address: rx.doctor?.address,
-        hospitalAddress: rx.doctor?.hospitalAddress,
-        phoneNo: rx.doctor?.phoneNo,
-        mobileNo: rx.doctor?.user?.mobileNo,
-        fees: rx.doctor?.fees,
-        experience: rx.doctor?.experience,
-      },
-    }
-  }, [rx])
+  const { data: printData } = useQuery<PrintData>({
+    queryKey: ['rx-print-data', id],
+    queryFn: () => fetch(`/api/prescription/${id}/print`).then((r) => r.json()),
+    enabled: showPrintView && !!id,
+  })
 
   const handlePrint = () => {
     setShowPrintView(true)
@@ -295,17 +270,14 @@ export default function ViewPrescriptionPage() {
   const displayMeds = isEditing && editData ? editData.medicines : rx.medicines
 
   // Print preview overlay
-  if (showPrintView) {
-    const printData = getPrintData()
-    if (printData) {
-      return (
-        <PrescriptionPrintView
-          data={printData}
-          onClose={handleClosePrint}
-          onPrint={handlePrintAction}
-        />
-      )
-    }
+  if (showPrintView && printData) {
+    return (
+      <PrescriptionPrintView
+        data={printData}
+        onClose={handleClosePrint}
+        onPrint={handlePrintAction}
+      />
+    )
   }
 
   return (

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, KeyboardEvent } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
-import { Skeleton } from '@/components/ui/skeleton'
 import {
   Dialog,
   DialogContent,
@@ -35,17 +34,25 @@ import {
   Sun,
   CloudSun,
   Moon,
+  X,
+  Clock,
+  CalendarDays,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
+/* ------------------------------------------------------------------ */
+/*  Types                                                              */
+/* ------------------------------------------------------------------ */
+
 interface Medicine {
   id: string
   name: string
-  morning: string
-  afternoon: string
-  evening: string
-  dose: string
+  morning: number
+  afternoon: number
+  evening: number
+  dose: string           // raw JSON string from DB
+  doseArray: string[]    // parsed by API
   tab: number
   description: string
   status: string
@@ -55,23 +62,114 @@ interface Medicine {
 
 interface FormData {
   name: string
-  dose: string
+  doseArray: string[]
   tab: number
-  morning: string
-  afternoon: string
-  evening: string
+  morning: number
+  afternoon: number
+  evening: number
   description: string
 }
 
 const emptyForm: FormData = {
   name: '',
-  dose: '',
+  doseArray: [],
   tab: 1,
-  morning: '',
-  afternoon: '',
-  evening: '',
+  morning: 0,
+  afternoon: 0,
+  evening: 0,
   description: '',
 }
+
+/* ------------------------------------------------------------------ */
+/*  Dose Tag Input (inline component)                                  */
+/* ------------------------------------------------------------------ */
+
+function DoseTagInput({
+  tags,
+  onChange,
+}: {
+  tags: string[]
+  onChange: (tags: string[]) => void
+}) {
+  const [input, setInput] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const addTag = (value: string) => {
+    const trimmed = value.trim()
+    if (!trimmed) return
+    if (tags.includes(trimmed)) {
+      toast.error('This dose option already exists')
+      return
+    }
+    onChange([...tags, trimmed])
+    setInput('')
+  }
+
+  const removeTag = (index: number) => {
+    const next = [...tags]
+    next.splice(index, 1)
+    onChange(next)
+  }
+
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addTag(input)
+    }
+    if (e.key === 'Backspace' && input === '' && tags.length > 0) {
+      removeTag(tags.length - 1)
+    }
+  }
+
+  return (
+    <div
+      className="flex flex-wrap items-center gap-1.5 min-h-[42px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-within:ring-1 focus-within:ring-ring cursor-text"
+      onClick={() => inputRef.current?.focus()}
+    >
+      {tags.map((tag, i) => (
+        <span
+          key={i}
+          className={cn(
+            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
+            i === 0
+              ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800'
+              : 'bg-muted text-muted-foreground border border-border'
+          )}
+        >
+          {tag}
+          <button
+            type="button"
+            className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation()
+              removeTag(i)
+            }}
+          >
+            <X className="h-3 w-3" />
+          </button>
+          {i === 0 && (
+            <span className="ml-0.5 text-[9px] font-bold uppercase tracking-wider opacity-60">default</span>
+          )}
+        </span>
+      ))}
+      <input
+        ref={inputRef}
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={handleKeyDown}
+        onBlur={() => {
+          if (input.trim()) addTag(input)
+        }}
+        placeholder={tags.length === 0 ? 'e.g. 500mg, then Enter' : 'Add more...'}
+        className="flex-1 min-w-[100px] bg-transparent outline-none placeholder:text-muted-foreground text-sm"
+      />
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main Page                                                          */
+/* ------------------------------------------------------------------ */
 
 export default function DoctorMedicinesPage() {
   const queryClient = useQueryClient()
@@ -109,7 +207,6 @@ export default function DoctorMedicinesPage() {
     onMutate: async (newMed) => {
       await queryClient.cancelQueries({ queryKey: ['doctor-medicines'] })
       const prev = queryClient.getQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter])
-      // Optimistic insert
       queryClient.setQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter], (old) => ({
         medicines: [
           {
@@ -118,7 +215,8 @@ export default function DoctorMedicinesPage() {
             morning: newMed.morning,
             afternoon: newMed.afternoon,
             evening: newMed.evening,
-            dose: newMed.dose,
+            dose: JSON.stringify(newMed.doseArray),
+            doseArray: newMed.doseArray,
             tab: newMed.tab,
             description: newMed.description,
             status: 'Active',
@@ -160,7 +258,18 @@ export default function DoctorMedicinesPage() {
       queryClient.setQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter], (old) => ({
         medicines: (old?.medicines || []).map((m) =>
           m.id === id
-            ? { ...m, ...body, updatedAt: new Date().toISOString() }
+            ? {
+                ...m,
+                name: body.name,
+                morning: body.morning,
+                afternoon: body.afternoon,
+                evening: body.evening,
+                dose: JSON.stringify(body.doseArray),
+                doseArray: body.doseArray,
+                tab: body.tab,
+                description: body.description,
+                updatedAt: new Date().toISOString(),
+              }
             : m
         ),
       }))
@@ -219,12 +328,12 @@ export default function DoctorMedicinesPage() {
     setEditingMedicine(med)
     setForm({
       name: med.name,
-      dose: med.dose,
+      doseArray: med.doseArray || [],
       tab: med.tab,
-      morning: med.morning,
-      afternoon: med.afternoon,
-      evening: med.evening,
-      description: med.description,
+      morning: med.morning ?? 0,
+      afternoon: med.afternoon ?? 0,
+      evening: med.evening ?? 0,
+      description: med.description || '',
     })
     setDialogOpen(true)
   }
@@ -240,6 +349,10 @@ export default function DoctorMedicinesPage() {
       toast.error('Medicine name is required')
       return
     }
+    if (form.doseArray.length === 0) {
+      toast.error('Add at least one dose option')
+      return
+    }
     if (editingMedicine) {
       updateMutation.mutate({ id: editingMedicine.id, body: form })
     } else {
@@ -253,7 +366,8 @@ export default function DoctorMedicinesPage() {
     }
   }
 
-  const hasTimings = (med: Medicine) => med.morning || med.afternoon || med.evening
+  const formatTiming = (m: Medicine) => `${m.morning ?? 0}-${m.afternoon ?? 0}-${m.evening ?? 0}`
+  const hasTimings = (m: Medicine) => (m.morning ?? 0) > 0 || (m.afternoon ?? 0) > 0 || (m.evening ?? 0) > 0
 
   return (
     <div className="space-y-6">
@@ -395,58 +509,54 @@ export default function DoctorMedicinesPage() {
                       </div>
                     </div>
 
-                    {/* Dose & Tab */}
-                    <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                      {med.dose && (
-                        <span className="flex items-center gap-1">
-                          <Pill className="h-3 w-3" />
-                          {med.dose}
-                        </span>
-                      )}
-                      <span>
-                        {med.tab} {med.tab === 1 ? 'tablet' : 'tablets'}
-                      </span>
-                    </div>
-
-                    {/* Timings */}
-                    {hasTimings(med) && (
-                      <div className="flex flex-wrap gap-1.5 mt-3">
-                        {med.morning && (
+                    {/* Dose Tags */}
+                    {med.doseArray && med.doseArray.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2.5">
+                        {med.doseArray.map((d, di) => (
                           <Badge
+                            key={di}
                             variant="outline"
-                            className="text-[10px] px-1.5 py-0 border-amber-200 text-amber-700 bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:bg-amber-900/20 gap-1"
+                            className={cn(
+                              'text-[10px] px-1.5 py-0 gap-0.5',
+                              di === 0
+                                ? 'border-teal-200 text-teal-700 bg-teal-50 dark:border-teal-800 dark:text-teal-300 dark:bg-teal-900/20'
+                                : 'border-border text-muted-foreground'
+                            )}
                           >
-                            <Sun className="h-2.5 w-2.5" />
-                            {med.morning}
+                            <Pill className="h-2.5 w-2.5" />
+                            {d}
                           </Badge>
-                        )}
-                        {med.afternoon && (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] px-1.5 py-0 border-orange-200 text-orange-700 bg-orange-50 dark:border-orange-800 dark:text-orange-300 dark:bg-orange-900/20 gap-1"
-                          >
-                            <CloudSun className="h-2.5 w-2.5" />
-                            {med.afternoon}
-                          </Badge>
-                        )}
-                        {med.evening && (
-                          <Badge
-                            variant="outline"
-                            className="text-[10px] px-1.5 py-0 border-indigo-200 text-indigo-700 bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:bg-indigo-900/20 gap-1"
-                          >
-                            <Moon className="h-2.5 w-2.5" />
-                            {med.evening}
-                          </Badge>
-                        )}
+                        ))}
                       </div>
                     )}
 
-                    {/* Description */}
-                    {med.description && (
-                      <p className="text-xs text-muted-foreground mt-2 line-clamp-2">
-                        {med.description}
-                      </p>
-                    )}
+                    {/* Timing + Duration row */}
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
+                      {hasTimings(med) && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 gap-1 border-teal-300 text-teal-700 bg-teal-50/60 dark:border-teal-700 dark:text-teal-300 dark:bg-teal-900/20"
+                        >
+                          <Clock className="h-2.5 w-2.5" />
+                          {formatTiming(med)}
+                        </Badge>
+                      )}
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] px-1.5 py-0 gap-1 border-border text-muted-foreground"
+                      >
+                        <CalendarDays className="h-2.5 w-2.5" />
+                        {med.tab} day{med.tab !== 1 ? 's' : ''}
+                      </Badge>
+                      {med.description && (
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] px-1.5 py-0 border-amber-200 text-amber-700 bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:bg-amber-900/20"
+                        >
+                          {med.description}
+                        </Badge>
+                      )}
+                    </div>
 
                     {/* Mobile action buttons (always visible on small screens) */}
                     <div className="flex sm:hidden gap-2 mt-3 pt-3 border-t border-border/50">
@@ -502,79 +612,106 @@ export default function DoctorMedicinesPage() {
               />
             </div>
 
-            {/* Dose & Tablets row */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="med-dose">Dose</Label>
-                <Input
-                  id="med-dose"
-                  placeholder="e.g. 500mg"
-                  value={form.dose}
-                  onChange={(e) => setForm({ ...form, dose: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="med-tab">Tablets</Label>
-                <Input
-                  id="med-tab"
-                  type="number"
-                  min={1}
-                  value={form.tab}
-                  onChange={(e) => setForm({ ...form, tab: parseInt(e.target.value) || 1 })}
-                />
-              </div>
+            {/* Dose Tag Input */}
+            <div className="space-y-2">
+              <Label>Dose Options <span className="text-red-500">*</span></Label>
+              <DoseTagInput
+                tags={form.doseArray}
+                onChange={(doseArray) => setForm({ ...form, doseArray })}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Type a dose and press <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-[10px]">Enter</kbd> or <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-[10px]">,</kbd> to add. First option is the default.
+              </p>
             </div>
 
-            {/* Timings */}
+            {/* Morning / Afternoon / Evening — Number inputs */}
             <div className="space-y-3">
-              <Label>Timing Instructions</Label>
+              <Label>Timing (Tablet Count)</Label>
               <div className="grid gap-3">
+                {/* Morning */}
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
                     <Sun className="h-4 w-4 text-amber-600 dark:text-amber-400" />
                   </div>
-                  <Input
-                    placeholder="Morning dose (e.g. after food)"
-                    value={form.morning}
-                    onChange={(e) => setForm({ ...form, morning: e.target.value })}
-                    className="flex-1"
-                  />
+                  <div className="flex-1">
+                    <div className="text-xs text-muted-foreground mb-1">Morning Tablets</div>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.morning}
+                      onChange={(e) => setForm({ ...form, morning: Math.max(0, parseInt(e.target.value) || 0) })}
+                      className="w-24"
+                      placeholder="0"
+                    />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground italic">0 = skip</span>
                 </div>
+
+                {/* Afternoon */}
                 <div className="flex items-center gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
                     <CloudSun className="h-4 w-4 text-orange-600 dark:text-orange-400" />
                   </div>
-                  <Input
-                    placeholder="Afternoon dose (e.g. after lunch)"
-                    value={form.afternoon}
-                    onChange={(e) => setForm({ ...form, afternoon: e.target.value })}
-                    className="flex-1"
-                  />
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-100 dark:bg-indigo-900/30">
-                    <Moon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                  <div className="flex-1">
+                    <div className="text-xs text-muted-foreground mb-1">Afternoon Tablets</div>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.afternoon}
+                      onChange={(e) => setForm({ ...form, afternoon: Math.max(0, parseInt(e.target.value) || 0) })}
+                      className="w-24"
+                      placeholder="0"
+                    />
                   </div>
-                  <Input
-                    placeholder="Evening dose (e.g. before bed)"
-                    value={form.evening}
-                    onChange={(e) => setForm({ ...form, evening: e.target.value })}
-                    className="flex-1"
-                  />
+                  <span className="text-[11px] text-muted-foreground italic">0 = skip</span>
+                </div>
+
+                {/* Evening */}
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700/40">
+                    <Moon className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs text-muted-foreground mb-1">Evening Tablets</div>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.evening}
+                      onChange={(e) => setForm({ ...form, evening: Math.max(0, parseInt(e.target.value) || 0) })}
+                      className="w-24"
+                      placeholder="0"
+                    />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground italic">0 = skip</span>
                 </div>
               </div>
             </div>
 
-            {/* Description */}
+            {/* Duration (Days) */}
             <div className="space-y-2">
-              <Label htmlFor="med-desc">Notes / Description</Label>
-              <textarea
+              <Label htmlFor="med-tab">Duration (Days)</Label>
+              <Input
+                id="med-tab"
+                type="number"
+                min={1}
+                value={form.tab}
+                onChange={(e) => setForm({ ...form, tab: Math.max(1, parseInt(e.target.value) || 1) })}
+                placeholder="e.g. 5"
+              />
+            </div>
+
+            {/* Instructions (description) */}
+            <div className="space-y-2">
+              <Label htmlFor="med-desc">Instructions</Label>
+              <Input
                 id="med-desc"
-                className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
-                placeholder="Any additional notes about this medicine..."
+                placeholder='e.g. AF (After Food), BF (Before Food)'
                 value={form.description}
                 onChange={(e) => setForm({ ...form, description: e.target.value })}
               />
+              <p className="text-[11px] text-muted-foreground">
+                Common: AF = After Food, BF = Before Food, AC = Before Meals, PC = After Meals
+              </p>
             </div>
           </div>
           <DialogFooter>

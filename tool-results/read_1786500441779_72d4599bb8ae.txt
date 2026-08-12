@@ -1,0 +1,739 @@
+     1→   967→## 10. Medicine Master Updates
+     2→   968→
+     3→   969→### 10.1 Current vs Planned
+     4→   970→
+     5→   971→| Field | Current Type | Planned Type | UI Change |
+     6→   972→|-------|-------------|-------------|-----------|
+     7→   973→| `name` | String | String | No change |
+     8→   974→| `dose` | String (single) | String (JSON array `[]`) | **TAG INPUT** — add multiple dose options as tags |
+     9→   975→| `morning` | String (free text) | Int (number) | **NUMBER INPUT** — tablet count (0 = not taken) |
+    10→   976→| `afternoon` | String (free text) | Int (number) | **NUMBER INPUT** — tablet count |
+    11→   977→| `evening` | String (free text) | Int (number) | **NUMBER INPUT** — tablet count |
+    12→   978→| `tab` | Int (default 1) | Int (default 1) | No change — now represents total days |
+    13→   979→| `description` | String | String | No change — now represents instructions (AF, BF, etc.) |
+    14→   980→
+    15→   981→### 10.2 Updated Medicine Master Form
+    16→   982→
+    17→   983→```
+    18→   984→┌─────────────────────────────────────────────┐
+    19→   985→│  Add / Edit Medicine                         │
+    20→   986→├─────────────────────────────────────────────┤
+    21→   987→│                                              │
+    22→   988→│  Medicine Name *                              │
+    23→   989→│  [ Paracetamol                       ]       │
+    24→   990→│                                              │
+    25→   991→│  Dose Options (multiple)                     │
+    26→   992→│  [ 500mg × ] [ 650mg × ] [ 1000mg × ]       │
+    27→   993→│  [ + Add dose option              ]          │
+    28→   994→│  (first option is the default)               │
+    29→   995→│                                              │
+    30→   996→│  Morning Tablets   [ 1 ]  (0 = skip)         │
+    31→   997→│  Afternoon Tablets [ 0 ]  (0 = skip)         │
+    32→   998→│  Evening Tablets   [ 1 ]  (0 = skip)         │
+    33→   999→│                                              │
+    34→  1000→│  Duration (Days)  [ 5 ]                      │
+    35→  1001→│                                              │
+    36→  1002→│  Instructions                               │
+    37→  1003→│  [ After Food                       ]       │
+    38→  1004→│                                              │
+    39→  1005→│  [Cancel]                     [Save Medicine] │
+    40→  1006→└─────────────────────────────────────────────┘
+    41→  1007→```
+    42→  1008→
+    43→  1009→### 10.3 Medicine Card Display (Updated)
+    44→  1010→
+    45→  1011→Each medicine card in the list should show:
+    46→  1012→- Medicine name
+    47→  1013→- Dose options as tags/badges (first one highlighted as default)
+    48→  1014→- Timing as: `1-0-1` format (morning-afternoon-evening counts)
+    49→  1015→- Duration: `5 days`
+    50→  1016→- Instructions badge if present
+    51→  1017→
+    52→  1018→---
+    53→  1019→
+    54→  1020→## 11. Print Template System
+    55→  1021→
+    56→  1022→### 11.1 Print Template Structure
+    57→  1023→
+    58→  1024→```
+    59→  1025→┌─────────────────────────────────────────────────────────────┐
+    60→  1026→│  [FULL HEADER IMAGE]  OR  [LOGO] Dr. Name, Specialization   │
+    61→  1027→│                       Address, Phone, Reg No                 │
+    62→  1028→│  ──────────────────────────────────────────────────────────  │
+    63→  1029→│  PRESCRIPTION                    Date: 15 Jan 2025          │
+    64→  1030→│  ──────────────────────────────────────────────────────────  │
+    65→  1031→│                                                              │
+    66→  1032→│  Patient: Rahul Sharma    Age: 32    Gender: Male           │
+    67→  1033→│  Blood Group: B+          Weight: 70 kg                     │
+    68→  1034→│                                                              │
+    69→  1035→│  C/O: Fever, Cold  (English from coDetailEn)                 │
+    70→  1036→│                                                              │
+    71→  1037→│  Vitals: BP 120/80 mmHg | Temp 98.6°F | Pulse 72 bpm       │
+    72→  1038→│                                                              │
+    73→  1039→│  Labels: Hemoglobin 12.5 g/dL | Blood Sugar 110 mg/dL      │
+    74→  1040→│                                                              │
+    75→  1041→│  ─── Rx ─────────────────────────────────────────────────   │
+    76→  1042→│  # │ Medicine     │ Dose  │ M │ A │ E │ Days │ Instr.      │
+    77→  1043→│  1 │ Paracetamol  │ 500mg │ 1 │ - │ 1 │  5   │ After Food  │
+    78→  1044→│  2 │ Azithromycin │ 500mg │ 1 │ - │ - │  3   │ —           │
+    79→  1045→│  3 │ Cetirizine   │ 10mg  │ - │ - │ 1 │  5   │ —           │
+    80→  1046→│                                                              │
+    81→  1047→│  ─── Diagnosis Tables ────────────────────────────────────  │
+    82→  1048→│  Table: Ultrasound Abdomen                                  │
+    83→  1049→│  ┌──────────────┬──────────┬──────────┐                     │
+    84→  1050→│  │ Parameter    │ Value    │ Unit     │                     │
+    85→  1051→│  │ Liver        │ Normal   │ —        │                     │
+    86→  1052→│  │ Gall Bladder │ Clear    │ —        │                     │
+    87→  1053→│  └──────────────┴──────────┴──────────┘                     │
+    88→  1054→│                                                              │
+    89→  1055→│  ─── Advice ──────────────────────────────────────────────  │
+    90→  1056→│  • Drink plenty of water                                     │
+    91→  1057→│  • Take rest for 3 days                                      │
+    92→  1058→│  • Steam inhalation 2x daily                                 │
+    93→  1059→│  • Warm water gargling                                       │
+    94→  1060→│                                                              │
+    95→  1061→│  Next Visit: 15 Feb 2025                                     │
+    96→  1062→│  ──────────────────────────────────────────────────────────  │
+    97→  1063→│  [FOOTER TEXT]                                               │
+    98→  1064→│                                        Dr. Signature        │
+    99→  1065→│  Computer-generated prescription. Generated at 10:30 AM      │
+   100→  1066→└─────────────────────────────────────────────────────────────┘
+   101→  1067→
+   102→  1068→CONDITIONAL SECTIONS (controlled by POtherSetting):
+   103→  1069→- If isFullHeader=true → show fullHeader image, hide text header + logo
+   104→  1070→- If isFullHeader=false → show logo (if set) + header text + doctor info
+   105→  1071→- If showCoInPrint=false → hide C/O section
+   106→  1072→- If showNextVisit=false → hide next visit date
+   107→  1073→- If no tables → hide Diagnosis Tables section
+   108→  1074→- If no suggestions → hide Advice section
+   109→  1075→```
+   110→  1076→
+   111→  1077→### 11.2 Print Component Updates
+   112→  1078→
+   113→  1079→The existing `src/components/prescription/print-view.tsx` needs significant updates:
+   114→  1080→- Add full header image support
+   115→  1081→- Add C/O section (from coDetailEn of selected complaints)
+   116→  1082→- Add diagnosis tables rendering
+   117→  1083→- Add next visit date
+   118→  1084→- Add footer text
+   119→  1085→- Add showUnit logic for labels
+   120→  1086→- Use morning/afternoon/evening as numbers (show as `1-0-1` format)
+   121→  1087→- Show `-` when count is 0 instead of empty
+   122→  1088→
+   123→  1089→---
+   124→  1090→
+   125→  1091→## 12. API Endpoints
+   126→  1092→
+   127→  1093→### 12.1 Prescription Stepper APIs
+   128→  1094→
+   129→  1095→| Method | Route | Purpose | Auth |
+   130→  1096→|--------|-------|---------|------|
+   131→  1097→| POST | `/api/prescription/init` | Create new Draft prescription for a booking | Doctor/Assistant |
+   132→  1098→| GET | `/api/prescription/[id]` | Get full prescription with all relations | Doctor/Assistant |
+   133→  1099→| POST | `/api/prescription/[id]/complaints` | Save Step 1 — Chief Complaints | Assistant/Doctor |
+   134→  1100→| POST | `/api/prescription/[id]/vitals` | Save Step 2 — Vitals & Labels | Assistant/Doctor |
+   135→  1101→| POST | `/api/prescription/[id]/tables` | Save Step 3 — Diagnosis Tables | Doctor |
+   136→  1102→| POST | `/api/prescription/[id]/medicines` | Save Step 4 — Medicines | Doctor |
+   137→  1103→| POST | `/api/prescription/[id]/suggestions` | Save Step 5 — Suggestions | Doctor |
+   138→  1104→| POST | `/api/prescription/[id]/finalize` | Save Step 6 — Finalize & Print | Doctor |
+   139→  1105→| GET | `/api/prescription/[id]/print` | Get print-ready data with doctor info | Doctor |
+   140→  1106→
+   141→  1107→### 12.2 Master Data APIs
+   142→  1108→
+   143→  1109→| Method | Route | Purpose | Auth |
+   144→  1110→|--------|-------|---------|------|
+   145→  1111→| GET/POST | `/api/dashboard/doctor/prescription-settings/categories` | Categories CRUD | Doctor |
+   146→  1112→| GET/POST | `/api/dashboard/doctor/prescription-settings/complaints` | Complaints CRUD | Doctor |
+   147→  1113→| GET/POST/PUT/DELETE | `/api/dashboard/doctor/prescription-settings/complaints/[id]` | Single complaint | Doctor |
+   148→  1114→| GET/POST | `/api/dashboard/doctor/prescription-settings/questions` | Questions CRUD | Doctor |
+   149→  1115→| GET/POST/PUT/DELETE | `/api/dashboard/doctor/prescription-settings/questions/[id]` | Single question | Doctor |
+   150→  1116→| GET/POST | `/api/dashboard/doctor/prescription-settings/suggestions` | Suggestions CRUD | Doctor |
+   151→  1117→| GET/POST/PUT/DELETE | `/api/dashboard/doctor/prescription-settings/suggestions/[id]` | Single suggestion | Doctor |
+   152→  1118→| GET/POST | `/api/dashboard/doctor/prescription-settings/labels` | Labels CRUD | Doctor |
+   153→  1119→| GET/POST/PUT/DELETE | `/api/dashboard/doctor/prescription-settings/labels/[id]` | Single label | Doctor |
+   154→  1120→| GET/POST | `/api/dashboard/doctor/prescription-settings/findings` | Findings CRUD | Doctor |
+   155→  1121→| GET/POST/PUT/DELETE | `/api/dashboard/doctor/prescription-settings/findings/[id]` | Single finding | Doctor |
+   156→  1122→| POST/DELETE | `/api/dashboard/doctor/prescription-settings/findings/[id]/medicines` | Link/unlink medicine to finding | Doctor |
+   157→  1123→| GET/POST | `/api/dashboard/doctor/prescription-settings/table-templates` | Table templates CRUD | Doctor |
+   158→  1124→| GET/POST/PUT/DELETE | `/api/dashboard/doctor/prescription-settings/table-templates/[id]` | Single template | Doctor |
+   159→  1125→| GET/PUT | `/api/dashboard/doctor/prescription-settings/print-settings` | Print settings (singleton) | Doctor |
+   160→  1126→| POST | `/api/dashboard/doctor/prescription-settings/print-settings/upload` | Upload header image/logo | Doctor |
+   161→  1127→
+   162→  1128→### 12.3 Existing APIs to Update
+   163→  1129→
+   164→  1130→| API | Change Required |
+   165→  1131→|-----|----------------|
+   166→  1132→| `GET/POST /api/dashboard/doctor/medicines` | Update dose field handling (JSON array), morning/afternoon/evening as Int |
+   167→  1133→| `PUT/DELETE /api/dashboard/doctor/medicines/[id]` | Same as above |
+   168→  1134→| `GET/POST /api/dashboard/doctor/prescriptions` | Add status filter, include complaints/tables in response |
+   169→  1135→
+   170→  1136→### 12.4 Assistant APIs
+   171→  1137→
+   172→  1138→| Method | Route | Purpose | Auth |
+   173→  1139→|--------|-------|---------|------|
+   174→  1140→| GET | `/api/dashboard/assistant/prescription-queue` | Get pending appointments for prescription | Assistant |
+   175→  1141→
+   176→  1142→---
+   177→  1143→
+   178→  1144→## 13. File Structure & Routing
+   179→  1145→
+   180→  1146→### 13.1 New Files
+   181→  1147→
+   182→  1148→```
+   183→  1149→src/
+   184→  1150→├── app/
+   185→  1151→│   ├── api/
+   186→  1152→│   │   ├── prescription/
+   187→  1153→│   │   │   ├── init/route.ts                          # POST: Create draft Rx
+   188→  1154→│   │   │   └── [id] /
+   189→  1155→│   │   │       ├── route.ts                           # GET: Full Rx data
+   190→  1156→│   │   │       ├── complaints/route.ts                # POST: Save complaints
+   191→  1157→│   │   │       ├── vitals/route.ts                    # POST: Save vitals
+   192→  1158→│   │   │       ├── tables/route.ts                    # POST: Save tables
+   193→  1159→│   │   │       ├── medicines/route.ts                 # POST: Save medicines
+   194→  1160→│   │   │       ├── suggestions/route.ts               # POST: Save suggestions
+   195→  1161→│   │   │       ├── finalize/route.ts                  # POST: Finalize Rx
+   196→  1162→│   │   │       └── print/route.ts                     # GET: Print data
+   197→  1163→│   │   └── dashboard/
+   198→  1164→│   │       ├── doctor/
+   199→  1165→│   │       │   └── prescription-settings/
+   200→  1166→│   │       │       ├── categories/route.ts            # Categories CRUD
+   201→  1167→│   │       │       ├── complaints/route.ts            # Complaints CRUD
+   202→  1168→│   │       │       ├── complaints/[id]/route.ts       # Single complaint
+   203→  1169→│   │       │       ├── questions/route.ts             # Questions CRUD
+   204→  1170→│   │       │       ├── questions/[id]/route.ts        # Single question
+   205→  1171→│   │       │       ├── suggestions/route.ts           # Suggestions CRUD
+   206→  1172→│   │       │       ├── suggestions/[id]/route.ts      # Single suggestion
+   207→  1173→│   │       │       ├── labels/route.ts                # Labels CRUD
+   208→  1174→│   │       │       ├── labels/[id]/route.ts           # Single label
+   209→  1175→│   │       │       ├── findings/route.ts              # Findings CRUD
+   210→  1176→│   │       │       ├── findings/[id]/route.ts         # Single finding
+   211→  1177→│   │       │       ├── findings/[id]/medicines/route.ts # Link/unlink med
+   212→  1178→│   │       │       ├── table-templates/route.ts       # Table templates CRUD
+   213→  1179→│   │       │       ├── table-templates/[id]/route.ts  # Single template
+   214→  1180→│   │       │       ├── print-settings/route.ts       # Print settings GET/PUT
+   215→  1181→│   │       │       └── print-settings/upload/route.ts # Image upload
+   216→  1182→│   │       └── assistant/
+   217→  1183→│   │           └── prescription-queue/route.ts        # Assistant queue
+   218→  1184→│   └── dashboard/
+   219→  1185→│       ├── doctor/
+   220→  1186→│       │   ├── prescriptions/
+   221→  1187→│       │   │   ├── new/page.tsx                        # REWRITE: 6-step stepper wizard
+   222→  1188→│       │   │   └── [id]/page.tsx                       # UPDATE: Show stepper data
+   223→  1189→│       │   └── prescription-settings/
+   224→  1190→│       │       ├── layout.tsx                          # Shared layout with sub-nav
+   225→  1191→│       │       ├── categories/page.tsx                 # Categories master
+   226→  1192→│       │       ├── complaints/page.tsx                 # Complaints master
+   227→  1193→│       │       ├── questions/page.tsx                  # Questions master
+   228→  1194→│       │       ├── suggestions/page.tsx                # Suggestions master
+   229→  1195→│       │       ├── labels/page.tsx                     # Labels master
+   230→  1196→│       │       ├── findings/page.tsx                   # Findings master
+   231→  1197→│       │       ├── table-templates/page.tsx            # Table templates master
+   232→  1198→│       │       └── print-settings/page.tsx             # Print settings
+   233→  1199→│       └── assistant/
+   234→  1200→│           └── prescription-queue/page.tsx             # Assistant queue page
+   235→  1201→├── components/
+   236→  1202→│   └── prescription/
+   237→  1203→│       ├── print-view.tsx                              # UPDATE: Enhanced print template
+   238→  1204→│       ├── stepper/
+   239→  1205→│       │   ├── prescription-stepper.tsx                # Main stepper container
+   240→  1206→│       │   ├── step-indicator.tsx                      # Top step progress bar
+   241→  1207→│       │   ├── step-1-complaints.tsx                   # C/O selection step
+   242→  1208→│       │   ├── step-2-vitals.tsx                       # Vitals & labels step
+   243→  1209→│       │   ├── step-3-tables.tsx                       # Diagnosis tables step
+   244→  1210→│       │   ├── step-4-medicines.tsx                    # Medicines with findings
+   245→  1211→│       │   ├── step-5-suggestions.tsx                  # Suggestions step
+   246→  1212→│       │   └── step-6-finish.tsx                       # Finish & print step
+   247→  1213→│       ├── medicine-search.tsx                         # Medicine autocomplete/typeahead
+   248→  1214→│       ├── dose-tag-input.tsx                          # Tag input for dose options
+   249→  1215→│       ├── findings-selector.tsx                       # Findings dropdown + auto-fill
+   250→  1216→│       ├── table-builder.tsx                           # Dynamic table editor
+   251→  1217→│       ├── table-preview.tsx                           # Table preview (read-only)
+   252→  1218→│       └── vitals-form.tsx                             # Vitals input section
+   253→  1219→└── lib/
+   254→  1220→    └── prescription-store.ts                          # Zustand store for stepper state
+   255→  1221→```
+   256→  1222→
+   257→  1223→### 13.2 Files to Modify
+   258→  1224→
+   259→  1225→| File | Change |
+   260→  1226→|------|--------|
+   261→  1227→| `prisma/schema.prisma` | Add new models, modify existing models (see Section 3) |
+   262→  1228→| `src/lib/sidebar-config.ts` | Add Prescription Settings sub-menu, Assistant Queue |
+   263→  1229→| `src/app/api/dashboard/doctor/medicines/route.ts` | Update for dose=JSON, timing=Int |
+   264→  1230→| `src/app/api/dashboard/doctor/medicines/[id]/route.ts` | Same as above |
+   265→  1231→| `src/app/dashboard/doctor/medicines/page.tsx` | REWRITE: dose tag input, timing number inputs |
+   266→  1232→| `src/app/dashboard/doctor/prescriptions/new/page.tsx` | REWRITE: 6-step stepper wizard |
+   267→  1233→| `src/app/dashboard/doctor/prescriptions/[id]/page.tsx` | UPDATE: Show stepper data, add print with new template |
+   268→  1234→| `src/components/prescription/print-view.tsx` | UPDATE: Full template with all sections |
+   269→  1235→
+   270→  1236→---
+   271→  1237→
+   272→  1238→## 14. Sidebar Configuration
+   273→  1239→
+   274→  1240→### 14.1 Doctor Sidebar (Updated)
+   275→  1241→
+   276→  1242→```typescript
+   277→  1243→// In sidebar-config.ts, doctor section:
+   278→  1244→{
+   279→  1245→  label: 'Prescription Settings',
+   280→  1246→  href: '/dashboard/doctor/prescription-settings',
+   281→  1247→  icon: Settings,
+   282→  1248→  children: [
+   283→  1249→    { label: 'Categories', href: '/dashboard/doctor/prescription-settings/categories', icon: FolderOpen },
+   284→  1250→    { label: 'Complaints', href: '/dashboard/doctor/prescription-settings/complaints', icon: Thermometer },
+   285→  1251→    { label: 'Questions', href: '/dashboard/doctor/prescription-settings/questions', icon: HelpCircle },
+   286→  1252→    { label: 'Suggestions', href: '/dashboard/doctor/prescription-settings/suggestions', icon: Lightbulb },
+   287→  1253→    { label: 'Labels', href: '/dashboard/doctor/prescription-settings/labels', icon: Tag },
+   288→  1254→    { label: 'Findings', href: '/dashboard/doctor/prescription-settings/findings', icon: Search },
+   289→  1255→    { label: 'Table Templates', href: '/dashboard/doctor/prescription-settings/table-templates', icon: Table },
+   290→  1256→    { label: 'Print Settings', href: '/dashboard/doctor/prescription-settings/print-settings', icon: Printer },
+   291→  1257→  ]
+   292→  1258→}
+   293→  1259→```
+   294→  1260→
+   295→  1261→### 14.2 Assistant Sidebar (Updated)
+   296→  1262→
+   297→  1263→```typescript
+   298→  1264→// In sidebar-config.ts, assistant section — add:
+   299→  1265→{ label: 'Prescription Queue', href: '/dashboard/assistant/prescription-queue', icon: ClipboardList },
+   300→  1266→```
+   301→  1267→
+   302→  1268→### 14.3 Sidebar Infrastructure Change
+   303→  1269→
+   304→  1270→The current `SidebarItem` interface is flat. For the collapsible sub-menu, we need:
+   305→  1271→
+   306→  1272→```typescript
+   307→  1273→export interface SidebarItem {
+   308→  1274→  label: string
+   309→  1275→  href: string
+   310→  1276→  icon: LucideIcon
+   311→  1277→  badge?: string | number
+   312→  1278→  children?: SidebarItem[]  // NEW: for collapsible sub-menus
+   313→  1279→}
+   314→  1280→```
+   315→  1281→
+   316→  1282→The sidebar component needs to support expanding/collapsing parent items with children.
+   317→  1283→
+   318→  1284→---
+   319→  1285→
+   320→  1286→## 15. Component Architecture
+   321→  1287→
+   322→  1288→### 15.1 Prescription Stepper (Main Component)
+   323→  1289→
+   324→  1290→```
+   325→  1291→PrescriptionStepper (prescription-stepper.tsx)
+   326→  1292→├── StepIndicator (step-indicator.tsx)
+   327→  1293→│     └── Shows 6 steps with current/complete/pending states
+   328→  1294→├── Step1Complaints (step-1-complaints.tsx)
+   329→  1295→│     └── Fetches CoMaster grouped by CategoryMaster
+   330→  1296→│     └── Multi-select with search
+   331→  1297→├── Step2Vitals (step-2-vitals.tsx)
+   332→  1298→│     └── VitalsForm component (weight, BP, temp, pulse, SpO2)
+   333→  1299→│     └── Dynamic label inputs from LabelMaster
+   334→  1300→├── Step3Tables (step-3-tables.tsx)
+   335→  1301→│     └── TableBuilder component (editable table)
+   336→  1302→│     └── Template selector dropdown
+   337→  1303→│     └── TablePreview (read-only preview)
+   338→  1304→├── Step4Medicines (step-4-medicines.tsx)
+   339→  1305→│     └── FindingsSelector (dropdown + auto-fill trigger)
+   340→  1306→│     └── MedicineSearch (autocomplete for manual add)
+   341→  1307→│     └── DoseTagInput (for each medicine's dose field)
+   342→  1308→│     └── Medicine row with timing number inputs
+   343→  1309→├── Step5Suggestions (step-5-suggestions.tsx)
+   344→  1310→│     └── Auto-populated from selected complaints
+   345→  1311→│     └── Custom suggestion input
+   346→  1312→└── Step6Finish (step-6-finish.tsx)
+   347→  1313→      └── Summary of all data
+   348→  1314→      └── Next visit date picker
+   349→  1315→      └── Save & Print button
+   350→  1316→```
+   351→  1317→
+   352→  1318→### 15.2 Shared Components
+   353→  1319→
+   354→  1320→| Component | Purpose | Used In |
+   355→  1321→|-----------|---------|---------|
+   356→  1322→| `MedicineSearch` | Typeahead/autocomplete for medicine name | Step 4, Findings page |
+   357→  1323→| `DoseTagInput` | Tag input for adding multiple dose options | Medicine Master, Step 4 |
+   358→  1324→| `FindingsSelector` | Dropdown to select finding + auto-fill | Step 4 |
+   359→  1325→| `TableBuilder` | Dynamic editable table (add/remove rows/cols, edit cells) | Step 3, Table Templates page |
+   360→  1326→| `TablePreview` | Read-only table display | Step 3 preview, Print template |
+   361→  1327→| `VitalsForm` | Common vitals input section | Step 2 |
+   362→  1328→| `LanguageFieldPair` | Two-field input (local + English) | All master pages |
+   363→  1329→
+   364→  1330→---
+   365→  1331→
+   366→  1332→## 16. State Management
+   367→  1333→
+   368→  1334→### 16.1 Zustand Store for Stepper
+   369→  1335→
+   370→  1336→```typescript
+   371→  1337→// src/lib/prescription-store.ts
+   372→  1338→
+   373→  1339→interface PrescriptionStore {
+   374→  1340→  // Navigation
+   375→  1341→  currentStep: number
+   376→  1342→  setCurrentStep: (step: number) => void
+   377→  1343→  goToNext: () => void
+   378→  1344→  goToPrev: () => void
+   379→  1345→
+   380→  1346→  // Prescription ID (created on init)
+   381→  1347→  prescriptionId: string | null
+   382→  1348→  setPrescriptionId: (id: string) => void
+   383→  1349→
+   384→  1350→  // Booking info (passed as prop or from URL)
+   385→  1351→  bookingId: string
+   386→  1352→  setBookingId: (id: string) => void
+   387→  1353→
+   388→  1354→  // Step 1: Complaints
+   389→  1355→  selectedComplaintIds: string[]
+   390→  1356→  setSelectedComplaintIds: (ids: string[]) => void
+   391→  1357→  toggleComplaint: (id: string) => void
+   392→  1358→
+   393→  1359→  // Step 2: Vitals
+   394→  1360→  vitals: { weight: string; bp: string; temperature: string; pulse: string; spo2: string }
+   395→  1361→  setVitals: (vitals: Partial<Vitals>) => void
+   396→  1362→  labelValues: { labelId: string; value: string }[]
+   397→  1363→  setLabelValue: (labelId: string, value: string) => void
+   398→  1364→
+   399→  1365→  // Step 3: Tables
+   400→  1366→  tables: TableData[]
+   401→  1367→  setTables: (tables: TableData[]) => void
+   402→  1368→  addTable: (table: TableData) => void
+   403→  1369→  removeTable: (index: number) => void
+   404→  1370→  updateTable: (index: number, table: TableData) => void
+   405→  1371→
+   406→  1372→  // Step 4: Medicines
+   407→  1373→  medicines: MedicineRow[]
+   408→  1374→  setMedicines: (medicines: MedicineRow[]) => void
+   409→  1375→  addMedicine: (medicine: MedicineRow) => void
+   410→  1376→  removeMedicine: (index: number) => void
+   411→  1377→  updateMedicine: (index: number, medicine: Partial<MedicineRow>) => void
+   412→  1378→  autoFillFromFinding: (findingId: string, medicines: MedicineRow[]) => void
+   413→  1379→
+   414→  1380→  // Step 5: Suggestions
+   415→  1381→  selectedSuggestionIds: string[]
+   416→  1382→  setSelectedSuggestionIds: (ids: string[]) => void
+   417→  1383→  toggleSuggestion: (id: string) => void
+   418→  1384→  customSuggestions: { question: string; suggestions: string }[]
+   419→  1385→  addCustomSuggestion: (s: { question: string; suggestions: string }) => void
+   420→  1386→
+   421→  1387→  // Step 6
+   422→  1388→  nextVisit: Date | null
+   423→  1389→  setNextVisit: (date: Date | null) => void
+   424→  1390→
+   425→  1391→  // Loading states
+   426→  1392→  isSaving: boolean
+   427→  1393→  setIsSaving: (saving: boolean) => void
+   428→  1394→
+   429→  1395→  // Reset
+   430→  1396→  reset: () => void
+   431→  1397→}
+   432→  1398→```
+   433→  1399→
+   434→  1400→### 16.2 Data Flow
+   435→  1401→
+   436→  1402→```
+   437→  1403→1. Component mounts → Read prescriptionId from URL or create new via /api/prescription/init
+   438→  1404→2. Load existing data from /api/prescription/[id] → populate store
+   439→  1405→3. User interacts with step components → store updates
+   440→  1406→4. "Save & Continue" → POST to step-specific API → store persists
+   441→  1407→5. "Save & Print" (Step 6) → POST /api/prescription/[id]/finalize → open print preview
+   442→  1408→```
+   443→  1409→
+   444→  1410→---
+   445→  1411→
+   446→  1412→## 17. Development Phases & Order
+   447→  1413→
+   448→  1414→### Phase 1: Database Foundation
+   449→  1415→> **Priority: CRITICAL** — Everything depends on this.
+   450→  1416→
+   451→  1417→| # | Task | File | Details |
+   452→  1418→|---|------|------|---------|
+   453→  1419→| 1.1 | Update Prisma schema | `prisma/schema.prisma` | All model changes from Section 3 + new models from Section 3.2 |
+   454→  1420→| 1.2 | Run DB migration | CLI | `bun run db:push` |
+   455→  1421→| 1.3 | Update Doctor model relations | `prisma/schema.prisma` | Add categories, findings, tableTemplates relations |
+   456→  1422→
+   457→  1423→**Deliverable:** Schema updated, DB migrated, Prisma client regenerated.
+   458→  1424→
+   459→  1425→---
+   460→  1426→
+   461→  1427→### Phase 2: Sidebar Infrastructure
+   462→  1428→> **Priority: HIGH** — Navigation to new pages.
+   463→  1429→
+   464→  1430→| # | Task | File | Details |
+   465→  1431→|---|------|------|---------|
+   466→  1432→| 2.1 | Update SidebarItem type | `src/lib/sidebar-config.ts` | Add `children?: SidebarItem[]` |
+   467→  1433→| 2.2 | Update sidebar component | Sidebar rendering component | Support collapsible sub-menus |
+   468→  1434→| 2.3 | Add doctor prescription settings entries | `src/lib/sidebar-config.ts` | 8 sub-items under Prescription Settings |
+   469→  1435→| 2.4 | Add assistant queue entry | `src/lib/sidebar-config.ts` | Prescription Queue for assistant role |
+   470→  1436→| 2.5 | Create prescription settings layout | `src/app/dashboard/doctor/prescription-settings/layout.tsx` | Shared layout with sub-navigation tabs |
+   471→  1437→
+   472→  1438→**Deliverable:** Sidebar shows new menu items, sub-pages are navigable.
+   473→  1439→
+   474→  1440→---
+   475→  1441→
+   476→  1442→### Phase 3: Medicine Master Update
+   477→  1443→> **Priority: HIGH** — Findings system depends on medicines being correct.
+   478→  1444→
+   479→  1445→| # | Task | File | Details |
+   480→  1446→|---|------|------|---------|
+   481→  1447→| 3.1 | Update medicines API | `src/app/api/dashboard/doctor/medicines/route.ts` | dose=JSON, timing=Int |
+   482→  1448→| 3.2 | Update medicine [id] API | `src/app/api/dashboard/doctor/medicines/[id]/route.ts` | Same changes |
+   483→  1449→| 3.3 | Create DoseTagInput component | `src/components/prescription/dose-tag-input.tsx` | Tag input for dose options |
+   484→  1450→| 3.4 | Rewrite medicines page | `src/app/dashboard/doctor/medicines/page.tsx` | New form with tag input, number inputs for timing |
+   485→  1451→
+   486→  1452→**Deliverable:** Medicine master fully updated with new field types.
+   487→  1453→
+   488→  1454→---
+   489→  1455→
+   490→  1456→### Phase 4: Master Data Pages (Prescription Settings)
+   491→  1457→> **Priority: HIGH** — Required before stepper can work.
+   492→  1458→
+   493→  1459→| # | Task | File | Details |
+   494→  1460→|---|------|------|---------|
+   495→  1461→| 4.1 | Categories page + API | Pages + API | CRUD for CategoryMaster |
+   496→  1462→| 4.2 | Complaints page + API | Pages + API | CRUD for CoMaster with category link |
+   497→  1463→| 4.3 | Questions page + API | Pages + API | CRUD for QuestionsMaster with complaint link |
+   498→  1464→| 4.4 | Suggestions page + API | Pages + API | CRUD for SuggestionsMaster with question link |
+   499→  1465→| 4.5 | Labels page + API | Pages + API | CRUD for LabelMaster with unit + showUnit |
+   500→  1466→| 4.6 | Findings page + API | Pages + API | CRUD for FindingsMaster + medicine linking |
+   501→  1467→| 4.7 | Table Templates page + API | Pages + API | CRUD with visual table builder + preview |
+   502→  1468→| 4.8 | Print Settings page + API | Pages + API | Singleton edit with image upload |
+   503→  1469→
+   504→  1470→**NOTE:** Tasks 4.1-4.8 can be parallelized — they are independent of each other.
+   505→  1471→
+   506→  1472→**Deliverable:** All 8 master pages functional with CRUD operations.
+   507→  1473→
+   508→  1474→---
+   509→  1475→
+   510→  1476→### Phase 5: Prescription Stepper Core
+   511→  1477→> **Priority: CRITICAL** — This is the main feature.
+   512→  1478→
+   513→  1479→| # | Task | File | Details |
+   514→  1480→|---|------|------|---------|
+   515→  1481→| 5.1 | Create Zustand store | `src/lib/prescription-store.ts` | Full stepper state management |
+   516→  1482→| 5.2 | Create StepIndicator component | `src/components/prescription/stepper/step-indicator.tsx` | 6-step progress bar |
+   517→  1483→| 5.3 | Create PrescriptionStepper container | `src/components/prescription/stepper/prescription-stepper.tsx` | Main stepper with step switching |
+   518→  1484→| 5.4 | Create Prescription Init API | `src/app/api/prescription/init/route.ts` | Create draft prescription |
+   519→  1485→| 5.5 | Create Prescription Get API | `src/app/api/prescription/[id]/route.ts` | Load full prescription data |
+   520→  1486→| 5.6 | Rewrite prescriptions/new/page.tsx | `src/app/dashboard/doctor/prescriptions/new/page.tsx` | Full 6-step stepper wizard |
+   521→  1487→
+   522→  1488→**Deliverable:** Stepper skeleton working with step navigation.
+   523→  1489→
+   524→  1490→---
+   525→  1491→
+   526→  1492→### Phase 6: Stepper Steps Implementation
+   527→  1493→> **Priority: CRITICAL** — Building each step's functionality.
+   528→  1494→
+   529→  1495→| # | Task | File | Details |
+   530→  1496→|---|------|------|---------|
+   531→  1497→| 6.1 | Step 1: Complaints | `step-1-complaints.tsx` + API | Multi-select from CoMaster grouped by Category |
+   532→  1498→| 6.2 | Step 2: Vitals | `step-2-vitals.tsx` + API + `vitals-form.tsx` | Common vitals + dynamic labels |
+   533→  1499→| 6.3 | Step 3: Tables | `step-3-tables.tsx` + API + `table-builder.tsx` | Table templates + ad-hoc tables |
+   534→  1500→| 6.4 | Step 4: Medicines | `step-4-medicines.tsx` + API + `findings-selector.tsx` + `medicine-search.tsx` | Findings auto-fill + manual add |
+   535→  1501→| 6.5 | Step 5: Suggestions | `step-5-suggestions.tsx` + API | Auto-populated from complaints |
+   536→  1502→| 6.6 | Step 6: Finish | `step-6-finish.tsx` + API | Summary + next visit + finalize |
+   537→  1503→
+   538→  1504→**Deliverable:** All 6 steps fully functional with API persistence.
+   539→  1505→
+   540→  1506→---
+   541→  1507→
+   542→  1508→### Phase 7: Print Template
+   543→  1509→> **Priority: HIGH** — Doctor needs to print prescriptions.
+   544→  1510→
+   545→  1511→| # | Task | File | Details |
+   546→  1512→|---|------|------|---------|
+   547→  1513→| 7.1 | Update print-view component | `src/components/prescription/print-view.tsx` | Full template with all sections |
+   548→  1514→| 7.2 | Print data API | `src/app/api/prescription/[id]/print/route.ts` | Aggregate print data with doctor info + settings |
+   549→  1515→| 7.3 | Table rendering in print | Print component | Render PDignoTable data as HTML tables |
+   550→  1516→| 7.4 | C/O section in print | Print component | Show complaints from coDetailEn |
+   551→  1517→| 7.5 | Full header image support | Print component | Conditional rendering based on isFullHeader |
+   552→  1518→| 7.6 | Label unit logic | Print component | showUnit boolean controls unit display |
+   553→  1519→
+   554→  1520→**Deliverable:** Professional print output matching legacy system.
+   555→  1521→
+   556→  1522→---
+   557→  1523→
+   558→  1524→### Phase 8: Assistant Workflow
+   559→  1525→> **Priority: MEDIUM** — Enables assistant to pre-fill Steps 1-2.
+   560→  1526→
+   561→  1527→| # | Task | File | Details |
+   562→  1528→|---|------|------|---------|
+   563→  1529→| 8.1 | Assistant queue API | `src/app/api/dashboard/assistant/prescription-queue/route.ts` | Get pending appointments |
+   564→  1530→| 8.2 | Assistant queue page | `src/app/dashboard/assistant/prescription-queue/page.tsx` | List of pending prescriptions |
+   565→  1531→| 8.3 | Role-based step access | Stepper component | Assistant sees only Steps 1-2, Doctor sees 3-6 |
+   566→  1532→| 8.4 | Prescription detail updates | `src/app/dashboard/doctor/prescriptions/[id]/page.tsx` | Show full stepper data |
+   567→  1533→
+   568→  1534→**Deliverable:** Full assistant workflow functional.
+   569→  1535→
+   570→  1536→---
+   571→  1537→
+   572→  1538→### Phase 9: Polish & Edge Cases
+   573→  1539→> **Priority: MEDIUM** — Production readiness.
+   574→  1540→
+   575→  1541→| # | Task | Details |
+   576→  1542→|---|------|---------|
+   577→  1543→| 9.1 | Data migration script | Migrate existing prescriptions' morning/afternoon/evening from boolean to Int |
+   578→  1544→| 9.2 | Data migration script | Migrate existing DoctorMedicine dose from string to JSON array |
+   579→  1545→| 9.3 | Empty state handling | All steps show proper empty states with helpful messages |
+   580→  1546→| 9.4 | Loading skeletons | Each step has loading skeleton while data fetches |
+   581→  1547→| 9.5 | Error handling | API errors show toast, step data preserved on error |
+   582→  1548→| 9.6 | Responsive design | Stepper works on mobile (steps as icons, tables scrollable) |
+   583→  1549→| 9.7 | Keyboard shortcuts | Tab navigation between fields, Enter to save & continue |
+   584→  1550→
+   585→  1551→**Deliverable:** Production-ready prescription system.
+   586→  1552→
+   587→  1553→---
+   588→  1554→
+   589→  1555→## 18. Migration Strategy for Existing Data
+   590→  1556→
+   591→  1557→### 18.1 Morning/Afternoon/Evening: Boolean → Int
+   592→  1558→
+   593→  1559→```sql
+   594→  1560→-- Migrate PMedicine
+   595→  1561→UPDATE "PMedicine" SET "morning" = CASE WHEN "morning" = true THEN 1 ELSE 0 END;
+   596→  1562→UPDATE "PMedicine" SET "afternoon" = CASE WHEN "afternoon" = true THEN 1 ELSE 0 END;
+   597→  1563→UPDATE "PMedicine" SET "evening" = CASE WHEN "evening" = true THEN 1 ELSE 0 END;
+   598→  1564→
+   599→  1565→-- Migrate DoctorMedicine (was String type, values like "after food" or empty)
+   600→  1566→-- This is trickier — need to set reasonable defaults
+   601→  1567→UPDATE "DoctorMedicine" SET "morning" = 1 WHERE "morning" != '';
+   602→  1568→UPDATE "DoctorMedicine" SET "afternoon" = 1 WHERE "afternoon" != '';
+   603→  1569→UPDATE "DoctorMedicine" SET "evening" = 1 WHERE "evening" != '';
+   604→  1570→UPDATE "DoctorMedicine" SET "morning" = 0 WHERE "morning" = '';
+   605→  1571→UPDATE "DoctorMedicine" SET "afternoon" = 0 WHERE "afternoon" = '';
+   606→  1572→UPDATE "DoctorMedicine" SET "evening" = 0 WHERE "evening" = '';
+   607→  1573→```
+   608→  1574→
+   609→  1575→### 18.2 DoctorMedicine Dose: String → JSON Array
+   610→  1576→
+   611→  1577→```sql
+   612→  1578→-- Wrap existing dose string into a JSON array
+   613→  1579→UPDATE "DoctorMedicine" 
+   614→  1580→SET "dose" = '[' || '"' || REPLACE("dose", '"', '\"') || '"]' 
+   615→  1581→WHERE "dose" != '' AND "dose" != '[]';
+   616→  1582→
+   617→  1583→-- Set empty to empty array
+   618→  1584→UPDATE "DoctorMedicine" SET "dose" = '[]' WHERE "dose" = '' OR "dose" IS NULL;
+   619→  1585→```
+   620→  1586→
+   621→  1587→### 18.3 New Fields with Defaults
+   622→  1588→
+   623→  1589→All new fields have default values (`@default("")`, `@default(0)`, `@default(false)`), so existing rows will migrate cleanly with `db:push`.
+   624→  1590→
+   625→  1591→---
+   626→  1592→
+   627→  1593→## 19. Edge Cases & Gotchas
+   628→  1594→
+   629→  1595→### 19.1 Critical
+   630→  1596→
+   631→  1597→| # | Edge Case | Handling |
+   632→  1598→|---|-----------|----------|
+   633→  1599→| E1 | **Duplicate medicines from multiple findings** | When auto-filling from 2nd finding, skip medicines already in the list (match by `medicineId` from DoctorMedicine) |
+   634→  1600→| E2 | **Complaint deleted after being used in Rx** | Never hard-delete master data. Use soft delete (status=Inactive). PCo records keep the `coId` reference — snapshot the text at Rx creation time |
+   635→  1601→| E3 | **DoctorMedicine dose array empty** | If dose array is `[]`, show a plain text input instead of dropdown in Step 4 |
+   636→  1602→| E4 | **Prescription init when draft already exists** | Check for existing Draft prescription for the bookingId. If found, load it instead of creating new |
+   637→  1603→| E5 | **Concurrent editing** | Assistant and Doctor shouldn't edit same prescription simultaneously. Lock prescription when doctor opens it (or at minimum, show warning) |
+   638→  1604→| E6 | **Print with no data** | Each section in print is conditional — only shown if data exists |
+   639→  1605→| E7 | **Category deleted but complaints exist** | Complaints can exist without a category (categoryId nullable). Show them under "Uncategorized" in stepper |
+   640→  1606→
+   641→  1607→### 19.2 UX
+   642→  1608→
+   643→  1609→| # | Edge Case | Handling |
+   644→  1610→|---|-----------|----------|
+   645→  1611→| E8 | **Mobile stepper** | On mobile, step indicator shows icons only (numbers). Step content is full-width scrollable |
+   646→  1612→| E9 | **Large findings list** | Findings dropdown should be searchable (typeahead) |
+   647→  1613→| E10 | **Many complaints** | Step 1 complaints should be searchable and grouped with collapsible categories |
+   648→  1614→| E11 | **Table with many rows/cols** | Tables should be horizontally scrollable on mobile |
+   649→  1615→| E12 | **Medicine name not found in master** | Allow free-text medicine name in Step 4 (not all medicines need to be in master) |
+   650→  1616→
+   651→  1617→---
+   652→  1618→
+   653→  1619→## 20. Quick Reference: Before vs After
+   654→  1620→
+   655→  1621→### Database Models
+   656→  1622→
+   657→  1623→| Model | Before | After |
+   658→  1624→|-------|--------|-------|
+   659→  1625→| CategoryMaster | ❌ Doesn't exist | ✅ New — groups complaints |
+   660→  1626→| FindingsMaster | ❌ Doesn't exist | ✅ New — auto-fill medicines |
+   661→  1627→| FindingsMedicine | ❌ Doesn't exist | ✅ New — join table |
+   662→  1628→| TableTemplateMaster | ❌ Doesn't exist | ✅ New — reusable table layouts |
+   663→  1629→| CoMaster | Missing `coDetailEn`, `categoryId` | ✅ Added dual-language + category link |
+   664→  1630→| LabelMaster | Missing `labelEn`, `unit`, `showUnit` | ✅ Added dual-language + unit config |
+   665→  1631→| QuestionsMaster | Missing `questionEn`, `coId` | ✅ Added dual-language + complaint link |
+   666→  1632→| SuggestionsMaster | Missing `suggestionsEn` | ✅ Added dual-language |
+   667→  1633→| DoctorMedicine | `dose`=String, timing=String | ✅ `dose`=JSON array, timing=Int |
+   668→  1634→| PMedicine | timing=Boolean | ✅ timing=Int (tablet count) |
+   669→  1635→| PLabel | Missing `labelEn`, `showUnit` | ✅ Added |
+   670→  1636→| PSuggestion | Missing `questionEn`, `suggestionsEn` | ✅ Added dual-language |
+   671→  1637→| Prescription | Missing `status`, `nextVisit`, `assistantId` | ✅ Added |
+   672→  1638→| PDignoTable | Missing `templateId` | ✅ Added template link |
+   673→  1639→| POtherSetting | Missing `footer`, `showCoInPrint`, etc. | ✅ Added print controls |
+   674→  1640→
+   675→  1641→### UI Pages
+   676→  1642→
+   677→  1643→| Page | Before | After |
+   678→  1644→|------|--------|-------|
+   679→  1645→| Prescription New | Flat form | 6-step stepper wizard |
+   680→  1646→| Medicine Master | String dose, text timing | Tag input dose, number timing |
+   681→  1647→| Categories | ❌ Missing | ✅ CRUD page |
+   682→  1648→| Complaints (C/O) | ❌ Missing | ✅ CRUD page with category link |
+   683→  1649→| Questions | ❌ Missing | ✅ CRUD page with complaint link |
+   684→  1650→| Suggestions | ❌ Missing | ✅ CRUD page with question link |
+   685→  1651→| Labels | ❌ Missing | ✅ CRUD page with unit + showUnit |
+   686→  1652→| Findings | ❌ Missing | ✅ CRUD page with medicine linking |
+   687→  1653→| Table Templates | ❌ Missing | ✅ CRUD page with visual builder |
+   688→  1654→| Print Settings | ❌ Missing | ✅ Singleton edit page with image upload |
+   689→  1655→| Assistant Queue | ❌ Missing | ✅ Pending prescriptions list |
+   690→  1656→| Print Template | Basic, missing sections | ✅ Full template with all sections |
+   691→  1657→
+   692→  1658→### API Endpoints
+   693→  1659→
+   694→  1660→| Count | Description |
+   695→  1661→|-------|-------------|
+   696→  1662→| 9 new | Prescription stepper APIs (init, get, 6 steps, finalize, print) |
+   697→  1663→| ~16 new | Master data CRUD APIs (8 pages × ~2 routes each) |
+   698→  1664→| 3 updated | Existing medicines + prescriptions APIs |
+   699→  1665→| 1 new | Assistant queue API |
+   700→  1666→| **~29 total** | New + updated API endpoints |
+   701→  1667→
+   702→  1668→---
+   703→  1669→
+   704→  1670→## Appendix A: Development Effort Estimate
+   705→  1671→
+   706→  1672→| Phase | Effort | Parallelizable? |
+   707→  1673→|-------|--------|-----------------|
+   708→  1674→| Phase 1: DB Foundation | Small | No (blocking) |
+   709→  1675→| Phase 2: Sidebar | Small | No (needed for navigation) |
+   710→  1676→| Phase 3: Medicine Master Update | Medium | Partially (with Phase 4) |
+   711→  1677→| Phase 4: Master Data Pages (8 pages) | Large | ✅ YES — all 8 pages independent |
+   712→  1678→| Phase 5: Stepper Core | Medium | No (needed before Phase 6) |
+   713→  1679→| Phase 6: Step Implementation (6 steps) | Large | Partially (Steps 1-2 vs 3-6) |
+   714→  1680→| Phase 7: Print Template | Medium | Can start after Phase 6.4 |
+   715→  1681→| Phase 8: Assistant Workflow | Medium | After Phase 6 |
+   716→  1682→| Phase 9: Polish | Medium | After all phases |
+   717→  1683→
+   718→  1684→**Critical Path:** Phase 1 → Phase 2 → Phase 3 → Phase 5 → Phase 6 → Phase 7 → Phase 8
+   719→  1685→
+   720→  1686→**Maximum Parallelism:** Phase 4 (8 master pages) can be done in parallel with Phase 3, and can start as soon as Phase 1 is complete.
+   721→  1687→
+   722→  1688→---
+   723→  1689→
+   724→  1690→## Appendix B: File Count Summary
+   725→  1691→
+   726→  1692→| Category | New Files | Modified Files |
+   727→  1693→|----------|-----------|----------------|
+   728→  1694→| Prisma Schema | 0 | 1 |
+   729→  1695→| API Routes | ~25 | ~3 |
+   730→  1696→| Page Components | ~10 | ~3 |
+   731→  1697→| Shared Components | ~10 | 1 (print-view) |
+   732→  1698→| Store | 1 | 0 |
+   733→  1699→| Sidebar Config | 0 | 2 |
+   734→  1700→| **Total** | **~46** | **~10** |
+   735→  1701→
+   736→  1702→---
+   737→  1703→
+   738→  1704→*End of Architecture Plan. Awaiting approval before development begins.*
+   739→  1705→

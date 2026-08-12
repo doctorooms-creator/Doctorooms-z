@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
+  provider  = "sqlite"
   url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 // ============ USER & ROLES ============
@@ -42,6 +41,7 @@ model User {
   assistantProfile    DoctorAssistant?    @relation("AssistantUser")
   pharmacistProfile   DoctorPharmacist?   @relation("PharmacistUser")
   prescriptionAccessRequests PrescriptionAccessRequest[] @relation("PrescriptionAccessPatient")
+  assistedPrescriptions Prescription[] @relation("PrescriptionAssistant")
 }
 
 // ============ DOCTOR ============
@@ -90,6 +90,9 @@ model Doctor {
   otherSettings       POtherSetting?
   accessRequestsMade  PrescriptionAccessRequest[] @relation("RequestingDoctor")
   accessRequestsReceived PrescriptionAccessRequest[] @relation("OriginalDoctor")
+  categories          CategoryMaster[]
+  findings            FindingsMaster[]
+  tableTemplates      TableTemplateMaster[]
 }
 
 // ============ HOSPITAL ============
@@ -175,12 +178,16 @@ model Prescription {
   bp           String   @default("")
   temperature  String   @default("")
   description  String   @default("")
+  status       String   @default("Draft") // Draft, Active, Archived
+  nextVisit    DateTime?
+  assistantId  String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   booking      Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   doctor       Doctor   @relation(fields: [doctorId], references: [id])
   doctorId     String
+  assistant    User?    @relation("PrescriptionAssistant", fields: [assistantId], references: [id])
   medicines    PMedicine[]
   labels       PLabel[]
   suggestions  PSuggestion[]
@@ -193,11 +200,11 @@ model PMedicine {
   id          String   @id @default(cuid())
   prescriptionId String
   medicine    String   @default("")
-  morning     Boolean  @default(false)
-  afternoon   Boolean  @default(false)
-  evening     Boolean  @default(false)
-  tab         Int      @default(1)
-  dose        String   @default("")
+  morning     Int      @default(0)      // tablet count (0 = skip)
+  afternoon   Int      @default(0)      // tablet count (0 = skip)
+  evening     Int      @default(0)      // tablet count (0 = skip)
+  tab         Int      @default(1)       // total days
+  dose        String   @default("")     // selected dose value
   description String   @default("")
   createdById String?
   createdAt   DateTime @default(now())
@@ -210,8 +217,10 @@ model PLabel {
   id             String   @id @default(cuid())
   prescriptionId String
   label          String   @default("")
+  labelEn        String   @default("")
   value          String   @default("")
   labelUnit      String   @default("")
+  showUnit       Boolean  @default(true)
   createdById    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -223,7 +232,9 @@ model PSuggestion {
   id             String   @id @default(cuid())
   prescriptionId String
   question       String   @default("")
+  questionEn     String   @default("")
   suggestions    String   @default("")
+  suggestionsEn  String   @default("")
   createdById    String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -234,6 +245,7 @@ model PSuggestion {
 model PDignoTable {
   id             String   @id @default(cuid())
   prescriptionId String
+  templateId     String?
   rows           Int      @default(3)
   cols           Int      @default(2)
   headerLabel    String   @default("[]") // JSON
@@ -266,6 +278,10 @@ model POtherSetting {
   header        String   @default("")
   fullHeader    String   @default("")
   isFullHeader  Boolean  @default(false)
+  footer        String   @default("")
+  showCoInPrint Boolean  @default(true)
+  showNextVisit Boolean  @default(true)
+  printLayout   String   @default("standard") // standard, compact, detailed
   createdById   String?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -299,7 +315,7 @@ model DoctorRating {
 model DoctorSchedule {
   id        String   @id @default(cuid())
   doctorId  String
-  day       String   // Monday-Sunday
+  day       String // Monday-Sunday
   startTime String   @default("09:00")
   endTime   String   @default("17:00")
   slotDuration Int   @default(30) // minutes
@@ -312,7 +328,7 @@ model DoctorSchedule {
 
 model DoctorHoliday {
   id        String   @id @default(cuid())
-  userId    String   // doctor user id
+  userId    String // doctor user id
   date      DateTime
   remark    String   @default("")
   createdAt DateTime @default(now())
@@ -325,19 +341,90 @@ model DoctorHoliday {
 model DoctorMedicine {
   id          String   @id @default(cuid())
   name        String   @default("")
-  morning     String   @default("")
-  afternoon   String   @default("")
-  evening     String   @default("")
-  dose        String   @default("")
-  tab         Int      @default(1)
+  morning     Int      @default(0)       // tablet count (0 = skip)
+  afternoon   Int      @default(0)       // tablet count
+  evening     Int      @default(0)       // tablet count
+  dose        String   @default("[]")    // JSON array e.g. ["500mg","650mg","1000mg"]
+  tab         Int      @default(1)        // total days
   description String   @default("")
   status      String   @default("Active")
   createdById String?
-  userId      String   // doctor user id
+  userId      String // doctor user id
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   doctor      Doctor   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  findings    FindingsMedicine[]
+}
+
+// ============ CATEGORY MASTER ============
+
+model CategoryMaster {
+  id          String   @id @default(cuid())
+  name        String   @default("")       // primary language
+  nameEn      String   @default("")       // English
+  status      String   @default("Active")
+  createdById String?
+  doctorId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  complaints  CoMaster[]
+}
+
+// ============ FINDINGS MASTER ============
+
+model FindingsMaster {
+  id          String   @id @default(cuid())
+  name        String   @default("")       // primary language
+  nameEn      String   @default("")       // English
+  status      String   @default("Active")
+  createdById String?
+  doctorId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  medicines   FindingsMedicine[]
+}
+
+model FindingsMedicine {
+  id              String   @id @default(cuid())
+  findingId       String
+  medicineId      String
+  dose            String   @default("")     // override dose (blank = use master default)
+  morning         Int      @default(0)      // override morning count
+  afternoon       Int      @default(0)      // override afternoon count
+  evening         Int      @default(0)      // override evening count
+  tab             Int      @default(0)      // override days (0 = use master default)
+  description     String   @default("")     // override description
+  createdAt       DateTime @default(now())
+
+  finding         FindingsMaster  @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  medicine        DoctorMedicine  @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+
+  @@unique([findingId, medicineId])
+}
+
+// ============ TABLE TEMPLATE MASTER ============
+
+model TableTemplateMaster {
+  id          String   @id @default(cuid())
+  name        String   @default("")
+  rows        Int      @default(3)
+  cols        Int      @default(2)
+  headerLabel String   @default("[]")       // JSON: column headers
+  colsLabel   String   @default("[]")       // JSON: row labels
+  footerLabel String   @default("[]")       // JSON: footer rows
+  extraLabel  String   @default("")
+  status      String   @default("Active")
+  createdById String?
+  doctorId    String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 }
 
 // ============ DOCTOR ASSISTANT ============
@@ -345,7 +432,7 @@ model DoctorMedicine {
 model DoctorAssistant {
   id          String   @id @default(cuid())
   userId      String   @unique // assistant user id
-  doctorId    String   // doctor id (Doctor model)
+  doctorId    String // doctor id (Doctor model)
   description String   @default("")
   address     String   @default("")
   createdAt   DateTime @default(now())
@@ -359,7 +446,7 @@ model DoctorAssistant {
 model DoctorPharmacist {
   id          String   @id @default(cuid())
   userId      String   @unique // pharmacist user id
-  doctorId    String   // doctor id (Doctor model)
+  doctorId    String // doctor id (Doctor model)
   description String   @default("")
   address     String   @default("")
   dlNo        String   @default("") // Drug license number
@@ -376,7 +463,7 @@ model DoctorPharmacist {
 model Receptionist {
   id        String   @id @default(cuid())
   userId    String   @unique // receptionist user id
-  doctorId  String   // doctor id (Doctor model)
+  doctorId  String // doctor id (Doctor model)
   address   String   @default("")
   createdAt DateTime @default(now())
 
@@ -471,7 +558,10 @@ model DiseaseMaster {
 
 model LabelMaster {
   id          String   @id @default(cuid())
-  label       String   @default("")
+  label       String   @default("")        // primary language
+  labelEn     String   @default("")        // English
+  unit        String   @default("")        // e.g., "mg/dL", "%", "mmHg"
+  showUnit    Boolean  @default(true)       // whether to show unit after value in print
   status      String   @default("Active")
   createdById String?
   doctorId    String
@@ -486,7 +576,9 @@ model LabelMaster {
 model CoMaster {
   id          String   @id @default(cuid())
   coCode      String   @default("")
-  coDetail    String   @default("")
+  coDetail    String   @default("")        // primary language (shown in stepper)
+  coDetailEn  String   @default("")        // English (used in print)
+  categoryId  String?
   status      String   @default("Active")
   createdById String?
   doctorId    String
@@ -494,14 +586,18 @@ model CoMaster {
   updatedAt   DateTime @updatedAt
 
   doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  category    CategoryMaster? @relation(fields: [categoryId], references: [id])
+  questions   QuestionsMaster[] @relation("QuestionCo")
 }
 
 // ============ QUESTIONS MASTER ============
 
 model QuestionsMaster {
   id          String   @id @default(cuid())
-  question    String   @default("")
+  question    String   @default("")        // primary language
+  questionEn  String   @default("")        // English
   explanation String   @default("")
+  coId        String?
   status      String   @default("Active")
   createdById String?
   doctorId    String
@@ -509,6 +605,7 @@ model QuestionsMaster {
   updatedAt   DateTime @updatedAt
 
   doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  co          CoMaster? @relation("QuestionCo", fields: [coId], references: [id])
   suggestions SuggestionsMaster[]
 }
 
@@ -517,7 +614,8 @@ model QuestionsMaster {
 model SuggestionsMaster {
   id           String   @id @default(cuid())
   questionId   String
-  suggestions  String   @default("")
+  suggestions  String   @default("")        // primary language
+  suggestionsEn String   @default("")       // English
   status       String   @default("Active")
   createdById  String?
   doctorId     String
@@ -542,10 +640,10 @@ model DoctorGallery {
 
 model PrescriptionAccessRequest {
   id                 String   @id @default(cuid())
-  prescriptionId     String   // prescription being requested
-  requestingDoctorId String   // Doctor.id of the doctor requesting access (Doctor Z)
-  patientId          String   // User.id of the patient who owns this prescription
-  originalDoctorId   String   // Doctor.id of the doctor who created the prescription (Doctor Y)
+  prescriptionId     String // prescription being requested
+  requestingDoctorId String // Doctor.id of the doctor requesting access (Doctor Z)
+  patientId          String // User.id of the patient who owns this prescription
+  originalDoctorId   String // Doctor.id of the doctor who created the prescription (Doctor Y)
   status             String   @default("Pending") // Pending, Approved, Rejected
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt

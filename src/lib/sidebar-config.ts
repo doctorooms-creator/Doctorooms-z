@@ -1,10 +1,14 @@
-import { type LucideIcon, LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus, KeyRound, IndianRupee, FlaskConical, PenLine, BarChart3, Printer, Shield } from 'lucide-react'
+import {
+  type LucideIcon,
+  LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus, KeyRound, IndianRupee, FlaskConical, PenLine, BarChart3, Printer, Shield, FolderOpen, Thermometer, CircleHelp, Lightbulb, Tag, Search, Table, ClipboardList,
+} from 'lucide-react'
 
 export interface SidebarItem {
   label: string
   href: string
   icon: LucideIcon
   badge?: string | number
+  children?: SidebarItem[]
 }
 
 type RoleSidebarMap = Record<string, SidebarItem[]>
@@ -29,6 +33,21 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Schedule', href: '/dashboard/doctor/schedule', icon: Clock },
     { label: 'Patients', href: '/dashboard/doctor/patients', icon: Users },
     { label: 'Medicine Master', href: '/dashboard/doctor/medicines', icon: FlaskConical },
+    {
+      label: 'Rx Settings',
+      href: '/dashboard/doctor/prescription-settings',
+      icon: Settings,
+      children: [
+        { label: 'Categories', href: '/dashboard/doctor/prescription-settings/categories', icon: FolderOpen },
+        { label: 'Complaints', href: '/dashboard/doctor/prescription-settings/complaints', icon: Thermometer },
+        { label: 'Questions', href: '/dashboard/doctor/prescription-settings/questions', icon: CircleHelp },
+        { label: 'Suggestions', href: '/dashboard/doctor/prescription-settings/suggestions', icon: Lightbulb },
+        { label: 'Labels', href: '/dashboard/doctor/prescription-settings/labels', icon: Tag },
+        { label: 'Findings', href: '/dashboard/doctor/prescription-settings/findings', icon: Search },
+        { label: 'Table Templates', href: '/dashboard/doctor/prescription-settings/table-templates', icon: Table },
+        { label: 'Print Settings', href: '/dashboard/doctor/prescription-settings/print-settings', icon: Printer },
+      ],
+    },
     { label: 'Profile', href: '/dashboard/doctor/profile', icon: UserCircle },
     { label: 'Gallery', href: '/dashboard/doctor/gallery', icon: Images },
     { label: 'Posts', href: '/dashboard/doctor/posts', icon: PenSquare },
@@ -71,6 +90,7 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Dashboard', href: '/dashboard/assistant', icon: LayoutDashboard },
     { label: 'Appointments', href: '/dashboard/assistant/appointments', icon: CalendarDays },
     { label: 'Patients', href: '/dashboard/assistant/patients', icon: Users },
+    { label: 'Rx Queue', href: '/dashboard/assistant/prescription-queue', icon: ClipboardList },
     { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   pharmacist: [

@@ -36,7 +36,7 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth-store'
-import { PrescriptionPrintView, type PrescriptionPrintData } from '@/components/prescription/print-view'
+import { PrescriptionPrintView, type PrintData } from '@/components/prescription/print-view'
 
 // ==================== TYPES ====================
 
@@ -171,54 +171,13 @@ export default function AppointmentDetailPage() {
   const handleClosePrint = () => setPrintRxIndex(null)
   const handlePrintAction = () => window.print()
 
-  const buildPrintData = (rx: {
-    id: string
-    patientName: string
-    patientAge: string
-    disease: string
-    weight: string
-    bp: string
-    temperature: string
-    description: string
-    medicines: { id?: string; medicine: string; morning: boolean; afternoon: boolean; evening: boolean; tab: number; dose: string; description?: string }[]
-    labels: { id?: string; label: string; value: string; labelUnit: string }[]
-    suggestions: { id?: string; question: string; suggestions: string }[]
-    createdAt: string
-  }): PrescriptionPrintData => {
-    return {
-      patientName: rx.patientName || appointment?.patientName || patient?.name || '',
-      patientAge: rx.patientAge || (appointment?.age ? String(appointment.age) : undefined),
-      gender: appointment?.gender || undefined,
-      bloodGroup: appointment?.bloodGroup || undefined,
-      weight: rx.weight || undefined,
-      bp: rx.bp || undefined,
-      temperature: rx.temperature || undefined,
-      disease: rx.disease || undefined,
-      description: rx.description || undefined,
-      createdAt: rx.createdAt,
-      medicines: rx.medicines.map((m) => ({
-        id: m.id,
-        medicine: m.medicine,
-        morning: m.morning,
-        afternoon: m.afternoon,
-        evening: m.evening,
-        tab: m.tab,
-        dose: m.dose,
-        description: m.description || '',
-      })),
-      labels: rx.labels,
-      suggestions: rx.suggestions,
-      doctor: {
-        name: doctor?.name,
-        specialization: doctor?.specialization,
-        city: doctor?.city,
-        hospitalAddress: doctor?.hospitalAddress,
-        phoneNo: doctor?.phone,
-        fees: doctor?.fees,
-        experience: doctor?.experience,
-      },
-    }
-  }
+  // Fetch print data from the print API for the selected prescription
+  const selectedRxId = printRxIndex !== null ? prescriptions?.[printRxIndex]?.id : null
+  const { data: printData } = useQuery<PrintData>({
+    queryKey: ['patient-rx-print-data', selectedRxId],
+    queryFn: () => fetch(`/api/prescription/${selectedRxId}/print`).then((r) => r.json()),
+    enabled: !!selectedRxId,
+  })
 
   if (isLoading) {
     return (
@@ -799,9 +758,9 @@ export default function AppointmentDetailPage() {
       </div>
 
       {/* Print preview overlay */}
-      {printRxIndex !== null && prescriptions?.[printRxIndex] && (
+      {printRxIndex !== null && printData && (
         <PrescriptionPrintView
-          data={buildPrintData(prescriptions[printRxIndex])}
+          data={printData}
           onClose={handleClosePrint}
           onPrint={handlePrintAction}
         />

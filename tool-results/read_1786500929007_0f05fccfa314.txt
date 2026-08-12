@@ -1,0 +1,757 @@
+     1→'use client'
+     2→
+     3→import { useState, useRef, KeyboardEvent } from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→import { Card, CardContent } from '@/components/ui/card'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Input } from '@/components/ui/input'
+     9→import { Label } from '@/components/ui/label'
+    10→import { Badge } from '@/components/ui/badge'
+    11→import {
+    12→  Dialog,
+    13→  DialogContent,
+    14→  DialogHeader,
+    15→  DialogTitle,
+    16→  DialogFooter,
+    17→} from '@/components/ui/dialog'
+    18→import {
+    19→  AlertDialog,
+    20→  AlertDialogAction,
+    21→  AlertDialogCancel,
+    22→  AlertDialogContent,
+    23→  AlertDialogDescription,
+    24→  AlertDialogFooter,
+    25→  AlertDialogHeader,
+    26→  AlertDialogTitle,
+    27→} from '@/components/ui/alert-dialog'
+    28→import {
+    29→  Pill,
+    30→  Plus,
+    31→  Search,
+    32→  Edit,
+    33→  Trash2,
+    34→  Sun,
+    35→  CloudSun,
+    36→  Moon,
+    37→  X,
+    38→  Clock,
+    39→  CalendarDays,
+    40→} from 'lucide-react'
+    41→import { toast } from 'sonner'
+    42→import { cn } from '@/lib/utils'
+    43→
+    44→/* ------------------------------------------------------------------ */
+    45→/*  Types                                                              */
+    46→/* ------------------------------------------------------------------ */
+    47→
+    48→interface Medicine {
+    49→  id: string
+    50→  name: string
+    51→  morning: number
+    52→  afternoon: number
+    53→  evening: number
+    54→  dose: string           // raw JSON string from DB
+    55→  doseArray: string[]    // parsed by API
+    56→  tab: number
+    57→  description: string
+    58→  status: string
+    59→  createdAt: string
+    60→  updatedAt: string
+    61→}
+    62→
+    63→interface FormData {
+    64→  name: string
+    65→  doseArray: string[]
+    66→  tab: number
+    67→  morning: number
+    68→  afternoon: number
+    69→  evening: number
+    70→  description: string
+    71→}
+    72→
+    73→const emptyForm: FormData = {
+    74→  name: '',
+    75→  doseArray: [],
+    76→  tab: 1,
+    77→  morning: 0,
+    78→  afternoon: 0,
+    79→  evening: 0,
+    80→  description: '',
+    81→}
+    82→
+    83→/* ------------------------------------------------------------------ */
+    84→/*  Dose Tag Input (inline component)                                  */
+    85→/* ------------------------------------------------------------------ */
+    86→
+    87→function DoseTagInput({
+    88→  tags,
+    89→  onChange,
+    90→}: {
+    91→  tags: string[]
+    92→  onChange: (tags: string[]) => void
+    93→}) {
+    94→  const [input, setInput] = useState('')
+    95→  const inputRef = useRef<HTMLInputElement>(null)
+    96→
+    97→  const addTag = (value: string) => {
+    98→    const trimmed = value.trim()
+    99→    if (!trimmed) return
+   100→    if (tags.includes(trimmed)) {
+   101→      toast.error('This dose option already exists')
+   102→      return
+   103→    }
+   104→    onChange([...tags, trimmed])
+   105→    setInput('')
+   106→  }
+   107→
+   108→  const removeTag = (index: number) => {
+   109→    const next = [...tags]
+   110→    next.splice(index, 1)
+   111→    onChange(next)
+   112→  }
+   113→
+   114→  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+   115→    if (e.key === 'Enter' || e.key === ',') {
+   116→      e.preventDefault()
+   117→      addTag(input)
+   118→    }
+   119→    if (e.key === 'Backspace' && input === '' && tags.length > 0) {
+   120→      removeTag(tags.length - 1)
+   121→    }
+   122→  }
+   123→
+   124→  return (
+   125→    <div
+   126→      className="flex flex-wrap items-center gap-1.5 min-h-[42px] rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm focus-within:ring-1 focus-within:ring-ring cursor-text"
+   127→      onClick={() => inputRef.current?.focus()}
+   128→    >
+   129→      {tags.map((tag, i) => (
+   130→        <span
+   131→          key={i}
+   132→          className={cn(
+   133→            'inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium transition-colors',
+   134→            i === 0
+   135→              ? 'bg-teal-100 text-teal-800 dark:bg-teal-900/40 dark:text-teal-300 border border-teal-200 dark:border-teal-800'
+   136→              : 'bg-muted text-muted-foreground border border-border'
+   137→          )}
+   138→        >
+   139→          {tag}
+   140→          <button
+   141→            type="button"
+   142→            className="ml-0.5 rounded-full p-0.5 hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+   143→            onClick={(e) => {
+   144→              e.stopPropagation()
+   145→              removeTag(i)
+   146→            }}
+   147→          >
+   148→            <X className="h-3 w-3" />
+   149→          </button>
+   150→          {i === 0 && (
+   151→            <span className="ml-0.5 text-[9px] font-bold uppercase tracking-wider opacity-60">default</span>
+   152→          )}
+   153→        </span>
+   154→      ))}
+   155→      <input
+   156→        ref={inputRef}
+   157→        value={input}
+   158→        onChange={(e) => setInput(e.target.value)}
+   159→        onKeyDown={handleKeyDown}
+   160→        onBlur={() => {
+   161→          if (input.trim()) addTag(input)
+   162→        }}
+   163→        placeholder={tags.length === 0 ? 'e.g. 500mg, then Enter' : 'Add more...'}
+   164→        className="flex-1 min-w-[100px] bg-transparent outline-none placeholder:text-muted-foreground text-sm"
+   165→      />
+   166→    </div>
+   167→  )
+   168→}
+   169→
+   170→/* ------------------------------------------------------------------ */
+   171→/*  Main Page                                                          */
+   172→/* ------------------------------------------------------------------ */
+   173→
+   174→export default function DoctorMedicinesPage() {
+   175→  const queryClient = useQueryClient()
+   176→  const [search, setSearch] = useState('')
+   177→  const [statusFilter, setStatusFilter] = useState<'Active' | 'Inactive' | 'All'>('Active')
+   178→  const [dialogOpen, setDialogOpen] = useState(false)
+   179→  const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null)
+   180→  const [form, setForm] = useState<FormData>(emptyForm)
+   181→  const [deleteTarget, setDeleteTarget] = useState<Medicine | null>(null)
+   182→
+   183→  // Build query string
+   184→  const queryString = new URLSearchParams()
+   185→  if (search.trim()) queryString.set('search', search.trim())
+   186→  if (statusFilter !== 'All') queryString.set('status', statusFilter)
+   187→
+   188→  const { data, isLoading } = useQuery<{ medicines: Medicine[] }>({
+   189→    queryKey: ['doctor-medicines', search, statusFilter],
+   190→    queryFn: () =>
+   191→      fetch(`/api/dashboard/doctor/medicines?${queryString.toString()}`).then((r) => r.json()),
+   192→  })
+   193→
+   194→  const medicines = data?.medicines || []
+   195→
+   196→  // Create mutation
+   197→  const createMutation = useMutation({
+   198→    mutationFn: (body: FormData) =>
+   199→      fetch('/api/dashboard/doctor/medicines', {
+   200→        method: 'POST',
+   201→        headers: { 'Content-Type': 'application/json' },
+   202→        body: JSON.stringify(body),
+   203→      }).then((r) => {
+   204→        if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Failed to create') })
+   205→        return r.json()
+   206→      }),
+   207→    onMutate: async (newMed) => {
+   208→      await queryClient.cancelQueries({ queryKey: ['doctor-medicines'] })
+   209→      const prev = queryClient.getQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter])
+   210→      queryClient.setQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter], (old) => ({
+   211→        medicines: [
+   212→          {
+   213→            id: 'optimistic-' + Date.now(),
+   214→            name: newMed.name,
+   215→            morning: newMed.morning,
+   216→            afternoon: newMed.afternoon,
+   217→            evening: newMed.evening,
+   218→            dose: JSON.stringify(newMed.doseArray),
+   219→            doseArray: newMed.doseArray,
+   220→            tab: newMed.tab,
+   221→            description: newMed.description,
+   222→            status: 'Active',
+   223→            createdAt: new Date().toISOString(),
+   224→            updatedAt: new Date().toISOString(),
+   225→          },
+   226→          ...(old?.medicines || []),
+   227→        ],
+   228→      }))
+   229→      return { prev }
+   230→    },
+   231→    onSuccess: () => {
+   232→      queryClient.invalidateQueries({ queryKey: ['doctor-medicines'] })
+   233→      toast.success('Medicine added successfully')
+   234→      closeDialog()
+   235→    },
+   236→    onError: (err, _vars, context) => {
+   237→      if (context?.prev) {
+   238→        queryClient.setQueryData(['doctor-medicines', search, statusFilter], context.prev)
+   239→      }
+   240→      toast.error(err.message || 'Failed to add medicine')
+   241→    },
+   242→  })
+   243→
+   244→  // Update mutation
+   245→  const updateMutation = useMutation({
+   246→    mutationFn: ({ id, body }: { id: string; body: FormData }) =>
+   247→      fetch(`/api/dashboard/doctor/medicines/${id}`, {
+   248→        method: 'PUT',
+   249→        headers: { 'Content-Type': 'application/json' },
+   250→        body: JSON.stringify(body),
+   251→      }).then((r) => {
+   252→        if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Failed to update') })
+   253→        return r.json()
+   254→      }),
+   255→    onMutate: async ({ id, body }) => {
+   256→      await queryClient.cancelQueries({ queryKey: ['doctor-medicines'] })
+   257→      const prev = queryClient.getQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter])
+   258→      queryClient.setQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter], (old) => ({
+   259→        medicines: (old?.medicines || []).map((m) =>
+   260→          m.id === id
+   261→            ? {
+   262→                ...m,
+   263→                name: body.name,
+   264→                morning: body.morning,
+   265→                afternoon: body.afternoon,
+   266→                evening: body.evening,
+   267→                dose: JSON.stringify(body.doseArray),
+   268→                doseArray: body.doseArray,
+   269→                tab: body.tab,
+   270→                description: body.description,
+   271→                updatedAt: new Date().toISOString(),
+   272→              }
+   273→            : m
+   274→        ),
+   275→      }))
+   276→      return { prev }
+   277→    },
+   278→    onSuccess: () => {
+   279→      queryClient.invalidateQueries({ queryKey: ['doctor-medicines'] })
+   280→      toast.success('Medicine updated successfully')
+   281→      closeDialog()
+   282→    },
+   283→    onError: (err, _vars, context) => {
+   284→      if (context?.prev) {
+   285→        queryClient.setQueryData(['doctor-medicines', search, statusFilter], context.prev)
+   286→      }
+   287→      toast.error(err.message || 'Failed to update medicine')
+   288→    },
+   289→  })
+   290→
+   291→  // Delete mutation (soft delete)
+   292→  const deleteMutation = useMutation({
+   293→    mutationFn: (id: string) =>
+   294→      fetch(`/api/dashboard/doctor/medicines/${id}`, {
+   295→        method: 'DELETE',
+   296→      }).then((r) => {
+   297→        if (!r.ok) return r.json().then((e) => { throw new Error(e.error || 'Failed to delete') })
+   298→        return r.json()
+   299→      }),
+   300→    onMutate: async (id) => {
+   301→      await queryClient.cancelQueries({ queryKey: ['doctor-medicines'] })
+   302→      const prev = queryClient.getQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter])
+   303→      queryClient.setQueryData<{ medicines: Medicine[] }>(['doctor-medicines', search, statusFilter], (old) => ({
+   304→        medicines: (old?.medicines || []).filter((m) => m.id !== id),
+   305→      }))
+   306→      return { prev }
+   307→    },
+   308→    onSuccess: () => {
+   309→      queryClient.invalidateQueries({ queryKey: ['doctor-medicines'] })
+   310→      toast.success('Medicine deactivated')
+   311→      setDeleteTarget(null)
+   312→    },
+   313→    onError: (err, _vars, context) => {
+   314→      if (context?.prev) {
+   315→        queryClient.setQueryData(['doctor-medicines', search, statusFilter], context.prev)
+   316→      }
+   317→      toast.error(err.message || 'Failed to delete medicine')
+   318→    },
+   319→  })
+   320→
+   321→  const openCreateDialog = () => {
+   322→    setEditingMedicine(null)
+   323→    setForm(emptyForm)
+   324→    setDialogOpen(true)
+   325→  }
+   326→
+   327→  const openEditDialog = (med: Medicine) => {
+   328→    setEditingMedicine(med)
+   329→    setForm({
+   330→      name: med.name,
+   331→      doseArray: med.doseArray || [],
+   332→      tab: med.tab,
+   333→      morning: med.morning ?? 0,
+   334→      afternoon: med.afternoon ?? 0,
+   335→      evening: med.evening ?? 0,
+   336→      description: med.description || '',
+   337→    })
+   338→    setDialogOpen(true)
+   339→  }
+   340→
+   341→  const closeDialog = () => {
+   342→    setDialogOpen(false)
+   343→    setEditingMedicine(null)
+   344→    setForm(emptyForm)
+   345→  }
+   346→
+   347→  const handleSubmit = () => {
+   348→    if (!form.name.trim()) {
+   349→      toast.error('Medicine name is required')
+   350→      return
+   351→    }
+   352→    if (form.doseArray.length === 0) {
+   353→      toast.error('Add at least one dose option')
+   354→      return
+   355→    }
+   356→    if (editingMedicine) {
+   357→      updateMutation.mutate({ id: editingMedicine.id, body: form })
+   358→    } else {
+   359→      createMutation.mutate(form)
+   360→    }
+   361→  }
+   362→
+   363→  const handleDelete = () => {
+   364→    if (deleteTarget) {
+   365→      deleteMutation.mutate(deleteTarget.id)
+   366→    }
+   367→  }
+   368→
+   369→  const formatTiming = (m: Medicine) => `${m.morning ?? 0}-${m.afternoon ?? 0}-${m.evening ?? 0}`
+   370→  const hasTimings = (m: Medicine) => (m.morning ?? 0) > 0 || (m.afternoon ?? 0) > 0 || (m.evening ?? 0) > 0
+   371→
+   372→  return (
+   373→    <div className="space-y-6">
+   374→      {/* Header */}
+   375→      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   376→        <div>
+   377→          <h2 className="text-lg font-semibold flex items-center gap-2">
+   378→            <Pill className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   379→            Medicine Master
+   380→          </h2>
+   381→          <p className="text-sm text-muted-foreground mt-1">
+   382→            Manage your frequently prescribed medicines
+   383→          </p>
+   384→        </div>
+   385→        <Button
+   386→          className="bg-teal-600 hover:bg-teal-700"
+   387→          onClick={openCreateDialog}
+   388→        >
+   389→          <Plus className="mr-2 h-4 w-4" />
+   390→          Add Medicine
+   391→        </Button>
+   392→      </div>
+   393→
+   394→      {/* Search & Filter Bar */}
+   395→      <div className="flex flex-col sm:flex-row gap-3">
+   396→        <div className="relative flex-1">
+   397→          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   398→          <Input
+   399→            placeholder="Search medicines..."
+   400→            value={search}
+   401→            onChange={(e) => setSearch(e.target.value)}
+   402→            className="pl-9"
+   403→          />
+   404→        </div>
+   405→        <div className="flex gap-1.5 rounded-lg border border-border bg-card p-1">
+   406→          {(['Active', 'Inactive', 'All'] as const).map((s) => (
+   407→            <button
+   408→              key={s}
+   409→              onClick={() => setStatusFilter(s)}
+   410→              className={cn(
+   411→                'rounded-md px-3 py-1.5 text-xs font-medium transition-colors',
+   412→                statusFilter === s
+   413→                  ? 'bg-teal-600 text-white shadow-sm'
+   414→                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+   415→              )}
+   416→            >
+   417→              {s}
+   418→            </button>
+   419→          ))}
+   420→        </div>
+   421→      </div>
+   422→
+   423→      {/* Medicine List */}
+   424→      {isLoading ? (
+   425→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   426→          {Array.from({ length: 6 }).map((_, i) => (
+   427→            <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-3">
+   428→              <div className="h-5 w-36 animate-pulse rounded bg-muted" />
+   429→              <div className="space-y-2">
+   430→                <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+   431→                <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+   432→              </div>
+   433→            </div>
+   434→          ))}
+   435→        </div>
+   436→      ) : medicines.length === 0 ? (
+   437→        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16">
+   438→          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-teal-50 dark:bg-teal-900/30 mb-4">
+   439→            <Pill className="h-8 w-8 text-teal-600 dark:text-teal-400" />
+   440→          </div>
+   441→          <h3 className="text-sm font-medium">
+   442→            {search ? 'No medicines found' : 'No medicines added yet'}
+   443→          </h3>
+   444→          <p className="text-sm text-muted-foreground mt-1 text-center max-w-xs">
+   445→            {search
+   446→              ? 'Try a different search term or adjust the filter'
+   447→              : 'Add medicines you frequently prescribe for quick access when writing prescriptions'}
+   448→          </p>
+   449→          {!search && (
+   450→            <Button
+   451→              variant="outline"
+   452→              className="mt-4 text-teal-600 border-teal-300 hover:bg-teal-50 dark:text-teal-400 dark:border-teal-700 dark:hover:bg-teal-900/30"
+   453→              onClick={openCreateDialog}
+   454→            >
+   455→              <Plus className="mr-2 h-4 w-4" />
+   456→              Add Your First Medicine
+   457→            </Button>
+   458→          )}
+   459→        </div>
+   460→      ) : (
+   461→        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   462→          <AnimatePresence mode="popLayout">
+   463→            {medicines.map((med, i) => (
+   464→              <motion.div
+   465→                key={med.id}
+   466→                layout
+   467→                initial={{ opacity: 0, y: 15 }}
+   468→                animate={{ opacity: 1, y: 0 }}
+   469→                exit={{ opacity: 0, scale: 0.95 }}
+   470→                transition={{ delay: i * 0.03 }}
+   471→              >
+   472→                <Card className="group relative overflow-hidden hover:shadow-md transition-shadow">
+   473→                  <CardContent className="p-4">
+   474→                    {/* Top Row: Name + Actions */}
+   475→                    <div className="flex items-start justify-between gap-2">
+   476→                      <div className="min-w-0 flex-1">
+   477→                        <div className="flex items-center gap-2">
+   478→                          <h3 className="font-semibold text-sm truncate">{med.name}</h3>
+   479→                          {med.status === 'Active' ? (
+   480→                            <Badge variant="secondary" className="bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800 text-[10px] shrink-0">
+   481→                              Active
+   482→                            </Badge>
+   483→                          ) : (
+   484→                            <Badge variant="secondary" className="bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 text-[10px] shrink-0">
+   485→                              Inactive
+   486→                            </Badge>
+   487→                          )}
+   488→                        </div>
+   489→                      </div>
+   490→                      <div className="flex items-center gap-0.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+   491→                        <Button
+   492→                          variant="ghost"
+   493→                          size="icon"
+   494→                          className="h-7 w-7"
+   495→                          onClick={() => openEditDialog(med)}
+   496→                        >
+   497→                          <Edit className="h-3.5 w-3.5" />
+   498→                        </Button>
+   499→                        {med.status === 'Active' && (
+   500→                          <Button
+   501→                            variant="ghost"
+   502→                            size="icon"
+   503→                            className="h-7 w-7 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30"
+   504→                            onClick={() => setDeleteTarget(med)}
+   505→                          >
+   506→                            <Trash2 className="h-3.5 w-3.5" />
+   507→                          </Button>
+   508→                        )}
+   509→                      </div>
+   510→                    </div>
+   511→
+   512→                    {/* Dose Tags */}
+   513→                    {med.doseArray && med.doseArray.length > 0 && (
+   514→                      <div className="flex flex-wrap gap-1 mt-2.5">
+   515→                        {med.doseArray.map((d, di) => (
+   516→                          <Badge
+   517→                            key={di}
+   518→                            variant="outline"
+   519→                            className={cn(
+   520→                              'text-[10px] px-1.5 py-0 gap-0.5',
+   521→                              di === 0
+   522→                                ? 'border-teal-200 text-teal-700 bg-teal-50 dark:border-teal-800 dark:text-teal-300 dark:bg-teal-900/20'
+   523→                                : 'border-border text-muted-foreground'
+   524→                            )}
+   525→                          >
+   526→                            <Pill className="h-2.5 w-2.5" />
+   527→                            {d}
+   528→                          </Badge>
+   529→                        ))}
+   530→                      </div>
+   531→                    )}
+   532→
+   533→                    {/* Timing + Duration row */}
+   534→                    <div className="flex flex-wrap items-center gap-2 mt-3">
+   535→                      {hasTimings(med) && (
+   536→                        <Badge
+   537→                          variant="outline"
+   538→                          className="text-[10px] px-1.5 py-0 gap-1 border-teal-300 text-teal-700 bg-teal-50/60 dark:border-teal-700 dark:text-teal-300 dark:bg-teal-900/20"
+   539→                        >
+   540→                          <Clock className="h-2.5 w-2.5" />
+   541→                          {formatTiming(med)}
+   542→                        </Badge>
+   543→                      )}
+   544→                      <Badge
+   545→                        variant="outline"
+   546→                        className="text-[10px] px-1.5 py-0 gap-1 border-border text-muted-foreground"
+   547→                      >
+   548→                        <CalendarDays className="h-2.5 w-2.5" />
+   549→                        {med.tab} day{med.tab !== 1 ? 's' : ''}
+   550→                      </Badge>
+   551→                      {med.description && (
+   552→                        <Badge
+   553→                          variant="outline"
+   554→                          className="text-[10px] px-1.5 py-0 border-amber-200 text-amber-700 bg-amber-50 dark:border-amber-800 dark:text-amber-300 dark:bg-amber-900/20"
+   555→                        >
+   556→                          {med.description}
+   557→                        </Badge>
+   558→                      )}
+   559→                    </div>
+   560→
+   561→                    {/* Mobile action buttons (always visible on small screens) */}
+   562→                    <div className="flex sm:hidden gap-2 mt-3 pt-3 border-t border-border/50">
+   563→                      <Button
+   564→                        variant="outline"
+   565→                        size="sm"
+   566→                        className="flex-1 h-8 text-xs text-teal-600 border-teal-300 hover:bg-teal-50 dark:text-teal-400 dark:border-teal-700 dark:hover:bg-teal-900/30"
+   567→                        onClick={() => openEditDialog(med)}
+   568→                      >
+   569→                        <Edit className="mr-1.5 h-3 w-3" />
+   570→                        Edit
+   571→                      </Button>
+   572→                      {med.status === 'Active' && (
+   573→                        <Button
+   574→                          variant="outline"
+   575→                          size="sm"
+   576→                          className="flex-1 h-8 text-xs text-red-500 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-900/30"
+   577→                          onClick={() => setDeleteTarget(med)}
+   578→                        >
+   579→                          <Trash2 className="mr-1.5 h-3 w-3" />
+   580→                          Remove
+   581→                        </Button>
+   582→                      )}
+   583→                    </div>
+   584→                  </CardContent>
+   585→                </Card>
+   586→              </motion.div>
+   587→            ))}
+   588→          </AnimatePresence>
+   589→        </div>
+   590→      )}
+   591→
+   592→      {/* Add/Edit Dialog */}
+   593→      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!open) closeDialog(); else setDialogOpen(true) }}>
+   594→        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+   595→          <DialogHeader>
+   596→            <DialogTitle>
+   597→              {editingMedicine ? 'Edit Medicine' : 'Add New Medicine'}
+   598→            </DialogTitle>
+   599→          </DialogHeader>
+   600→          <div className="space-y-4 py-2">
+   601→            {/* Medicine Name */}
+   602→            <div className="space-y-2">
+   603→              <Label htmlFor="med-name">
+   604→                Medicine Name <span className="text-red-500">*</span>
+   605→              </Label>
+   606→              <Input
+   607→                id="med-name"
+   608→                placeholder="e.g. Paracetamol"
+   609→                value={form.name}
+   610→                onChange={(e) => setForm({ ...form, name: e.target.value })}
+   611→                onKeyDown={(e) => { if (e.key === 'Enter') e.preventDefault() }}
+   612→              />
+   613→            </div>
+   614→
+   615→            {/* Dose Tag Input */}
+   616→            <div className="space-y-2">
+   617→              <Label>Dose Options <span className="text-red-500">*</span></Label>
+   618→              <DoseTagInput
+   619→                tags={form.doseArray}
+   620→                onChange={(doseArray) => setForm({ ...form, doseArray })}
+   621→              />
+   622→              <p className="text-[11px] text-muted-foreground">
+   623→                Type a dose and press <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-[10px]">Enter</kbd> or <kbd className="px-1 py-0.5 rounded border border-border bg-muted text-[10px]">,</kbd> to add. First option is the default.
+   624→              </p>
+   625→            </div>
+   626→
+   627→            {/* Morning / Afternoon / Evening — Number inputs */}
+   628→            <div className="space-y-3">
+   629→              <Label>Timing (Tablet Count)</Label>
+   630→              <div className="grid gap-3">
+   631→                {/* Morning */}
+   632→                <div className="flex items-center gap-3">
+   633→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+   634→                    <Sun className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+   635→                  </div>
+   636→                  <div className="flex-1">
+   637→                    <div className="text-xs text-muted-foreground mb-1">Morning Tablets</div>
+   638→                    <Input
+   639→                      type="number"
+   640→                      min={0}
+   641→                      value={form.morning}
+   642→                      onChange={(e) => setForm({ ...form, morning: Math.max(0, parseInt(e.target.value) || 0) })}
+   643→                      className="w-24"
+   644→                      placeholder="0"
+   645→                    />
+   646→                  </div>
+   647→                  <span className="text-[11px] text-muted-foreground italic">0 = skip</span>
+   648→                </div>
+   649→
+   650→                {/* Afternoon */}
+   651→                <div className="flex items-center gap-3">
+   652→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-100 dark:bg-orange-900/30">
+   653→                    <CloudSun className="h-4 w-4 text-orange-600 dark:text-orange-400" />
+   654→                  </div>
+   655→                  <div className="flex-1">
+   656→                    <div className="text-xs text-muted-foreground mb-1">Afternoon Tablets</div>
+   657→                    <Input
+   658→                      type="number"
+   659→                      min={0}
+   660→                      value={form.afternoon}
+   661→                      onChange={(e) => setForm({ ...form, afternoon: Math.max(0, parseInt(e.target.value) || 0) })}
+   662→                      className="w-24"
+   663→                      placeholder="0"
+   664→                    />
+   665→                  </div>
+   666→                  <span className="text-[11px] text-muted-foreground italic">0 = skip</span>
+   667→                </div>
+   668→
+   669→                {/* Evening */}
+   670→                <div className="flex items-center gap-3">
+   671→                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-slate-200 dark:bg-slate-700/40">
+   672→                    <Moon className="h-4 w-4 text-slate-600 dark:text-slate-300" />
+   673→                  </div>
+   674→                  <div className="flex-1">
+   675→                    <div className="text-xs text-muted-foreground mb-1">Evening Tablets</div>
+   676→                    <Input
+   677→                      type="number"
+   678→                      min={0}
+   679→                      value={form.evening}
+   680→                      onChange={(e) => setForm({ ...form, evening: Math.max(0, parseInt(e.target.value) || 0) })}
+   681→                      className="w-24"
+   682→                      placeholder="0"
+   683→                    />
+   684→                  </div>
+   685→                  <span className="text-[11px] text-muted-foreground italic">0 = skip</span>
+   686→                </div>
+   687→              </div>
+   688→            </div>
+   689→
+   690→            {/* Duration (Days) */}
+   691→            <div className="space-y-2">
+   692→              <Label htmlFor="med-tab">Duration (Days)</Label>
+   693→              <Input
+   694→                id="med-tab"
+   695→                type="number"
+   696→                min={1}
+   697→                value={form.tab}
+   698→                onChange={(e) => setForm({ ...form, tab: Math.max(1, parseInt(e.target.value) || 1) })}
+   699→                placeholder="e.g. 5"
+   700→              />
+   701→            </div>
+   702→
+   703→            {/* Instructions (description) */}
+   704→            <div className="space-y-2">
+   705→              <Label htmlFor="med-desc">Instructions</Label>
+   706→              <Input
+   707→                id="med-desc"
+   708→                placeholder='e.g. AF (After Food), BF (Before Food)'
+   709→                value={form.description}
+   710→                onChange={(e) => setForm({ ...form, description: e.target.value })}
+   711→              />
+   712→              <p className="text-[11px] text-muted-foreground">
+   713→                Common: AF = After Food, BF = Before Food, AC = Before Meals, PC = After Meals
+   714→              </p>
+   715→            </div>
+   716→          </div>
+   717→          <DialogFooter>
+   718→            <Button variant="outline" onClick={closeDialog}>Cancel</Button>
+   719→            <Button
+   720→              className="bg-teal-600 hover:bg-teal-700"
+   721→              onClick={handleSubmit}
+   722→              disabled={createMutation.isPending || updateMutation.isPending}
+   723→            >
+   724→              {editingMedicine
+   725→                ? updateMutation.isPending ? 'Saving...' : 'Save Changes'
+   726→                : createMutation.isPending ? 'Adding...' : 'Add Medicine'
+   727→              }
+   728→            </Button>
+   729→          </DialogFooter>
+   730→        </DialogContent>
+   731→      </Dialog>
+   732→
+   733→      {/* Delete Confirmation */}
+   734→      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+   735→        <AlertDialogContent>
+   736→          <AlertDialogHeader>
+   737→            <AlertDialogTitle>Deactivate Medicine</AlertDialogTitle>
+   738→            <AlertDialogDescription>
+   739→              Are you sure you want to deactivate &quot;{deleteTarget?.name}&quot;? It will be marked as inactive and won&apos;t appear in your active medicine list. You can reactivate it later by editing.
+   740→            </AlertDialogDescription>
+   741→          </AlertDialogHeader>
+   742→          <AlertDialogFooter>
+   743→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   744→            <AlertDialogAction
+   745→              onClick={handleDelete}
+   746→              disabled={deleteMutation.isPending}
+   747→              className="bg-red-600 hover:bg-red-700"
+   748→            >
+   749→              {deleteMutation.isPending ? 'Deactivating...' : 'Deactivate'}
+   750→            </AlertDialogAction>
+   751→          </AlertDialogFooter>
+   752→        </AlertDialogContent>
+   753→      </AlertDialog>
+   754→    </div>
+   755→  )
+   756→}
+   757→

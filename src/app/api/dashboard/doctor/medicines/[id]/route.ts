@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
+function parseDose(dose: string): string[] {
+  try {
+    const parsed = JSON.parse(dose)
+    if (Array.isArray(parsed)) return parsed
+  } catch {
+ // legacy single-string dose
+    if (dose && dose !== '[]') return [dose]
+  }
+  return []
+}
+
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -32,7 +43,7 @@ export async function PUT(
     }
 
     const body = await req.json()
-    const { name, morning, afternoon, evening, dose, tab, description, status } = body
+    const { name, doseArray, morning, afternoon, evening, tab, description, status } = body
 
     if (name !== undefined && !name.trim()) {
       return NextResponse.json({ error: 'Medicine name cannot be empty' }, { status: 400 })
@@ -40,12 +51,15 @@ export async function PUT(
 
     const updateData: Record<string, unknown> = {}
     if (name !== undefined) updateData.name = name.trim()
-    if (morning !== undefined) updateData.morning = morning
-    if (afternoon !== undefined) updateData.afternoon = afternoon
-    if (evening !== undefined) updateData.evening = evening
-    if (dose !== undefined) updateData.dose = dose
-    if (tab !== undefined) updateData.tab = typeof tab === 'number' ? tab : 1
-    if (description !== undefined) updateData.description = description
+    if (doseArray !== undefined) {
+      const safeDoseArray = Array.isArray(doseArray) ? doseArray.map(String) : []
+      updateData.dose = JSON.stringify(safeDoseArray)
+    }
+    if (morning !== undefined) updateData.morning = typeof morning === 'number' ? Math.max(0, Math.round(morning)) : 0
+    if (afternoon !== undefined) updateData.afternoon = typeof afternoon === 'number' ? Math.max(0, Math.round(afternoon)) : 0
+    if (evening !== undefined) updateData.evening = typeof evening === 'number' ? Math.max(0, Math.round(evening)) : 0
+    if (tab !== undefined) updateData.tab = typeof tab === 'number' ? Math.max(1, Math.round(tab)) : 1
+    if (description !== undefined) updateData.description = typeof description === 'string' ? description.trim() : ''
     if (status !== undefined) updateData.status = status
 
     const medicine = await db.doctorMedicine.update({
@@ -53,7 +67,8 @@ export async function PUT(
       data: updateData,
     })
 
-    return NextResponse.json({ medicine })
+    const doseArrayOut = parseDose(medicine.dose)
+    return NextResponse.json({ medicine: { ...medicine, doseArray: doseArrayOut } })
   } catch (error) {
     console.error('Update medicine error:', error)
     return NextResponse.json({ error: 'Failed to update medicine' }, { status: 500 })
