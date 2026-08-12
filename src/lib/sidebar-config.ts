@@ -67,6 +67,8 @@ export const sidebarConfig: RoleSidebarMap = {
   ],
   hospital: [
     { label: 'Dashboard', href: '/dashboard/hospital', icon: LayoutDashboard },
+    { label: 'Departments', href: '/dashboard/hospital/departments', icon: Building2 },
+    { label: 'Manage Doctors', href: '/dashboard/hospital/department-doctors', icon: UserPlus },
     { label: 'Doctors', href: '/dashboard/hospital/doctors', icon: Stethoscope },
     { label: 'Appointments', href: '/dashboard/hospital/appointments', icon: CalendarDays },
     { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },

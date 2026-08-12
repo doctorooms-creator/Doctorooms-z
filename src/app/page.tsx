@@ -167,6 +167,28 @@ interface Doctor {
   _ratingCount?: { star: number } | null
 }
 
+interface HospitalCard {
+  id: string
+  name: string
+  profileImg: string
+  hospital: {
+    hospitalName: string
+    address: string
+    city: string
+    state: string
+    contactNo: string
+    hospitalType: string
+    accreditation: string
+    facilities: string
+    establishedYear: number
+    bedCount: number
+  } | null
+  _count?: {
+    departments: number
+    doctorLinks: number
+  }
+}
+
 // ── Hardcoded fallbacks ──────────────────────────────────────────────────────
 
 const fallbackStats: Stats = {
@@ -320,8 +342,16 @@ export default function HomePage() {
     retry: 1,
   })
 
+  const { data: hospitalsData } = useQuery<{ hospitals: HospitalCard[] }>({
+    queryKey: ['featured-hospitals'],
+    queryFn: () => fetch('/api/hospitals?limit=3').then((r) => r.json()),
+    staleTime: 60_000,
+    retry: 1,
+  })
+
   const stats = statsData ?? fallbackStats
   const doctors = doctorsData?.doctors?.length ? doctorsData.doctors : fallbackDoctors
+  const hospitals = hospitalsData?.hospitals?.length ? hospitalsData.hospitals : []
 
   return (
     <PublicLayout>
@@ -392,8 +422,8 @@ export default function HomePage() {
                   className="bg-gradient-to-r from-teal-600 to-emerald-500 px-6 text-white shadow-md hover:from-teal-700 hover:to-emerald-600"
                   asChild
                 >
-                  <Link href="/doctors">
-                    Find a Doctor
+                  <Link href="/hospitals">
+                    Browse Hospitals
                     <ArrowRight className="ml-1 h-4 w-4" />
                   </Link>
                 </Button>
@@ -403,7 +433,7 @@ export default function HomePage() {
                   className="border-teal-600 text-teal-600 hover:bg-teal-50 dark:border-teal-400 dark:text-teal-400 dark:hover:bg-teal-950/30"
                   asChild
                 >
-                  <Link href="/doctors">Book Appointment</Link>
+                  <Link href="/doctors">Find a Doctor</Link>
                 </Button>
               </div>
             </motion.div>
@@ -471,22 +501,22 @@ export default function HomePage() {
 
             {[
               {
-                icon: Search,
+                icon: Building2,
                 step: 1,
-                title: 'Search Doctor',
-                desc: 'Browse our extensive network of verified doctors by specialization, location, or name.',
+                title: 'Choose Hospital',
+                desc: 'Browse multi-specialty hospitals, explore departments like Cardiology, Orthopedics, and more.',
               },
               {
                 icon: CalendarCheck,
                 step: 2,
-                title: 'Book Appointment',
-                desc: 'Choose a convenient time slot and book your appointment instantly with secure payment.',
+                title: 'Select Doctor',
+                desc: 'View doctors in your chosen department, check their fees, availability, and OPD timings.',
               },
               {
                 icon: Video,
                 step: 3,
-                title: 'Get Consultation',
-                desc: 'Meet your doctor in person or via secure video consultation from the comfort of your home.',
+                title: 'Book & Consult',
+                desc: 'Book a convenient time slot and get your consultation — in-person or via video call.',
               },
             ].map((item, i) => (
               <FadeUpItem key={item.step} index={i} className="flex flex-col items-center text-center">
@@ -502,8 +532,142 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── 4. FEATURED DOCTORS SECTION ───────────────────────────────────── */}
+      {/* ── 4. FEATURED HOSPITALS SECTION ────────────────────────────── */}
       <section className="bg-white py-16 dark:bg-gray-950 sm:py-20 lg:py-24">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <FadeUpSection className="text-center">
+            <Badge variant="secondary" className="mb-3 rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+              Multi-Specialty Hospitals
+            </Badge>
+            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
+              Top Hospitals Near You
+            </h2>
+            <p className="mx-auto mt-3 max-w-2xl text-lg text-gray-500 dark:text-gray-400">
+              Explore departments and book appointments at leading multi-specialty hospitals
+            </p>
+          </FadeUpSection>
+
+          {hospitals.length > 0 ? (
+            <div className="mt-12 grid gap-6 md:grid-cols-3">
+              {hospitals.slice(0, 3).map((h, i) => {
+                const facilities: string[] = h.hospital?.facilities ? JSON.parse(h.hospital.facilities) : []
+                return (
+                  <FadeUpItem key={h.id} index={i}>
+                    <Link href={`/hospitals/${h.id}`} className="block">
+                      <Card className="group h-full cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                        {/* Gradient top bar */}
+                        <div className={`h-2 bg-gradient-to-r ${i === 0 ? 'from-teal-500 to-emerald-500' : i === 1 ? 'from-amber-500 to-orange-500' : 'from-rose-500 to-pink-500'}`} />
+                        <CardContent className="p-6">
+                          {/* Hospital icon + name */}
+                          <div className="flex items-start gap-3 mb-4">
+                            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${i === 0 ? 'bg-teal-50 dark:bg-teal-900/30' : i === 1 ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-rose-50 dark:bg-rose-900/30'}`}>
+                              <Building2 className={`h-6 w-6 ${i === 0 ? 'text-teal-600 dark:text-teal-400' : i === 1 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`} />
+                            </div>
+                            <div className="min-w-0">
+                              <h3 className="font-semibold text-gray-900 dark:text-white truncate">{h.hospital?.hospitalName || h.name}</h3>
+                              {h.hospital?.city && (
+                                <p className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+                                  <MapPin className="h-3.5 w-3.5" />
+                                  {h.hospital.city}{h.hospital.state ? `, ${h.hospital.state}` : ''}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Quick stats */}
+                          <div className="flex gap-3 mb-4">
+                            <div className="flex-1 rounded-lg bg-gray-50 p-2.5 text-center dark:bg-gray-900">
+                              <p className="text-lg font-bold text-gray-900 dark:text-white">{h._count?.departments ?? 0}</p>
+                              <p className="text-[11px] text-muted-foreground">Departments</p>
+                            </div>
+                            <div className="flex-1 rounded-lg bg-gray-50 p-2.5 text-center dark:bg-gray-900">
+                              <p className="text-lg font-bold text-gray-900 dark:text-white">{h._count?.doctorLinks ?? 0}</p>
+                              <p className="text-[11px] text-muted-foreground">Doctors</p>
+                            </div>
+                            {h.hospital?.bedCount ? (
+                              <div className="flex-1 rounded-lg bg-gray-50 p-2.5 text-center dark:bg-gray-900">
+                                <p className="text-lg font-bold text-gray-900 dark:text-white">{h.hospital.bedCount}</p>
+                                <p className="text-[11px] text-muted-foreground">Beds</p>
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {/* Badges */}
+                          <div className="flex flex-wrap gap-1.5 mb-4">
+                            {h.hospital?.hospitalType && (
+                              <Badge variant="secondary" className="text-[10px] bg-teal-50 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+                                {h.hospital.hospitalType}
+                              </Badge>
+                            )}
+                            {h.hospital?.accreditation && (
+                              <Badge variant="secondary" className="text-[10px] bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                {h.hospital.accreditation}
+                              </Badge>
+                            )}
+                          </div>
+
+                          {/* Facilities */}
+                          {facilities.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mb-4">
+                              {facilities.slice(0, 4).map((f: string) => (
+                                <span key={f} className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+                                  {f}
+                                </span>
+                              ))}
+                              {facilities.length > 4 && (
+                                <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                                  +{facilities.length - 4} more
+                                </span>
+                              )}
+                            </div>
+                          )}
+
+                          {/* View button */}
+                          <div className="flex items-center justify-between pt-3 border-t border-border/50">
+                            <span className="text-sm font-medium text-teal-600 dark:text-teal-400 group-hover:underline">
+                              View Departments
+                            </span>
+                            <ArrowRight className="h-4 w-4 text-teal-600 dark:text-teal-400 transition-transform group-hover:translate-x-1" />
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  </FadeUpItem>
+                )
+              })}
+            </div>
+          ) : (
+            <div className="mt-8 grid gap-4 md:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Card key={i} className="overflow-hidden">
+                  <div className="h-2 bg-muted animate-pulse" />
+                  <CardContent className="p-6 space-y-4">
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-4 w-1/2" />
+                    <div className="flex gap-3">
+                      <Skeleton className="h-14 flex-1 rounded-lg" />
+                      <Skeleton className="h-14 flex-1 rounded-lg" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          <FadeUpSection className="mt-10 text-center">
+            <Link
+              href="/hospitals"
+              className="inline-flex items-center gap-2 text-lg font-semibold text-teal-600 transition-colors hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
+            >
+              View All Hospitals
+              <ArrowRight className="h-5 w-5" />
+            </Link>
+          </FadeUpSection>
+        </div>
+      </section>
+
+      {/* ── 5. FEATURED DOCTORS SECTION ───────────────────────────────────── */}
+      <section className="bg-gray-50 py-16 dark:bg-gray-900/50 sm:py-20 lg:py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <FadeUpSection className="text-center">
             <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">

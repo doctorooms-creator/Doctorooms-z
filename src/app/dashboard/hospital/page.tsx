@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Stethoscope, CalendarDays, Activity, ArrowRight, Star, UserPlus } from 'lucide-react'
+import { Stethoscope, CalendarDays, Activity, ArrowRight, Star, Building2, Users } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
@@ -24,15 +24,18 @@ interface HospitalStats {
   totalDoctors: number
   totalAppointments: number
   patientVisits: number
+  departmentCount: number
   doctors: {
     id: string
     name: string
     profileImg: string | null
     specialization: string
+    departmentName: string
     status: string
     totalAppointments: number
     avgRating: number
   }[]
+  doctorsByDepartment: Record<string, { name: string; count: number }>
   recentAppointments: {
     id: string
     appointmentNo: string
@@ -66,20 +69,32 @@ export default function HospitalDashboardPage() {
     queryFn: () => fetch('/api/dashboard/hospital/stats').then((r) => r.json()),
   })
 
+  // Extract departments list from doctorsByDepartment
+  const departmentsList = stats?.doctorsByDepartment
+    ? Object.entries(stats.doctorsByDepartment).map(([id, dept]) => ({ id, ...dept }))
+    : []
+
   if (isLoading) {
     return <HospitalDashboardSkeleton />
   }
 
   return (
     <div className="space-y-6">
-      {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Stat cards — 4 cards now */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Total Doctors"
           value={stats?.totalDoctors ?? 0}
           icon={Stethoscope}
           gradient="from-teal-500 to-teal-600"
           iconBg="bg-teal-100 dark:bg-teal-900/50"
+        />
+        <StatCard
+          title="Departments"
+          value={stats?.departmentCount ?? 0}
+          icon={Building2}
+          gradient="from-violet-500 to-violet-600"
+          iconBg="bg-violet-100 dark:bg-violet-900/50"
         />
         <StatCard
           title="Total Appointments"
@@ -98,68 +113,117 @@ export default function HospitalDashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Associated doctors */}
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-base font-semibold">Associated Doctors</CardTitle>
-            <Link href="/dashboard/hospital/doctors">
-              <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 dark:text-teal-400">
-                View All <ArrowRight className="ml-1 h-4 w-4" />
-              </Button>
-            </Link>
-          </CardHeader>
-          <CardContent className="p-0">
-            <div className="max-h-96 overflow-y-auto">
-              {stats?.doctors?.length === 0 && (
-                <p className="py-8 text-center text-sm text-muted-foreground">
-                  No doctors linked yet
-                </p>
-              )}
-              <div className="divide-y divide-border">
-                {stats?.doctors?.map((doctor, i) => (
-                  <motion.div
-                    key={doctor.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
-                  >
-                    <Avatar className="h-9 w-9">
-                      <AvatarImage src={doctor.profileImg || ''} />
-                      <AvatarFallback className="text-xs bg-teal-100 dark:bg-teal-900/50">
-                        {doctor.name.charAt(0)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{doctor.name}</p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {doctor.specialization || 'General'}
-                      </p>
-                    </div>
-                    <div className="flex flex-col items-end gap-1">
-                      {doctor.avgRating > 0 && (
-                        <div className="flex items-center gap-0.5 text-xs text-amber-500">
-                          <Star className="h-3 w-3 fill-amber-400" />
-                          {doctor.avgRating}
-                        </div>
-                      )}
-                      <span
-                        className={cn(
-                          'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
-                          doctorStatusColors[doctor.status] || 'bg-gray-100 text-gray-700'
+        {/* Left column: Doctors + Departments */}
+        <div className="space-y-6">
+          {/* Associated doctors */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base font-semibold">Associated Doctors</CardTitle>
+              <Link href="/dashboard/hospital/department-doctors">
+                <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 dark:text-teal-400">
+                  Manage <ArrowRight className="ml-1 h-4 w-4" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-72 overflow-y-auto">
+                {stats?.doctors?.length === 0 && (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    No doctors linked yet
+                  </p>
+                )}
+                <div className="divide-y divide-border">
+                  {stats?.doctors?.map((doctor, i) => (
+                    <motion.div
+                      key={doctor.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/50"
+                    >
+                      <Avatar className="h-9 w-9">
+                        <AvatarImage src={doctor.profileImg || ''} />
+                        <AvatarFallback className="text-xs bg-teal-100 dark:bg-teal-900/50">
+                          {doctor.name.charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium">{doctor.name}</p>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {doctor.departmentName || doctor.specialization || 'General'}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {doctor.avgRating > 0 && (
+                          <div className="flex items-center gap-0.5 text-xs text-amber-500">
+                            <Star className="h-3 w-3 fill-amber-400" />
+                            {doctor.avgRating}
+                          </div>
                         )}
-                      >
-                        {doctor.status}
-                      </span>
-                    </div>
-                  </motion.div>
-                ))}
+                        <span
+                          className={cn(
+                            'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
+                            doctorStatusColors[doctor.status] || 'bg-gray-100 text-gray-700'
+                          )}
+                        >
+                          {doctor.status}
+                        </span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
 
-        {/* Recent appointments */}
+          {/* Departments section */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-base font-semibold">Departments</CardTitle>
+              <Link href="/dashboard/hospital/departments">
+                <Button variant="ghost" size="sm" className="text-teal-600 hover:text-teal-700 dark:text-teal-400">
+                  Manage <ArrowRight className="ml-1 h-4 w-4" />
+                </Button>
+              </Link>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-72 overflow-y-auto">
+                {departmentsList.length === 0 && (
+                  <p className="py-8 text-center text-sm text-muted-foreground">
+                    No departments yet
+                  </p>
+                )}
+                <div className="divide-y divide-border">
+                  {departmentsList.map((dept, i) => (
+                    <motion.div
+                      key={dept.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.05 }}
+                      className="flex items-center justify-between px-4 py-3 transition-colors hover:bg-muted/50"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/40">
+                          <Building2 className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                        </div>
+                        <p className="truncate text-sm font-medium">{dept.name}</p>
+                      </div>
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 gap-1 bg-teal-50 text-teal-700 text-[10px] dark:bg-teal-900/30 dark:text-teal-400"
+                      >
+                        <Users className="h-3 w-3" />
+                        {dept.count}
+                      </Badge>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right column: Recent appointments */}
         <Card className="lg:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-base font-semibold">Recent Appointments</CardTitle>
@@ -236,8 +300,8 @@ export default function HospitalDashboardPage() {
 function HospitalDashboardSkeleton() {
   return (
     <div className="space-y-6">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 3 }).map((_, i) => (
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-center justify-between">
               <div className="h-11 w-11 animate-pulse rounded-xl bg-muted" />
@@ -249,20 +313,38 @@ function HospitalDashboardSkeleton() {
         ))}
       </div>
       <div className="grid gap-6 lg:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card">
-          <div className="border-b border-border p-4">
-            <div className="h-5 w-36 animate-pulse rounded bg-muted" />
-          </div>
-          <div className="divide-y divide-border">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3">
-                <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
-                <div className="flex-1 space-y-1">
-                  <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-                  <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+        <div className="space-y-6">
+          <div className="rounded-xl border border-border bg-card">
+            <div className="border-b border-border p-4">
+              <div className="h-5 w-36 animate-pulse rounded bg-muted" />
+            </div>
+            <div className="divide-y divide-border">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <div className="h-9 w-9 animate-pulse rounded-full bg-muted" />
+                  <div className="flex-1 space-y-1">
+                    <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                    <div className="h-3 w-32 animate-pulse rounded bg-muted" />
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+          </div>
+          <div className="rounded-xl border border-border bg-card">
+            <div className="border-b border-border p-4">
+              <div className="h-5 w-28 animate-pulse rounded bg-muted" />
+            </div>
+            <div className="divide-y divide-border">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-3 px-4 py-3">
+                  <div className="h-8 w-8 animate-pulse rounded-lg bg-muted" />
+                  <div className="flex-1">
+                    <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                  </div>
+                  <div className="h-5 w-8 animate-pulse rounded-full bg-muted" />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         <div className="lg:col-span-2 rounded-xl border border-border bg-card">

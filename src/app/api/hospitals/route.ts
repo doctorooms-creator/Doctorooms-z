@@ -43,11 +43,23 @@ export async function GET(request: NextRequest) {
           profileImg: true,
           hospital: {
             select: {
+              id: true,
               hospitalName: true,
               address: true,
               city: true,
               state: true,
               contactNo: true,
+              hospitalType: true,
+              accreditation: true,
+              facilities: true,
+              establishedYear: true,
+              bedCount: true,
+              _count: {
+                select: {
+                  departments: true,
+                  doctorLinks: true,
+                },
+              },
             },
           },
         },

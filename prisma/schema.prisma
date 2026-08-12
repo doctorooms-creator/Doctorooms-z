@@ -93,6 +93,7 @@ model Doctor {
   categories          CategoryMaster[]
   findings            FindingsMaster[]
   tableTemplates      TableTemplateMaster[]
+  hospitalLinks       DoctorHospital[]
 }
 
 // ============ HOSPITAL ============
@@ -104,14 +105,71 @@ model Hospital {
   address      String   @default("")
   state        String   @default("")
   city         String   @default("")
+  pincode      String   @default("")
+  email        String   @default("")
   contactNo    String   @default("")
-  gallery      String   @default("[]") // JSON array
+  website      String   @default("")
+  image        String   @default("")     // Hospital logo/banner
+  about        String   @default("")     // About hospital
+  hospitalType String   @default("Multi-Specialty") // Multi-Specialty, Single-Specialty, Clinic, Diagnostic Center
+  establishedYear Int  @default(0)
+  bedCount     Int      @default(0)
+  accreditation String  @default("")    // NABH, JCI, etc.
+  facilities   String   @default("[]")   // JSON array: ["ICU","MRI","CT Scan"]
+  gallery      String   @default("[]")   // JSON array
   lat          Float    @default(0)
   longi        Float    @default(0)
+  status       String   @default("Active") // Active, Inactive
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departments  Department[]
+  doctorLinks  DoctorHospital[]
+  receptionists Receptionist[]
+}
+
+// ============ DEPARTMENT ============
+
+model Department {
+  id          String   @id @default(cuid())
+  hospitalId  String
+  name        String   @default("")       // e.g. "Cardiology", "Orthopedics"
+  nameHi      String   @default("")       // Hindi name
+  description String   @default("")
+  icon        String   @default("")       // Lucide icon name: HeartPulse, Bone, Brain, etc.
+  floorNo     String   @default("")       // e.g. "Floor 2", "Ground Floor"
+  opdRoom     String   @default("")       // e.g. "OPD Room 201"
+  status      String   @default("Active")  // Active, Inactive
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  hospital    Hospital       @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  doctorLinks DoctorHospital[]
+  receptionists Receptionist[]
+}
+
+// ============ DOCTOR-HOSPITAL JUNCTION (Many-to-Many with Department) ============
+
+model DoctorHospital {
+  id            String   @id @default(cuid())
+  doctorId      String   // Doctor.id
+  hospitalId    String   // Hospital.id
+  departmentId  String   // Department.id
+  designation   String   @default("")    // Senior Consultant, HOD, Junior Resident, etc.
+  fees          Float    @default(0)      // Consultation fee at THIS hospital
+  opdTimings    String   @default("")    // e.g. "Mon/Wed/Fri 10:00-1:00"
+  isAvailable   Boolean  @default(true)   // Currently accepting patients
+  status        String   @default("Active") // Active, Inactive
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  doctor      Doctor     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  hospital    Hospital   @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  department  Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+
+  @@unique([doctorId, hospitalId, departmentId])
 }
 
 // ============ APPOINTMENTS ============
@@ -141,6 +199,9 @@ model Booking {
   videoRoomId      String   @default("") // Jitsi room ID for video calls
   bookingType      String   @default("By Self") // By Self, By Receptionist, By Hospital
   appointmentCharge Float   @default(0)
+  hospitalId       String?         // Hospital where booked (for multi-specialty)
+  departmentId     String?         // Department selected (for multi-specialty)
+  tokenNumber      String   @default("")  // OPD token number e.g. "CARD-015"
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -461,14 +522,18 @@ model DoctorPharmacist {
 // ============ RECEPTIONIST ============
 
 model Receptionist {
-  id        String   @id @default(cuid())
-  userId    String   @unique // receptionist user id
-  doctorId  String // doctor id (Doctor model)
-  address   String   @default("")
-  createdAt DateTime @default(now())
+  id          String   @id @default(cuid())
+  userId      String   @unique // receptionist user id
+  doctorId    String          // doctor id (Doctor model) — for clinic-mode receptionists
+  hospitalId  String?         // hospital id — for multi-specialty hospital receptionists
+  departmentId String?        // department id — if assigned to specific department OPD
+  address     String   @default("")
+  createdAt   DateTime @default(now())
 
-  user      User     @relation("ReceptionistUser", fields: [userId], references: [id], onDelete: Cascade)
-  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  user        User     @relation("ReceptionistUser", fields: [userId], references: [id], onDelete: Cascade)
+  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  hospital    Hospital? @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  department  Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
 }
 
 // ============ DOCTOR TYPE MASTER ============

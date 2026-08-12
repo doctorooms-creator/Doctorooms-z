@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import Link from 'next/link'
 import {
   Search,
   MapPin,
@@ -10,8 +11,14 @@ import {
   SlidersHorizontal,
   ChevronDown,
   X,
-  ArrowUpDown,
+  ArrowRight,
+  Users,
+  BriefcaseMedical,
   Star,
+  Mail,
+  Globe,
+  Award,
+  ShieldCheck,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -32,11 +39,21 @@ interface Hospital {
   name: string
   profileImg: string
   hospital: {
+    id: string
     hospitalName: string
     address: string
     city: string
     state: string
     contactNo: string
+    email: string
+    website: string
+    hospitalType: string
+    accreditation: string
+    facilities: string
+    _count: {
+      departments: number
+      doctorLinks: number
+    }
   } | null
 }
 
@@ -50,6 +67,21 @@ const BORDER_COLORS = [
   'border-t-cyan-500',
   'border-t-pink-500',
 ]
+
+const FACILITIES_ICONS: Record<string, string> = {
+  ICU: '🩺',
+  'MRI': '🧲',
+  'CT Scan': '🔬',
+  '24/7 Emergency': '🚑',
+  Pharmacy: '💊',
+  Laboratory: '🧪',
+  'Blood Bank': '🩸',
+  'Ambulance Service': '🚨',
+  ICU: '🏥',
+  WiFi: '📶',
+  Parking: '🅿️',
+  Cafeteria: '☕',
+}
 
 const fadeIn = {
   initial: { opacity: 0, y: 20 },
@@ -218,9 +250,20 @@ export default function HospitalsPage() {
             {Array.from({ length: 6 }).map((_, i) => (
               <Card key={i} className="overflow-hidden">
                 <CardContent className="p-6">
-                  <Skeleton className="h-5 w-3/4 mb-3" />
-                  <Skeleton className="h-4 w-1/2 mb-2" />
-                  <Skeleton className="h-4 w-2/3" />
+                  <div className="flex items-start gap-3 mb-4">
+                    <Skeleton className="h-12 w-12 rounded-lg" />
+                    <div className="flex-1">
+                      <Skeleton className="h-5 w-3/4 mb-2" />
+                      <Skeleton className="h-4 w-1/2" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-4 w-full mb-2" />
+                  <Skeleton className="h-4 w-2/3 mb-4" />
+                  <div className="flex gap-3 mb-4">
+                    <Skeleton className="h-8 w-20 rounded-full" />
+                    <Skeleton className="h-8 w-20 rounded-full" />
+                  </div>
+                  <Skeleton className="h-10 w-full rounded-lg" />
                 </CardContent>
               </Card>
             ))}
@@ -253,59 +296,134 @@ export default function HospitalsPage() {
             animate="animate"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {hospitals.map((h, idx) => (
-              <motion.div key={h.id} variants={fadeIn}>
-                <Card className="group overflow-hidden border-border/60 border-t-4 {BORDER_COLORS[idx % BORDER_COLORS.length]} hover:shadow-xl hover:-translate-y-1 transition-all duration-300" style={{ borderTopColor: undefined }}>
-                  <div className={`border-t-4 ${BORDER_COLORS[idx % BORDER_COLORS.length]}`} />
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 flex items-center justify-center shrink-0">
-                          <Building2 className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+            {hospitals.map((h, idx) => {
+              const deptCount = h.hospital?._count?.departments ?? 0
+              const doctorCount = h.hospital?._count?.doctorLinks ?? 0
+              const hospitalType = h.hospital?.hospitalType || 'Multi-Specialty'
+              const accreditation = h.hospital?.accreditation || ''
+              let facilities: string[] = []
+              try {
+                facilities = h.hospital?.facilities
+                  ? JSON.parse(h.hospital.facilities)
+                  : []
+              } catch {
+                /* ignore parse errors */
+              }
+
+              return (
+                <motion.div key={h.id} variants={fadeIn}>
+                  <Card className="group overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-300">
+                    <div className={`border-t-4 ${BORDER_COLORS[idx % BORDER_COLORS.length]}`} />
+                    <CardContent className="p-6">
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 flex items-center justify-center shrink-0">
+                            <Building2 className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+                          </div>
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-base truncate">
+                              {h.hospital?.hospitalName || h.name}
+                            </h3>
+                          </div>
                         </div>
-                        <div className="min-w-0">
-                          <h3 className="font-semibold text-base truncate">
-                            {h.hospital?.hospitalName || h.name}
-                          </h3>
-                        </div>
-                      </div>
-                      {idx < 2 && (
-                        <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200 shrink-0">
-                          <Star className="h-3 w-3 mr-1 fill-amber-500 text-amber-500" />
-                          Featured
+                        <Badge
+                          variant="outline"
+                          className="bg-teal-50 text-teal-700 border-teal-200 shrink-0 text-xs"
+                        >
+                          <ShieldCheck className="h-3 w-3 mr-1" />
+                          {hospitalType}
                         </Badge>
-                      )}
-                    </div>
-
-                    {h.hospital?.address && (
-                      <p className="flex items-start gap-2 text-sm text-muted-foreground mb-2">
-                        <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
-                        <span className="line-clamp-2">{h.hospital.address}</span>
-                      </p>
-                    )}
-
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      {h.hospital?.city && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {h.hospital.city}
-                          {h.hospital.state ? `, ${h.hospital.state}` : ''}
-                        </span>
-                      )}
-                    </div>
-
-                    {h.hospital?.contactNo && (
-                      <div className="mt-3 pt-3 border-t border-border/50">
-                        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Phone className="h-3.5 w-3.5" />
-                          {h.hospital.contactNo}
-                        </p>
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+
+                      {/* Address */}
+                      {h.hospital?.address && (
+                        <p className="flex items-start gap-2 text-sm text-muted-foreground mb-2">
+                          <MapPin className="h-4 w-4 shrink-0 mt-0.5" />
+                          <span className="line-clamp-2">{h.hospital.address}</span>
+                        </p>
+                      )}
+
+                      {/* City / State */}
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+                        {h.hospital?.city && (
+                          <span className="flex items-center gap-1">
+                            <MapPin className="h-3.5 w-3.5" />
+                            {h.hospital.city}
+                            {h.hospital.state ? `, ${h.hospital.state}` : ''}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Accreditation badge */}
+                      {accreditation && (
+                        <div className="mb-3">
+                          <Badge
+                            variant="outline"
+                            className="bg-amber-50 text-amber-700 border-amber-200 text-xs"
+                          >
+                            <Award className="h-3 w-3 mr-1" />
+                            {accreditation}
+                          </Badge>
+                        </div>
+                      )}
+
+                      {/* Stats row */}
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground bg-muted/50 rounded-md px-2.5 py-1.5">
+                          <BriefcaseMedical className="h-3.5 w-3.5 text-teal-600" />
+                          <span className="font-medium text-foreground">{deptCount}</span>
+                          <span>Dept{deptCount !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-sm text-muted-foreground bg-muted/50 rounded-md px-2.5 py-1.5">
+                          <Users className="h-3.5 w-3.5 text-teal-600" />
+                          <span className="font-medium text-foreground">{doctorCount}</span>
+                          <span>Doctor{doctorCount !== 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+
+                      {/* Facilities */}
+                      {facilities.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-3">
+                          {facilities.slice(0, 4).map((f) => (
+                            <Badge
+                              key={f}
+                              variant="secondary"
+                              className="text-xs bg-muted/60"
+                            >
+                              {FACILITIES_ICONS[f] || ''} {f}
+                            </Badge>
+                          ))}
+                          {facilities.length > 4 && (
+                            <Badge variant="secondary" className="text-xs bg-muted/60">
+                              +{facilities.length - 4} more
+                            </Badge>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Contact */}
+                      {h.hospital?.contactNo && (
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4 pt-3 border-t border-border/50">
+                          <span className="flex items-center gap-1.5">
+                            <Phone className="h-3.5 w-3.5" />
+                            {h.hospital.contactNo}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* CTA */}
+                      <Link href={`/hospitals/${h.hospital?.id || h.id}`}>
+                        <Button className="w-full bg-teal-600 hover:bg-teal-700 text-white gap-2">
+                          View Departments
+                          <ArrowRight className="h-4 w-4" />
+                        </Button>
+                      </Link>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )
+            })}
           </motion.div>
         )}
       </section>

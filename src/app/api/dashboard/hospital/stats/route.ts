@@ -14,31 +14,47 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Hospital not found' }, { status: 404 })
     }
 
-    const [totalDoctors, totalAppointments, patientVisits, doctors, recentAppointments] =
+    const hospitalId = hospital.id
+
+    // Run all independent queries in parallel
+    const [totalDoctors, totalAppointments, patientVisits, departmentCount, doctorLinks, recentBookings, departments] =
       await Promise.all([
-        db.doctor.count({ where: { hospitalId: hospital.id } }),
-        db.booking.count({
-          where: {
-            doctor: { hospitalId: hospital.id },
-          },
+        // Count doctors via DoctorHospital junction table
+        db.doctorHospital.count({
+          where: { hospitalId, status: 'Active' },
         }),
+        // Count appointments via Booking.hospitalId
+        db.booking.count({
+          where: { hospitalId },
+        }),
+        // Count visited/finished appointments
         db.booking.count({
           where: {
-            doctor: { hospitalId: hospital.id },
+            hospitalId,
             status: { in: ['Visited', 'Finish'] },
           },
         }),
-        db.doctor.findMany({
-          where: { hospitalId: hospital.id },
-          take: 6,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            user: { select: { name: true, profileImg: true, status: true } },
-            _count: { select: { bookings: true } },
-          },
+        // Department count
+        db.department.count({
+          where: { hospitalId, status: 'Active' },
         }),
+        // Doctor links with doctor + department info (for doctors list + grouping)
+        db.doctorHospital.findMany({
+          where: { hospitalId },
+          include: {
+            doctor: {
+              include: {
+                user: { select: { id: true, name: true, profileImg: true, status: true } },
+                _count: { select: { bookings: true } },
+              },
+            },
+            department: { select: { id: true, name: true, icon: true } },
+          },
+          orderBy: { createdAt: 'desc' },
+        }),
+        // Recent appointments (booked at this hospital)
         db.booking.findMany({
-          where: { doctor: { hospitalId: hospital.id } },
+          where: { hospitalId },
           take: 8,
           orderBy: { createdAt: 'desc' },
           include: {
@@ -48,31 +64,67 @@ export async function GET(req: NextRequest) {
             user: { select: { name: true } },
           },
         }),
+        // Departments for grouping
+        db.department.findMany({
+          where: { hospitalId },
+          orderBy: { sortOrder: 'asc' },
+          select: { id: true, name: true },
+        }),
       ])
 
-    // Get ratings for doctors
-    const doctorIds = doctors.map((d) => d.user.id)
+    // Get ratings for all linked doctor user IDs
+    const doctorUserIds = doctorLinks
+      .map((link) => link.doctor.userId)
+      .filter(Boolean)
+    const uniqueDoctorUserIds = [...new Set(doctorUserIds)]
+
     const ratingAgg = await db.doctorRating.groupBy({
       by: ['doctorId'],
-      where: { doctorId: { in: doctorIds } },
+      where: { doctorId: { in: uniqueDoctorUserIds } },
       _avg: { star: true },
     })
     const ratingMap = new Map(ratingAgg.map((r) => [r.doctorId, r._avg.star || 0]))
+
+    // Build doctors list (deduplicate by doctor ID, take latest link)
+    const seenDoctorIds = new Set<string>()
+    const doctors = []
+    for (const link of doctorLinks) {
+      if (seenDoctorIds.has(link.doctorId)) continue
+      seenDoctorIds.add(link.doctorId)
+
+      const doc = link.doctor
+      doctors.push({
+        id: doc.id,
+        name: doc.user.name,
+        profileImg: doc.user.profileImg,
+        specialization: doc.specialization,
+        departmentName: link.department.name,
+        status: doc.user.status,
+        totalAppointments: doc._count.bookings,
+        avgRating: Math.round((ratingMap.get(doc.userId) || 0) * 10) / 10,
+      })
+      if (doctors.length >= 6) break
+    }
+
+    // Group doctors by department
+    const doctorsByDepartment: Record<string, { name: string; count: number }> = {}
+    for (const dept of departments) {
+      const count = doctorLinks.filter(
+        (link) => link.departmentId === dept.id && link.status === 'Active'
+      ).length
+      if (count > 0) {
+        doctorsByDepartment[dept.id] = { name: dept.name, count }
+      }
+    }
 
     return NextResponse.json({
       totalDoctors,
       totalAppointments,
       patientVisits,
-      doctors: doctors.map((d) => ({
-        id: d.id,
-        name: d.user.name,
-        profileImg: d.user.profileImg,
-        specialization: d.specialization,
-        status: d.user.status,
-        totalAppointments: d._count.bookings,
-        avgRating: Math.round((ratingMap.get(d.user.id) || 0) * 10) / 10,
-      })),
-      recentAppointments: recentAppointments.map((b) => ({
+      departmentCount,
+      doctors,
+      doctorsByDepartment,
+      recentAppointments: recentBookings.map((b) => ({
         id: b.id,
         appointmentNo: b.appointmentNo,
         patientName: b.patientName || b.user?.name || 'Walk-in',
