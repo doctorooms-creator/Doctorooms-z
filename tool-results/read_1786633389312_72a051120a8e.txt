@@ -1,0 +1,979 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     4→     4→import { motion } from 'framer-motion'
+     5→     5→import { useParams, useRouter } from 'next/navigation'
+     6→     6→import { useState, useCallback } from 'react'
+     7→     7→import { toast } from 'sonner'
+     8→     8→import { cn } from '@/lib/utils'
+     9→     9→import { VITAL_THRESHOLDS } from '@/lib/ipd-utils'
+    10→    10→
+    11→    11→import { Button } from '@/components/ui/button'
+    12→    12→import { Badge } from '@/components/ui/badge'
+    13→    13→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    14→    14→import { Input } from '@/components/ui/input'
+    15→    15→import { Label } from '@/components/ui/label'
+    16→    16→import { Textarea } from '@/components/ui/textarea'
+    17→    17→import { Switch } from '@/components/ui/switch'
+    18→    18→import { Skeleton } from '@/components/ui/skeleton'
+    19→    19→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    20→    20→import {
+    21→    21→  Select,
+    22→    22→  SelectContent,
+    23→    23→  SelectItem,
+    24→    24→  SelectTrigger,
+    25→    25→  SelectValue,
+    26→    26→} from '@/components/ui/select'
+    27→    27→import {
+    28→    28→  AlertDialog,
+    29→    29→  AlertDialogAction,
+    30→    30→  AlertDialogCancel,
+    31→    31→  AlertDialogContent,
+    32→    32→  AlertDialogDescription,
+    33→    33→  AlertDialogFooter,
+    34→    34→  AlertDialogHeader,
+    35→    35→  AlertDialogTitle,
+    36→    36→} from '@/components/ui/alert-dialog'
+    37→    37→import {
+    38→    38→  Table,
+    39→    39→  TableBody,
+    40→    40→  TableCell,
+    41→    41→  TableHead,
+    42→    42→  TableHeader,
+    43→    43→  TableRow,
+    44→    44→} from '@/components/ui/table'
+    45→    45→import {
+    46→    46→  DropdownMenu,
+    47→    47→  DropdownMenuContent,
+    48→    48→  DropdownMenuItem,
+    49→    49→  DropdownMenuTrigger,
+    50→    50→} from '@/components/ui/dropdown-menu'
+    51→    51→import {
+    52→    52→  ArrowLeft,
+    53→    53→  Thermometer,
+    54→    54→  Heart,
+    55→    55→  Wind,
+    56→    56→  Droplets,
+    57→    57→  Activity,
+    58→    58→  Pill,
+    59→    59→  ClipboardList,
+    60→    60→  History,
+    61→    61→  CheckCircle2,
+    62→    62→  AlertTriangle,
+    63→    63→  MoreHorizontal,
+    64→    64→  BedDouble,
+    65→    65→  Stethoscope,
+    66→    66→  Building2,
+    67→    67→  User,
+    68→    68→  FileText,
+    69→    69→  Loader2,
+    70→    70→  Clock,
+    71→    71→} from 'lucide-react'
+    72→    72→import { format } from 'date-fns'
+    73→    73→
+    74→    74→// ============ TYPES ============
+    75→    75→
+    76→    76→interface Admission {
+    77→    77→  id: string
+    78→    78→  admissionNo: string
+    79→    79→  admissionDate: string
+    80→    80→  admissionTime: string
+    81→    81→  status: string
+    82→    82→  patientName: string
+    83→    83→  patientAge: number
+    84→    84→  patientGender: string
+    85→    85→  bloodGroup: string
+    86→    86→  mobileNo: string
+    87→    87→  fatherName: string
+    88→    88→  contactPersonName: string
+    89→    89→  contactPersonMobile: string
+    90→    90→  contactPersonRelation: string
+    91→    91→  maritalStatus: string
+    92→    92→  occupation: string
+    93→    93→  address: string
+    94→    94→  initialDiagnosis: string
+    95→    95→  finalDiagnosis: string
+    96→    96→  wardName: string
+    97→    97→  wardType: string
+    98→    98→  bedNumber: string
+    99→    99→  bedType: string
+   100→   100→  departmentName: string
+   101→   101→  attendingDoctorName: string
+   102→   102→  attendingDoctorMobile: string
+   103→   103→  referringDoctorName: string
+   104→   104→  hospitalName: string
+   105→   105→  chiefComplaints: string
+   106→   106→  informant: string
+   107→   107→  pastHistory: string
+   108→   108→  personalHistory: string
+   109→   109→  habits: string
+   110→   110→  femaleHistory: string
+   111→   111→  drugHistory: string
+   112→   112→  consciousnessLevel: string
+   113→   113→  obeyingCommands: boolean
+   114→   114→  respondingToDPS: boolean
+   115→   115→  oriented: boolean
+   116→   116→  speech: string
+   117→   117→  examinationNotes: string
+   118→   118→  generalSigns: string
+   119→   119→}
+   120→   120→
+   121→   121→interface VitalAlert {
+   122→   122→  parameter: string
+   123→   123→  level: string
+   124→   124→  message: string
+   125→   125→  value: number
+   126→   126→}
+   127→   127→
+   128→   128→interface VitalRecord {
+   129→   129→  id: string
+   130→   130→  temperature: number
+   131→   131→  pulse: number
+   132→   132→  spo2: number
+   133→   133→  bpSystolic: number
+   134→   134→  bpDiastolic: number
+   135→   135→  respiratoryRate: number
+   136→   136→  inputMl: number
+   137→   137→  urineMl: number
+   138→   138→  outputMl: number
+   139→   139→  patientStatus: string
+   140→   140→  ventilatorOn: boolean
+   141→   141→  oxygenLiters: number
+   142→   142→  infusionPump: string
+   143→   143→  rbs: number | null
+   144→   144→  remarks: string
+   145→   145→  recordedAt: string
+   146→   146→  recordedByName?: string
+   147→   147→}
+   148→   148→
+   149→   149→interface DoctorOrder {
+   150→   150→  id: string
+   151→   151→  drugName: string
+   152→   152→  route: string
+   153→   153→  dose: string
+   154→   154→  frequency: string
+   155→   155→  scheduledTime: string
+   156→   156→  instructions: string
+   157→   157→  isPrn: boolean
+   158→   158→  isStat: boolean
+   159→   159→  doctorName: string
+   160→   160→  status: 'Given' | 'Pending' | 'Overdue' | 'Missed' | 'Refused' | 'Skipped' | 'NotAvailable'
+   161→   161→  latestAdmin: {
+   162→   162→    id: string
+   163→   163→    status: string
+   164→   164→    administeredTime: string | null
+   165→   165→    remarks: string
+   166→   166→  } | null
+   167→   167→}
+   168→   168→
+   169→   169→// ============ HELPERS ============
+   170→   170→
+   171→   171→function isAbnormal(param: string, value: number): boolean {
+   172→   172→  const T = VITAL_THRESHOLDS as Record<string, Record<string, number>>
+   173→   173→  const t = T[param]
+   174→   174→  if (!t) return false
+   175→   175→  if (param === 'spo2') return value < t.warning
+   176→   176→  if (param === 'bpSystolic') return value < (t.criticalLow ?? 999) || value > (t.warningHigh ?? 999)
+   177→   177→  if (param === 'bpDiastolic') return value > (t.warningHigh ?? 999)
+   178→   178→  if (param === 'pulse') return value < (t.criticalLow ?? 999) || value > (t.warningHigh ?? 999)
+   179→   179→  if (param === 'temperature') return value > (t.warningHigh ?? 999)
+   180→   180→  if (param === 'respiratoryRate') return value < (t.criticalLow ?? 999) || value > (t.criticalHigh ?? 999)
+   181→   181→  return false
+   182→   182→}
+   183→   183→
+   184→   184→function getMedStatusBadge(status: string) {
+   185→   185→  switch (status) {
+   186→   186→    case 'Given':
+   187→   187→      return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-400">Given</Badge>
+   188→   188→    case 'Pending':
+   189→   189→      return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400">Pending</Badge>
+   190→   190→    case 'Overdue':
+   191→   191→      return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">Overdue</Badge>
+   192→   192→    case 'Missed':
+   193→   193→      return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">Missed</Badge>
+   194→   194→    case 'Refused':
+   195→   195→      return <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-950/50 dark:text-orange-400">Refused</Badge>
+   196→   196→    case 'Skipped':
+   197→   197→      return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-400">Skipped</Badge>
+   198→   198→    case 'NotAvailable':
+   199→   199→      return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">Not Available</Badge>
+   200→   200→    default:
+   201→   201→      return <Badge variant="secondary">{status}</Badge>
+   202→   202→  }
+   203→   203→}
+   204→   204→
+   205→   205→function getRouteBadge(route: string) {
+   206→   206→  const colors: Record<string, string> = {
+   207→   207→    Oral: 'border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400',
+   208→   208→    IV: 'border-red-300 text-red-700 dark:border-red-700 dark:text-red-400',
+   209→   209→    IM: 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400',
+   210→   210→    SC: 'border-sky-300 text-sky-700 dark:border-sky-700 dark:text-sky-400',
+   211→   211→    Topical: 'border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400',
+   212→   212→    Nebulization: 'border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-400',
+   213→   213→  }
+   214→   214→  return (
+   215→   215→    <Badge variant="outline" className={cn('text-[10px]', colors[route] || '')}>
+   216→   216→      {route}
+   217→   217→    </Badge>
+   218→   218→  )
+   219→   219→}
+   220→   220→
+   221→   221→function InfoRow({ label, value }: { label: string; value?: string | null | boolean }) {
+   222→   222→  if (value === undefined || value === null || value === '' || value === '0') return null
+   223→   223→  return (
+   224→   224→    <div className="flex items-start gap-2 text-sm">
+   225→   225→      <span className="w-32 shrink-0 text-muted-foreground">{label}</span>
+   226→   226→      <span className="font-medium">{String(value)}</span>
+   227→   227→    </div>
+   228→   228→  )
+   229→   229→}
+   230→   230→
+   231→   231→// ============ MAIN COMPONENT ============
+   232→   232→
+   233→   233→interface Props {
+   234→   234→  admissionId: string
+   235→   235→}
+   236→   236→
+   237→   237→export default function NursePatientDetailClient({ admissionId }: Props) {
+   238→   238→  const router = useRouter()
+   239→   239→  const queryClient = useQueryClient()
+   240→   240→  const [administerTarget, setAdministerTarget] = useState<{ orderId: string; status: string } | null>(null)
+   241→   241→
+   242→   242→  // Fetch patient detail
+   243→   243→  const { data, isLoading } = useQuery({
+   244→   244→    queryKey: ['nurse-patient', admissionId],
+   245→   245→    queryFn: () => fetch(`/api/dashboard/nurse/patients/${admissionId}`).then((r) => r.json()),
+   246→   246→  })
+   247→   247→
+   248→   248→  const admission: Admission | null = data?.admission || null
+   249→   249→  const latestVital: VitalRecord | null = data?.latestVital || null
+   250→   250→  const vitalAlerts: VitalAlert[] = data?.vitalAlerts || []
+   251→   251→  const doctorOrders: DoctorOrder[] = data?.doctorOrders || []
+   252→   252→  const vitalRecords: VitalRecord[] = data?.vitalRecords || []
+   253→   253→  const sampleCollections = data?.sampleCollections || []
+   254→   254→
+   255→   255→  // Administer mutation
+   256→   256→  const administerMutation = useMutation({
+   257→   257→    mutationFn: async ({ orderId, status, remarks }: { orderId: string; status: string; remarks?: string }) => {
+   258→   258→      const res = await fetch(`/api/dashboard/nurse/patients/${admissionId}/medicines/${orderId}/administer`, {
+   259→   259→        method: 'POST',
+   260→   260→        headers: { 'Content-Type': 'application/json' },
+   261→   261→        body: JSON.stringify({ status, remarks }),
+   262→   262→      })
+   263→   263→      if (!res.ok) {
+   264→   264→        const d = await res.json()
+   265→   265→        throw new Error(d.error || 'Failed')
+   266→   266→      }
+   267→   267→      return res.json()
+   268→   268→    },
+   269→   269→    onSuccess: () => {
+   270→   270→      queryClient.invalidateQueries({ queryKey: ['nurse-patient', admissionId] })
+   271→   271→      queryClient.invalidateQueries({ queryKey: ['nurse-patients'] })
+   272→   272→      queryClient.invalidateQueries({ queryKey: ['nurse-stats'] })
+   273→   273→      toast.success('Medicine status updated')
+   274→   274→      setAdministerTarget(null)
+   275→   275→    },
+   276→   276→    onError: (err: Error) => toast.error(err.message),
+   277→   277→  })
+   278→   278→
+   279→   279→  if (isLoading) return <DetailSkeleton />
+   280→   280→  if (!admission) {
+   281→   281→    return (
+   282→   282→      <div className="flex flex-col items-center justify-center py-20">
+   283→   283→        <p className="text-muted-foreground">Admission not found</p>
+   284→   284→        <Button variant="outline" className="mt-4" onClick={() => router.push('/dashboard/nurse')}>
+   285→   285→          <ArrowLeft className="mr-2 h-4 w-4" />Back to Dashboard
+   286→   286→        </Button>
+   287→   287→      </div>
+   288→   288→    )
+   289→   289→  }
+   290→   290→
+   291→   291→  return (
+   292→   292→    <div className="space-y-6">
+   293→   293→      {/* Back + Header */}
+   294→   294→      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+   295→   295→        <Button variant="ghost" size="sm" className="mb-4" onClick={() => router.push('/dashboard/nurse')}>
+   296→   296→          <ArrowLeft className="mr-1 h-4 w-4" />Back
+   297→   297→        </Button>
+   298→   298→
+   299→   299→        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+   300→   300→          <div>
+   301→   301→            <div className="flex items-center gap-3">
+   302→   302→              <h1 className="text-xl font-bold">{admission.patientName}</h1>
+   303→   303→              <Badge variant="outline" className="border-violet-300 bg-violet-100 text-violet-700 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-400">
+   304→   304→                <BedDouble className="mr-1 h-3 w-3" />{admission.bedNumber}
+   305→   305→              </Badge>
+   306→   306→              <Badge variant="outline" className="border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400">
+   307→   307→                {admission.admissionNo}
+   308→   308→              </Badge>
+   309→   309→            </div>
+   310→   310→            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+   311→   311→              <span>{admission.patientAge}y</span>
+   312→   312→              <span>•</span>
+   313→   313→              <span>{admission.patientGender}</span>
+   314→   314→              <span>•</span>
+   315→   315→              <span>{admission.departmentName}</span>
+   316→   316→              <span>•</span>
+   317→   317→              <span>{admission.wardName}</span>
+   318→   318→            </div>
+   319→   319→          </div>
+   320→   320→          <div className="flex items-center gap-2">
+   321→   321→            {admission.bloodGroup && (
+   322→   322→              <Badge variant="outline" className="border-red-300 text-red-700 dark:border-red-700 dark:text-red-400">
+   323→   323→                🩸 {admission.bloodGroup}
+   324→   324→              </Badge>
+   325→   325→            )}
+   326→   326→            <Badge
+   327→   327→              className={cn(
+   328→   328→                admission.status === 'Admitted' && 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400'
+   329→   329→              )}
+   330→   330→            >
+   331→   331→              {admission.status}
+   332→   332→            </Badge>
+   333→   333→          </div>
+   334→   334→        </div>
+   335→   335→
+   336→   336→        {/* Critical alerts banner */}
+   337→   337→        {vitalAlerts.length > 0 && (
+   338→   338→          <div className={cn(
+   339→   339→            'mt-3 flex items-start gap-2 rounded-lg border p-3 text-sm',
+   340→   340→            vitalAlerts.some((a) => a.level === 'critical')
+   341→   341→              ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400'
+   342→   342→              : 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400'
+   343→   343→          )}>
+   344→   344→            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+   345→   345→            <div>
+   346→   346→              <p className="font-semibold">{vitalAlerts.some((a) => a.level === 'critical') ? 'Critical Alerts' : 'Vital Warnings'}</p>
+   347→   347→              <ul className="mt-1 list-disc pl-4 text-xs">
+   348→   348→                {vitalAlerts.map((a, i) => <li key={i}>{a.message}</li>)}
+   349→   349→              </ul>
+   350→   350→            </div>
+   351→   351→          </div>
+   352→   352→        )}
+   353→   353→      </motion.div>
+   354→   354→
+   355→   355→      {/* Tabs */}
+   356→   356→      <Tabs defaultValue="overview" className="space-y-4">
+   357→   357→        <TabsList className="grid w-full grid-cols-4 sm:w-auto">
+   358→   358→          <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm">
+   359→   359→            <FileText className="h-4 w-4" />Overview
+   360→   360→          </TabsTrigger>
+   361→   361→          <TabsTrigger value="vitals" className="gap-1.5 text-xs sm:text-sm">
+   362→   362→            <Activity className="h-4 w-4" />Vitals
+   363→   363→          </TabsTrigger>
+   364→   364→          <TabsTrigger value="medicines" className="gap-1.5 text-xs sm:text-sm">
+   365→   365→            <Pill className="h-4 w-4" />Medicines
+   366→   366→          </TabsTrigger>
+   367→   367→          <TabsTrigger value="history" className="gap-1.5 text-xs sm:text-sm">
+   368→   368→            <History className="h-4 w-4" />History
+   369→   369→          </TabsTrigger>
+   370→   370→        </TabsList>
+   371→   371→
+   372→   372→        {/* OVERVIEW TAB */}
+   373→   373→        <TabsContent value="overview" className="space-y-4">
+   374→   374→          <div className="grid gap-4 lg:grid-cols-2">
+   375→   375→            {/* Patient Info Card */}
+   376→   376→            <Card>
+   377→   377→              <CardHeader className="pb-3">
+   378→   378→                <CardTitle className="flex items-center gap-2 text-base"><User className="h-4 w-4 text-teal-500" />Patient Information</CardTitle>
+   379→   379→              </CardHeader>
+   380→   380→              <CardContent className="space-y-2">
+   381→   381→                <InfoRow label="Age / Gender" value={`${admission.patientAge}y / ${admission.patientGender}`} />
+   382→   382→                <InfoRow label="Blood Group" value={admission.bloodGroup} />
+   383→   383→                <InfoRow label="Mobile" value={admission.mobileNo} />
+   384→   384→                <InfoRow label="Father/Husband" value={admission.fatherName} />
+   385→   385→                <InfoRow label="Contact Person" value={admission.contactPersonName} />
+   386→   386→                {admission.contactPersonName && <InfoRow label="CP Mobile" value={admission.contactPersonMobile} />}
+   387→   387→                {admission.contactPersonName && <InfoRow label="CP Relation" value={admission.contactPersonRelation} />}
+   388→   388→                <InfoRow label="Marital Status" value={admission.maritalStatus} />
+   389→   389→                <InfoRow label="Occupation" value={admission.occupation} />
+   390→   390→                <InfoRow label="Address" value={admission.address} />
+   391→   391→              </CardContent>
+   392→   392→            </Card>
+   393→   393→
+   394→   394→            {/* Admission Details Card */}
+   395→   395→            <Card>
+   396→   396→              <CardHeader className="pb-3">
+   397→   397→                <CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-4 w-4 text-teal-500" />Admission Details</CardTitle>
+   398→   398→              </CardHeader>
+   399→   399→              <CardContent className="space-y-2">
+   400→   400→                <InfoRow label="Admission No" value={admission.admissionNo} />
+   401→   401→                <InfoRow label="Date" value={admission.admissionDate ? format(new Date(admission.admissionDate), 'dd MMM yyyy') : ''} />
+   402→   402→                <InfoRow label="Time" value={admission.admissionTime} />
+   403→   403→                <InfoRow label="Ward" value={`${admission.wardName} (${admission.wardType})`} />
+   404→   404→                <InfoRow label="Bed" value={`${admission.bedNumber} — ${admission.bedType}`} />
+   405→   405→                <InfoRow label="Department" value={admission.departmentName} />
+   406→   406→                <InfoRow label="Attending Doctor" value={admission.attendingDoctorName} />
+   407→   407→                <InfoRow label="Referring Doctor" value={admission.referringDoctorName} />
+   408→   408→                <InfoRow label="Initial Diagnosis" value={admission.initialDiagnosis} />
+   409→   409→                <InfoRow label="Final Diagnosis" value={admission.finalDiagnosis} />
+   410→   410→              </CardContent>
+   411→   411→            </Card>
+   412→   412→          </div>
+   413→   413→
+   414→   414→          {/* Latest Vitals Display */}
+   415→   415→          <Card>
+   416→   416→            <CardHeader className="pb-3">
+   417→   417→              <div className="flex items-center justify-between">
+   418→   418→                <CardTitle className="flex items-center gap-2 text-base"><Activity className="h-4 w-4 text-teal-500" />Latest Vitals</CardTitle>
+   419→   419→                {latestVital && (
+   420→   420→                  <span className="text-xs text-muted-foreground">
+   421→   421→                    {format(new Date(latestVital.recordedAt), 'dd MMM yyyy, HH:mm')}
+   422→   422→                  </span>
+   423→   423→                )}
+   424→   424→              </div>
+   425→   425→            </CardHeader>
+   426→   426→            <CardContent>
+   427→   427→              {latestVital ? (
+   428→   428→                <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
+   429→   429→                  {[
+   430→   430→                    { label: 'Temp', value: latestVital.temperature, unit: '°F', param: 'temperature', icon: Thermometer },
+   431→   431→                    { label: 'Pulse', value: latestVital.pulse, unit: 'bpm', param: 'pulse', icon: Heart },
+   432→   432→                    { label: 'SpO2', value: latestVital.spo2, unit: '%', param: 'spo2', icon: Wind },
+   433→   433→                    { label: 'BP', value: `${latestVital.bpSystolic}/${latestVital.bpDiastolic}`, unit: 'mmHg', param: 'bpSystolic', raw: latestVital.bpSystolic, icon: Droplets },
+   434→   434→                    { label: 'RR', value: latestVital.respiratoryRate, unit: '/min', param: 'respiratoryRate', icon: Activity },
+   435→   435→                  ].map((v) => (
+   436→   436→                    <div key={v.label} className="text-center">
+   437→   437→                      <v.icon className={cn('mx-auto mb-1 h-5 w-5', isAbnormal(v.param, v.raw ?? v.value) ? 'text-red-500' : 'text-teal-500')} />
+   438→   438→                      <p className="text-[10px] text-muted-foreground">{v.label}</p>
+   439→   439→                      <p className={cn('text-sm font-bold', isAbnormal(v.param, v.raw ?? v.value) ? 'text-red-600 dark:text-red-400' : '')}>
+   440→   440→                        {v.value} <span className="font-normal text-muted-foreground">{v.unit}</span>
+   441→   441→                      </p>
+   442→   442→                    </div>
+   443→   443→                  ))}
+   444→   444→                  <div className="col-span-full flex flex-wrap gap-3 border-t pt-3 text-xs text-muted-foreground">
+   445→   445→                    <span>Status: <strong className={latestVital.patientStatus !== 'Conscious' ? 'text-amber-600 dark:text-amber-400' : ''}>{latestVital.patientStatus}</strong></span>
+   446→   446→                    {latestVital.ventilatorOn && <Badge variant="outline" className="border-red-300 text-red-700">Ventilator ON</Badge>}
+   447→   447→                    {latestVital.oxygenLiters > 0 && <span>O₂: {latestVital.oxygenLiters}L</span>}
+   448→   448→                    {latestVital.rbs && <span>RBS: {latestVital.rbs}</span>}
+   449→   449→                    <span>I: {latestVital.inputMl}ml</span>
+   450→   450→                    <span>U: {latestVital.urineMl}ml</span>
+   451→   451→                    <span>O: {latestVital.outputMl}ml</span>
+   452→   452→                  </div>
+   453→   453→                </div>
+   454→   454→              ) : (
+   455→   455→                <p className="py-4 text-center text-sm text-muted-foreground">No vitals recorded yet</p>
+   456→   456→              )}
+   457→   457→            </CardContent>
+   458→   458→          </Card>
+   459→   459→
+   460→   460→          {/* Orders Summary + Pending Samples */}
+   461→   461→          <div className="grid gap-4 lg:grid-cols-2">
+   462→   462→            <Card>
+   463→   463→              <CardHeader className="pb-3">
+   464→   464→                <CardTitle className="flex items-center gap-2 text-base"><ClipboardList className="h-4 w-4 text-teal-500" />Active Orders ({doctorOrders.length})</CardTitle>
+   465→   465→              </CardHeader>
+   466→   466→              <CardContent>
+   467→   467→                {doctorOrders.length === 0 ? (
+   468→   468→                  <p className="text-sm text-muted-foreground">No active doctor orders</p>
+   469→   469→                ) : (
+   470→   470→                  <div className="max-h-64 space-y-2 overflow-y-auto">
+   471→   471→                    {doctorOrders.slice(0, 10).map((order) => (
+   472→   472→                      <div key={order.id} className="flex items-center justify-between rounded-lg border p-2.5">
+   473→   473→                        <div className="min-w-0 flex-1">
+   474→   474→                          <p className="truncate text-sm font-medium">{order.drugName}</p>
+   475→   475→                          <p className="text-xs text-muted-foreground">{order.dose} • {order.route} • {order.frequency} • {order.scheduledTime}</p>
+   476→   476→                        </div>
+   477→   477→                        {getMedStatusBadge(order.status)}
+   478→   478→                      </div>
+   479→   479→                    ))}
+   480→   480→                  </div>
+   481→   481→                )}
+   482→   482→              </CardContent>
+   483→   483→            </Card>
+   484→   484→
+   485→   485→            <Card>
+   486→   486→              <CardHeader className="pb-3">
+   487→   487→                <CardTitle className="flex items-center gap-2 text-base"><Stethoscope className="h-4 w-4 text-teal-500" />Sample Collections ({sampleCollections.length})</CardTitle>
+   488→   488→              </CardHeader>
+   489→   489→              <CardContent>
+   490→   490→                {sampleCollections.length === 0 ? (
+   491→   491→                  <p className="text-sm text-muted-foreground">No sample collections</p>
+   492→   492→                ) : (
+   493→   493→                  <div className="max-h-64 space-y-2 overflow-y-auto">
+   494→   494→                    {sampleCollections.map((s: { id: string; testName: string; sampleType: string; status: string; createdAt: string }) => (
+   495→   495→                      <div key={s.id} className="flex items-center justify-between rounded-lg border p-2.5">
+   496→   496→                        <div>
+   497→   497→                          <p className="text-sm font-medium">{s.testName}</p>
+   498→   498→                          <p className="text-xs text-muted-foreground">{s.sampleType} • {format(new Date(s.createdAt), 'dd MMM, HH:mm')}</p>
+   499→   499→                        </div>
+   500→   500→                        <Badge variant="outline" className={cn(
+   501→   501→                          s.status === 'Ordered' && 'border-amber-300 text-amber-700',
+   502→   502→                          s.status === 'Collected' && 'border-teal-300 text-teal-700',
+   503→   503→                          s.status === 'SentToLab' && 'border-sky-300 text-sky-700',
+   504→   504→                          s.status === 'Reported' && 'border-emerald-300 text-emerald-700'
+   505→   505→                        )}>
+   506→   506→                          {s.status}
+   507→   507→                        </Badge>
+   508→   508→                      </div>
+   509→   509→                    ))}
+   510→   510→                  </div>
+   511→   511→                )}
+   512→   512→              </CardContent>
+   513→   513→            </Card>
+   514→   514→          </div>
+   515→   515→        </TabsContent>
+   516→   516→
+   517→   517→        {/* VITALS TAB */}
+   518→   518→        <TabsContent value="vitals" className="space-y-4">
+   519→   519→          <VitalForm admissionId={admissionId} />
+   520→   520→          <VitalsHistoryTable vitalRecords={vitalRecords} />
+   521→   521→        </TabsContent>
+   522→   522→
+   523→   523→        {/* MEDICINES TAB */}
+   524→   524→        <TabsContent value="medicines" className="space-y-4">
+   525→   525→          <MedicinesTab
+   526→   526→            admissionId={admissionId}
+   527→   527→            orders={doctorOrders}
+   528→   528→            onAdminister={(orderId, status) => setAdministerTarget({ orderId, status })}
+   529→   529→          />
+   530→   530→        </TabsContent>
+   531→   531→
+   532→   532→        {/* HISTORY TAB */}
+   533→   533→        <TabsContent value="history" className="space-y-4">
+   534→   534→          <div className="grid gap-4 lg:grid-cols-2">
+   535→   535→            <Card>
+   536→   536→              <CardHeader className="pb-3">
+   537→   537→                <CardTitle className="flex items-center gap-2 text-base"><ClipboardList className="h-4 w-4 text-teal-500" />History Sheet</CardTitle>
+   538→   538→              </CardHeader>
+   539→   539→              <CardContent className="space-y-3">
+   540→   540→                <div>
+   541→   541→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Chief Complaints</h4>
+   542→   542→                  <p className="whitespace-pre-wrap text-sm">{admission.chiefComplaints || 'Not recorded'}</p>
+   543→   543→                </div>
+   544→   544→                <div>
+   545→   545→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Past History</h4>
+   546→   546→                  <p className="whitespace-pre-wrap text-sm">{admission.pastHistory || 'Not recorded'}</p>
+   547→   547→                </div>
+   548→   548→                <div>
+   549→   549→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Personal History</h4>
+   550→   550→                  <p className="whitespace-pre-wrap text-sm">
+   551→   551→                    {admission.personalHistory && admission.personalHistory !== '{}' ? (typeof admission.personalHistory === 'string' ? admission.personalHistory : 'Recorded (see doctor view)') : 'Not recorded'}
+   552→   552→                  </p>
+   553→   553→                </div>
+   554→   554→                <div>
+   555→   555→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Drug History</h4>
+   556→   556→                  <p className="whitespace-pre-wrap text-sm">{admission.drugHistory || 'Not recorded'}</p>
+   557→   557→                </div>
+   558→   558→              </CardContent>
+   559→   559→            </Card>
+   560→   560→
+   561→   561→            <Card>
+   562→   562→              <CardHeader className="pb-3">
+   563→   563→                <CardTitle className="flex items-center gap-2 text-base"><Stethoscope className="h-4 w-4 text-teal-500" />Physical Examination</CardTitle>
+   564→   564→              </CardHeader>
+   565→   565→              <CardContent className="space-y-3">
+   566→   566→                <div className="grid grid-cols-2 gap-2 text-sm">
+   567→   567→                  <InfoRow label="Consciousness" value={admission.consciousnessLevel} />
+   568→   568→                  <InfoRow label="Obeys Commands" value={admission.obeyingCommands ? 'Yes' : 'No'} />
+   569→   569→                  <InfoRow label="Responds to DPS" value={admission.respondingToDPS ? 'Yes' : 'No'} />
+   570→   570→                  <InfoRow label="Oriented" value={admission.oriented ? 'Yes' : 'No'} />
+   571→   571→                  <InfoRow label="Speech" value={admission.speech} />
+   572→   572→                </div>
+   573→   573→                <div>
+   574→   574→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Examination Notes</h4>
+   575→   575→                  <p className="whitespace-pre-wrap text-sm">{admission.examinationNotes || 'Not recorded'}</p>
+   576→   576→                </div>
+   577→   577→                <div>
+   578→   578→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">General Signs</h4>
+   579→   579→                  <p className="whitespace-pre-wrap text-sm">
+   580→   580→                    {admission.generalSigns && admission.generalSigns !== '{}' ? (typeof admission.generalSigns === 'string' ? admission.generalSigns : 'Recorded (see doctor view)') : 'Not recorded'}
+   581→   581→                  </p>
+   582→   582→                </div>
+   583→   583→              </CardContent>
+   584→   584→            </Card>
+   585→   585→          </div>
+   586→   586→        </TabsContent>
+   587→   587→      </Tabs>
+   588→   588→
+   589→   589→      {/* Administer Confirm Dialog */}
+   590→   590→      <AlertDialog open={!!administerTarget} onOpenChange={(open) => !open && setAdministerTarget(null)}>
+   591→   591→        <AlertDialogContent>
+   592→   592→          <AlertDialogHeader>
+   593→   593→            <AlertDialogTitle>
+   594→   594→              {administerTarget?.status === 'Given' ? 'Confirm Medicine Given' : `Mark as ${administerTarget?.status}`}
+   595→   595→            </AlertDialogTitle>
+   596→   596→            <AlertDialogDescription>
+   597→   597→              {administerTarget?.status === 'Given'
+   598→   598→                ? 'Confirm that this medicine has been administered to the patient.'
+   599→   599→                : `Are you sure you want to mark this medicine as ${administerTarget?.status}?`}
+   600→   600→            </AlertDialogDescription>
+   601→   601→          </AlertDialogHeader>
+   602→   602→          <AlertDialogFooter>
+   603→   603→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   604→   604→            <AlertDialogAction
+   605→   605→              onClick={() => {
+   606→   606→                if (administerTarget) {
+   607→   607→                  administerMutation.mutate({ orderId: administerTarget.orderId, status: administerTarget.status })
+   608→   608→                }
+   609→   609→              }}
+   610→   610→              disabled={administerMutation.isPending}
+   611→   611→            >
+   612→   612→              {administerMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+   613→   613→              Confirm
+   614→   614→            </AlertDialogAction>
+   615→   615→          </AlertDialogFooter>
+   616→   616→        </AlertDialogContent>
+   617→   617→      </AlertDialog>
+   618→   618→    </div>
+   619→   619→  )
+   620→   620→}
+   621→   621→
+   622→   622→// ============ VITAL FORM SUB-COMPONENT ============
+   623→   623→
+   624→   624→function VitalForm({ admissionId }: { admissionId: string }) {
+   625→   625→  const queryClient = useQueryClient()
+   626→   626→  const [form, setForm] = useState({
+   627→   627→    temperature: '',
+   628→   628→    pulse: '',
+   629→   629→    spo2: '',
+   630→   630→    bpSystolic: '',
+   631→   631→    bpDiastolic: '',
+   632→   632→    respiratoryRate: '',
+   633→   633→    patientStatus: 'Conscious',
+   634→   634→    ventilatorOn: false,
+   635→   635→    oxygenLiters: '',
+   636→   636→    inputMl: '',
+   637→   637→    urineMl: '',
+   638→   638→    outputMl: '',
+   639→   639→    infusionPump: '',
+   640→   640→    rbs: '',
+   641→   641→    remarks: '',
+   642→   642→  })
+   643→   643→
+   644→   644→  const update = useCallback((key: string, value: string | boolean) => {
+   645→   645→    setForm((prev) => ({ ...prev, [key]: value }))
+   646→   646→  }, [])
+   647→   647→
+   648→   648→  const saveMutation = useMutation({
+   649→   649→    mutationFn: async () => {
+   650→   650→      const res = await fetch(`/api/dashboard/nurse/patients/${admissionId}/vitals`, {
+   651→   651→        method: 'POST',
+   652→   652→        headers: { 'Content-Type': 'application/json' },
+   653→   653→        body: JSON.stringify(form),
+   654→   654→      })
+   655→   655→      if (!res.ok) throw new Error('Failed to save vitals')
+   656→   656→      return res.json()
+   657→   657→    },
+   658→   658→    onSuccess: (data) => {
+   659→   659→      queryClient.invalidateQueries({ queryKey: ['nurse-patient', admissionId] })
+   660→   660→      queryClient.invalidateQueries({ queryKey: ['nurse-patients'] })
+   661→   661→      queryClient.invalidateQueries({ queryKey: ['nurse-stats'] })
+   662→   662→      toast.success('Vitals recorded successfully')
+   663→   663→      if (data.criticalCount > 0) {
+   664→   664→        toast.error(`⚠️ ${data.criticalCount} critical alert(s) sent to doctor!`)
+   665→   665→      }
+   666→   666→      // Reset form
+   667→   667→      setForm({
+   668→   668→        temperature: '', pulse: '', spo2: '', bpSystolic: '', bpDiastolic: '',
+   669→   669→        respiratoryRate: '', patientStatus: 'Conscious', ventilatorOn: false,
+   670→   670→        oxygenLiters: '', inputMl: '', urineMl: '', outputMl: '',
+   671→   671→        infusionPump: '', rbs: '', remarks: '',
+   672→   672→      })
+   673→   673→    },
+   674→   674→    onError: () => toast.error('Failed to record vitals'),
+   675→   675→  })
+   676→   676→
+   677→   677→  const inputCls = 'h-9'
+   678→   678→
+   679→   679→  return (
+   680→   680→    <Card>
+   681→   681→      <CardHeader className="pb-3">
+   682→   682→        <CardTitle className="flex items-center gap-2 text-base"><Activity className="h-4 w-4 text-teal-500" />Record New Vitals</CardTitle>
+   683→   683→      </CardHeader>
+   684→   684→      <CardContent className="space-y-4">
+   685→   685→        {/* Row 1: Temp, Pulse, SpO2, RR */}
+   686→   686→        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   687→   687→          <div className="space-y-1.5">
+   688→   688→            <Label className="text-xs">Temperature (°F)</Label>
+   689→   689→            <Input className={inputCls} type="number" step="0.1" placeholder="98.6" value={form.temperature} onChange={(e) => update('temperature', e.target.value)} />
+   690→   690→          </div>
+   691→   691→          <div className="space-y-1.5">
+   692→   692→            <Label className="text-xs">Pulse (bpm)</Label>
+   693→   693→            <Input className={inputCls} type="number" placeholder="72" value={form.pulse} onChange={(e) => update('pulse', e.target.value)} />
+   694→   694→          </div>
+   695→   695→          <div className="space-y-1.5">
+   696→   696→            <Label className="text-xs">SpO2 (%)</Label>
+   697→   697→            <Input className={inputCls} type="number" step="0.1" placeholder="98" value={form.spo2} onChange={(e) => update('spo2', e.target.value)} />
+   698→   698→          </div>
+   699→   699→          <div className="space-y-1.5">
+   700→   700→            <Label className="text-xs">Resp. Rate (/min)</Label>
+   701→   701→            <Input className={inputCls} type="number" placeholder="18" value={form.respiratoryRate} onChange={(e) => update('respiratoryRate', e.target.value)} />
+   702→   702→          </div>
+   703→   703→        </div>
+   704→   704→
+   705→   705→        {/* Row 2: BP */}
+   706→   706→        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   707→   707→          <div className="space-y-1.5">
+   708→   708→            <Label className="text-xs">BP Systolic</Label>
+   709→   709→            <Input className={inputCls} type="number" placeholder="120" value={form.bpSystolic} onChange={(e) => update('bpSystolic', e.target.value)} />
+   710→   710→          </div>
+   711→   711→          <div className="space-y-1.5">
+   712→   712→            <Label className="text-xs">BP Diastolic</Label>
+   713→   713→            <Input className={inputCls} type="number" placeholder="80" value={form.bpDiastolic} onChange={(e) => update('bpDiastolic', e.target.value)} />
+   714→   714→          </div>
+   715→   715→          <div className="space-y-1.5">
+   716→   716→            <Label className="text-xs">Patient Status</Label>
+   717→   717→            <Select value={form.patientStatus} onValueChange={(v) => update('patientStatus', v)}>
+   718→   718→              <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+   719→   719→              <SelectContent>
+   720→   720→                <SelectItem value="Conscious">Conscious</SelectItem>
+   721→   721→                <SelectItem value="Semiconscious">Semiconscious</SelectItem>
+   722→   722→                <SelectItem value="Unconscious">Unconscious</SelectItem>
+   723→   723→              </SelectContent>
+   724→   724→            </Select>
+   725→   725→          </div>
+   726→   726→          <div className="flex items-end gap-3">
+   727→   727→            <div className="flex items-center gap-2 pb-1">
+   728→   728→              <Switch checked={form.ventilatorOn} onCheckedChange={(v) => update('ventilatorOn', v)} />
+   729→   729→              <Label className="text-xs">Ventilator</Label>
+   730→   730→            </div>
+   731→   731→          </div>
+   732→   732→        </div>
+   733→   733→
+   734→   734→        {/* Row 3: O2, Input, Urine, Output */}
+   735→   735→        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   736→   736→          <div className="space-y-1.5">
+   737→   737→            <Label className="text-xs">O₂ Liters</Label>
+   738→   738→            <Input className={inputCls} type="number" step="0.5" placeholder="0" value={form.oxygenLiters} onChange={(e) => update('oxygenLiters', e.target.value)} />
+   739→   739→          </div>
+   740→   740→          <div className="space-y-1.5">
+   741→   741→            <Label className="text-xs">Input (ml)</Label>
+   742→   742→            <Input className={inputCls} type="number" placeholder="0" value={form.inputMl} onChange={(e) => update('inputMl', e.target.value)} />
+   743→   743→          </div>
+   744→   744→          <div className="space-y-1.5">
+   745→   745→            <Label className="text-xs">Urine (ml)</Label>
+   746→   746→            <Input className={inputCls} type="number" placeholder="0" value={form.urineMl} onChange={(e) => update('urineMl', e.target.value)} />
+   747→   747→          </div>
+   748→   748→          <div className="space-y-1.5">
+   749→   749→            <Label className="text-xs">Output (ml)</Label>
+   750→   750→            <Input className={inputCls} type="number" placeholder="0" value={form.outputMl} onChange={(e) => update('outputMl', e.target.value)} />
+   751→   751→          </div>
+   752→   752→        </div>
+   753→   753→
+   754→   754→        {/* Row 4: Infusion Pump, RBS, Remarks */}
+   755→   755→        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+   756→   756→          <div className="space-y-1.5">
+   757→   757→            <Label className="text-xs">Infusion Pump</Label>
+   758→   758→            <Input className={inputCls} placeholder="Details..." value={form.infusionPump} onChange={(e) => update('infusionPump', e.target.value)} />
+   759→   759→          </div>
+   760→   760→          <div className="space-y-1.5">
+   761→   761→            <Label className="text-xs">RBS (optional)</Label>
+   762→   762→            <Input className={inputCls} type="number" step="1" placeholder="mg/dL" value={form.rbs} onChange={(e) => update('rbs', e.target.value)} />
+   763→   763→          </div>
+   764→   764→          <div className="space-y-1.5">
+   765→   765→            <Label className="text-xs">Remarks</Label>
+   766→   766→            <Input className={inputCls} placeholder="Any notes..." value={form.remarks} onChange={(e) => update('remarks', e.target.value)} />
+   767→   767→          </div>
+   768→   768→        </div>
+   769→   769→
+   770→   770→        {/* Submit */}
+   771→   771→        <div className="flex justify-end">
+   772→   772→          <Button
+   773→   773→            onClick={() => saveMutation.mutate()}
+   774→   774→            disabled={saveMutation.isPending}
+   775→   775→            className="bg-teal-600 hover:bg-teal-700"
+   776→   776→          >
+   777→   777→            {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+   778→   778→            Save Vitals
+   779→   779→          </Button>
+   780→   780→        </div>
+   781→   781→      </CardContent>
+   782→   782→    </Card>
+   783→   783→  )
+   784→   784→}
+   785→   785→
+   786→   786→// ============ VITALS HISTORY TABLE ============
+   787→   787→
+   788→   788→function VitalsHistoryTable({ vitalRecords }: { vitalRecords: VitalRecord[] }) {
+   789→   789→  return (
+   790→   790→    <Card>
+   791→   791→      <CardHeader className="pb-3">
+   792→   792→        <CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4 text-teal-500" />Vitals History</CardTitle>
+   793→   793→      </CardHeader>
+   794→   794→      <CardContent className="p-0">
+   795→   795→        <div className="max-h-96 overflow-y-auto">
+   796→   796→          <Table>
+   797→   797→            <TableHeader>
+   798→   798→              <TableRow>
+   799→   799→                <TableHead className="text-xs">Time</TableHead>
+   800→   800→                <TableHead className="text-xs">Temp</TableHead>
+   801→   801→                <TableHead className="text-xs">Pulse</TableHead>
+   802→   802→                <TableHead className="text-xs">SpO2</TableHead>
+   803→   803→                <TableHead className="text-xs">BP</TableHead>
+   804→   804→                <TableHead className="text-xs">RR</TableHead>
+   805→   805→                <TableHead className="text-xs">I/O</TableHead>
+   806→   806→                <TableHead className="text-xs">Remarks</TableHead>
+   807→   807→              </TableRow>
+   808→   808→            </TableHeader>
+   809→   809→            <TableBody>
+   810→   810→              {vitalRecords.length === 0 && (
+   811→   811→                <TableRow>
+   812→   812→                  <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">No vitals recorded yet</TableCell>
+   813→   813→                </TableRow>
+   814→   814→              )}
+   815→   815→              {vitalRecords.map((v) => (
+   816→   816→                <TableRow key={v.id}>
+   817→   817→                  <TableCell className="whitespace-nowrap text-xs">
+   818→   818→                    {format(new Date(v.recordedAt), 'dd MMM HH:mm')}
+   819→   819→                  </TableCell>
+   820→   820→                  <TableCell className={cn('text-xs font-medium', v.temperature > 0 && isAbnormal('temperature', v.temperature) ? 'text-red-600 dark:text-red-400' : '')}>
+   821→   821→                    {v.temperature > 0 ? `${v.temperature}°F` : '—'}
+   822→   822→                  </TableCell>
+   823→   823→                  <TableCell className={cn('text-xs font-medium', v.pulse > 0 && isAbnormal('pulse', v.pulse) ? 'text-red-600 dark:text-red-400' : '')}>
+   824→   824→                    {v.pulse > 0 ? v.pulse : '—'}
+   825→   825→                  </TableCell>
+   826→   826→                  <TableCell className={cn('text-xs font-medium', v.spo2 > 0 && isAbnormal('spo2', v.spo2) ? 'text-red-600 dark:text-red-400' : '')}>
+   827→   827→                    {v.spo2 > 0 ? `${v.spo2}%` : '—'}
+   828→   828→                  </TableCell>
+   829→   829→                  <TableCell className={cn('text-xs font-medium', v.bpSystolic > 0 && isAbnormal('bpSystolic', v.bpSystolic) ? 'text-red-600 dark:text-red-400' : '')}>
+   830→   830→                    {v.bpSystolic > 0 ? `${v.bpSystolic}/${v.bpDiastolic}` : '—'}
+   831→   831→                  </TableCell>
+   832→   832→                  <TableCell className={cn('text-xs font-medium', v.respiratoryRate > 0 && isAbnormal('respiratoryRate', v.respiratoryRate) ? 'text-red-600 dark:text-red-400' : '')}>
+   833→   833→                    {v.respiratoryRate > 0 ? v.respiratoryRate : '—'}
+   834→   834→                  </TableCell>
+   835→   835→                  <TableCell className="text-xs">
+   836→   836→                    {v.inputMl > 0 || v.urineMl > 0 ? (
+   837→   837→                      <span>I:{v.inputMl} U:{v.urineMl}</span>
+   838→   838→                    ) : '—'}
+   839→   839→                  </TableCell>
+   840→   840→                  <TableCell className="max-w-[120px] truncate text-xs text-muted-foreground">{v.remarks || '—'}</TableCell>
+   841→   841→                </TableRow>
+   842→   842→              ))}
+   843→   843→            </TableBody>
+   844→   844→          </Table>
+   845→   845→        </div>
+   846→   846→      </CardContent>
+   847→   847→    </Card>
+   848→   848→  )
+   849→   849→}
+   850→   850→
+   851→   851→// ============ MEDICINES TAB ============
+   852→   852→
+   853→   853→function MedicinesTab({
+   854→   854→  admissionId,
+   855→   855→  orders,
+   856→   856→  onAdminister,
+   857→   857→}: {
+   858→   858→  admissionId: string
+   859→   859→  orders: DoctorOrder[]
+   860→   860→  onAdminister: (orderId: string, status: string) => void
+   861→   861→}) {
+   862→   862→  const { data: medData } = useQuery({
+   863→   863→    queryKey: ['nurse-medicines', admissionId],
+   864→   864→    queryFn: () => fetch(`/api/dashboard/nurse/patients/${admissionId}/medicines`).then((r) => r.json()),
+   865→   865→  })
+   866→   866→
+   867→   867→  const groupedOrders = medData?.grouped || {}
+   868→   868→  const timeSlots = Object.keys(groupedOrders).sort()
+   869→   869→
+   870→   870→  if (orders.length === 0) {
+   871→   871→    return (
+   872→   872→      <Card>
+   873→   873→        <CardContent className="flex flex-col items-center py-12">
+   874→   874→          <Pill className="mb-3 h-12 w-12 text-muted-foreground/40" />
+   875→   875→          <p className="text-sm text-muted-foreground">No active medicine orders for this patient</p>
+   876→   876→        </CardContent>
+   877→   877→      </Card>
+   878→   878→    )
+   879→   879→  }
+   880→   880→
+   881→   881→  return (
+   882→   882→    <div className="space-y-4">
+   883→   883→      {timeSlots.map((time) => (
+   884→   884→        <Card key={time}>
+   885→   885→          <CardHeader className="pb-2">
+   886→   886→            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   887→   887→              <Clock className="h-4 w-4 text-teal-500" />
+   888→   888→              Scheduled: {time}
+   889→   889→              <Badge variant="secondary" className="text-[10px]">
+   890→   890→                {groupedOrders[time].length} order(s)
+   891→   891→              </Badge>
+   892→   892→            </CardTitle>
+   893→   893→          </CardHeader>
+   894→   894→          <CardContent className="space-y-2">
+   895→   895→            {groupedOrders[time].map((order: DoctorOrder) => (
+   896→   896→              <motion.div
+   897→   897→                key={order.id}
+   898→   898→                initial={{ opacity: 0, x: -5 }}
+   899→   899→                animate={{ opacity: 1, x: 0 }}
+   900→   900→                className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+   901→   901→              >
+   902→   902→                <div className="min-w-0 flex-1">
+   903→   903→                  <div className="flex items-center gap-2">
+   904→   904→                    <p className="truncate text-sm font-semibold">{order.drugName}</p>
+   905→   905→                    {order.isStat && <Badge className="bg-red-100 text-red-700 text-[10px]">STAT</Badge>}
+   906→   906→                    {order.isPrn && <Badge variant="outline" className="text-[10px]">PRN</Badge>}
+   907→   907→                  </div>
+   908→   908→                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+   909→   909→                    {getRouteBadge(order.route)}
+   910→   910→                    <span>{order.dose}</span>
+   911→   911→                    <span>•</span>
+   912→   912→                    <span>{order.frequency}</span>
+   913→   913→                    {order.instructions && (
+   914→   914→                      <>
+   915→   915→                        <span>•</span>
+   916→   916→                        <span className="italic">{order.instructions}</span>
+   917→   917→                      </>
+   918→   918→                    )}
+   919→   919→                  </div>
+   920→   920→                  <p className="mt-0.5 text-[10px] text-muted-foreground">by {order.doctorName}</p>
+   921→   921→                </div>
+   922→   922→
+   923→   923→                <div className="flex items-center gap-2">
+   924→   924→                  {getMedStatusBadge(order.status)}
+   925→   925→                  {(order.status === 'Pending' || order.status === 'Overdue') && (
+   926→   926→                    <div className="flex gap-1">
+   927→   927→                      <Button
+   928→   928→                        size="sm"
+   929→   929→                        className="h-7 bg-emerald-600 text-xs hover:bg-emerald-700"
+   930→   930→                        onClick={() => onAdminister(order.id, 'Given')}
+   931→   931→                      >
+   932→   932→                        <CheckCircle2 className="mr-1 h-3 w-3" />
+   933→   933→                        Mark Given
+   934→   934→                      </Button>
+   935→   935→                      <DropdownMenu>
+   936→   936→                        <DropdownMenuTrigger asChild>
+   937→   937→                          <Button variant="outline" size="sm" className="h-7 text-xs">
+   938→   938→                            <MoreHorizontal className="h-3 w-3" />
+   939→   939→                          </Button>
+   940→   940→                        </DropdownMenuTrigger>
+   941→   941→                        <DropdownMenuContent align="end">
+   942→   942→                          <DropdownMenuItem onClick={() => onAdminister(order.id, 'Missed')}>Missed</DropdownMenuItem>
+   943→   943→                          <DropdownMenuItem onClick={() => onAdminister(order.id, 'Refused')}>Refused</DropdownMenuItem>
+   944→   944→                          <DropdownMenuItem onClick={() => onAdminister(order.id, 'Skipped')}>Skipped</DropdownMenuItem>
+   945→   945→                          <DropdownMenuItem onClick={() => onAdminister(order.id, 'NotAvailable')}>Not Available</DropdownMenuItem>
+   946→   946→                        </DropdownMenuContent>
+   947→   947→                      </DropdownMenu>
+   948→   948→                    </div>
+   949→   949→                  )}
+   950→   950→                </div>
+   951→   951→              </motion.div>
+   952→   952→            ))}
+   953→   953→          </CardContent>
+   954→   954→        </Card>
+   955→   955→      ))}
+   956→   956→    </div>
+   957→   957→  )
+   958→   958→}
+   959→   959→
+   960→   960→// ============ SKELETON ============
+   961→   961→
+   962→   962→function DetailSkeleton() {
+   963→   963→  return (
+   964→   964→    <div className="space-y-6">
+   965→   965→      <Skeleton className="h-8 w-20" />
+   966→   966→      <div className="space-y-2">
+   967→   967→        <Skeleton className="h-7 w-64" />
+   968→   968→        <Skeleton className="h-4 w-96" />
+   969→   969→      </div>
+   970→   970→      <Skeleton className="h-10 w-full max-w-md" />
+   971→   971→      <div className="grid gap-4 lg:grid-cols-2">
+   972→   972→        {Array.from({ length: 2 }).map((_, i) => (
+   973→   973→          <Skeleton key={i} className="h-64 rounded-xl" />
+   974→   974→        ))}
+   975→   975→      </div>
+   976→   976→    </div>
+   977→   977→  )
+   978→   978→}
+   979→   979→

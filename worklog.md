@@ -734,3 +734,179 @@ Stage Summary:
 - All nurse sidebar pages now functional: Dashboard, My Patients, Ward View, Shift Handover, Profile
 - Nurse system Phase N-1 is now complete
 - Next: Phase N-2 (IPD Admission flow) is already built by receptionist/doctor teams
+
+---
+Task ID: N5
+Agent: nurse-investigations
+Task: Build Nurse Investigation/Sample Collection Feature for IPD Patients
+
+Work Log:
+- Created `/src/app/api/dashboard/nurse/patients/[admissionId]/investigations/route.ts` — 2-method API route:
+  - **GET**: Returns all SampleCollection records for the admission with doctor name (via doctor → user relation), nurse name, statusFlow from SAMPLE_STATUS_FLOW, and linked InvestigationReport for each sample. Includes full report data (resultData, normalRange, isAbnormal) mapped to each sample.
+  - **POST**: Creates a new SampleCollection with status 'Collected', collectedAt = now. Looks up nurse via StaffNurse → userId. Gets attendingDoctorId from the IpdAdmission. Requires testName and sampleType in body. Returns created record.
+  - Both methods use requireRole(req, 'nurse') auth.
+- Created `/src/app/api/dashboard/nurse/patients/[admissionId]/investigations/[sampleId]/route.ts` — PATCH API route:
+  - **PATCH**: Updates sample status with validation against valid transitions (Collected→SentToLab, SentToLab→Reported, Reported→Filed). Sets sentToLabAt timestamp when transitioning to SentToLab. Verifies sample belongs to the admission. Returns updated record with doctor/nurse names.
+- Edited `/src/app/dashboard/nurse/patients/[admissionId]/client.tsx` to add investigations tab:
+  - Added imports: TestTube, FlaskConical, Send, Plus from lucide-react; SAMPLE_TYPES from ipd-utils; Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle from ui/dialog.
+  - Changed TabsList from grid-cols-4 to grid-cols-5 and added new TabsTrigger for 'investigations' between Medicines and History.
+  - Added TabsContent for 'investigations' rendering the InvestigationsTab sub-component.
+  - Added InvestigationSample interface with full type definitions including optional nested report.
+  - Added getSampleStatusBadge helper with color-coded badges: Ordered=amber, Collected=teal, SentToLab=sky, Reported=emerald, Filed=slate.
+  - Added parseResultSummary helper to JSON.parse resultData and display as key-value pairs.
+  - Added InvestigationsTab component with:
+    - **Header**: FlaskConical icon, title, pending count badge (amber), and teal "Collect Sample" button with Plus icon.
+    - **Pending Samples section**: Shows Ordered/Collected samples with TestTube icon (red for Blood, teal for others), status badge, sample type badge, doctor name, date. Action buttons: 'Collect' (teal, for Ordered) calls POST API; 'Send to Lab' (sky, for Collected) calls PATCH API. Framer Motion staggered entry.
+    - **In Progress section**: Shows SentToLab samples with Clock icon "Awaiting lab" indicator. Only shown when samples exist.
+    - **Reports Ready section**: Shows Reported/Filed samples with report result summary, abnormal flag (red AlertTriangle badge + red border/bg highlighting for abnormal results), report date. Green border for normal.
+    - **All History table**: Full Table with columns: Test Name, Sample, Status, Doctor, Collected time, Sent time, Abnormal (red Yes / green Normal badge). max-h-96 overflow scroll.
+    - **Collect Sample Dialog**: Dialog with test name Input, sample type Select (from SAMPLE_TYPES), remarks Textarea. Teal submit button with Loader2 spinner. Form reset on success.
+    - React Query: useQuery for fetching investigations data, useMutation for collect (POST) and status update (PATCH). Both invalidate nurse-investigations and nurse-patient queries on success.
+    - Loading state with Skeleton placeholders.
+    - Toast notifications for success/error.
+    - Teal color scheme, dark mode support, responsive design (flex-col mobile, flex-row desktop).
+
+Stage Summary:
+- 2 files created: 2 API routes (investigations GET/POST + investigations/[sampleId] PATCH)
+- 1 file edited: client.tsx (added investigations tab with full UI)
+- Complete sample collection workflow: Order → Collect → Send to Lab → Report → File
+- Report display with abnormal value highlighting (red badges, red borders)
+- Lint passes clean with zero errors
+
+---
+Task ID: N7
+Agent: Main Orchestrator
+Task: Doctor Discharge Workflow for IPD Patients
+
+Work Log:
+- Read existing worklog.md and doctor IPD patient detail page (client.tsx, 1408 lines)
+- Analyzed Prisma schema for IpdAdmission, DoctorOrder, Bed, NursePatientAssignment models
+- Studied existing API route patterns (auth, params, error handling)
+
+## API: Discharge Route
+- Created `/src/app/api/dashboard/doctor/ipd/patients/[admissionId]/discharge/route.ts`
+  - **POST** endpoint with `requireRole(req, 'doctor')` auth
+  - Body: `{ dischargeType, finalDiagnosis, dischargeSummary, roomRentDays? }`
+  - Validates: admission exists, status is 'Admitted', doctor is the attending doctor
+  - Discharge type validation: Normal, DAMA, LAMA, Expired
+  - Prisma `$transaction` with 4 operations:
+    1. Update IpdAdmission: status (Discharged/DAMA/Expired), dischargeDate, dischargeTime, dischargeType, finalDiagnosis, dischargeSummary, roomRentDays (auto-calculated via `differenceInDays` if not provided)
+    2. Stop ALL active DoctorOrders (status→'Completed', stoppedAt→now, stoppedReason→'Patient discharged')
+    3. Update Bed status→'Available'
+    4. Update all active NursePatientAssignments (status→'Completed', unassignedAt→now)
+  - Returns updated admission on success
+
+## Frontend: Discharge Button + Dialog
+- Edited `/src/app/dashboard/doctor/ipd/patients/[admissionId]/client.tsx`
+- Added imports: `LogOut`, `CalendarDays`, `Shield` icons; `Alert, AlertDescription, AlertTitle` from shadcn/ui
+- Added state: `showDischargeDialog`, `dischargeForm` (type, diagnosis, summary, roomDays)
+- Added `dischargeMutation` (useMutation, POST to discharge API, invalidates queries, navigates back to IPD list)
+- Added `calculatedRoomDays` helper (days since admission + 1, minimum 1)
+- **Discharge Button** in header area:
+  - Only visible when `admission.status === 'Admitted'`
+  - Red-tinted outline button with LogOut icon, responsive text (hidden on mobile)
+  - Pre-populates form with initialDiagnosis and calculatedRoomDays on click
+- **Discharge Dialog** (full-featured):
+  - Dynamic warning Alerts based on discharge type:
+    - DAMA: Amber alert about risk acknowledgement, legal/insurance implications
+    - Expired: Red alert about death documentation, MLC procedures
+    - LAMA: Orange alert about documenting circumstances
+  - Discharge Type Select with color-coded border (emerald/amber/orange/red) and icons per option
+  - Room Rent Days Input (auto-calculated, editable, min=1, with date reference text)
+  - Final Diagnosis Textarea (required, pre-populated with initial diagnosis)
+  - Discharge Summary Textarea (required, with detailed placeholder)
+  - Summary panel showing what will happen (status change, orders stopped, bed freed, nurse assignments completed)
+  - Color-coded confirm button matching discharge type (teal/amber/orange/red)
+  - Cancel + Confirm buttons in DialogFooter
+  - Disabled state when required fields empty or mutation loading
+  - Framer motion animations on alerts and summary panel
+  - Scroll-safe dialog (`max-h-[90vh] overflow-y-auto`)
+  - Full dark mode support
+
+Lint: ✅ Zero errors
+
+---
+Task ID: N4
+Agent: Vital Trend Charts Builder
+Task: Vital Trend Charts — Visual time-series display of BP, Pulse, SpO2, Temperature over time for IPD patients
+
+Work Log:
+- Read existing nurse patient detail page (`client.tsx`) and vitals API route to understand data flow
+- Analyzed `VITAL_THRESHOLDS` from `@/lib/ipd-utils` for critical/warning/normal thresholds
+- Created `/src/app/dashboard/nurse/patients/[admissionId]/vital-charts.tsx` — comprehensive SVG-based chart component
+- Integrated `VitalTrendCharts` into the existing vitals tab between `VitalForm` and `VitalsHistoryTable`
+
+### Vital Trend Charts Features:
+1. **BP Trend Chart** — Dual-line (systolic=teal solid, diastolic=amber dashed) with:
+   - Normal range shading (90-140 systolic, 60-90 diastolic)
+   - Critical lines at 180 (high) and 90 (low) with labels
+   - Gradient fill under systolic line
+   - Legend for systolic/diastolic
+
+2. **Pulse Trend Chart** — Single line (rose) with:
+   - Normal range 60-100 shaded
+   - Critical lines at 50 and 130
+   - Data points colored by severity
+
+3. **SpO2 Trend Chart** — Single line (sky) with:
+   - Normal range 94-100 shaded
+   - Critical line at 90%
+   - Red zone shading below 90%
+
+4. **Temperature Trend Chart** — Single line (amber) with:
+   - Normal range 97-99.5°F shaded
+   - Fever line at 102.2°F (dashed amber)
+
+5. **Input/Output Bar Chart** — Stacked bars per reading:
+   - Green for input, amber for urine, red for other output
+   - Full-width card spanning both columns
+
+### Technical Implementation:
+- Pure SVG approach (viewBox-based, responsive)
+- Auto-scaling Y axis with padding based on data range
+- Smart X-axis time labels (HH:mm for same-day, dd/MM HH:mm for multi-day)
+- Adaptive label step to avoid crowding
+- Data points colored by severity (teal=normal, amber=warning, red=critical)
+- Gradient fills under lines
+- Normal range shaded areas
+- Framer Motion staggered card animations
+- Status badges with trend indicators (ArrowUp/ArrowDown/Minus)
+- Min/Max range display per chart
+- Empty state message when < 2 vital records
+- Last 24 readings used for chart readability
+- Dark mode compatible via CSS variable colors
+- 2-column grid on desktop, 1-column on mobile (I/O chart spans full width)
+
+### Files Modified:
+- **Created**: `src/app/dashboard/nurse/patients/[admissionId]/vital-charts.tsx`
+- **Modified**: `src/app/dashboard/nurse/patients/[admissionId]/client.tsx` (import + integration)
+
+Lint: ✅ Zero errors
+
+---
+Task ID: N5, N7, N4
+Agent: Main Orchestrator + 3 Subagents
+Task: Phase N-5 (Investigations), N-7 (Discharge), N-4 (Vital Charts) — Complete IPD Flow
+
+Work Log:
+- Assessed full IPD system status: N-1 through N-6 mostly complete, gaps in N-4/N-5/N-7
+- Built Nurse Sample Collection: 2 API routes (GET/POST investigations, PATCH sample status)
+- Added Investigations tab to nurse patient detail (collect, send to lab, view reports)
+- Built Doctor Discharge API: POST endpoint with Prisma transaction (update admission + stop all orders + free bed + complete nurse assignments)
+- Added Discharge button + dialog to doctor IPD patient detail (type selector, summary, auto room rent calc)
+- Built Vital Trend Charts: Pure SVG component with 5 chart types (BP dual-line, Pulse, SpO2, Temperature, Fluid I/O)
+- Integrated charts into nurse patient detail vitals tab
+- All lint checks pass, all pages return 200
+
+Stage Summary:
+- IPD system is now functionally complete for core workflows:
+  1. Receptionist admits patient → bed allocated
+  2. Doctor writes orders (history, exam, medicines, investigations)
+  3. Nurse records vitals hourly with trend visualization
+  4. Nurse administers medicines, collects samples
+  5. Doctor reviews, visits, and discharges patient
+  6. Bed freed, orders stopped automatically on discharge
+  7. Shift handover between nurses
+- Files created: 2 API routes (investigations + sample status), 1 discharge API, 1 vital-charts component
+- Files modified: nurse patient detail client.tsx (added investigations tab + vital charts), doctor IPD patient detail client.tsx (added discharge)
+- Remaining N-8 items: Print forms, patient transfer, DAMA enhanced workflow

@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { VITAL_THRESHOLDS } from '@/lib/ipd-utils'
+import { VITAL_THRESHOLDS, SAMPLE_TYPES } from '@/lib/ipd-utils'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -34,6 +34,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Table,
   TableBody,
@@ -68,8 +75,13 @@ import {
   FileText,
   Loader2,
   Clock,
+  TestTube,
+  FlaskConical,
+  Send,
+  Plus,
 } from 'lucide-react'
 import { format } from 'date-fns'
+import VitalTrendCharts from './vital-charts'
 
 // ============ TYPES ============
 
@@ -354,7 +366,7 @@ export default function NursePatientDetailClient({ admissionId }: Props) {
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4 sm:w-auto">
+        <TabsList className="grid w-full grid-cols-5 sm:w-auto">
           <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm">
             <FileText className="h-4 w-4" />Overview
           </TabsTrigger>
@@ -363,6 +375,9 @@ export default function NursePatientDetailClient({ admissionId }: Props) {
           </TabsTrigger>
           <TabsTrigger value="medicines" className="gap-1.5 text-xs sm:text-sm">
             <Pill className="h-4 w-4" />Medicines
+          </TabsTrigger>
+          <TabsTrigger value="investigations" className="gap-1.5 text-xs sm:text-sm">
+            <TestTube className="h-4 w-4" />Investigations
           </TabsTrigger>
           <TabsTrigger value="history" className="gap-1.5 text-xs sm:text-sm">
             <History className="h-4 w-4" />History
@@ -517,6 +532,7 @@ export default function NursePatientDetailClient({ admissionId }: Props) {
         {/* VITALS TAB */}
         <TabsContent value="vitals" className="space-y-4">
           <VitalForm admissionId={admissionId} />
+          <VitalTrendCharts vitals={vitalRecords} />
           <VitalsHistoryTable vitalRecords={vitalRecords} />
         </TabsContent>
 
@@ -527,6 +543,11 @@ export default function NursePatientDetailClient({ admissionId }: Props) {
             orders={doctorOrders}
             onAdminister={(orderId, status) => setAdministerTarget({ orderId, status })}
           />
+        </TabsContent>
+
+        {/* INVESTIGATIONS TAB */}
+        <TabsContent value="investigations" className="space-y-4">
+          <InvestigationsTab admissionId={admissionId} />
         </TabsContent>
 
         {/* HISTORY TAB */}
@@ -953,6 +974,470 @@ function MedicinesTab({
           </CardContent>
         </Card>
       ))}
+    </div>
+  )
+}
+
+// ============ INVESTIGATIONS TAB ============
+
+interface InvestigationSample {
+  id: string
+  testName: string
+  sampleType: string
+  status: string
+  collectedAt: string | null
+  sentToLabAt: string | null
+  remarks: string
+  createdAt: string
+  doctorName: string
+  nurseName: string
+  report: {
+    id: string
+    testName: string
+    reportDate: string
+    resultData: string
+    normalRange: string
+    isAbnormal: boolean
+    remarks: string
+  } | null
+}
+
+function getSampleStatusBadge(status: string) {
+  switch (status) {
+    case 'Ordered':
+      return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400">Ordered</Badge>
+    case 'Collected':
+      return <Badge className="bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-950/50 dark:text-teal-400">Collected</Badge>
+    case 'SentToLab':
+      return <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-100 dark:bg-sky-950/50 dark:text-sky-400">Sent to Lab</Badge>
+    case 'Reported':
+      return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-400">Reported</Badge>
+    case 'Filed':
+      return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-400">Filed</Badge>
+    default:
+      return <Badge variant="secondary">{status}</Badge>
+  }
+}
+
+function parseResultSummary(resultData: string): string {
+  try {
+    const data = JSON.parse(resultData)
+    if (typeof data === 'object' && data !== null) {
+      return Object.entries(data)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(', ')
+    }
+    return String(data)
+  } catch {
+    return resultData || 'No data'
+  }
+}
+
+function InvestigationsTab({ admissionId }: { admissionId: string }) {
+  const queryClient = useQueryClient()
+  const [showCollectDialog, setShowCollectDialog] = useState(false)
+  const [collectForm, setCollectForm] = useState({ testName: '', sampleType: SAMPLE_TYPES[0] as string, remarks: '' })
+
+  // Fetch investigations
+  const { data: invData, isLoading: invLoading } = useQuery({
+    queryKey: ['nurse-investigations', admissionId],
+    queryFn: () => fetch(`/api/dashboard/nurse/patients/${admissionId}/investigations`).then((r) => r.json()),
+  })
+
+  const samples: InvestigationSample[] = invData?.samples || []
+
+  // POST: Collect sample
+  const collectMutation = useMutation({
+    mutationFn: async (data: { testName: string; sampleType: string; remarks?: string }) => {
+      const res = await fetch(`/api/dashboard/nurse/patients/${admissionId}/investigations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+      if (!res.ok) {
+        const d = await res.json()
+        throw new Error(d.error || 'Failed to collect sample')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['nurse-investigations', admissionId] })
+      queryClient.invalidateQueries({ queryKey: ['nurse-patient', admissionId] })
+      toast.success('Sample collected successfully')
+      setShowCollectDialog(false)
+      setCollectForm({ testName: '', sampleType: SAMPLE_TYPES[0] as string, remarks: '' })
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  // PATCH: Update sample status
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ sampleId, status, remarks }: { sampleId: string; status: string; remarks?: string }) => {
+      const res = await fetch(`/api/dashboard/nurse/patients/${admissionId}/investigations/${sampleId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status, remarks }),
+      })
+      if (!res.ok) {
+        const d = await res.json()
+        throw new Error(d.error || 'Failed to update status')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['nurse-investigations', admissionId] })
+      queryClient.invalidateQueries({ queryKey: ['nurse-patient', admissionId] })
+      toast.success('Sample status updated')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  // Categorize samples
+  const pendingSamples = samples.filter((s) => s.status === 'Ordered' || s.status === 'Collected')
+  const inProgressSamples = samples.filter((s) => s.status === 'SentToLab')
+  const reportedSamples = samples.filter((s) => s.status === 'Reported' || s.status === 'Filed')
+
+  if (invLoading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-40 rounded-xl" />
+        <Skeleton className="h-40 rounded-xl" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header with Add button */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <FlaskConical className="h-5 w-5 text-teal-500" />
+          <h3 className="text-base font-semibold">Investigations & Sample Collection</h3>
+          {pendingSamples.length > 0 && (
+            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400">
+              {pendingSamples.length} pending
+            </Badge>
+          )}
+        </div>
+        <Button
+          size="sm"
+          className="bg-teal-600 hover:bg-teal-700"
+          onClick={() => setShowCollectDialog(true)}
+        >
+          <Plus className="mr-1.5 h-3.5 w-3.5" />
+          Collect Sample
+        </Button>
+      </div>
+
+      {/* Pending Samples */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Clock className="h-4 w-4 text-amber-500" />
+            Pending Samples ({pendingSamples.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {pendingSamples.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground">No pending samples</p>
+          ) : (
+            <div className="max-h-72 space-y-2 overflow-y-auto">
+              {pendingSamples.map((sample, idx) => (
+                <motion.div
+                  key={sample.id}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <TestTube className={cn('h-4 w-4 shrink-0', sample.sampleType === 'Blood' ? 'text-red-500' : 'text-teal-500')} />
+                      <p className="truncate text-sm font-semibold">{sample.testName}</p>
+                      {getSampleStatusBadge(sample.status)}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="outline" className="text-[10px]">{sample.sampleType}</Badge>
+                      <span>Ordered by {sample.doctorName}</span>
+                      {sample.createdAt && <span>• {format(new Date(sample.createdAt), 'dd MMM, HH:mm')}</span>}
+                    </div>
+                    {sample.remarks && <p className="mt-1 text-xs text-muted-foreground italic">{sample.remarks}</p>}
+                  </div>
+                  <div className="flex gap-2">
+                    {sample.status === 'Ordered' && (
+                      <Button
+                        size="sm"
+                        className="h-7 bg-teal-600 text-xs hover:bg-teal-700"
+                        disabled={collectMutation.isPending}
+                        onClick={() => {
+                          collectMutation.mutate({
+                            testName: sample.testName,
+                            sampleType: sample.sampleType,
+                          })
+                        }}
+                      >
+                        {collectMutation.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
+                        Collect
+                      </Button>
+                    )}
+                    {sample.status === 'Collected' && (
+                      <Button
+                        size="sm"
+                        className="h-7 bg-sky-600 text-xs hover:bg-sky-700"
+                        disabled={updateStatusMutation.isPending}
+                        onClick={() => {
+                          updateStatusMutation.mutate({
+                            sampleId: sample.id,
+                            status: 'SentToLab',
+                          })
+                        }}
+                      >
+                        {updateStatusMutation.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Send className="mr-1 h-3 w-3" />}
+                        Send to Lab
+                      </Button>
+                    )}
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* In Progress (Sent to Lab) */}
+      {inProgressSamples.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <FlaskConical className="h-4 w-4 text-sky-500" />
+              In Progress — Awaiting Report ({inProgressSamples.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-64 space-y-2 overflow-y-auto">
+              {inProgressSamples.map((sample, idx) => (
+                <motion.div
+                  key={sample.id}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className="flex items-center justify-between rounded-lg border p-3"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <TestTube className="h-4 w-4 text-sky-500" />
+                      <p className="truncate text-sm font-medium">{sample.testName}</p>
+                      {getSampleStatusBadge(sample.status)}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                      <Badge variant="outline" className="text-[10px]">{sample.sampleType}</Badge>
+                      <span>Collected by {sample.nurseName}</span>
+                      {sample.sentToLabAt && <span>• Sent {format(new Date(sample.sentToLabAt), 'dd MMM, HH:mm')}</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    <span>Awaiting lab</span>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Reports Ready */}
+      {reportedSamples.length > 0 && (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+              Reports Ready ({reportedSamples.length})
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="max-h-72 space-y-2 overflow-y-auto">
+              {reportedSamples.map((sample, idx) => (
+                <motion.div
+                  key={sample.id}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.05 }}
+                  className={cn(
+                    'rounded-lg border p-3',
+                    sample.report?.isAbnormal && 'border-red-300 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20'
+                  )}
+                >
+                  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <TestTube className="h-4 w-4 text-emerald-500" />
+                        <p className="truncate text-sm font-semibold">{sample.testName}</p>
+                        {getSampleStatusBadge(sample.status)}
+                        {sample.report?.isAbnormal && (
+                          <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">
+                            <AlertTriangle className="mr-1 h-3 w-3" />
+                            Abnormal
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        {sample.sampleType}
+                        {sample.report?.reportDate && (
+                          <span> • Reported {format(new Date(sample.report.reportDate), 'dd MMM yyyy, HH:mm')}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  {sample.report && (
+                    <div className="mt-2 rounded-md bg-background p-2 text-xs">
+                      <p className="font-medium">Result:</p>
+                      <p className={cn('mt-0.5', sample.report.isAbnormal ? 'text-red-600 dark:text-red-400' : 'text-foreground')}>
+                        {parseResultSummary(sample.report.resultData)}
+                      </p>
+                      {sample.report.remarks && (
+                        <p className="mt-1 text-muted-foreground italic">{sample.report.remarks}</p>
+                      )}
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* All History Table */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <History className="h-4 w-4 text-teal-500" />
+            All Investigation History ({samples.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="max-h-96 overflow-y-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="text-xs">Test Name</TableHead>
+                  <TableHead className="text-xs">Sample</TableHead>
+                  <TableHead className="text-xs">Status</TableHead>
+                  <TableHead className="text-xs">Doctor</TableHead>
+                  <TableHead className="text-xs">Collected</TableHead>
+                  <TableHead className="text-xs">Sent</TableHead>
+                  <TableHead className="text-xs">Abnormal</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {samples.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+                      No investigations recorded yet
+                    </TableCell>
+                  </TableRow>
+                )}
+                {samples.map((s) => (
+                  <TableRow key={s.id}>
+                    <TableCell className="text-xs font-medium">{s.testName}</TableCell>
+                    <TableCell className="text-xs">{s.sampleType}</TableCell>
+                    <TableCell>{getSampleStatusBadge(s.status)}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{s.doctorName}</TableCell>
+                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      {s.collectedAt ? format(new Date(s.collectedAt), 'dd MMM, HH:mm') : '—'}
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      {s.sentToLabAt ? format(new Date(s.sentToLabAt), 'dd MMM, HH:mm') : '—'}
+                    </TableCell>
+                    <TableCell>
+                      {s.report?.isAbnormal ? (
+                        <Badge className="bg-red-100 text-red-700 text-[10px] dark:bg-red-950/50 dark:text-red-400">
+                          <AlertTriangle className="mr-1 h-2.5 w-2.5" />
+                          Yes
+                        </Badge>
+                      ) : s.report ? (
+                        <Badge className="bg-emerald-100 text-emerald-700 text-[10px] dark:bg-emerald-950/50 dark:text-emerald-400">
+                          Normal
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Collect Sample Dialog */}
+      <Dialog open={showCollectDialog} onOpenChange={setShowCollectDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <TestTube className="h-5 w-5 text-teal-500" />
+              Collect New Sample
+            </DialogTitle>
+            <DialogDescription>
+              Record a new sample collection for this patient. The sample will be marked as collected.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Test Name *</Label>
+              <Input
+                placeholder="e.g. Complete Blood Count"
+                value={collectForm.testName}
+                onChange={(e) => setCollectForm((p) => ({ ...p, testName: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Sample Type *</Label>
+              <Select
+                value={collectForm.sampleType}
+                onValueChange={(v) => setCollectForm((p) => ({ ...p, sampleType: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {SAMPLE_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>{t}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Remarks</Label>
+              <Textarea
+                placeholder="Any notes about the collection..."
+                value={collectForm.remarks}
+                onChange={(e) => setCollectForm((p) => ({ ...p, remarks: e.target.value }))}
+                rows={2}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setShowCollectDialog(false)}>Cancel</Button>
+            <Button
+              className="bg-teal-600 hover:bg-teal-700"
+              disabled={!collectForm.testName || !collectForm.sampleType || collectMutation.isPending}
+              onClick={() => {
+                collectMutation.mutate({
+                  testName: collectForm.testName,
+                  sampleType: collectForm.sampleType,
+                  remarks: collectForm.remarks || undefined,
+                })
+              }}
+            >
+              {collectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Collect Sample
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

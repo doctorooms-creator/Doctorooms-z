@@ -52,6 +52,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   ArrowLeft,
   Thermometer,
@@ -82,6 +83,9 @@ import {
   Calendar,
   ArrowDown,
   ArrowUp,
+  LogOut,
+  CalendarDays,
+  Shield,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 
@@ -317,6 +321,15 @@ export default function DoctorIpdPatientClient({ admissionId: admissionIdProp }:
   const [stopReason, setStopReason] = useState('')
   const [showInvestigationDialog, setShowInvestigationDialog] = useState(false)
   const [showVisitDialog, setShowVisitDialog] = useState(false)
+  const [showDischargeDialog, setShowDischargeDialog] = useState(false)
+
+  // Discharge form state
+  const [dischargeForm, setDischargeForm] = useState({
+    dischargeType: 'Normal' as 'Normal' | 'DAMA' | 'LAMA' | 'Expired',
+    finalDiagnosis: '',
+    dischargeSummary: '',
+    roomRentDays: 0,
+  })
 
   // Order form state
   const [orderForm, setOrderForm] = useState({ drugName: '', route: 'Oral', dose: '', frequency: 'OD', scheduledTime: '8AM', instructions: '', isPrn: false, isStat: false })
@@ -528,6 +541,31 @@ export default function DoctorIpdPatientClient({ admissionId: admissionIdProp }:
     onError: (e) => toast.error(e.message),
   })
 
+  const dischargeMutation = useMutation({
+    mutationFn: async () => {
+      const res = await fetch(`/api/dashboard/doctor/ipd/patients/${admissionId}/discharge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(dischargeForm),
+      })
+      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed to discharge') }
+      return res.json()
+    },
+    onSuccess: () => {
+      toast.success('Patient discharged successfully')
+      setShowDischargeDialog(false)
+      queryClient.invalidateQueries({ queryKey: ['doctor-ipd-patient', admissionId] })
+      queryClient.invalidateQueries({ queryKey: ['doctor-ipd-patients'] })
+      router.push('/dashboard/doctor/ipd')
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
+  // Calculate room rent days from admission date
+  const calculatedRoomDays = admission
+    ? Math.max(1, Math.ceil((Date.now() - new Date(admission.admissionDate).getTime()) / (1000 * 60 * 60 * 24)) + 1)
+    : 1
+
   if (isLoading) {
     return (
       <div className="space-y-4 p-4 md:p-6">
@@ -581,6 +619,24 @@ export default function DoctorIpdPatientClient({ admissionId: admissionIdProp }:
             {admission.patientAge}y / {admission.patientGender} · {admission.wardName} — Bed {admission.bedNumber} · {admission.departmentName}
           </p>
         </div>
+        {admission.status === 'Admitted' && (
+          <Button
+            variant="outline"
+            className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-800 dark:text-red-400 dark:hover:bg-red-950/50 dark:hover:text-red-300 shrink-0"
+            onClick={() => {
+              setDischargeForm({
+                dischargeType: 'Normal',
+                finalDiagnosis: admission.initialDiagnosis || '',
+                dischargeSummary: '',
+                roomRentDays: calculatedRoomDays,
+              })
+              setShowDischargeDialog(true)
+            }}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            <span className="hidden sm:inline">Discharge</span>
+          </Button>
+        )}
       </div>
 
       {/* Critical Alerts */}
@@ -1402,6 +1458,210 @@ export default function DoctorIpdPatientClient({ admissionId: admissionIdProp }:
           )}
         </TabsContent>
       </Tabs>
+
+      {/* ====== DISCHARGE DIALOG ====== */}
+      <Dialog open={showDischargeDialog} onOpenChange={setShowDischargeDialog}>
+        <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <LogOut className="h-5 w-5" />
+              Discharge Patient
+            </DialogTitle>
+            <DialogDescription>
+              Complete the discharge process for {admission?.patientName}. This will stop all active orders and free the bed.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            {/* Warning alerts based on discharge type */}
+            {dischargeForm.dischargeType === 'DAMA' && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+                <Alert className="border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <AlertTitle className="text-amber-800 dark:text-amber-300">Discharge Against Medical Advice</AlertTitle>
+                  <AlertDescription className="text-amber-700 dark:text-amber-400">
+                    The patient is leaving against medical advice. Ensure the risk acknowledgement form is signed and documented. This may have legal and insurance implications.
+                  </AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+
+            {dischargeForm.dischargeType === 'Expired' && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+                <Alert className="border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30">
+                  <AlertTriangle className="h-4 w-4 text-red-600" />
+                  <AlertTitle className="text-red-800 dark:text-red-300">Patient Expired</AlertTitle>
+                  <AlertDescription className="text-red-700 dark:text-red-400">
+                    Record the time and cause of death. Notify the family and complete all mandatory documentation including death summary. MLC procedures may apply.
+                  </AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+
+            {dischargeForm.dischargeType === 'LAMA' && (
+              <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
+                <Alert className="border-orange-300 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/30">
+                  <Shield className="h-4 w-4 text-orange-600" />
+                  <AlertTitle className="text-orange-800 dark:text-orange-300">Left Against Medical Advice</AlertTitle>
+                  <AlertDescription className="text-orange-700 dark:text-orange-400">
+                    The patient has left the hospital without formal discharge. Document the circumstances and attempts made to contact the patient.
+                  </AlertDescription>
+                </Alert>
+              </motion.div>
+            )}
+
+            {/* Discharge Type */}
+            <div className="space-y-2">
+              <Label htmlFor="dischargeType">Discharge Type <span className="text-red-500">*</span></Label>
+              <Select
+                value={dischargeForm.dischargeType}
+                onValueChange={(val) => setDischargeForm({ ...dischargeForm, dischargeType: val as typeof dischargeForm.dischargeType })}
+              >
+                <SelectTrigger id="dischargeType" className={cn(
+                  dischargeForm.dischargeType === 'Normal' && 'border-emerald-300 dark:border-emerald-700',
+                  dischargeForm.dischargeType === 'DAMA' && 'border-amber-300 dark:border-amber-700',
+                  dischargeForm.dischargeType === 'LAMA' && 'border-orange-300 dark:border-orange-700',
+                  dischargeForm.dischargeType === 'Expired' && 'border-red-300 dark:border-red-700',
+                )}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Normal">
+                    <span className="flex items-center gap-2">
+                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
+                      Normal Discharge
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="DAMA">
+                    <span className="flex items-center gap-2">
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
+                      DAMA (Against Medical Advice)
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="LAMA">
+                    <span className="flex items-center gap-2">
+                      <Shield className="h-3.5 w-3.5 text-orange-600" />
+                      LAMA (Left Against Medical Advice)
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="Expired">
+                    <span className="flex items-center gap-2">
+                      <XCircle className="h-3.5 w-3.5 text-red-600" />
+                      Expired
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Room Rent Days */}
+            <div className="space-y-2">
+              <Label htmlFor="roomRentDays" className="flex items-center gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5" />
+                Room Rent Days
+              </Label>
+              <Input
+                id="roomRentDays"
+                type="number"
+                min={1}
+                value={dischargeForm.roomRentDays}
+                onChange={(e) => setDischargeForm({ ...dischargeForm, roomRentDays: Math.max(1, parseInt(e.target.value) || 1) })}
+                className="w-32"
+              />
+              <p className="text-xs text-muted-foreground">
+                Auto-calculated from admission date ({format(new Date(admission!.admissionDate), 'dd MMM yyyy')}). Edit if needed.
+              </p>
+            </div>
+
+            {/* Final Diagnosis */}
+            <div className="space-y-2">
+              <Label htmlFor="finalDiagnosis">
+                <span className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" />
+                  Final Diagnosis <span className="text-red-500">*</span>
+                </span>
+              </Label>
+              <Textarea
+                id="finalDiagnosis"
+                value={dischargeForm.finalDiagnosis}
+                onChange={(e) => setDischargeForm({ ...dischargeForm, finalDiagnosis: e.target.value })}
+                rows={3}
+                placeholder="Enter the confirmed final diagnosis..."
+              />
+            </div>
+
+            {/* Discharge Summary */}
+            <div className="space-y-2">
+              <Label htmlFor="dischargeSummary">
+                <span className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5" />
+                  Discharge Summary <span className="text-red-500">*</span>
+                </span>
+              </Label>
+              <Textarea
+                id="dischargeSummary"
+                value={dischargeForm.dischargeSummary}
+                onChange={(e) => setDischargeForm({ ...dischargeForm, dischargeSummary: e.target.value })}
+                rows={5}
+                placeholder="Include condition at discharge, treatment given, investigations, medications prescribed, follow-up advice..."
+              />
+            </div>
+
+            {/* Summary of what will happen */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <div className="rounded-lg border bg-muted/40 p-3 text-sm">
+                <p className="font-medium mb-2 flex items-center gap-1.5">
+                  <CheckCircle2 className="h-4 w-4 text-teal-600" />
+                  Upon confirming, the following will happen:
+                </p>
+                <ul className="space-y-1 text-muted-foreground">
+                  <li className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-teal-500 shrink-0" />
+                    Patient status will be set to <strong className={cn(
+                      dischargeForm.dischargeType === 'Expired' ? 'text-red-600' : dischargeForm.dischargeType === 'DAMA' ? 'text-amber-600' : 'text-teal-600'
+                    )}>{dischargeForm.dischargeType === 'Expired' ? 'Expired' : dischargeForm.dischargeType === 'DAMA' ? 'DAMA' : dischargeForm.dischargeType === 'LAMA' ? 'DAMA' : 'Discharged'}</strong>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                    All active doctor orders will be stopped
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                    Bed {admission?.bedNumber} ({admission?.wardName}) will be marked as Available
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+                    Active nurse assignments will be completed
+                  </li>
+                </ul>
+              </div>
+            </motion.div>
+          </div>
+
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <Button variant="outline" onClick={() => setShowDischargeDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => dischargeMutation.mutate()}
+              disabled={dischargeMutation.isPending || !dischargeForm.finalDiagnosis.trim() || !dischargeForm.dischargeSummary.trim()}
+              className={cn(
+                dischargeForm.dischargeType === 'Normal' && 'bg-teal-600 hover:bg-teal-700 text-white',
+                dischargeForm.dischargeType === 'DAMA' && 'bg-amber-600 hover:bg-amber-700 text-white',
+                dischargeForm.dischargeType === 'LAMA' && 'bg-orange-600 hover:bg-orange-700 text-white',
+                dischargeForm.dischargeType === 'Expired' && 'bg-red-600 hover:bg-red-700 text-white',
+              )}
+            >
+              {dischargeMutation.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <LogOut className="mr-2 h-4 w-4" />
+              )}
+              Confirm Discharge
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

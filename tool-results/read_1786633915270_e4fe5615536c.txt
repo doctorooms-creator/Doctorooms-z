@@ -1,0 +1,1408 @@
+     1→'use client'
+     2→
+     3→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { useParams, useRouter } from 'next/navigation'
+     6→import { useState, useCallback, useEffect } from 'react'
+     7→import { toast } from 'sonner'
+     8→import { cn } from '@/lib/utils'
+     9→import { VITAL_THRESHOLDS, FREQUENCY_OPTIONS, MEDICINE_ROUTES, SAMPLE_TYPES } from '@/lib/ipd-utils'
+    10→
+    11→import { Button } from '@/components/ui/button'
+    12→import { Badge } from '@/components/ui/badge'
+    13→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    14→import { Input } from '@/components/ui/input'
+    15→import { Label } from '@/components/ui/label'
+    16→import { Textarea } from '@/components/ui/textarea'
+    17→import { Switch } from '@/components/ui/switch'
+    18→import { Checkbox } from '@/components/ui/checkbox'
+    19→import { Skeleton } from '@/components/ui/skeleton'
+    20→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    21→import {
+    22→  Select,
+    23→  SelectContent,
+    24→  SelectItem,
+    25→  SelectTrigger,
+    26→  SelectValue,
+    27→} from '@/components/ui/select'
+    28→import {
+    29→  AlertDialog,
+    30→  AlertDialogAction,
+    31→  AlertDialogCancel,
+    32→  AlertDialogContent,
+    33→  AlertDialogDescription,
+    34→  AlertDialogFooter,
+    35→  AlertDialogHeader,
+    36→  AlertDialogTitle,
+    37→} from '@/components/ui/alert-dialog'
+    38→import {
+    39→  Dialog,
+    40→  DialogContent,
+    41→  DialogDescription,
+    42→  DialogFooter,
+    43→  DialogHeader,
+    44→  DialogTitle,
+    45→  DialogTrigger,
+    46→} from '@/components/ui/dialog'
+    47→import {
+    48→  Table,
+    49→  TableBody,
+    50→  TableCell,
+    51→  TableHead,
+    52→  TableHeader,
+    53→  TableRow,
+    54→} from '@/components/ui/table'
+    55→import {
+    56→  ArrowLeft,
+    57→  Thermometer,
+    58→  Heart,
+    59→  Wind,
+    60→  Droplets,
+    61→  Activity,
+    62→  Pill,
+    63→  ClipboardList,
+    64→  History,
+    65→  CheckCircle2,
+    66→  AlertTriangle,
+    67→  BedDouble,
+    68→  Stethoscope,
+    69→  User,
+    70→  FileText,
+    71→  Loader2,
+    72→  Clock,
+    73→  Plus,
+    74→  Square,
+    75→  Eye,
+    76→  FlaskConical,
+    77→  RefreshCw,
+    78→  Save,
+    79→  XCircle,
+    80→  TrendingUp,
+    81→  TrendingDown,
+    82→  Calendar,
+    83→  ArrowDown,
+    84→  ArrowUp,
+    85→} from 'lucide-react'
+    86→import { format, formatDistanceToNow } from 'date-fns'
+    87→
+    88→// ============ TYPES ============
+    89→
+    90→interface Admission {
+    91→  id: string
+    92→  admissionNo: string
+    93→  admissionDate: string
+    94→  admissionTime: string
+    95→  status: string
+    96→  patientName: string
+    97→  patientAge: number
+    98→  patientGender: string
+    99→  bloodGroup: string
+   100→  mobileNo: string
+   101→  fatherName: string
+   102→  contactPersonName: string
+   103→  contactPersonMobile: string
+   104→  contactPersonRelation: string
+   105→  maritalStatus: string
+   106→  occupation: string
+   107→  address: string
+   108→  initialDiagnosis: string
+   109→  finalDiagnosis: string
+   110→  wardName: string
+   111→  wardType: string
+   112→  bedNumber: string
+   113→  bedType: string
+   114→  departmentName: string
+   115→  attendingDoctorName: string
+   116→  referringDoctorName: string
+   117→  hospitalName: string
+   118→  chiefComplaints: string
+   119→  informant: string
+   120→  pastHistory: string
+   121→  personalHistory: string
+   122→  habits: string
+   123→  femaleHistory: string
+   124→  drugHistory: string
+   125→  consciousnessLevel: string
+   126→  obeyingCommands: boolean
+   127→  respondingToDPS: boolean
+   128→  oriented: boolean
+   129→  speech: string
+   130→  examinationNotes: string
+   131→  generalSigns: string
+   132→  dischargeDate: string | null
+   133→  dischargeType: string
+   134→  mlcCase: boolean
+   135→  previousHospitalization: string
+   136→  mediClaimDetails: string
+   137→}
+   138→
+   139→interface VitalAlert {
+   140→  parameter: string
+   141→  level: string
+   142→  message: string
+   143→  value: number
+   144→}
+   145→
+   146→interface VitalRecord {
+   147→  id: string
+   148→  temperature: number
+   149→  pulse: number
+   150→  spo2: number
+   151→  bpSystolic: number
+   152→  bpDiastolic: number
+   153→  respiratoryRate: number
+   154→  inputMl: number
+   155→  urineMl: number
+   156→  outputMl: number
+   157→  patientStatus: string
+   158→  ventilatorOn: boolean
+   159→  oxygenLiters: number
+   160→  infusionPump: string
+   161→  rbs: number | null
+   162→  remarks: string
+   163→  recordedAt: string
+   164→}
+   165→
+   166→interface DoctorOrder {
+   167→  id: string
+   168→  drugName: string
+   169→  route: string
+   170→  dose: string
+   171→  frequency: string
+   172→  scheduledTime: string
+   173→  instructions: string
+   174→  isPrn: boolean
+   175→  isStat: boolean
+   176→  status: string
+   177→  createdAt: string
+   178→  doctorName?: string
+   179→  stoppedReason?: string
+   180→}
+   181→
+   182→interface MedicineAdmin {
+   183→  id: string
+   184→  status: string
+   185→  scheduledTime: string
+   186→  administeredTime: string | null
+   187→  remarks: string
+   188→  drugName: string
+   189→  dose: string
+   190→  route: string
+   191→  nurseName: string
+   192→}
+   193→
+   194→interface SampleCollection {
+   195→  id: string
+   196→  testName: string
+   197→  sampleType: string
+   198→  status: string
+   199→  collectedAt: string | null
+   200→  sentToLabAt: string | null
+   201→  createdAt: string
+   202→}
+   203→
+   204→interface InvestigationReport {
+   205→  id: string
+   206→  testName: string
+   207→  reportDate: string
+   208→  isAbnormal: boolean
+   209→  reviewedBy: string | null
+   210→  reviewedAt: string | null
+   211→  remarks: string
+   212→}
+   213→
+   214→interface DoctorVisit {
+   215→  id: string
+   216→  visitDate: string
+   217→  visitTime: string
+   218→  examinationFindings: string
+   219→  currentDiagnosis: string
+   220→  advise: string
+   221→  isMobileVisit: boolean
+   222→  doctorName: string
+   223→}
+   224→
+   225→// ============ HELPERS ============
+   226→
+   227→function isAbnormal(param: string, value: number): boolean {
+   228→  const T = VITAL_THRESHOLDS as Record<string, Record<string, number>>
+   229→  const t = T[param]
+   230→  if (!t) return false
+   231→  if (param === 'spo2') return value < t.warning
+   232→  if (param === 'bpSystolic') return value < (t.criticalLow ?? 999) || value > (t.warningHigh ?? 999)
+   233→  if (param === 'bpDiastolic') return value > (t.warningHigh ?? 999)
+   234→  if (param === 'pulse') return value < (t.criticalLow ?? 999) || value > (t.warningHigh ?? 999)
+   235→  if (param === 'temperature') return value > (t.warningHigh ?? 999)
+   236→  if (param === 'respiratoryRate') return value < (t.criticalLow ?? 999) || value > (t.criticalHigh ?? 999)
+   237→  return false
+   238→}
+   239→
+   240→function getAdminStatusBadge(status: string) {
+   241→  switch (status) {
+   242→    case 'Given': return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-400">Given</Badge>
+   243→    case 'Pending': return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400">Pending</Badge>
+   244→    case 'Overdue': return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">Overdue</Badge>
+   245→    case 'Missed': return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">Missed</Badge>
+   246→    case 'Refused': return <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-950/50 dark:text-orange-400">Refused</Badge>
+   247→    case 'Skipped': return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 dark:bg-slate-950/50 dark:text-slate-400">Skipped</Badge>
+   248→    case 'NotAvailable': return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">Not Avail</Badge>
+   249→    default: return <Badge variant="secondary">{status}</Badge>
+   250→  }
+   251→}
+   252→
+   253→function getSampleStatusBadge(status: string) {
+   254→  switch (status) {
+   255→    case 'Ordered': return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400">Ordered</Badge>
+   256→    case 'Collected': return <Badge className="bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-950/50 dark:text-teal-400">Collected</Badge>
+   257→    case 'SentToLab': return <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-100 dark:bg-sky-950/50 dark:text-sky-400">Sent to Lab</Badge>
+   258→    case 'Reported': return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-400">Reported</Badge>
+   259→    case 'Filed': return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 dark:bg-slate-950/50 dark:text-slate-400">Filed</Badge>
+   260→    default: return <Badge variant="secondary">{status}</Badge>
+   261→  }
+   262→}
+   263→
+   264→function getRouteColor(route: string) {
+   265→  const colors: Record<string, string> = {
+   266→    Oral: 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400',
+   267→    IV: 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400',
+   268→    IM: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400',
+   269→    SC: 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-400',
+   270→    Topical: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400',
+   271→    PR: 'bg-slate-100 text-slate-700 dark:bg-slate-950/50 dark:text-slate-400',
+   272→    Nebulization: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-950/50 dark:text-cyan-400',
+   273→    Inhalation: 'bg-pink-100 text-pink-700 dark:bg-pink-950/50 dark:text-pink-400',
+   274→  }
+   275→  return colors[route] || 'bg-slate-100 text-slate-700'
+   276→}
+   277→
+   278→const SCHEDULED_TIMES = [
+   279→  '6AM', '7AM', '8AM', '9AM', '10AM', '11AM', '12PM',
+   280→  '1PM', '2PM', '3PM', '4PM', '5PM', '6PM', '7PM', '8PM', '9PM', '10PM', '11PM', '12AM',
+   281→]
+   282→
+   283→// ============ SCHEDULED TIME OPTIONS FOR SELECT ============
+   284→const scheduledTimeOptions = SCHEDULED_TIMES.map(t => ({ value: t, label: t }))
+   285→
+   286→function TrendArrow({ current, previous, param }: { current: number; previous: number; param: string }) {
+   287→  if (!previous || previous === 0) return null
+   288→  const diff = current - previous
+   289→  if (Math.abs(diff) === 0) return null
+   290→  // For SpO2: up is good, down is bad
+   291→  // For BP systolic/pulse/temp: up or down can be bad depending on thresholds
+   292→  const isWorse = (param === 'spo2' && diff < 0) || (param === 'spo2' && diff > 0) === false
+   293→  const isWorseActual = (param === 'spo2' && diff < 0) || (param !== 'spo2' && Math.abs(diff) > 0)
+   294→  return (
+   295→    <span className={cn('text-xs', isWorseActual && isAbnormal(param, current) ? 'text-red-500' : 'text-muted-foreground')}>
+   296→      {diff > 0 ? <ArrowUp className="inline h-3 w-3" /> : <ArrowDown className="inline h-3 w-3" />}
+   297→    </span>
+   298→  )
+   299→}
+   300→
+   301→// ============ COMPONENT ============
+   302→
+   303→interface Props {
+   304→  admissionId: string
+   305→}
+   306→
+   307→export default function DoctorIpdPatientClient({ admissionId: admissionIdProp }: Props) {
+   308→  const params = useParams()
+   309→  const admissionId = admissionIdProp || (params.admissionId as string)
+   310→  const router = useRouter()
+   311→  const queryClient = useQueryClient()
+   312→
+   313→  const [activeTab, setActiveTab] = useState('overview')
+   314→  const [showAddOrderDialog, setShowAddOrderDialog] = useState(false)
+   315→  const [showStopDialog, setShowStopDialog] = useState(false)
+   316→  const [stopOrderId, setStopOrderId] = useState('')
+   317→  const [stopReason, setStopReason] = useState('')
+   318→  const [showInvestigationDialog, setShowInvestigationDialog] = useState(false)
+   319→  const [showVisitDialog, setShowVisitDialog] = useState(false)
+   320→
+   321→  // Order form state
+   322→  const [orderForm, setOrderForm] = useState({ drugName: '', route: 'Oral', dose: '', frequency: 'OD', scheduledTime: '8AM', instructions: '', isPrn: false, isStat: false })
+   323→
+   324→  // Investigation form state
+   325→  const [invForm, setInvForm] = useState({ testName: '', sampleType: 'Blood' })
+   326→
+   327→  // Visit form state
+   328→  const [visitForm, setVisitForm] = useState({ examinationFindings: '', currentDiagnosis: '', advise: '' })
+   329→
+   330→  // History form state
+   331→  const [historyForm, setHistoryForm] = useState({ chiefComplaints: '', informant: '', pastHistory: '', personalHistory: { Diabetes: false, Hypertension: false, Asthma: false, Thyroid: false }, habits: { Alcohol: false, Smoking: false, Tobacco: false, allergy: '' }, femaleHistory: { lmp: '', gravida: 0, para: 0, living: 0, abortion: 0 }, drugHistory: '' })
+   332→
+   333→  // Examination form state
+   334→  const [examForm, setExamForm] = useState({ consciousnessLevel: 'Conscious', obeyingCommands: true, respondingToDPS: true, oriented: true, speech: 'Normal', examinationNotes: '', generalSigns: { Pallor: false, Clubbing: false, Icterus: false, Cyanosis: false, Lymphadenopathy: false } })
+   335→
+   336→  // Fetch patient detail
+   337→  const { data, isLoading } = useQuery({
+   338→    queryKey: ['doctor-ipd-patient', admissionId],
+   339→    queryFn: async () => {
+   340→      const res = await fetch(`/api/dashboard/doctor/ipd/patients/${admissionId}`)
+   341→      if (!res.ok) throw new Error('Failed to fetch')
+   342→      return res.json() as Promise<{
+   343→        admission: Admission
+   344→        latestVital: VitalRecord | null
+   345→        vitalAlerts: VitalAlert[]
+   346→        vitalRecords: VitalRecord[]
+   347→        doctorOrders: DoctorOrder[]
+   348→        medicineAdministrations: MedicineAdmin[]
+   349→        sampleCollections: SampleCollection[]
+   350→        investigationReports: InvestigationReport[]
+   351→        doctorVisits: DoctorVisit[]
+   352→      }>
+   353→    },
+   354→    refetchInterval: 30000,
+   355→  })
+   356→
+   357→  // Fetch all orders (including stopped)
+   358→  const { data: allOrdersData } = useQuery({
+   359→    queryKey: ['doctor-ipd-orders-all', admissionId],
+   360→    queryFn: async () => {
+   361→      const res = await fetch(`/api/dashboard/doctor/ipd/patients/${admissionId}/orders`)
+   362→      if (!res.ok) throw new Error('Failed to fetch orders')
+   363→      return res.json() as Promise<{ orders: DoctorOrder[] }>
+   364→    },
+   365→    enabled: activeTab === 'orders',
+   366→  })
+   367→
+   368→  const admission = data?.admission
+   369→  const latestVital = data?.latestVital
+   370→  const vitalAlerts = data?.vitalAlerts || []
+   371→  const vitalRecords = data?.vitalRecords || []
+   372→  const activeOrders = data?.doctorOrders || []
+   373→  const medAdmins = data?.medicineAdministrations || []
+   374→  const sampleCollections = data?.sampleCollections || []
+   375→  const invReports = data?.investigationReports || []
+   376→  const doctorVisits = data?.doctorVisits || []
+   377→  const allOrders = allOrdersData?.orders || []
+   378→
+   379→  // Populate history form on data load
+   380→  useEffect(() => {
+   381→    if (admission) {
+   382→      setHistoryForm({
+   383→        chiefComplaints: admission.chiefComplaints || '',
+   384→        informant: admission.informant || '',
+   385→        pastHistory: admission.pastHistory || '',
+   386→        personalHistory: admission.personalHistory ? JSON.parse(admission.personalHistory) : { Diabetes: false, Hypertension: false, Asthma: false, Thyroid: false },
+   387→        habits: admission.habits ? JSON.parse(admission.habits) : { Alcohol: false, Smoking: false, Tobacco: false, allergy: '' },
+   388→        femaleHistory: admission.femaleHistory ? JSON.parse(admission.femaleHistory) : { lmp: '', gravida: 0, para: 0, living: 0, abortion: 0 },
+   389→        drugHistory: admission.drugHistory || '',
+   390→      })
+   391→      setExamForm({
+   392→        consciousnessLevel: admission.consciousnessLevel || 'Conscious',
+   393→        obeyingCommands: admission.obeyingCommands,
+   394→        respondingToDPS: admission.respondingToDPS,
+   395→        oriented: admission.oriented,
+   396→        speech: admission.speech || 'Normal',
+   397→        examinationNotes: admission.examinationNotes || '',
+   398→        generalSigns: admission.generalSigns ? JSON.parse(admission.generalSigns) : { Pallor: false, Clubbing: false, Icterus: false, Cyanosis: false, Lymphadenopathy: false },
+   399→      })
+   400→    }
+   401→  }, [admission])
+   402→
+   403→  // Mutations
+   404→  const addOrderMutation = useMutation({
+   405→    mutationFn: async () => {
+   406→      const res = await fetch(`/api/dashboard/doctor/ipd/patients/${admissionId}/orders`, {
+   407→        method: 'POST',
+   408→        headers: { 'Content-Type': 'application/json' },
+   409→        body: JSON.stringify(orderForm),
+   410→      })
+   411→      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed') }
+   412→      return res.json()
+   413→    },
+   414→    onSuccess: () => {
+   415→      toast.success('Order added successfully')
+   416→      setShowAddOrderDialog(false)
+   417→      setOrderForm({ drugName: '', route: 'Oral', dose: '', frequency: 'OD', scheduledTime: '8AM', instructions: '', isPrn: false, isStat: false })
+   418→      queryClient.invalidateQueries({ queryKey: ['doctor-ipd-patient', admissionId] })
+   419→      queryClient.invalidateQueries({ queryKey: ['doctor-ipd-orders-all', admissionId] })
+   420→      queryClient.invalidateQueries({ queryKey: ['doctor-ipd-patients'] })
+   421→    },
+   422→    onError: (e) => toast.error(e.message),
+   423→  })
+   424→
+   425→  const stopOrderMutation = useMutation({
+   426→    mutationFn: async () => {
+   427→      const res = await fetch(`/api/dashboard/doctor/ipd/patients/${admissionId}/orders/${stopOrderId}`, {
+   428→        method: 'PUT',
+   429→        headers: { 'Content-Type': 'application/json' },
+   430→        body: JSON.stringify({ action: 'stop', reason: stopReason }),
+   431→      })
+   432→      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed') }
+   433→      return res.json()
+   434→    },
+   435→    onSuccess: () => {
+   436→      toast.success('Order stopped')
+   437→      setShowStopDialog(false)
+   438→      setStopReason('')
+   439→      queryClient.invalidateQueries({ queryKey: ['doctor-ipd-patient', admissionId] })
+   440→      queryClient.invalidateQueries({ queryKey: ['doctor-ipd-orders-all', admissionId] })
+   441→    },
+   442→    onError: (e) => toast.error(e.message),
+   443→  })
+   444→
+   445→  const saveHistoryMutation = useMutation({
+   446→    mutationFn: async () => {
+   447→      const res = await fetch(`/api/dashboard/doctor/ipd/patients/${admissionId}/history`, {
+   448→        method: 'PUT',
+   449→        headers: { 'Content-Type': 'application/json' },
+   450→        body: JSON.stringify({
+   451→          chiefComplaints: historyForm.chiefComplaints,
+   452→          informant: historyForm.informant,
+   453→          pastHistory: historyForm.pastHistory,
+   454→          personalHistory: JSON.stringify(historyForm.personalHistory),
+   455→          habits: JSON.stringify(historyForm.habits),
+   456→          femaleHistory: JSON.stringify(historyForm.femaleHistory),
+   457→          drugHistory: historyForm.drugHistory,
+   458→        }),
+   459→      })
+   460→      if (!res.ok) throw new Error('Failed to save')
+   461→    },
+   462→    onSuccess: () => {
+   463→      toast.success('History saved')
+   464→      queryClient.invalidateQueries({ queryKey: ['doctor-ipd-patient', admissionId] })
+   465→    },
+   466→    onError: () => toast.error('Failed to save history'),
+   467→  })
+   468→
+   469→  const saveExamMutation = useMutation({
+   470→    mutationFn: async () => {
+   471→      const res = await fetch(`/api/dashboard/doctor/ipd/patients/${admissionId}/examination`, {
+   472→        method: 'PUT',
+   473→        headers: { 'Content-Type': 'application/json' },
+   474→        body: JSON.stringify({
+   475→          consciousnessLevel: examForm.consciousnessLevel,
+   476→          obeyingCommands: examForm.obeyingCommands,
+   477→          respondingToDPS: examForm.respondingToDPS,
+   478→          oriented: examForm.oriented,
+   479→          speech: examForm.speech,
+   480→          examinationNotes: examForm.examinationNotes,
+   481→          generalSigns: JSON.stringify(examForm.generalSigns),
+   482→        }),
+   483→      })
+   484→      if (!res.ok) throw new Error('Failed to save')
+   485→    },
+   486→    onSuccess: () => {
+   487→      toast.success('Examination saved')
+   488→      queryClient.invalidateQueries({ queryKey: ['doctor-ipd-patient', admissionId] })
+   489→    },
+   490→    onError: () => toast.error('Failed to save examination'),
+   491→  })
+   492→
+   493→  const orderInvestigationMutation = useMutation({
+   494→    mutationFn: async () => {
+   495→      const res = await fetch(`/api/dashboard/doctor/ipd/patients/${admissionId}/investigations`, {
+   496→        method: 'POST',
+   497→        headers: { 'Content-Type': 'application/json' },
+   498→        body: JSON.stringify(invForm),
+   499→      })
+   500→      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed') }
+   501→      return res.json()
+   502→    },
+   503→    onSuccess: () => {
+   504→      toast.success('Investigation ordered')
+   505→      setShowInvestigationDialog(false)
+   506→      setInvForm({ testName: '', sampleType: 'Blood' })
+   507→      queryClient.invalidateQueries({ queryKey: ['doctor-ipd-patient', admissionId] })
+   508→    },
+   509→    onError: (e) => toast.error(e.message),
+   510→  })
+   511→
+   512→  const addVisitMutation = useMutation({
+   513→    mutationFn: async () => {
+   514→      const res = await fetch(`/api/dashboard/doctor/ipd/patients/${admissionId}/visits`, {
+   515→        method: 'POST',
+   516→        headers: { 'Content-Type': 'application/json' },
+   517→        body: JSON.stringify(visitForm),
+   518→      })
+   519→      if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Failed') }
+   520→      return res.json()
+   521→    },
+   522→    onSuccess: () => {
+   523→      toast.success('Visit note added')
+   524→      setShowVisitDialog(false)
+   525→      setVisitForm({ examinationFindings: '', currentDiagnosis: '', advise: '' })
+   526→      queryClient.invalidateQueries({ queryKey: ['doctor-ipd-patient', admissionId] })
+   527→    },
+   528→    onError: (e) => toast.error(e.message),
+   529→  })
+   530→
+   531→  if (isLoading) {
+   532→    return (
+   533→      <div className="space-y-4 p-4 md:p-6">
+   534→        <Skeleton className="h-8 w-32" />
+   535→        <Skeleton className="h-64 w-full rounded-xl" />
+   536→        <Skeleton className="h-96 w-full rounded-xl" />
+   537→      </div>
+   538→    )
+   539→  }
+   540→
+   541→  if (!admission) {
+   542→    return (
+   543→      <div className="flex flex-col items-center justify-center py-20">
+   544→        <AlertTriangle className="h-12 w-12 text-muted-foreground" />
+   545→        <h2 className="mt-4 text-lg font-medium">Patient not found</h2>
+   546→        <Button variant="outline" className="mt-4" onClick={() => router.push('/dashboard/doctor/ipd')}>
+   547→          <ArrowLeft className="mr-2 h-4 w-4" />Back to IPD Patients
+   548→        </Button>
+   549→      </div>
+   550→    )
+   551→  }
+   552→
+   553→  const pendingMeds = medAdmins.filter(m => m.status === 'Pending').length
+   554→
+   555→  return (
+   556→    <div className="space-y-4 p-4 md:p-6">
+   557→      {/* Back button + header */}
+   558→      <div className="flex items-center gap-3">
+   559→        <Button variant="ghost" size="icon" onClick={() => router.push('/dashboard/doctor/ipd')}>
+   560→          <ArrowLeft className="h-5 w-5" />
+   561→        </Button>
+   562→        <div className="flex-1 min-w-0">
+   563→          <div className="flex items-center gap-2 flex-wrap">
+   564→            <h1 className="text-lg font-bold truncate md:text-xl">{admission.patientName}</h1>
+   565→            <Badge className="bg-violet-100 text-violet-700 hover:bg-violet-100 dark:bg-violet-950/50 dark:text-violet-400 font-mono text-xs">
+   566→              {admission.admissionNo}
+   567→            </Badge>
+   568→            {admission.status === 'Admitted' ? (
+   569→              <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400">Admitted</Badge>
+   570→            ) : admission.status === 'Discharged' ? (
+   571→              <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-400">Discharged</Badge>
+   572→            ) : admission.status === 'DAMA' ? (
+   573→              <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-950/50 dark:text-orange-400">DAMA</Badge>
+   574→            ) : admission.status === 'Expired' ? (
+   575→              <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">Expired</Badge>
+   576→            ) : (
+   577→              <Badge variant="secondary">{admission.status}</Badge>
+   578→            )}
+   579→          </div>
+   580→          <p className="text-sm text-muted-foreground">
+   581→            {admission.patientAge}y / {admission.patientGender} · {admission.wardName} — Bed {admission.bedNumber} · {admission.departmentName}
+   582→          </p>
+   583→        </div>
+   584→      </div>
+   585→
+   586→      {/* Critical Alerts */}
+   587→      {vitalAlerts.length > 0 && (
+   588→        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+   589→          <Card className="border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30">
+   590→            <CardContent className="p-3">
+   591→              <div className="flex items-center gap-2">
+   592→                <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
+   593→                <div className="flex-1 flex flex-wrap gap-2">
+   594→                  {vitalAlerts.map((a, i) => (
+   595→                    <Badge key={i} className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">
+   596→                      {a.message}
+   597→                    </Badge>
+   598→                  ))}
+   599→                </div>
+   600→              </div>
+   601→            </CardContent>
+   602→          </Card>
+   603→        </motion.div>
+   604→      )}
+   605→
+   606→      {/* Tabs */}
+   607→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   608→        <TabsList className="w-full flex flex-wrap h-auto gap-1 bg-muted/50 p-1">
+   609→          <TabsTrigger value="overview" className="text-xs sm:text-sm">
+   610→            <Eye className="mr-1 h-3.5 w-3.5 hidden sm:inline" />Overview
+   611→          </TabsTrigger>
+   612→          <TabsTrigger value="orders" className="text-xs sm:text-sm">
+   613→            <ClipboardList className="mr-1 h-3.5 w-3.5 hidden sm:inline" />
+   614→            Orders
+   615→            {activeOrders.length > 0 && <Badge className="ml-1.5 bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400 text-xs px-1.5 py-0">{activeOrders.length}</Badge>}
+   616→          </TabsTrigger>
+   617→          <TabsTrigger value="vitals" className="text-xs sm:text-sm">
+   618→            <Activity className="mr-1 h-3.5 w-3.5 hidden sm:inline" />Vitals
+   619→          </TabsTrigger>
+   620→          <TabsTrigger value="history" className="text-xs sm:text-sm">
+   621→            <History className="mr-1 h-3.5 w-3.5 hidden sm:inline" />History
+   622→          </TabsTrigger>
+   623→          <TabsTrigger value="examination" className="text-xs sm:text-sm">
+   624→            <Stethoscope className="mr-1 h-3.5 w-3.5 hidden sm:inline" />Exam
+   625→          </TabsTrigger>
+   626→          <TabsTrigger value="investigations" className="text-xs sm:text-sm">
+   627→            <FlaskConical className="mr-1 h-3.5 w-3.5 hidden sm:inline" />Investigations
+   628→          </TabsTrigger>
+   629→          <TabsTrigger value="visits" className="text-xs sm:text-sm">
+   630→            <Calendar className="mr-1 h-3.5 w-3.5 hidden sm:inline" />Visits
+   631→          </TabsTrigger>
+   632→        </TabsList>
+   633→
+   634→        {/* ====== OVERVIEW TAB ====== */}
+   635→        <TabsContent value="overview" className="space-y-4 mt-4">
+   636→          <div className="grid gap-4 md:grid-cols-2">
+   637→            {/* Patient Info Card */}
+   638→            <Card>
+   639→              <CardHeader className="pb-3">
+   640→                <CardTitle className="text-base flex items-center gap-2">
+   641→                  <User className="h-4 w-4 text-teal-600" />Patient Information
+   642→                </CardTitle>
+   643→              </CardHeader>
+   644→              <CardContent className="space-y-2 text-sm">
+   645→                <div className="grid grid-cols-2 gap-y-2">
+   646→                  <span className="text-muted-foreground">Name:</span><span className="font-medium">{admission.patientName}</span>
+   647→                  <span className="text-muted-foreground">Age/Gender:</span><span>{admission.patientAge}y / {admission.patientGender}</span>
+   648→                  <span className="text-muted-foreground">Blood Group:</span><span>{admission.bloodGroup || '—'}</span>
+   649→                  <span className="text-muted-foreground">Marital Status:</span><span>{admission.maritalStatus || '—'}</span>
+   650→                  <span className="text-muted-foreground">Mobile:</span><span>{admission.mobileNo || '—'}</span>
+   651→                  <span className="text-muted-foreground">Father:</span><span>{admission.fatherName || '—'}</span>
+   652→                  <span className="text-muted-foreground">Contact:</span><span>{admission.contactPersonName} ({admission.contactPersonRelation}) {admission.contactPersonMobile}</span>
+   653→                  <span className="text-muted-foreground">Address:</span><span className="col-span-1">{admission.address || '—'}</span>
+   654→                </div>
+   655→                {admission.mlcCase && (
+   656→                  <Badge className="bg-red-100 text-red-700 hover:bg-red-100">MLC Case</Badge>
+   657→                )}
+   658→              </CardContent>
+   659→            </Card>
+   660→
+   661→            {/* Admission Details Card */}
+   662→            <Card>
+   663→              <CardHeader className="pb-3">
+   664→                <CardTitle className="text-base flex items-center gap-2">
+   665→                  <BedDouble className="h-4 w-4 text-amber-600" />Admission Details
+   666→                </CardTitle>
+   667→              </CardHeader>
+   668→              <CardContent className="space-y-2 text-sm">
+   669→                <div className="grid grid-cols-2 gap-y-2">
+   670→                  <span className="text-muted-foreground">Admission No:</span>
+   671→                  <span className="font-mono text-violet-600">{admission.admissionNo}</span>
+   672→                  <span className="text-muted-foreground">Date/Time:</span>
+   673→                  <span>{format(new Date(admission.admissionDate), 'dd MMM yyyy')} {admission.admissionTime}</span>
+   674→                  <span className="text-muted-foreground">Ward:</span><span>{admission.wardName} ({admission.wardType})</span>
+   675→                  <span className="text-muted-foreground">Bed:</span><span>{admission.bedNumber} — {admission.bedType}</span>
+   676→                  <span className="text-muted-foreground">Department:</span><span>{admission.departmentName}</span>
+   677→                  <span className="text-muted-foreground">Hospital:</span><span>{admission.hospitalName}</span>
+   678→                  <span className="text-muted-foreground">Initial Dx:</span><span className="font-medium">{admission.initialDiagnosis || '—'}</span>
+   679→                  {admission.referringDoctorName && (
+   680→                    <><span className="text-muted-foreground">Referred By:</span><span>{admission.referringDoctorName}</span></>
+   681→                  )}
+   682→                </div>
+   683→              </CardContent>
+   684→            </Card>
+   685→          </div>
+   686→
+   687→          {/* Latest Vitals Large Display */}
+   688→          {latestVital && (
+   689→            <Card>
+   690→              <CardHeader className="pb-3">
+   691→                <CardTitle className="text-base flex items-center justify-between">
+   692→                  <div className="flex items-center gap-2">
+   693→                    <Activity className="h-4 w-4 text-teal-600" />Latest Vitals
+   694→                  </div>
+   695→                  <span className="text-xs font-normal text-muted-foreground">
+   696→                    {formatDistanceToNow(new Date(latestVital.recordedAt), { addSuffix: true })}
+   697→                  </span>
+   698→                </CardTitle>
+   699→              </CardHeader>
+   700→              <CardContent>
+   701→                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+   702→                  {[
+   703→                    { label: 'Temp', value: latestVital.temperature, unit: '°F', icon: Thermometer, param: 'temperature' },
+   704→                    { label: 'Pulse', value: latestVital.pulse, unit: 'bpm', icon: Heart, param: 'pulse' },
+   705→                    { label: 'BP', value: `${latestVital.bpSystolic}/${latestVital.bpDiastolic}`, unit: 'mmHg', icon: Droplets, param: 'bpSystolic', numVal: latestVital.bpSystolic },
+   706→                    { label: 'SpO2', value: latestVital.spo2, unit: '%', icon: Wind, param: 'spo2' },
+   707→                    { label: 'RR', value: latestVital.respiratoryRate, unit: '/min', icon: Activity, param: 'respiratoryRate' },
+   708→                    { label: 'RBS', value: latestVital.rbs, unit: 'mg/dl', icon: Droplets, param: 'rbs', numVal: latestVital.rbs },
+   709→                  ].map((v) => {
+   710→                    const numValue = v.numVal !== undefined ? v.numVal : typeof v.value === 'number' ? v.value : 0
+   711→                    const abnormal = v.param && v.param !== 'rbs' ? isAbnormal(v.param, numValue) : false
+   712→                    return (
+   713→                      <div key={v.label} className={cn('rounded-lg p-3 text-center', abnormal ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50' : 'bg-muted/50')}>
+   714→                        <v.icon className={cn('mx-auto h-5 w-5 mb-1', abnormal ? 'text-red-500' : 'text-muted-foreground')} />
+   715→                        <p className={cn('text-2xl font-bold', abnormal ? 'text-red-600' : 'text-foreground')}>{v.value}</p>
+   716→                        <p className="text-xs text-muted-foreground">{v.label} <span className="opacity-70">{v.unit}</span></p>
+   717→                      </div>
+   718→                    )
+   719→                  })}
+   720→                </div>
+   721→                {latestVital.remarks && (
+   722→                  <p className="mt-3 text-sm text-muted-foreground">Remarks: {latestVital.remarks}</p>
+   723→                )}
+   724→              </CardContent>
+   725→            </Card>
+   726→          )}
+   727→
+   728→          {/* Active Orders Summary + Med Admin Status */}
+   729→          <div className="grid gap-4 md:grid-cols-2">
+   730→            <Card>
+   731→              <CardHeader className="pb-3">
+   732→                <CardTitle className="text-base flex items-center gap-2">
+   733→                  <ClipboardList className="h-4 w-4 text-teal-600" />Active Orders ({activeOrders.length})
+   734→                </CardTitle>
+   735→              </CardHeader>
+   736→              <CardContent>
+   737→                {activeOrders.length === 0 ? (
+   738→                  <p className="text-sm text-muted-foreground">No active orders</p>
+   739→                ) : (
+   740→                  <div className="space-y-2 max-h-64 overflow-y-auto">
+   741→                    {activeOrders.slice(0, 10).map((o) => (
+   742→                      <div key={o.id} className="flex items-center gap-2 text-sm p-2 rounded-lg bg-muted/30">
+   743→                        <Pill className="h-4 w-4 text-teal-600 shrink-0" />
+   744→                        <div className="flex-1 min-w-0">
+   745→                          <p className="font-medium truncate">{o.drugName} {o.dose}</p>
+   746→                          <p className="text-xs text-muted-foreground">{o.route} · {o.frequency} · {o.scheduledTime}</p>
+   747→                        </div>
+   748→                        <Badge className={cn('text-xs shrink-0', getRouteColor(o.route))}>{o.route}</Badge>
+   749→                      </div>
+   750→                    ))}
+   751→                  </div>
+   752→                )}
+   753→              </CardContent>
+   754→            </Card>
+   755→
+   756→            <Card>
+   757→              <CardHeader className="pb-3">
+   758→                <CardTitle className="text-base flex items-center gap-2">
+   759→                  <Pill className="h-4 w-4 text-amber-600" />Today's Medicine Administration
+   760→                  {pendingMeds > 0 && (
+   761→                    <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400 ml-auto">
+   762→                      {pendingMeds} pending
+   763→                    </Badge>
+   764→                  )}
+   765→                </CardTitle>
+   766→              </CardHeader>
+   767→              <CardContent>
+   768→                {medAdmins.length === 0 ? (
+   769→                  <p className="text-sm text-muted-foreground">No medicine administrations today</p>
+   770→                ) : (
+   771→                  <div className="space-y-2 max-h-64 overflow-y-auto">
+   772→                    {medAdmins.map((m) => (
+   773→                      <div key={m.id} className="flex items-center gap-2 text-sm p-2 rounded-lg bg-muted/30">
+   774→                        <div className="flex-1 min-w-0">
+   775→                          <p className="font-medium truncate">{m.drugName} {m.dose}</p>
+   776→                          <p className="text-xs text-muted-foreground">
+   777→                            {m.route} · Scheduled: {format(new Date(m.scheduledTime), 'hh:mm a')}
+   778→                            {m.administeredTime && ` · Given: ${format(new Date(m.administeredTime), 'hh:mm a')}`}
+   779→                            {m.nurseName && ` · R. ${m.nurseName}`}
+   780→                          </p>
+   781→                        </div>
+   782→                        {getAdminStatusBadge(m.status)}
+   783→                      </div>
+   784→                    ))}
+   785→                  </div>
+   786→                )}
+   787→              </CardContent>
+   788→            </Card>
+   789→          </div>
+   790→        </TabsContent>
+   791→
+   792→        {/* ====== ORDERS TAB ====== */}
+   793→        <TabsContent value="orders" className="space-y-4 mt-4">
+   794→          <div className="flex items-center justify-between">
+   795→            <h2 className="text-lg font-semibold">Order Sheet (Form 5)</h2>
+   796→            <Dialog open={showAddOrderDialog} onOpenChange={setShowAddOrderDialog}>
+   797→              <DialogTrigger asChild>
+   798→                <Button className="bg-teal-600 hover:bg-teal-700">
+   799→                  <Plus className="mr-2 h-4 w-4" />Add Order
+   800→                </Button>
+   801→              </DialogTrigger>
+   802→              <DialogContent className="sm:max-w-md">
+   803→                <DialogHeader>
+   804→                  <DialogTitle>New Doctor Order</DialogTitle>
+   805→                  <DialogDescription>Add a new medication order for this patient.</DialogDescription>
+   806→                </DialogHeader>
+   807→                <div className="space-y-4">
+   808→                  <div>
+   809→                    <Label>Drug Name *</Label>
+   810→                    <Input value={orderForm.drugName} onChange={(e) => setOrderForm({ ...orderForm, drugName: e.target.value })} placeholder="e.g. Tab. Paracetamol" />
+   811→                  </div>
+   812→                  <div className="grid grid-cols-2 gap-4">
+   813→                    <div>
+   814→                      <Label>Route *</Label>
+   815→                      <Select value={orderForm.route} onValueChange={(v) => setOrderForm({ ...orderForm, route: v })}>
+   816→                        <SelectTrigger><SelectValue /></SelectTrigger>
+   817→                        <SelectContent>
+   818→                          {MEDICINE_ROUTES.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+   819→                        </SelectContent>
+   820→                      </Select>
+   821→                    </div>
+   822→                    <div>
+   823→                      <Label>Dose *</Label>
+   824→                      <Input value={orderForm.dose} onChange={(e) => setOrderForm({ ...orderForm, dose: e.target.value })} placeholder="e.g. 500mg" />
+   825→                    </div>
+   826→                  </div>
+   827→                  <div className="grid grid-cols-2 gap-4">
+   828→                    <div>
+   829→                      <Label>Frequency *</Label>
+   830→                      <Select value={orderForm.frequency} onValueChange={(v) => setOrderForm({ ...orderForm, frequency: v })}>
+   831→                        <SelectTrigger><SelectValue /></SelectTrigger>
+   832→                        <SelectContent>
+   833→                          {FREQUENCY_OPTIONS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label} — {f.desc}</SelectItem>)}
+   834→                        </SelectContent>
+   835→                      </Select>
+   836→                    </div>
+   837→                    <div>
+   838→                      <Label>Scheduled Time *</Label>
+   839→                      <Select value={orderForm.scheduledTime} onValueChange={(v) => setOrderForm({ ...orderForm, scheduledTime: v })}>
+   840→                        <SelectTrigger><SelectValue /></SelectTrigger>
+   841→                        <SelectContent>
+   842→                          {scheduledTimeOptions.map((t) => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}
+   843→                        </SelectContent>
+   844→                      </Select>
+   845→                    </div>
+   846→                  </div>
+   847→                  <div>
+   848→                    <Label>Instructions (optional)</Label>
+   849→                    <Input value={orderForm.instructions} onChange={(e) => setOrderForm({ ...orderForm, instructions: e.target.value })} placeholder="e.g. After food, Slow IV push" />
+   850→                  </div>
+   851→                  <div className="flex items-center gap-6">
+   852→                    <div className="flex items-center gap-2">
+   853→                      <Switch checked={orderForm.isPrn} onCheckedChange={(c) => setOrderForm({ ...orderForm, isPrn: c })} />
+   854→                      <Label className="text-sm">PRN (SOS)</Label>
+   855→                    </div>
+   856→                    <div className="flex items-center gap-2">
+   857→                      <Switch checked={orderForm.isStat} onCheckedChange={(c) => setOrderForm({ ...orderForm, isStat: c })} />
+   858→                      <Label className="text-sm">STAT</Label>
+   859→                    </div>
+   860→                  </div>
+   861→                </div>
+   862→                <DialogFooter>
+   863→                  <Button variant="outline" onClick={() => setShowAddOrderDialog(false)}>Cancel</Button>
+   864→                  <Button className="bg-teal-600 hover:bg-teal-700" onClick={() => addOrderMutation.mutate()} disabled={addOrderMutation.isPending || !orderForm.drugName || !orderForm.dose}>
+   865→                    {addOrderMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+   866→                    Add Order
+   867→                  </Button>
+   868→                </DialogFooter>
+   869→              </DialogContent>
+   870→            </Dialog>
+   871→          </div>
+   872→
+   873→          {/* Orders Table */}
+   874→          <div className="rounded-xl border bg-card">
+   875→            <Table>
+   876→              <TableHeader>
+   877→                <TableRow className="hover:bg-transparent">
+   878→                  <TableHead>Drug Name</TableHead>
+   879→                  <TableHead>Route</TableHead>
+   880→                  <TableHead>Dose</TableHead>
+   881→                  <TableHead>Frequency</TableHead>
+   882→                  <TableHead>Time</TableHead>
+   883→                  <TableHead>Instructions</TableHead>
+   884→                  <TableHead>Status</TableHead>
+   885→                  <TableHead className="text-right">Actions</TableHead>
+   886→                </TableRow>
+   887→              </TableHeader>
+   888→              <TableBody>
+   889→                {allOrders.length === 0 ? (
+   890→                  <TableRow>
+   891→                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+   892→                      No orders yet. Click &quot;Add Order&quot; to create one.
+   893→                    </TableCell>
+   894→                  </TableRow>
+   895→                ) : (
+   896→                  allOrders.map((o) => (
+   897→                    <TableRow key={o.id} className={cn(o.status === 'Stopped' && 'opacity-60')}>
+   898→                      <TableCell>
+   899→                        <div>
+   900→                          <p className="font-medium">{o.drugName}</p>
+   901→                          <div className="flex gap-1 mt-0.5">
+   902→                            {o.isStat && <Badge className="bg-red-100 text-red-700 hover:bg-red-100 text-xs px-1.5 py-0">STAT</Badge>}
+   903→                            {o.isPrn && <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-xs px-1.5 py-0">PRN</Badge>}
+   904→                          </div>
+   905→                        </div>
+   906→                      </TableCell>
+   907→                      <TableCell><Badge className={cn('text-xs', getRouteColor(o.route))}>{o.route}</Badge></TableCell>
+   908→                      <TableCell className="font-mono text-sm">{o.dose}</TableCell>
+   909→                      <TableCell className="text-sm">{o.frequency}</TableCell>
+   910→                      <TableCell className="text-sm">{o.scheduledTime}</TableCell>
+   911→                      <TableCell className="text-sm text-muted-foreground max-w-[150px] truncate">{o.instructions || '—'}</TableCell>
+   912→                      <TableCell>
+   913→                        {o.status === 'Active' ? (
+   914→                          <Badge className="bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-950/50 dark:text-teal-400">Active</Badge>
+   915→                        ) : (
+   916→                          <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">Stopped</Badge>
+   917→                        )}
+   918→                      </TableCell>
+   919→                      <TableCell className="text-right">
+   920→                        {o.status === 'Active' && (
+   921→                          <Button
+   922→                            variant="ghost"
+   923→                            size="sm"
+   924→                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+   925→                            onClick={() => {
+   926→                              setStopOrderId(o.id)
+   927→                              setShowStopDialog(true)
+   928→                            }}
+   929→                          >
+   930→                            <Square className="mr-1 h-3.5 w-3.5" />Stop
+   931→                          </Button>
+   932→                        )}
+   933→                        {o.status === 'Stopped' && o.stoppedReason && (
+   934→                          <span className="text-xs text-muted-foreground" title={o.stoppedReason}>
+   935→                            {o.stoppedReason.length > 20 ? o.stoppedReason.slice(0, 20) + '...' : o.stoppedReason}
+   936→                          </span>
+   937→                        )}
+   938→                      </TableCell>
+   939→                    </TableRow>
+   940→                  ))
+   941→                )}
+   942→              </TableBody>
+   943→            </Table>
+   944→          </div>
+   945→
+   946→          {/* Stop Order Confirmation */}
+   947→          <AlertDialog open={showStopDialog} onOpenChange={setShowStopDialog}>
+   948→            <AlertDialogContent>
+   949→              <AlertDialogHeader>
+   950→                <AlertDialogTitle>Stop Order</AlertDialogTitle>
+   951→                <AlertDialogDescription>
+   952→                  Are you sure you want to stop this order? This action cannot be undone.
+   953→                </AlertDialogDescription>
+   954→              </AlertDialogHeader>
+   955→              <div className="py-2">
+   956→                <Label>Reason for stopping *</Label>
+   957→                <Input value={stopReason} onChange={(e) => setStopReason(e.target.value)} placeholder="e.g. No longer needed, Side effects..." />
+   958→              </div>
+   959→              <AlertDialogFooter>
+   960→                <AlertDialogCancel>Cancel</AlertDialogCancel>
+   961→                <AlertDialogAction
+   962→                  className="bg-red-600 hover:bg-red-700"
+   963→                  onClick={() => stopOrderMutation.mutate()}
+   964→                  disabled={stopOrderMutation.isPending || !stopReason}
+   965→                >
+   966→                  {stopOrderMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+   967→                  Stop Order
+   968→                </AlertDialogAction>
+   969→              </AlertDialogFooter>
+   970→            </AlertDialogContent>
+   971→          </AlertDialog>
+   972→        </TabsContent>
+   973→
+   974→        {/* ====== VITALS TAB ====== */}
+   975→        <TabsContent value="vitals" className="space-y-4 mt-4">
+   976→          <div className="flex items-center justify-between">
+   977→            <h2 className="text-lg font-semibold">Vitals — Last 24 Hours</h2>
+   978→          </div>
+   979→
+   980→          {vitalRecords.length === 0 ? (
+   981→            <Card>
+   982→              <CardContent className="py-12 text-center text-muted-foreground">
+   983→                <Activity className="mx-auto h-10 w-10 text-muted-foreground/50" />
+   984→                <p className="mt-3">No vitals recorded yet</p>
+   985→              </CardContent>
+   986→            </Card>
+   987→          ) : (
+   988→            <div className="rounded-xl border bg-card overflow-x-auto">
+   989→              <Table>
+   990→                <TableHeader>
+   991→                  <TableRow className="hover:bg-transparent">
+   992→                    <TableHead className="sticky left-0 bg-card z-10">Time</TableHead>
+   993→                    <TableHead>Temp (°F)</TableHead>
+   994→                    <TableHead>Pulse</TableHead>
+   995→                    <TableHead>BP (mmHg)</TableHead>
+   996→                    <TableHead>SpO2 (%)</TableHead>
+   997→                    <TableHead>RR</TableHead>
+   998→                    <TableHead>I/O (ml)</TableHead>
+   999→                    <TableHead>O₂</TableHead>
+  1000→                    <TableHead>RBS</TableHead>
+  1001→                    <TableHead>Remarks</TableHead>
+  1002→                  </TableRow>
+  1003→                </TableHeader>
+  1004→                <TableBody>
+  1005→                  {vitalRecords.map((v, idx) => {
+  1006→                    const prev = vitalRecords[idx + 1]
+  1007→                    return (
+  1008→                      <TableRow key={v.id}>
+  1009→                        <TableCell className="sticky left-0 bg-card z-10 font-mono text-xs whitespace-nowrap">
+  1010→                          {format(new Date(v.recordedAt), 'dd MMM hh:mm a')}
+  1011→                        </TableCell>
+  1012→                        <TableCell className={cn('font-mono', isAbnormal('temperature', v.temperature) && 'text-red-600 font-bold')}>
+  1013→                          {v.temperature || '—'}
+  1014→                          <TrendArrow current={v.temperature} previous={prev?.temperature || 0} param="temperature" />
+  1015→                        </TableCell>
+  1016→                        <TableCell className={cn('font-mono', isAbnormal('pulse', v.pulse) && 'text-red-600 font-bold')}>
+  1017→                          {v.pulse || '—'}
+  1018→                          <TrendArrow current={v.pulse} previous={prev?.pulse || 0} param="pulse" />
+  1019→                        </TableCell>
+  1020→                        <TableCell className={cn('font-mono', isAbnormal('bpSystolic', v.bpSystolic) && 'text-red-600 font-bold')}>
+  1021→                          {v.bpSystolic || 0}/{v.bpDiastolic || 0}
+  1022→                          <TrendArrow current={v.bpSystolic} previous={prev?.bpSystolic || 0} param="bpSystolic" />
+  1023→                        </TableCell>
+  1024→                        <TableCell className={cn('font-mono', isAbnormal('spo2', v.spo2) && 'text-red-600 font-bold')}>
+  1025→                          {v.spo2 || '—'}
+  1026→                          <TrendArrow current={v.spo2} previous={prev?.spo2 || 0} param="spo2" />
+  1027→                        </TableCell>
+  1028→                        <TableCell className={cn('font-mono', isAbnormal('respiratoryRate', v.respiratoryRate) && 'text-red-600 font-bold')}>
+  1029→                          {v.respiratoryRate || '—'}
+  1030→                          <TrendArrow current={v.respiratoryRate} previous={prev?.respiratoryRate || 0} param="respiratoryRate" />
+  1031→                        </TableCell>
+  1032→                        <TableCell className="font-mono text-sm">
+  1033→                          <span className="text-teal-600">{v.inputMl || 0}↓</span> / <span className="text-amber-600">{(v.urineMl || 0) + (v.outputMl || 0)}↑</span>
+  1034→                        </TableCell>
+  1035→                        <TableCell className="text-sm">{v.oxygenLiters > 0 ? `${v.oxygenLiters}L` : '—'}</TableCell>
+  1036→                        <TableCell className="font-mono text-sm">{v.rbs || '—'}</TableCell>
+  1037→                        <TableCell className="text-xs text-muted-foreground max-w-[120px] truncate">{v.remarks || '—'}</TableCell>
+  1038→                      </TableRow>
+  1039→                    )
+  1040→                  })}
+  1041→                </TableBody>
+  1042→              </Table>
+  1043→            </div>
+  1044→          )}
+  1045→        </TabsContent>
+  1046→
+  1047→        {/* ====== HISTORY TAB ====== */}
+  1048→        <TabsContent value="history" className="space-y-4 mt-4">
+  1049→          <div className="flex items-center justify-between">
+  1050→            <h2 className="text-lg font-semibold">History Sheet (Form 2)</h2>
+  1051→            <Button className="bg-teal-600 hover:bg-teal-700" onClick={() => saveHistoryMutation.mutate()} disabled={saveHistoryMutation.isPending}>
+  1052→              {saveHistoryMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+  1053→              Save History
+  1054→            </Button>
+  1055→          </div>
+  1056→
+  1057→          <div className="grid gap-4 md:grid-cols-2">
+  1058→            <Card>
+  1059→              <CardContent className="p-4 space-y-4">
+  1060→                <div>
+  1061→                  <Label>Chief Complaints</Label>
+  1062→                  <Textarea value={historyForm.chiefComplaints} onChange={(e) => setHistoryForm({ ...historyForm, chiefComplaints: e.target.value })} rows={3} placeholder="e.g. Fever x 5 days, cough with expectoration, breathlessness..." />
+  1063→                </div>
+  1064→                <div>
+  1065→                  <Label>Informant</Label>
+  1066→                  <Input value={historyForm.informant} onChange={(e) => setHistoryForm({ ...historyForm, informant: e.target.value })} placeholder="e.g. Patient, Father, Wife" />
+  1067→                </div>
+  1068→                <div>
+  1069→                  <Label>Past History</Label>
+  1070→                  <Textarea value={historyForm.pastHistory} onChange={(e) => setHistoryForm({ ...historyForm, pastHistory: e.target.value })} rows={3} placeholder="Previous medical/surgical history..." />
+  1071→                </div>
+  1072→                <div>
+  1073→                  <Label>Drug History</Label>
+  1074→                  <Textarea value={historyForm.drugHistory} onChange={(e) => setHistoryForm({ ...historyForm, drugHistory: e.target.value })} rows={2} placeholder="Current medications, drug allergies..." />
+  1075→                </div>
+  1076→              </CardContent>
+  1077→            </Card>
+  1078→
+  1079→            <div className="space-y-4">
+  1080→              <Card>
+  1081→                <CardHeader className="pb-3">
+  1082→                  <CardTitle className="text-sm">Personal History</CardTitle>
+  1083→                </CardHeader>
+  1084→                <CardContent className="space-y-3">
+  1085→                  {(['Diabetes', 'Hypertension', 'Asthma', 'Thyroid'] as const).map((condition) => (
+  1086→                    <div key={condition} className="flex items-center gap-2">
+  1087→                      <Checkbox checked={historyForm.personalHistory[condition] || false} onCheckedChange={(c) => setHistoryForm({ ...historyForm, personalHistory: { ...historyForm.personalHistory, [condition]: !!c } })} />
+  1088→                      <Label className="text-sm">{condition}</Label>
+  1089→                    </div>
+  1090→                  ))}
+  1091→                </CardContent>
+  1092→              </Card>
+  1093→
+  1094→              <Card>
+  1095→                <CardHeader className="pb-3">
+  1096→                  <CardTitle className="text-sm">Habits</CardTitle>
+  1097→                </CardHeader>
+  1098→                <CardContent className="space-y-3">
+  1099→                  {(['Alcohol', 'Smoking', 'Tobacco'] as const).map((h) => (
+  1100→                    <div key={h} className="flex items-center gap-2">
+  1101→                      <Checkbox checked={historyForm.habits[h] || false} onCheckedChange={(c) => setHistoryForm({ ...historyForm, habits: { ...historyForm.habits, [h]: !!c } })} />
+  1102→                      <Label className="text-sm">{h}</Label>
+  1103→                    </div>
+  1104→                  ))}
+  1105→                  <div>
+  1106→                    <Label className="text-sm">Allergies</Label>
+  1107→                    <Input value={historyForm.habits.allergy || ''} onChange={(e) => setHistoryForm({ ...historyForm, habits: { ...historyForm.habits, allergy: e.target.value } })} placeholder="e.g. Penicillin, Sulfa" />
+  1108→                  </div>
+  1109→                </CardContent>
+  1110→              </Card>
+  1111→
+  1112→              {admission.patientGender === 'Female' && (
+  1113→                <Card>
+  1114→                  <CardHeader className="pb-3">
+  1115→                    <CardTitle className="text-sm">Female History (Obstetric)</CardTitle>
+  1116→                  </CardHeader>
+  1117→                  <CardContent>
+  1118→                    <div className="space-y-3">
+  1119→                      <div>
+  1120→                        <Label className="text-sm">LMP Date</Label>
+  1121→                        <Input type="date" value={historyForm.femaleHistory.lmp} onChange={(e) => setHistoryForm({ ...historyForm, femaleHistory: { ...historyForm.femaleHistory, lmp: e.target.value } })} />
+  1122→                      </div>
+  1123→                      <div className="grid grid-cols-4 gap-2">
+  1124→                        {(['gravida', 'para', 'living', 'abortion'] as const).map((f) => (
+  1125→                          <div key={f}>
+  1126→                            <Label className="text-xs capitalize">{f}</Label>
+  1127→                            <Input type="number" min={0} value={historyForm.femaleHistory[f]} onChange={(e) => setHistoryForm({ ...historyForm, femaleHistory: { ...historyForm.femaleHistory, [f]: parseInt(e.target.value) || 0 } })} className="h-8" />
+  1128→                          </div>
+  1129→                        ))}
+  1130→                      </div>
+  1131→                    </div>
+  1132→                  </CardContent>
+  1133→                </Card>
+  1134→              )}
+  1135→            </div>
+  1136→          </div>
+  1137→        </TabsContent>
+  1138→
+  1139→        {/* ====== EXAMINATION TAB ====== */}
+  1140→        <TabsContent value="examination" className="space-y-4 mt-4">
+  1141→          <div className="flex items-center justify-between">
+  1142→            <h2 className="text-lg font-semibold">Physical Examination (Form 6)</h2>
+  1143→            <Button className="bg-teal-600 hover:bg-teal-700" onClick={() => saveExamMutation.mutate()} disabled={saveExamMutation.isPending}>
+  1144→              {saveExamMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+  1145→              Save Examination
+  1146→            </Button>
+  1147→          </div>
+  1148→
+  1149→          <div className="grid gap-4 md:grid-cols-2">
+  1150→            <Card>
+  1151→              <CardContent className="p-4 space-y-4">
+  1152→                <div>
+  1153→                  <Label>Consciousness Level</Label>
+  1154→                  <Select value={examForm.consciousnessLevel} onValueChange={(v) => setExamForm({ ...examForm, consciousnessLevel: v })}>
+  1155→                    <SelectTrigger><SelectValue /></SelectTrigger>
+  1156→                    <SelectContent>
+  1157→                      <SelectItem value="Conscious">Conscious</SelectItem>
+  1158→                      <SelectItem value="Semiconscious">Semiconscious</SelectItem>
+  1159→                      <SelectItem value="Unconscious">Unconscious</SelectItem>
+  1160→                    </SelectContent>
+  1161→                  </Select>
+  1162→                </div>
+  1163→                <div>
+  1164→                  <Label>Speech</Label>
+  1165→                  <Select value={examForm.speech} onValueChange={(v) => setExamForm({ ...examForm, speech: v })}>
+  1166→                    <SelectTrigger><SelectValue /></SelectTrigger>
+  1167→                    <SelectContent>
+  1168→                      <SelectItem value="Normal">Normal</SelectItem>
+  1169→                      <SelectItem value="Aphasia">Aphasia</SelectItem>
+  1170→                      <SelectItem value="Slurred">Slurred</SelectItem>
+  1171→                    </SelectContent>
+  1172→                  </Select>
+  1173→                </div>
+  1174→                <div className="space-y-3">
+  1175→                  {([
+  1176→                    ['obeyingCommands', 'Obeying Commands'],
+  1177→                    ['respondingToDPS', 'Responding to DPS'],
+  1178→                    ['oriented', 'Oriented (Time/Place/Person)'],
+  1179→                  ] as const).map(([key, label]) => (
+  1180→                    <div key={key} className="flex items-center justify-between">
+  1181→                      <Label className="text-sm">{label}</Label>
+  1182→                      <Switch checked={examForm[key]} onCheckedChange={(c) => setExamForm({ ...examForm, [key]: !!c })} />
+  1183→                    </div>
+  1184→                  ))}
+  1185→                </div>
+  1186→              </CardContent>
+  1187→            </Card>
+  1188→
+  1189→            <div className="space-y-4">
+  1190→              <Card>
+  1191→                <CardHeader className="pb-3">
+  1192→                  <CardTitle className="text-sm">General Signs</CardTitle>
+  1193→                </CardHeader>
+  1194→                <CardContent className="space-y-3">
+  1195→                  {(['Pallor', 'Clubbing', 'Icterus', 'Cyanosis', 'Lymphadenopathy'] as const).map((sign) => (
+  1196→                    <div key={sign} className="flex items-center gap-2">
+  1197→                      <Checkbox checked={examForm.generalSigns[sign] || false} onCheckedChange={(c) => setExamForm({ ...examForm, generalSigns: { ...examForm.generalSigns, [sign]: !!c } })} />
+  1198→                      <Label className="text-sm">{sign}</Label>
+  1199→                    </div>
+  1200→                  ))}
+  1201→                </CardContent>
+  1202→              </Card>
+  1203→
+  1204→              <Card>
+  1205→                <CardContent className="p-4">
+  1206→                  <Label>Examination Notes (RS, CVS, P/A, CNS)</Label>
+  1207→                  <Textarea value={examForm.examinationNotes} onChange={(e) => setExamForm({ ...examForm, examinationNotes: e.target.value })} rows={6} placeholder="RS: Air entry bilateral, CVS: S1 S2 normal, P/A: Soft, non-tender, CNS: Conscious, oriented..." className="mt-2" />
+  1208→                </CardContent>
+  1209→              </Card>
+  1210→            </div>
+  1211→          </div>
+  1212→        </TabsContent>
+  1213→
+  1214→        {/* ====== INVESTIGATIONS TAB ====== */}
+  1215→        <TabsContent value="investigations" className="space-y-4 mt-4">
+  1216→          <div className="flex items-center justify-between">
+  1217→            <h2 className="text-lg font-semibold">Investigations</h2>
+  1218→            <Dialog open={showInvestigationDialog} onOpenChange={setShowInvestigationDialog}>
+  1219→              <DialogTrigger asChild>
+  1220→                <Button className="bg-teal-600 hover:bg-teal-600">
+  1221→                  <Plus className="mr-2 h-4 w-4" />Order Investigation
+  1222→                </Button>
+  1223→              </DialogTrigger>
+  1224→              <DialogContent className="sm:max-w-md">
+  1225→                <DialogHeader>
+  1226→                  <DialogTitle>Order New Investigation</DialogTitle>
+  1227→                  <DialogDescription>Order a lab test for this patient.</DialogDescription>
+  1228→                </DialogHeader>
+  1229→                <div className="space-y-4">
+  1230→                  <div>
+  1231→                    <Label>Test Name *</Label>
+  1232→                    <Input value={invForm.testName} onChange={(e) => setInvForm({ ...invForm, testName: e.target.value })} placeholder="e.g. CBC, RBS, LFT, RFT, X-Ray Chest PA" />
+  1233→                  </div>
+  1234→                  <div>
+  1235→                    <Label>Sample Type *</Label>
+  1236→                    <Select value={invForm.sampleType} onValueChange={(v) => setInvForm({ ...invForm, sampleType: v })}>
+  1237→                      <SelectTrigger><SelectValue /></SelectTrigger>
+  1238→                      <SelectContent>
+  1239→                        {SAMPLE_TYPES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+  1240→                      </SelectContent>
+  1241→                    </Select>
+  1242→                  </div>
+  1243→                </div>
+  1244→                <DialogFooter>
+  1245→                  <Button variant="outline" onClick={() => setShowInvestigationDialog(false)}>Cancel</Button>
+  1246→                  <Button className="bg-teal-600 hover:bg-teal-700" onClick={() => orderInvestigationMutation.mutate()} disabled={orderInvestigationMutation.isPending || !invForm.testName}>
+  1247→                    {orderInvestigationMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
+  1248→                    Order
+  1249→                  </Button>
+  1250→                </DialogFooter>
+  1251→              </DialogContent>
+  1252→            </Dialog>
+  1253→          </div>
+  1254→
+  1255→          {sampleCollections.length === 0 && invReports.length === 0 ? (
+  1256→            <Card>
+  1257→              <CardContent className="py-12 text-center text-muted-foreground">
+  1258→                <FlaskConical className="mx-auto h-10 w-10 text-muted-foreground/50" />
+  1259→                <p className="mt-3">No investigations ordered yet</p>
+  1260→              </CardContent>
+  1261→            </Card>
+  1262→          ) : (
+  1263→            <div className="rounded-xl border bg-card">
+  1264→              <Table>
+  1265→                <TableHeader>
+  1266→                  <TableRow className="hover:bg-transparent">
+  1267→                    <TableHead>Test Name</TableHead>
+  1268→                    <TableHead>Sample</TableHead>
+  1269→                    <TableHead>Status</TableHead>
+  1270→                    <TableHead>Ordered</TableHead>
+  1271→                    <TableHead>Collected</TableHead>
+  1272→                    <TableHead>Sent to Lab</TableHead>
+  1273→                  </TableRow>
+  1274→                </TableHeader>
+  1275→                <TableBody>
+  1276→                  {sampleCollections.map((s) => (
+  1277→                    <TableRow key={s.id}>
+  1278→                      <TableCell className="font-medium">{s.testName}</TableCell>
+  1279→                      <TableCell>{s.sampleType}</TableCell>
+  1280→                      <TableCell>{getSampleStatusBadge(s.status)}</TableCell>
+  1281→                      <TableCell className="text-xs text-muted-foreground">{format(new Date(s.createdAt), 'dd MMM hh:mm a')}</TableCell>
+  1282→                      <TableCell className="text-xs text-muted-foreground">{s.collectedAt ? format(new Date(s.collectedAt), 'dd MMM hh:mm a') : '—'}</TableCell>
+  1283→                      <TableCell className="text-xs text-muted-foreground">{s.sentToLabAt ? format(new Date(s.sentToLabAt), 'dd MMM hh:mm a') : '—'}</TableCell>
+  1284→                    </TableRow>
+  1285→                  ))}
+  1286→                </TableBody>
+  1287→              </Table>
+  1288→            </div>
+  1289→          )}
+  1290→
+  1291→          {/* Investigation Reports */}
+  1292→          {invReports.length > 0 && (
+  1293→            <Card>
+  1294→              <CardHeader className="pb-3">
+  1295→                <CardTitle className="text-base">Reports ({invReports.length})</CardTitle>
+  1296→              </CardHeader>
+  1297→              <CardContent>
+  1298→                <div className="space-y-2">
+  1299→                  {invReports.map((r) => (
+  1300→                    <div key={r.id} className={cn('flex items-center gap-3 p-3 rounded-lg', r.isAbnormal ? 'bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50' : 'bg-muted/30')}>
+  1301→                      <FileText className={cn('h-4 w-4 shrink-0', r.isAbnormal ? 'text-red-500' : 'text-teal-600')} />
+  1302→                      <div className="flex-1 min-w-0">
+  1303→                        <p className={cn('font-medium text-sm', r.isAbnormal && 'text-red-700')}>{r.testName}</p>
+  1304→                        <p className="text-xs text-muted-foreground">
+  1305→                          {format(new Date(r.reportDate), 'dd MMM yyyy')}
+  1306→                          {r.reviewedBy && ` · Reviewed by ${r.reviewedBy}`}
+  1307→                        </p>
+  1308→                      </div>
+  1309→                      {r.isAbnormal && <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400 shrink-0">Abnormal</Badge>}
+  1310→                    </div>
+  1311→                  ))}
+  1312→                </div>
+  1313→              </CardContent>
+  1314→            </Card>
+  1315→          )}
+  1316→        </TabsContent>
+  1317→
+  1318→        {/* ====== VISITS TAB ====== */}
+  1319→        <TabsContent value="visits" className="space-y-4 mt-4">
+  1320→          <div className="flex items-center justify-between">
+  1321→            <h2 className="text-lg font-semibold">Doctor Visits</h2>
+  1322→            <Dialog open={showVisitDialog} onOpenChange={setShowVisitDialog}>
+  1323→              <DialogTrigger asChild>
+  1324→                <Button className="bg-teal-600 hover:bg-teal-700">
+  1325→                  <Plus className="mr-2 h-4 w-4" />Add Visit Note
+  1326→                </Button>
+  1327→              </DialogTrigger>
+  1328→              <DialogContent className="sm:max-w-lg">
+  1329→                <DialogHeader>
+  1330→                  <DialogTitle>Add Visit Note</DialogTitle>
+  1331→                  <DialogDescription>Document your clinical findings and advise.</DialogDescription>
+  1332→                </DialogHeader>
+  1333→                <div className="space-y-4">
+  1334→                  <div>
+  1335→                    <Label>Examination Findings</Label>
+  1336→                    <Textarea value={visitForm.examinationFindings} onChange={(e) => setVisitForm({ ...visitForm, examinationFindings: e.target.value })} rows={3} placeholder="On examination..." />
+  1337→                  </div>
+  1338→                  <div>
+  1339→                    <Label>Current Diagnosis</Label>
+  1340→                    <Input value={visitForm.currentDiagnosis} onChange={(e) => setVisitForm({ ...visitForm, currentDiagnosis: e.target.value })} placeholder="Updated diagnosis" />
+  1341→                  </div>
+  1342→                  <div>
+  1343→                    <Label>Advise / Plan</Label>
+  1344→                    <Textarea value={visitForm.advise} onChange={(e) => setVisitForm({ ...visitForm, advise: e.target.value })} rows={2} placeholder="Continue current treatment, investigate..." />
+  1345→                  </div>
+  1346→                </div>
+  1347→                <DialogFooter>
+  1348→                  <Button variant="outline" onClick={() => setShowVisitDialog(false)}>Cancel</Button>
+  1349→                  <Button className="bg-teal-600 hover:bg-teal-700" onClick={() => addVisitMutation.mutate()} disabled={addVisitMutation.isPending || (!visitForm.examinationFindings && !visitForm.currentDiagnosis && !visitForm.advise)}>
+  1350→                    {addVisitMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+  1351→                    Save Visit
+  1352→                  </Button>
+  1353→                </DialogFooter>
+  1354→              </DialogContent>
+  1355→            </Dialog>
+  1356→          </div>
+  1357→
+  1358→          {doctorVisits.length === 0 ? (
+  1359→            <Card>
+  1360→              <CardContent className="py-12 text-center text-muted-foreground">
+  1361→                <Stethoscope className="mx-auto h-10 w-10 text-muted-foreground/50" />
+  1362→                <p className="mt-3">No visit notes yet</p>
+  1363→              </CardContent>
+  1364→            </Card>
+  1365→          ) : (
+  1366→            <div className="space-y-3">
+  1367→              {doctorVisits.map((v) => (
+  1368→                <Card key={v.id}>
+  1369→                  <CardContent className="p-4">
+  1370→                    <div className="flex items-center justify-between mb-2">
+  1371→                      <div className="flex items-center gap-2">
+  1372→                        <Stethoscope className="h-4 w-4 text-teal-600" />
+  1373→                        <span className="font-medium text-sm">{v.doctorName || 'You'}</span>
+  1374→                        {v.isMobileVisit && <Badge variant="outline" className="text-xs">Mobile Visit</Badge>}
+  1375→                      </div>
+  1376→                      <span className="text-xs text-muted-foreground">
+  1377→                        {format(new Date(v.visitDate), 'dd MMM yyyy')} {v.visitTime}
+  1378→                      </span>
+  1379→                    </div>
+  1380→                    {v.examinationFindings && (
+  1381→                      <div className="mb-2">
+  1382→                        <p className="text-xs font-medium text-muted-foreground mb-0.5">Findings:</p>
+  1383→                        <p className="text-sm whitespace-pre-wrap">{v.examinationFindings}</p>
+  1384→                      </div>
+  1385→                    )}
+  1386→                    {v.currentDiagnosis && (
+  1387→                      <div className="mb-2">
+  1388→                        <p className="text-xs font-medium text-muted-foreground mb-0.5">Diagnosis:</p>
+  1389→                        <p className="text-sm font-medium">{v.currentDiagnosis}</p>
+  1390→                      </div>
+  1391→                    )}
+  1392→                    {v.advise && (
+  1393→                      <div>
+  1394→                        <p className="text-xs font-medium text-muted-foreground mb-0.5">Advise:</p>
+  1395→                        <p className="text-sm whitespace-pre-wrap">{v.advise}</p>
+  1396→                      </div>
+  1397→                    )}
+  1398→                  </CardContent>
+  1399→                </Card>
+  1400→              ))}
+  1401→            </div>
+  1402→          )}
+  1403→        </TabsContent>
+  1404→      </Tabs>
+  1405→    </div>
+  1406→  )
+  1407→}
+  1408→

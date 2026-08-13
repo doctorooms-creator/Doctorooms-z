@@ -1,0 +1,717 @@
+   170→          <stop offset="0%" stopColor={lineColor} stopOpacity={0.25} />
+   171→          <stop offset="100%" stopColor={lineColor} stopOpacity={0.02} />
+   172→        </linearGradient>
+   173→      </defs>
+   174→
+   175→      {/* Grid lines */
+   176→      {Array.from({ length: 5 }).map((_, i) => {
+   177→        const val = min + ((max - min) / 4) * i
+   178→        const y = toSvgY(val, min, max)
+   179→        return (
+   180→          <g key={i}>
+   181→            <line x1={CHART_PADDING.left} y1={y} x2={CHART_PADDING.left + CHART_INNER_W} y2={y} stroke={COLORS.gridLine} strokeWidth={0.5} strokeDasharray="3,3" />
+   182→            <text x={CHART_PADDING.left - 4} y={y + 3} textAnchor="end" fill={COLORS.label} fontSize={7}>
+   183→              {Math.round(val)}
+   184→            </text>
+   185→          </g>
+   186→        )
+   187→      })}
+   188→
+   189→      {/* Red zone below critical */
+   190→      {redZoneBelow !== undefined && (
+   191→        <rect
+   192→          x={CHART_PADDING.left}
+   193→          y={toSvgY(redZoneBelow, min, max)}
+   194→          width={CHART_INNER_W}
+   195→          height={toSvgY(min, min, max) - toSvgY(redZoneBelow, min, max)}
+   196→          fill="#ef4444" opacity={0.07} rx={2}
+   197→        />
+   198→      )}
+   199→
+   200→      {/* Normal range shading */
+   201→      {normalLow !== undefined && (
+   202→        <rect
+   203→          x={CHART_PADDING.left}
+   204→          y={toSvgY(normalHigh, min, max)}
+   205→          width={CHART_INNER_W}
+   206→          height={toSvgY(normalLow, min, max) - toSvgY(normalHigh, min, max)}
+   207→          fill={COLORS.normal} opacity={0.06} rx={2}
+   208→        />
+   209→      )}
+   210→
+   211→      {/* Critical high line */
+   212→      {criticalHigh !== undefined && (
+   213→        <line
+   214→          x1={CHART_PADDING.left} y1={toSvgY(criticalHigh, min, max)}
+   215→          x2={CHART_PADDING.left + CHART_INNER_W} y2={toSvgY(criticalHigh, min, max)}
+   216→          stroke={COLORS.critical} strokeWidth={1} strokeDasharray="6,3" opacity={0.7}
+   217→        />
+   218→      )}
+   219→
+   220→      {/* Critical low line */
+   221→      {criticalLow !== undefined && (
+   222→        <line
+   223→          x1={CHART_PADDING.left} y1={toSvgY(criticalLow, min, max)}
+   224→          x2={CHART_PADDING.left + CHART_INNER_W} y2={toSvgY(criticalLow, min, max)}
+   225→          stroke={COLORS.critical} strokeWidth={1} strokeDasharray="6,3" opacity={0.7}
+   226→        />
+   227→      )}
+   228→
+   229→      {/* Fever line */
+   230→      {feverLine !== undefined && (
+   231→        <line
+   232→          x1={CHART_PADDING.left} y1={toSvgY(feverLine, min, max)}
+   233→          x2={CHART_PADDING.left + CHART_INNER_W} y2={toSvgY(feverLine, min, max)}
+   234→          stroke={COLORS.warning} strokeWidth={1} strokeDasharray="4,4" opacity={0.7}
+   235→        />
+   236→      )}
+   237→
+   238→      {/* Area fill under line */
+   239→      {data.length >= 2 && (
+   240→        <polygon
+   241→          points={
+   242→            data
+   243→              .map((d, i) => `${toSvgX(i, data.length)},${toSvgY(d.value, min, max)}`)
+   244→              .join(' ') +
+   245→            ` ${toSvgX(data.length - 1, data.length)},${toSvgY(min, min, max)}` +
+   246→            ` ${toSvgX(0, data.length)},${toSvgY(min, min, max)}`
+   247→          }
+   248→          fill={`url(#${gradientId})`}
+   249→        />
+   250→      )}
+   251→
+   252→      {/* Line */
+   253→      {data.length >= 2 && (
+   254→        <polyline
+   255→          points={data.map((d, i) => `${toSvgX(i, data.length)},${toSvgY(d.value, min, max)}`).join(' ')}
+   256→          fill="none" stroke={lineColor} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
+   257→        />
+   258→      )}
+   259→
+   260→      {/* Data points */
+   261→      {data.map((d, i) => {
+   262→        const color = getSeverityColor(d.value, {
+   263→          normalLow,
+   264→          normalHigh,
+   265→          criticalLow,
+   266→          criticalHigh,
+   267→        })
+   268→        return (
+   269→          <circle
+   270→            key={i}
+   271→            cx={toSvgX(i, data.length)}
+   272→            cy={toSvgY(d.value, min, max)}
+   273→            r={data.length <= 12 ? 3.5 : 2.5}
+   274→            fill={color}
+   275→            stroke="hsl(var(--card))"
+   276→            strokeWidth={1.5}
+   277→          />
+   278→        )
+   279→      })}
+   280→
+   281→      {/* X-axis labels */
+   282→      {data.map((d, i) =>
+   283→        i % labelStep === 0 ? (
+   284→          <text
+   285→            key={`lbl-${i}`}
+   286→            x={toSvgX(i, data.length)}
+   287→            y={CHART_HEIGHT - 6}
+   288→            textAnchor="middle"
+   289→            fill={COLORS.label}
+   290→            fontSize={6.5}
+   291→          >
+   292→            {getTimeLabel(d.time, allDates)}
+   293→          </text>
+   294→        ) : null
+   295→      )}
+   296→    </svg>
+   297→  )
+   298→}
+   299→
+   300→// ============ BP DUAL LINE CHART ============
+   301→
+   302→interface BPChartProps {
+   303→  data: { time: string; systolic: number; diastolic: number }[]
+   304→}
+   305→
+   306→function BPChart({ data }: BPChartProps) {
+   307→  const sysVals = data.map((d) => d.systolic).filter((v) => v > 0)
+   308→  const diaVals = data.map((d) => d.diastolic).filter((v) => v > 0)
+   309→  const allVals = [...sysVals, ...diaVals]
+   310→  const { min, max } = getMinMax(allVals, 0.12)
+   311→  const yMin = Math.min(min, 50)
+   312→  const yMax = Math.max(max, 200)
+   313→
+   314→  const allDates = data.map((d) => d.time)
+   315→  const labelStep = pickLabelStep(data.length)
+   316→
+   317→  return (
+   318→    <svg viewBox={`0 0 ${CHART_PADDING.left + CHART_INNER_W + CHART_PADDING.right} ${CHART_HEIGHT}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+   319→      <defs>
+   320→        <linearGradient id="bp-sys-grad" x1="0" y1="0" x2="0" y2="1">
+   321→          <stop offset="0%" stopColor={COLORS.normal} stopOpacity={0.2} />
+   322→          <stop offset="100%" stopColor={COLORS.normal} stopOpacity={0.01} />
+   323→        </linearGradient>
+   324→        <linearGradient id="bp-dia-grad" x1="0" y1="0" x2="0" y2="1">
+   325→          <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.15} />
+   326→          <stop offset="100%" stopColor="#f59e0b" stopOpacity={0.01} />
+   327→        </linearGradient>
+   328→      </defs>
+   329→
+   330→      {/* Grid lines */
+   331→      {Array.from({ length: 5 }).map((_, i) => {
+   332→        const val = yMin + ((yMax - yMin) / 4) * i
+   333→        const y = toSvgY(val, yMin, yMax)
+   334→        return (
+   335→          <g key={i}>
+   336→            <line x1={CHART_PADDING.left} y1={y} x2={CHART_PADDING.left + CHART_INNER_W} y2={y} stroke={COLORS.gridLine} strokeWidth={0.5} strokeDasharray="3,3" />
+   337→            <text x={CHART_PADDING.left - 4} y={y + 3} textAnchor="end" fill={COLORS.label} fontSize={7}>
+   338→              {Math.round(val)}
+   339→            </text>
+   340→          </g>
+   341→        )
+   342→      })}
+   343→
+   344→      {/* Normal range shading: 90-140 systolic, 60-90 diastolic */}
+   345→      <rect
+   346→        x={CHART_PADDING.left}
+   347→        y={toSvgY(140, yMin, yMax)}
+   348→        width={CHART_INNER_W}
+   349→        height={toSvgY(60, yMin, yMax) - toSvgY(140, yMin, yMax)}
+   350→        fill={COLORS.normal} opacity={0.06} rx={2}
+   351→      />
+   352→
+   353→      {/* Critical high systolic 180 */}
+   354→      <line
+   355→        x1={CHART_PADDING.left} y1={toSvgY(180, yMin, yMax)}
+   356→        x2={CHART_PADDING.left + CHART_INNER_W} y2={toSvgY(180, yMin, yMax)}
+   357→        stroke={COLORS.critical} strokeWidth={1} strokeDasharray="6,3" opacity={0.7}
+   358→      />
+   359→      <text x={CHART_PADDING.left + CHART_INNER_W + 2} y={toSvgY(180, yMin, yMax) + 3} fill={COLORS.critical} fontSize={6}>180</text>
+   360→
+   361→      {/* Critical low 90 */}
+   362→      <line
+   363→        x1={CHART_PADDING.left} y1={toSvgY(90, yMin, yMax)}
+   364→        x2={CHART_PADDING.left + CHART_INNER_W} y2={toSvgY(90, yMin, yMax)}
+   365→        stroke={COLORS.critical} strokeWidth={1} strokeDasharray="6,3" opacity={0.7}
+   366→      />
+   367→      <text x={CHART_PADDING.left + CHART_INNER_W + 2} y={toSvgY(90, yMin, yMax) + 3} fill={COLORS.critical} fontSize={6}>90</text>
+   368→
+   369→      {/* Systolic area fill */
+   370→      {data.length >= 2 && (
+   371→        <polygon
+   372→          points={
+   373→            data.map((d, i) => `${toSvgX(i, data.length)},${toSvgY(d.systolic, yMin, yMax)}`).join(' ') +
+   374→            ` ${toSvgX(data.length - 1, data.length)},${toSvgY(yMin, yMin, yMax)}` +
+   375→            ` ${toSvgX(0, data.length)},${toSvgY(yMin, yMin, yMax)}`
+   376→          }
+   377→          fill="url(#bp-sys-grad)"
+   378→        />
+   379→      )}
+   380→
+   381→      {/* Systolic line */}
+   382→      {data.length >= 2 && (
+   383→        <polyline
+   384→          points={data.map((d, i) => `${toSvgX(i, data.length)},${toSvgY(d.systolic, yMin, yMax)}`).join(' ')}
+   385→          fill="none" stroke={COLORS.normal} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round"
+   386→        />
+   387→      )}
+   388→
+   389→      {/* Diastolic line */}
+   390→      {data.length >= 2 && (
+   391→        <polyline
+   392→          points={data.map((d, i) => `${toSvgX(i, data.length)},${toSvgY(d.diastolic, yMin, yMax)}`).join(' ')}
+   393→          fill="none" stroke="#f59e0b" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" strokeDasharray="6,3"
+   394→        />
+   395→      )}
+   396→
+   397→      {/* Systolic points */}
+   398→      {data.map((d, i) => {
+   399→        const color = getSeverityColor(d.systolic, {
+   400→          normalLow: 90, normalHigh: 140, criticalLow: 90, criticalHigh: 180,
+   401→        })
+   402→        return (
+   403→          <circle
+   404→            key={`sys-${i}`}
+   405→            cx={toSvgX(i, data.length)}
+   406→            cy={toSvgY(d.systolic, yMin, yMax)}
+   407→            r={data.length <= 12 ? 3.5 : 2.5}
+   408→            fill={color}
+   409→            stroke="hsl(var(--card))"
+   410→            strokeWidth={1.5}
+   411→          />
+   412→        )
+   413→      })}
+   414→
+   415→      {/* Diastolic points */}
+   416→      {data.map((d, i) => {
+   417→        const color = getSeverityColor(d.diastolic, {
+   418→          normalHigh: 90, criticalHigh: 120,
+   419→        })
+   420→        return (
+   421→          <circle
+   422→            key={`dia-${i}`}
+   423→            cx={toSvgX(i, data.length)}
+   424→            cy={toSvgY(d.diastolic, yMin, yMax)}
+   425→            r={data.length <= 12 ? 3 : 2}
+   426→            fill={color}
+   427→            stroke="hsl(var(--card))"
+   428→            strokeWidth={1.5}
+   429→          />
+   430→        )
+   431→      })}
+   432→
+   433→      {/* X-axis labels */}
+   434→      {data.map((d, i) =>
+   435→        i % labelStep === 0 ? (
+   436→          <text
+   437→            key={`lbl-${i}`}
+   438→            x={toSvgX(i, data.length)}
+   439→            y={CHART_HEIGHT - 6}
+   440→            textAnchor="middle"
+   441→            fill={COLORS.label}
+   442→            fontSize={6.5}
+   443→          >
+   444→            {getTimeLabel(d.time, allDates)}
+   445→          </text>
+   446→        ) : null
+   447→      )}
+   448→
+   449→      {/* Legend */}
+   450→      <circle cx={CHART_PADDING.left + 4} cy={CHART_PADDING.top + 2} r={3} fill={COLORS.normal} />
+   451→      <text x={CHART_PADDING.left + 10} y={CHART_PADDING.top + 5} fill={COLORS.label} fontSize={7}>Systolic</text>
+   452→      <line x1={CHART_PADDING.left + 48} y1={CHART_PADDING.top + 2} x2={CHART_PADDING.left + 60} y2={CHART_PADDING.top + 2} stroke="#f59e0b" strokeWidth={2} strokeDasharray="4,2" />
+   453→      <text x={CHART_PADDING.left + 64} y={CHART_PADDING.top + 5} fill={COLORS.label} fontSize={7}>Diastolic</text>
+   454→    </svg>
+   455→  )
+   456→}
+   457→
+   458→// ============ INPUT/OUTPUT BAR CHART ============
+   459→
+   460→interface IOData {
+   461→  time: string
+   462→  input: number
+   463→  urine: number
+   464→  otherOutput: number
+   465→}
+   466→
+   467→function IOBarChart({ data }: { data: IOData[] }) {
+   468→  const maxVal = Math.max(...data.map((d) => Math.max(d.input, d.urine, d.otherOutput)), 100)
+   469→  const yMax = Math.ceil(maxVal * 1.2 / 50) * 50
+   470→
+   471→  const allDates = data.map((d) => d.time)
+   472→  const labelStep = pickLabelStep(data.length)
+   473→
+   474→  return (
+   475→    <svg viewBox={`0 0 ${CHART_PADDING.left + CHART_INNER_W + CHART_PADDING.right} ${CHART_HEIGHT}`} className="w-full" preserveAspectRatio="xMidYMid meet">
+   476→      {/* Grid lines */
+   477→      {Array.from({ length: 4 }).map((_, i) => {
+   478→        const val = (yMax / 3) * i
+   479→        const y = toSvgY(val, 0, yMax)
+   480→        return (
+   481→          <g key={i}>
+   482→            <line x1={CHART_PADDING.left} y1={y} x2={CHART_PADDING.left + CHART_INNER_W} y2={y} stroke={COLORS.gridLine} strokeWidth={0.5} strokeDasharray="3,3" />
+   483→            <text x={CHART_PADDING.left - 4} y={y + 3} textAnchor="end" fill={COLORS.label} fontSize={7}>
+   484→              {Math.round(val)}ml
+   485→            </text>
+   486→          </g>
+   487→        )
+   488→      })}
+   489→
+   490→      {/* Bars */}
+   491→      {data.map((d, i) => {
+   492→        const barGroupWidth = Math.max(12, Math.min(40, CHART_INNER_W / data.length - 4))
+   493→        const barWidth = Math.max(3, barGroupWidth / 3 - 1)
+   494→        const cx = toSvgX(i, data.length)
+   495→        const x0 = cx - barGroupWidth / 2
+   496→
+   497→        const inputH = (d.input / yMax) * CHART_INNER_H
+   498→        const urineH = (d.urine / yMax) * CHART_INNER_H
+   499→        const otherH = (d.otherOutput / yMax) * CHART_INNER_H
+   500→        const baseY = CHART_PADDING.top + CHART_INNER_H
+   501→
+   502→        return (
+   503→          <g key={i}>
+   504→            {/* Input bar - green */}
+   505→            {d.input > 0 && (
+   506→              <rect
+   507→                x={x0} y={baseY - inputH} width={barWidth} height={inputH}
+   508→                fill="#22c55e" opacity={0.8} rx={1}
+   509→              />
+   510→            )}
+   511→            {/* Urine bar - amber */}
+   512→            {d.urine > 0 && (
+   513→              <rect
+   514→                x={x0 + barWidth + 1} y={baseY - urineH} width={barWidth} height={urineH}
+   515→                fill="#f59e0b" opacity={0.8} rx={1}
+   516→              />
+   517→            )}
+   518→            {/* Other output bar - red */}
+   519→            {d.otherOutput > 0 && (
+   520→              <rect
+   521→                x={x0 + (barWidth + 1) * 2} y={baseY - otherH} width={barWidth} height={otherH}
+   522→                fill="#ef4444" opacity={0.7} rx={1}
+   523→              />
+   524→            )}
+   525→          </g>
+   526→        )
+   527→      })}
+   528→
+   529→      {/* X-axis labels */}
+   530→      {data.map((d, i) =>
+   531→        i % labelStep === 0 ? (
+   532→          <text
+   533→            key={`lbl-${i}`}
+   534→            x={toSvgX(i, data.length)}
+   535→            y={CHART_HEIGHT - 6}
+   536→            textAnchor="middle"
+   537→            fill={COLORS.label}
+   538→            fontSize={6.5}
+   539→          >
+   540→            {getTimeLabel(d.time, allDates)}
+   541→          </text>
+   542→        ) : null
+   543→      )}
+   544→
+   545→      {/* Legend */}
+   546→      <rect x={CHART_PADDING.left + 4} y={CHART_PADDING.top} width={8} height={6} fill="#22c55e" opacity={0.8} rx={1} />
+   547→      <text x={CHART_PADDING.left + 15} y={CHART_PADDING.top + 6} fill={COLORS.label} fontSize={7}>Input</text>
+   548→      <rect x={CHART_PADDING.left + 44} y={CHART_PADDING.top} width={8} height={6} fill="#f59e0b" opacity={0.8} rx={1} />
+   549→      <text x={CHART_PADDING.left + 55} y={CHART_PADDING.top + 6} fill={COLORS.label} fontSize={7}>Urine</text>
+   550→      <rect x={CHART_PADDING.left + 88} y={CHART_PADDING.top} width={8} height={6} fill="#ef4444" opacity={0.7} rx={1} />
+   551→      <text x={CHART_PADDING.left + 99} y={CHART_PADDING.top + 6} fill={COLORS.label} fontSize={7}>Output</text>
+   552→    </svg>
+   553→  )
+   554→}
+   555→
+   556→// ============ STATUS INDICATOR ============
+   557→
+   558→function TrendIndicator({ current, previous }: { current: number; previous?: number }) {
+   559→  if (!previous || previous === current) {
+   560→    return <Minus className="h-3 w-3 text-muted-foreground" />
+   561→  }
+   562→  if (current > previous) {
+   563→    return <ArrowUp className="h-3 w-3 text-amber-500" />
+   564→  }
+   565→  return <ArrowDown className="h-3 w-3 text-teal-500" />
+   566→}
+   567→
+   568→// ============ CHART CARD WRAPPER ============
+   569→
+   570→interface ChartCardProps {
+   571→  title: string
+   572→  icon: React.ReactNode
+   573→  latestValue: string
+   574→  latestRaw?: number
+   575→  prevRaw?: number
+   576→  minVal?: string
+   577→  maxVal?: string
+   578→  status: 'normal' | 'warning' | 'critical'
+   579→  children: React.ReactNode
+   580→  delay?: number
+   581→  className?: string
+   582→}
+   583→
+   584→function ChartCard({ title, icon, latestValue, latestRaw, prevRaw, minVal, maxVal, status, children, delay = 0, className }: ChartCardProps) {
+   585→  const statusBadge = {
+   586→    normal: 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400',
+   587→    warning: 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400',
+   588→    critical: 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400',
+   589→  }
+   590→
+   591→  return (
+   592→    <motion.div
+   593→      initial={{ opacity: 0, y: 12 }}
+   594→      animate={{ opacity: 1, y: 0 }}
+   595→      transition={{ delay: 0.1 + delay * 0.08, duration: 0.35, ease: 'easeOut' }}
+   596→    >
+   597→      <Card className={cn('overflow-hidden', className)}>
+   598→        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 pt-4 px-4">
+   599→          <div className="flex items-center gap-2">
+   600→            {icon}
+   601→            <CardTitle className="text-sm font-semibold">{title}</CardTitle>
+   602→          </div>
+   603→          <div className="flex items-center gap-2">
+   604→            {latestRaw !== undefined && prevRaw !== undefined && (
+   605→              <TrendIndicator current={latestRaw} previous={prevRaw} />
+   606→            )}
+   607→            <Badge className={cn('text-xs', statusBadge[status])}>
+   608→              {latestValue}
+   609→            </Badge>
+   610→          </div>
+   611→        </CardHeader>
+   612→        <CardContent className="px-4 pb-4">
+   613→          {(minVal || maxVal) && (
+   614→            <div className="mb-2 flex items-center gap-3 text-[10px] text-muted-foreground">
+   615→              {minVal && <span>Min: <strong className="text-foreground">{minVal}</strong></span>}
+   616→              {maxVal && <span>Max: <strong className="text-foreground">{maxVal}</strong></span>}
+   617→            </div>
+   618→          )}
+   619→          {children}
+   620→        </CardContent>
+   621→      </Card>
+   622→    </motion.div>
+   623→  )
+   624→}
+   625→
+   626→// ============ MAIN COMPONENT ============
+   627→
+   628→export default function VitalTrendCharts({ vitals }: VitalTrendChartsProps) {
+   629→  const chartData = useMemo(() => {
+   630→    // Sort ascending by time
+   631→    const sorted = [...vitals].sort((a, b) => new Date(a.recordedAt).getTime() - new Date(b.recordedAt).getTime())
+   632→
+   633→    // Take last 24 entries for chart readability
+   634→    const recent = sorted.slice(-24)
+   635→
+   636→    // BP data
+   637→    const bpData = recent
+   638→      .filter((v) => v.bpSystolic > 0 && v.bpDiastolic > 0)
+   639→      .map((v) => ({ time: v.recordedAt, systolic: v.bpSystolic, diastolic: v.bpDiastolic }))
+   640→
+   641→    // Pulse data
+   642→    const pulseData = recent
+   643→      .filter((v) => v.pulse > 0)
+   644→      .map((v) => ({ time: v.recordedAt, value: v.pulse }))
+   645→
+   646→    // SpO2 data
+   647→    const spo2Data = recent
+   648→      .filter((v) => v.spo2 > 0)
+   649→      .map((v) => ({ time: v.recordedAt, value: v.spo2 }))
+   650→
+   651→    // Temperature data
+   652→    const tempData = recent
+   653→      .filter((v) => v.temperature > 0)
+   654→      .map((v) => ({ time: v.recordedAt, value: v.temperature }))
+   655→
+   656→    // I/O data
+   657→    const ioData = recent
+   658→      .filter((v) => v.inputMl > 0 || v.urineMl > 0 || v.outputMl > 0)
+   659→      .map((v) => ({
+   660→        time: v.recordedAt,
+   661→        input: v.inputMl,
+   662→        urine: v.urineMl,
+   663→        otherOutput: Math.max(0, v.outputMl - v.urineMl),
+   664→      }))
+   665→
+   666→    // Latest values
+   667→    const latest = sorted.length > 0 ? sorted[sorted.length - 1] : null
+   668→    const prev = sorted.length > 1 ? sorted[sorted.length - 2] : null
+   669→
+   670→    // Min/Max calculations
+   671→    const bpSysVals = sorted.filter((v) => v.bpSystolic > 0).map((v) => v.bpSystolic)
+   672→    const bpDiaVals = sorted.filter((v) => v.bpDiastolic > 0).map((v) => v.bpDiastolic)
+   673→    const pulseVals = sorted.filter((v) => v.pulse > 0).map((v) => v.pulse)
+   674→    const spo2Vals = sorted.filter((v) => v.spo2 > 0).map((v) => v.spo2)
+   675→    const tempVals = sorted.filter((v) => v.temperature > 0).map((v) => v.temperature)
+   676→
+   677→    return {
+   678→      bpData,
+   679→      pulseData,
+   680→      spo2Data,
+   681→      tempData,
+   682→      ioData,
+   683→      latest,
+   684→      prev,
+   685→      stats: {
+   686→        bpSysMin: bpSysVals.length > 0 ? Math.min(...bpSysVals) : undefined,
+   687→        bpSysMax: bpSysVals.length > 0 ? Math.max(...bpSysVals) : undefined,
+   688→        bpDiaMin: bpDiaVals.length > 0 ? Math.min(...bpDiaVals) : undefined,
+   689→        bpDiaMax: bpDiaVals.length > 0 ? Math.max(...bpDiaVals) : undefined,
+   690→        pulseMin: pulseVals.length > 0 ? Math.min(...pulseVals) : undefined,
+   691→        pulseMax: pulseVals.length > 0 ? Math.max(...pulseVals) : undefined,
+   692→        spo2Min: spo2Vals.length > 0 ? Math.min(...spo2Vals) : undefined,
+   693→        spo2Max: spo2Vals.length > 0 ? Math.max(...spo2Vals) : undefined,
+   694→        tempMin: tempVals.length > 0 ? Math.min(...tempVals) : undefined,
+   695→        tempMax: tempVals.length > 0 ? Math.max(...tempVals) : undefined,
+   696→      },
+   697→      hasData: sorted.length >= 2,
+   698→    }
+   699→  }, [vitals])
+   700→
+   701→  if (!chartData.hasData) {
+   702→    return (
+   703→      <motion.div
+   704→        initial={{ opacity: 0 }}
+   705→        animate={{ opacity: 1 }}
+   706→        transition={{ delay: 0.15 }}
+   707→      >
+   708→        <Card className="border-dashed">
+   709→          <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+   710→            <Activity className="mb-2 h-8 w-8 text-muted-foreground/50" />
+   711→            <p className="text-sm text-muted-foreground">At least 2 vital records are needed to display trend charts.</p>
+   712→            <p className="mt-1 text-xs text-muted-foreground/70">Record vitals a few times to see trends.</p>
+   713→          </CardContent>
+   714→        </Card>
+   715→      </motion.div>
+   716→    )
+   717→  }
+   718→
+   719→  const { latest, prev, stats, bpData, pulseData, spo2Data, tempData, ioData } = chartData
+   720→
+   721→  // Helper to determine status
+   722→  const bpStatus = (() => {
+   723→    if (!latest) return 'normal'
+   724→    const T = VITAL_THRESHOLDS
+   725→    if (latest.bpSystolic < T.bpSystolic.criticalLow || latest.bpSystolic > T.bpSystolic.criticalHigh) return 'critical'
+   726→    if (latest.bpSystolic > T.bpSystolic.warningHigh) return 'warning'
+   727→    return 'normal'
+   728→  })()
+   729→
+   730→  const pulseStatus = (() => {
+   731→    if (!latest) return 'normal'
+   732→    const T = VITAL_THRESHOLDS
+   733→    if (latest.pulse < T.pulse.criticalLow || latest.pulse > T.pulse.criticalHigh) return 'critical'
+   734→    if (latest.pulse > T.pulse.warningHigh) return 'warning'
+   735→    return 'normal'
+   736→  })()
+   737→
+   738→  const spo2Status = (() => {
+   739→    if (!latest) return 'normal'
+   740→    const T = VITAL_THRESHOLDS
+   741→    if (latest.spo2 < T.spo2.critical) return 'critical'
+   742→    if (latest.spo2 < T.spo2.warning) return 'warning'
+   743→    return 'normal'
+   744→  })()
+   745→
+   746→  const tempStatus = (() => {
+   747→    if (!latest) return 'normal'
+   748→    const T = VITAL_THRESHOLDS
+   749→    if (latest.temperature > T.temperature.warningHigh) return 'warning'
+   750→    return 'normal'
+   751→  })()
+   752→
+   753→  return (
+   754→    <div className="space-y-4">
+   755→      <div className="flex items-center gap-2 px-1">
+   756→        <TrendingUp className="h-4 w-4 text-teal-500" />
+   757→        <h3 className="text-sm font-semibold">Vital Trends</h3>
+   758→        <Badge variant="outline" className="text-[10px] text-muted-foreground">
+   759→          Last {chartData.ioData.length} readings
+   760→        </Badge>
+   761→      </div>
+   762→
+   763→      {/* 2-column grid on desktop, 1-column on mobile */}
+   764→      <div className="grid gap-4 md:grid-cols-2">
+   765→        {/* BP Chart */}
+   766→        <ChartCard
+   767→          title="Blood Pressure"
+   768→          icon={<Droplets className="h-4 w-4 text-teal-500" />}
+   769→          latestValue={latest ? `${latest.bpSystolic}/${latest.bpDiastolic} mmHg` : '—'}
+   770→          latestRaw={latest?.bpSystolic}
+   771→          prevRaw={prev?.bpSystolic}
+   772→          minVal={stats.bpSysMin !== undefined ? `${stats.bpSysMin}/${stats.bpDiaMin}` : undefined}
+   773→          maxVal={stats.bpSysMax !== undefined ? `${stats.bpSysMax}/${stats.bpDiaMax}` : undefined}
+   774→          status={bpStatus}
+   775→          delay={0}
+   776→        >
+   777→          {bpData.length >= 2 ? (
+   778→            <BPChart data={bpData} />
+   779→          ) : (
+   780→            <p className="py-6 text-center text-xs text-muted-foreground">Not enough BP data</p>
+   781→          )}
+   782→        </ChartCard>
+   783→
+   784→        {/* Pulse Chart */}
+   785→        <ChartCard
+   786→          title="Pulse Rate"
+   787→          icon={<Heart className="h-4 w-4 text-rose-500" />}
+   788→          latestValue={latest ? `${latest.pulse} bpm` : '—'}
+   789→          latestRaw={latest?.pulse}
+   790→          prevRaw={prev?.pulse}
+   791→          minVal={stats.pulseMin !== undefined ? `${stats.pulseMin} bpm` : undefined}
+   792→          maxVal={stats.pulseMax !== undefined ? `${stats.pulseMax} bpm` : undefined}
+   793→          status={pulseStatus}
+   794→          delay={1}
+   795→        >
+   796→          {pulseData.length >= 2 ? (
+   797→            <SingleLineChart
+   798→              data={pulseData}
+   799→              normalLow={60}
+   800→              normalHigh={100}
+   801→              criticalLow={50}
+   802→              criticalHigh={130}
+   803→              unit="bpm"
+   804→              lineColor="#f43f5e"
+   805→              gradientId="pulse-grad"
+   806→            />
+   807→          ) : (
+   808→            <p className="py-6 text-center text-xs text-muted-foreground">Not enough pulse data</p>
+   809→          )}
+   810→        </ChartCard>
+   811→
+   812→        {/* SpO2 Chart */}
+   813→        <ChartCard
+   814→          title="SpO2"
+   815→          icon={<Wind className="h-4 w-4 text-sky-500" />}
+   816→          latestValue={latest ? `${latest.spo2}%` : '—'}
+   817→          latestRaw={latest?.spo2}
+   818→          prevRaw={prev?.spo2}
+   819→          minVal={stats.spo2Min !== undefined ? `${stats.spo2Min}%` : undefined}
+   820→          maxVal={stats.spo2Max !== undefined ? `${stats.spo2Max}%` : undefined}
+   821→          status={spo2Status}
+   822→          delay={2}
+   823→        >
+   824→          {spo2Data.length >= 2 ? (
+   825→            <SingleLineChart
+   826→              data={spo2Data}
+   827→              normalLow={94}
+   828→              normalHigh={100}
+   829→              criticalLow={90}
+   830→              redZoneBelow={90}
+   831→              unit="%"
+   832→              lineColor="#0ea5e9"
+   833→              gradientId="spo2-grad"
+   834→            />
+   835→          ) : (
+   836→            <p className="py-6 text-center text-xs text-muted-foreground">Not enough SpO2 data</p>
+   837→          )}
+   838→        </ChartCard>
+   839→
+   840→        {/* Temperature Chart */}
+   841→        <ChartCard
+   842→          title="Temperature"
+   843→          icon={<Thermometer className="h-4 w-4 text-amber-500" />}
+   844→          latestValue={latest ? `${latest.temperature}°F` : '—'}
+   845→          latestRaw={latest?.temperature}
+   846→          prevRaw={prev?.temperature}
+   847→          minVal={stats.tempMin !== undefined ? `${stats.tempMin}°F` : undefined}
+   848→          maxVal={stats.tempMax !== undefined ? `${stats.tempMax}°F` : undefined}
+   849→          status={tempStatus}
+   850→          delay={3}
+   851→        >
+   852→          {tempData.length >= 2 ? (
+   853→            <SingleLineChart
+   854→              data={tempData}
+   855→              normalLow={97}
+   856→              normalHigh={99.5}
+   857→              feverLine={102.2}
+   858→              unit="°F"
+   859→              lineColor="#f59e0b"
+   860→              gradientId="temp-grad"
+   861→            />
+   862→          ) : (
+   863→            <p className="py-6 text-center text-xs text-muted-foreground">Not enough temperature data</p>
+   864→          )}
+   865→        </ChartCard>
+   866→
+   867→        {/* Input/Output Chart - spans full width */}
+   868→        <ChartCard
+   869→          title="Fluid Input / Output"
+   870→          icon={<Droplets className="h-4 w-4 text-emerald-500" />}
+   871→          latestValue={latest ? `I: ${latest.inputMl}ml / U: ${latest.urineMl}ml` : '—'}
+   872→          status="normal"
+   873→          delay={4}
+   874→          className="md:col-span-2"
+   875→        >
+   876→          {ioData.length >= 2 ? (
+   877→            <IOBarChart data={ioData} />
+   878→          ) : (
+   879→            <p className="py-6 text-center text-xs text-muted-foreground">Not enough I/O data</p>
+   880→          )}
+   881→        </ChartCard>
+   882→      </div>
+   883→    </div>
+   884→  )
+   885→}
+   886→

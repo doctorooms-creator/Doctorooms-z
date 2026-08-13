@@ -1,0 +1,1462 @@
+     1→'use client'
+     2→
+     3→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     4→import { motion } from 'framer-motion'
+     5→import { useParams, useRouter } from 'next/navigation'
+     6→import { useState, useCallback } from 'react'
+     7→import { toast } from 'sonner'
+     8→import { cn } from '@/lib/utils'
+     9→import { VITAL_THRESHOLDS, SAMPLE_TYPES } from '@/lib/ipd-utils'
+    10→
+    11→import { Button } from '@/components/ui/button'
+    12→import { Badge } from '@/components/ui/badge'
+    13→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    14→import { Input } from '@/components/ui/input'
+    15→import { Label } from '@/components/ui/label'
+    16→import { Textarea } from '@/components/ui/textarea'
+    17→import { Switch } from '@/components/ui/switch'
+    18→import { Skeleton } from '@/components/ui/skeleton'
+    19→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    20→import {
+    21→  Select,
+    22→  SelectContent,
+    23→  SelectItem,
+    24→  SelectTrigger,
+    25→  SelectValue,
+    26→} from '@/components/ui/select'
+    27→import {
+    28→  AlertDialog,
+    29→  AlertDialogAction,
+    30→  AlertDialogCancel,
+    31→  AlertDialogContent,
+    32→  AlertDialogDescription,
+    33→  AlertDialogFooter,
+    34→  AlertDialogHeader,
+    35→  AlertDialogTitle,
+    36→} from '@/components/ui/alert-dialog'
+    37→import {
+    38→  Dialog,
+    39→  DialogContent,
+    40→  DialogDescription,
+    41→  DialogHeader,
+    42→  DialogTitle,
+    43→} from '@/components/ui/dialog'
+    44→import {
+    45→  Table,
+    46→  TableBody,
+    47→  TableCell,
+    48→  TableHead,
+    49→  TableHeader,
+    50→  TableRow,
+    51→} from '@/components/ui/table'
+    52→import {
+    53→  DropdownMenu,
+    54→  DropdownMenuContent,
+    55→  DropdownMenuItem,
+    56→  DropdownMenuTrigger,
+    57→} from '@/components/ui/dropdown-menu'
+    58→import {
+    59→  ArrowLeft,
+    60→  Thermometer,
+    61→  Heart,
+    62→  Wind,
+    63→  Droplets,
+    64→  Activity,
+    65→  Pill,
+    66→  ClipboardList,
+    67→  History,
+    68→  CheckCircle2,
+    69→  AlertTriangle,
+    70→  MoreHorizontal,
+    71→  BedDouble,
+    72→  Stethoscope,
+    73→  Building2,
+    74→  User,
+    75→  FileText,
+    76→  Loader2,
+    77→  Clock,
+    78→  TestTube,
+    79→  FlaskConical,
+    80→  Send,
+    81→  Plus,
+    82→} from 'lucide-react'
+    83→import { format } from 'date-fns'
+    84→
+    85→// ============ TYPES ============
+    86→
+    87→interface Admission {
+    88→  id: string
+    89→  admissionNo: string
+    90→  admissionDate: string
+    91→  admissionTime: string
+    92→  status: string
+    93→  patientName: string
+    94→  patientAge: number
+    95→  patientGender: string
+    96→  bloodGroup: string
+    97→  mobileNo: string
+    98→  fatherName: string
+    99→  contactPersonName: string
+   100→  contactPersonMobile: string
+   101→  contactPersonRelation: string
+   102→  maritalStatus: string
+   103→  occupation: string
+   104→  address: string
+   105→  initialDiagnosis: string
+   106→  finalDiagnosis: string
+   107→  wardName: string
+   108→  wardType: string
+   109→  bedNumber: string
+   110→  bedType: string
+   111→  departmentName: string
+   112→  attendingDoctorName: string
+   113→  attendingDoctorMobile: string
+   114→  referringDoctorName: string
+   115→  hospitalName: string
+   116→  chiefComplaints: string
+   117→  informant: string
+   118→  pastHistory: string
+   119→  personalHistory: string
+   120→  habits: string
+   121→  femaleHistory: string
+   122→  drugHistory: string
+   123→  consciousnessLevel: string
+   124→  obeyingCommands: boolean
+   125→  respondingToDPS: boolean
+   126→  oriented: boolean
+   127→  speech: string
+   128→  examinationNotes: string
+   129→  generalSigns: string
+   130→}
+   131→
+   132→interface VitalAlert {
+   133→  parameter: string
+   134→  level: string
+   135→  message: string
+   136→  value: number
+   137→}
+   138→
+   139→interface VitalRecord {
+   140→  id: string
+   141→  temperature: number
+   142→  pulse: number
+   143→  spo2: number
+   144→  bpSystolic: number
+   145→  bpDiastolic: number
+   146→  respiratoryRate: number
+   147→  inputMl: number
+   148→  urineMl: number
+   149→  outputMl: number
+   150→  patientStatus: string
+   151→  ventilatorOn: boolean
+   152→  oxygenLiters: number
+   153→  infusionPump: string
+   154→  rbs: number | null
+   155→  remarks: string
+   156→  recordedAt: string
+   157→  recordedByName?: string
+   158→}
+   159→
+   160→interface DoctorOrder {
+   161→  id: string
+   162→  drugName: string
+   163→  route: string
+   164→  dose: string
+   165→  frequency: string
+   166→  scheduledTime: string
+   167→  instructions: string
+   168→  isPrn: boolean
+   169→  isStat: boolean
+   170→  doctorName: string
+   171→  status: 'Given' | 'Pending' | 'Overdue' | 'Missed' | 'Refused' | 'Skipped' | 'NotAvailable'
+   172→  latestAdmin: {
+   173→    id: string
+   174→    status: string
+   175→    administeredTime: string | null
+   176→    remarks: string
+   177→  } | null
+   178→}
+   179→
+   180→// ============ HELPERS ============
+   181→
+   182→function isAbnormal(param: string, value: number): boolean {
+   183→  const T = VITAL_THRESHOLDS as Record<string, Record<string, number>>
+   184→  const t = T[param]
+   185→  if (!t) return false
+   186→  if (param === 'spo2') return value < t.warning
+   187→  if (param === 'bpSystolic') return value < (t.criticalLow ?? 999) || value > (t.warningHigh ?? 999)
+   188→  if (param === 'bpDiastolic') return value > (t.warningHigh ?? 999)
+   189→  if (param === 'pulse') return value < (t.criticalLow ?? 999) || value > (t.warningHigh ?? 999)
+   190→  if (param === 'temperature') return value > (t.warningHigh ?? 999)
+   191→  if (param === 'respiratoryRate') return value < (t.criticalLow ?? 999) || value > (t.criticalHigh ?? 999)
+   192→  return false
+   193→}
+   194→
+   195→function getMedStatusBadge(status: string) {
+   196→  switch (status) {
+   197→    case 'Given':
+   198→      return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-400">Given</Badge>
+   199→    case 'Pending':
+   200→      return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400">Pending</Badge>
+   201→    case 'Overdue':
+   202→      return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">Overdue</Badge>
+   203→    case 'Missed':
+   204→      return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">Missed</Badge>
+   205→    case 'Refused':
+   206→      return <Badge className="bg-orange-100 text-orange-700 hover:bg-orange-100 dark:bg-orange-950/50 dark:text-orange-400">Refused</Badge>
+   207→    case 'Skipped':
+   208→      return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-400">Skipped</Badge>
+   209→    case 'NotAvailable':
+   210→      return <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">Not Available</Badge>
+   211→    default:
+   212→      return <Badge variant="secondary">{status}</Badge>
+   213→  }
+   214→}
+   215→
+   216→function getRouteBadge(route: string) {
+   217→  const colors: Record<string, string> = {
+   218→    Oral: 'border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400',
+   219→    IV: 'border-red-300 text-red-700 dark:border-red-700 dark:text-red-400',
+   220→    IM: 'border-amber-300 text-amber-700 dark:border-amber-700 dark:text-amber-400',
+   221→    SC: 'border-sky-300 text-sky-700 dark:border-sky-700 dark:text-sky-400',
+   222→    Topical: 'border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400',
+   223→    Nebulization: 'border-purple-300 text-purple-700 dark:border-purple-700 dark:text-purple-400',
+   224→  }
+   225→  return (
+   226→    <Badge variant="outline" className={cn('text-[10px]', colors[route] || '')}>
+   227→      {route}
+   228→    </Badge>
+   229→  )
+   230→}
+   231→
+   232→function InfoRow({ label, value }: { label: string; value?: string | null | boolean }) {
+   233→  if (value === undefined || value === null || value === '' || value === '0') return null
+   234→  return (
+   235→    <div className="flex items-start gap-2 text-sm">
+   236→      <span className="w-32 shrink-0 text-muted-foreground">{label}</span>
+   237→      <span className="font-medium">{String(value)}</span>
+   238→    </div>
+   239→  )
+   240→}
+   241→
+   242→// ============ MAIN COMPONENT ============
+   243→
+   244→interface Props {
+   245→  admissionId: string
+   246→}
+   247→
+   248→export default function NursePatientDetailClient({ admissionId }: Props) {
+   249→  const router = useRouter()
+   250→  const queryClient = useQueryClient()
+   251→  const [administerTarget, setAdministerTarget] = useState<{ orderId: string; status: string } | null>(null)
+   252→
+   253→  // Fetch patient detail
+   254→  const { data, isLoading } = useQuery({
+   255→    queryKey: ['nurse-patient', admissionId],
+   256→    queryFn: () => fetch(`/api/dashboard/nurse/patients/${admissionId}`).then((r) => r.json()),
+   257→  })
+   258→
+   259→  const admission: Admission | null = data?.admission || null
+   260→  const latestVital: VitalRecord | null = data?.latestVital || null
+   261→  const vitalAlerts: VitalAlert[] = data?.vitalAlerts || []
+   262→  const doctorOrders: DoctorOrder[] = data?.doctorOrders || []
+   263→  const vitalRecords: VitalRecord[] = data?.vitalRecords || []
+   264→  const sampleCollections = data?.sampleCollections || []
+   265→
+   266→  // Administer mutation
+   267→  const administerMutation = useMutation({
+   268→    mutationFn: async ({ orderId, status, remarks }: { orderId: string; status: string; remarks?: string }) => {
+   269→      const res = await fetch(`/api/dashboard/nurse/patients/${admissionId}/medicines/${orderId}/administer`, {
+   270→        method: 'POST',
+   271→        headers: { 'Content-Type': 'application/json' },
+   272→        body: JSON.stringify({ status, remarks }),
+   273→      })
+   274→      if (!res.ok) {
+   275→        const d = await res.json()
+   276→        throw new Error(d.error || 'Failed')
+   277→      }
+   278→      return res.json()
+   279→    },
+   280→    onSuccess: () => {
+   281→      queryClient.invalidateQueries({ queryKey: ['nurse-patient', admissionId] })
+   282→      queryClient.invalidateQueries({ queryKey: ['nurse-patients'] })
+   283→      queryClient.invalidateQueries({ queryKey: ['nurse-stats'] })
+   284→      toast.success('Medicine status updated')
+   285→      setAdministerTarget(null)
+   286→    },
+   287→    onError: (err: Error) => toast.error(err.message),
+   288→  })
+   289→
+   290→  if (isLoading) return <DetailSkeleton />
+   291→  if (!admission) {
+   292→    return (
+   293→      <div className="flex flex-col items-center justify-center py-20">
+   294→        <p className="text-muted-foreground">Admission not found</p>
+   295→        <Button variant="outline" className="mt-4" onClick={() => router.push('/dashboard/nurse')}>
+   296→          <ArrowLeft className="mr-2 h-4 w-4" />Back to Dashboard
+   297→        </Button>
+   298→      </div>
+   299→    )
+   300→  }
+   301→
+   302→  return (
+   303→    <div className="space-y-6">
+   304→      {/* Back + Header */}
+   305→      <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
+   306→        <Button variant="ghost" size="sm" className="mb-4" onClick={() => router.push('/dashboard/nurse')}>
+   307→          <ArrowLeft className="mr-1 h-4 w-4" />Back
+   308→        </Button>
+   309→
+   310→        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+   311→          <div>
+   312→            <div className="flex items-center gap-3">
+   313→              <h1 className="text-xl font-bold">{admission.patientName}</h1>
+   314→              <Badge variant="outline" className="border-violet-300 bg-violet-100 text-violet-700 dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-400">
+   315→                <BedDouble className="mr-1 h-3 w-3" />{admission.bedNumber}
+   316→              </Badge>
+   317→              <Badge variant="outline" className="border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400">
+   318→                {admission.admissionNo}
+   319→              </Badge>
+   320→            </div>
+   321→            <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+   322→              <span>{admission.patientAge}y</span>
+   323→              <span>•</span>
+   324→              <span>{admission.patientGender}</span>
+   325→              <span>•</span>
+   326→              <span>{admission.departmentName}</span>
+   327→              <span>•</span>
+   328→              <span>{admission.wardName}</span>
+   329→            </div>
+   330→          </div>
+   331→          <div className="flex items-center gap-2">
+   332→            {admission.bloodGroup && (
+   333→              <Badge variant="outline" className="border-red-300 text-red-700 dark:border-red-700 dark:text-red-400">
+   334→                🩸 {admission.bloodGroup}
+   335→              </Badge>
+   336→            )}
+   337→            <Badge
+   338→              className={cn(
+   339→                admission.status === 'Admitted' && 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400'
+   340→              )}
+   341→            >
+   342→              {admission.status}
+   343→            </Badge>
+   344→          </div>
+   345→        </div>
+   346→
+   347→        {/* Critical alerts banner */}
+   348→        {vitalAlerts.length > 0 && (
+   349→          <div className={cn(
+   350→            'mt-3 flex items-start gap-2 rounded-lg border p-3 text-sm',
+   351→            vitalAlerts.some((a) => a.level === 'critical')
+   352→              ? 'border-red-300 bg-red-50 text-red-700 dark:border-red-800 dark:bg-red-950/30 dark:text-red-400'
+   353→              : 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400'
+   354→          )}>
+   355→            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+   356→            <div>
+   357→              <p className="font-semibold">{vitalAlerts.some((a) => a.level === 'critical') ? 'Critical Alerts' : 'Vital Warnings'}</p>
+   358→              <ul className="mt-1 list-disc pl-4 text-xs">
+   359→                {vitalAlerts.map((a, i) => <li key={i}>{a.message}</li>)}
+   360→              </ul>
+   361→            </div>
+   362→          </div>
+   363→        )}
+   364→      </motion.div>
+   365→
+   366→      {/* Tabs */}
+   367→      <Tabs defaultValue="overview" className="space-y-4">
+   368→        <TabsList className="grid w-full grid-cols-5 sm:w-auto">
+   369→          <TabsTrigger value="overview" className="gap-1.5 text-xs sm:text-sm">
+   370→            <FileText className="h-4 w-4" />Overview
+   371→          </TabsTrigger>
+   372→          <TabsTrigger value="vitals" className="gap-1.5 text-xs sm:text-sm">
+   373→            <Activity className="h-4 w-4" />Vitals
+   374→          </TabsTrigger>
+   375→          <TabsTrigger value="medicines" className="gap-1.5 text-xs sm:text-sm">
+   376→            <Pill className="h-4 w-4" />Medicines
+   377→          </TabsTrigger>
+   378→          <TabsTrigger value="investigations" className="gap-1.5 text-xs sm:text-sm">
+   379→            <TestTube className="h-4 w-4" />Investigations
+   380→          </TabsTrigger>
+   381→          <TabsTrigger value="history" className="gap-1.5 text-xs sm:text-sm">
+   382→            <History className="h-4 w-4" />History
+   383→          </TabsTrigger>
+   384→        </TabsList>
+   385→
+   386→        {/* OVERVIEW TAB */}
+   387→        <TabsContent value="overview" className="space-y-4">
+   388→          <div className="grid gap-4 lg:grid-cols-2">
+   389→            {/* Patient Info Card */}
+   390→            <Card>
+   391→              <CardHeader className="pb-3">
+   392→                <CardTitle className="flex items-center gap-2 text-base"><User className="h-4 w-4 text-teal-500" />Patient Information</CardTitle>
+   393→              </CardHeader>
+   394→              <CardContent className="space-y-2">
+   395→                <InfoRow label="Age / Gender" value={`${admission.patientAge}y / ${admission.patientGender}`} />
+   396→                <InfoRow label="Blood Group" value={admission.bloodGroup} />
+   397→                <InfoRow label="Mobile" value={admission.mobileNo} />
+   398→                <InfoRow label="Father/Husband" value={admission.fatherName} />
+   399→                <InfoRow label="Contact Person" value={admission.contactPersonName} />
+   400→                {admission.contactPersonName && <InfoRow label="CP Mobile" value={admission.contactPersonMobile} />}
+   401→                {admission.contactPersonName && <InfoRow label="CP Relation" value={admission.contactPersonRelation} />}
+   402→                <InfoRow label="Marital Status" value={admission.maritalStatus} />
+   403→                <InfoRow label="Occupation" value={admission.occupation} />
+   404→                <InfoRow label="Address" value={admission.address} />
+   405→              </CardContent>
+   406→            </Card>
+   407→
+   408→            {/* Admission Details Card */}
+   409→            <Card>
+   410→              <CardHeader className="pb-3">
+   411→                <CardTitle className="flex items-center gap-2 text-base"><Building2 className="h-4 w-4 text-teal-500" />Admission Details</CardTitle>
+   412→              </CardHeader>
+   413→              <CardContent className="space-y-2">
+   414→                <InfoRow label="Admission No" value={admission.admissionNo} />
+   415→                <InfoRow label="Date" value={admission.admissionDate ? format(new Date(admission.admissionDate), 'dd MMM yyyy') : ''} />
+   416→                <InfoRow label="Time" value={admission.admissionTime} />
+   417→                <InfoRow label="Ward" value={`${admission.wardName} (${admission.wardType})`} />
+   418→                <InfoRow label="Bed" value={`${admission.bedNumber} — ${admission.bedType}`} />
+   419→                <InfoRow label="Department" value={admission.departmentName} />
+   420→                <InfoRow label="Attending Doctor" value={admission.attendingDoctorName} />
+   421→                <InfoRow label="Referring Doctor" value={admission.referringDoctorName} />
+   422→                <InfoRow label="Initial Diagnosis" value={admission.initialDiagnosis} />
+   423→                <InfoRow label="Final Diagnosis" value={admission.finalDiagnosis} />
+   424→              </CardContent>
+   425→            </Card>
+   426→          </div>
+   427→
+   428→          {/* Latest Vitals Display */}
+   429→          <Card>
+   430→            <CardHeader className="pb-3">
+   431→              <div className="flex items-center justify-between">
+   432→                <CardTitle className="flex items-center gap-2 text-base"><Activity className="h-4 w-4 text-teal-500" />Latest Vitals</CardTitle>
+   433→                {latestVital && (
+   434→                  <span className="text-xs text-muted-foreground">
+   435→                    {format(new Date(latestVital.recordedAt), 'dd MMM yyyy, HH:mm')}
+   436→                  </span>
+   437→                )}
+   438→              </div>
+   439→            </CardHeader>
+   440→            <CardContent>
+   441→              {latestVital ? (
+   442→                <div className="grid grid-cols-3 gap-4 sm:grid-cols-6">
+   443→                  {[
+   444→                    { label: 'Temp', value: latestVital.temperature, unit: '°F', param: 'temperature', icon: Thermometer },
+   445→                    { label: 'Pulse', value: latestVital.pulse, unit: 'bpm', param: 'pulse', icon: Heart },
+   446→                    { label: 'SpO2', value: latestVital.spo2, unit: '%', param: 'spo2', icon: Wind },
+   447→                    { label: 'BP', value: `${latestVital.bpSystolic}/${latestVital.bpDiastolic}`, unit: 'mmHg', param: 'bpSystolic', raw: latestVital.bpSystolic, icon: Droplets },
+   448→                    { label: 'RR', value: latestVital.respiratoryRate, unit: '/min', param: 'respiratoryRate', icon: Activity },
+   449→                  ].map((v) => (
+   450→                    <div key={v.label} className="text-center">
+   451→                      <v.icon className={cn('mx-auto mb-1 h-5 w-5', isAbnormal(v.param, v.raw ?? v.value) ? 'text-red-500' : 'text-teal-500')} />
+   452→                      <p className="text-[10px] text-muted-foreground">{v.label}</p>
+   453→                      <p className={cn('text-sm font-bold', isAbnormal(v.param, v.raw ?? v.value) ? 'text-red-600 dark:text-red-400' : '')}>
+   454→                        {v.value} <span className="font-normal text-muted-foreground">{v.unit}</span>
+   455→                      </p>
+   456→                    </div>
+   457→                  ))}
+   458→                  <div className="col-span-full flex flex-wrap gap-3 border-t pt-3 text-xs text-muted-foreground">
+   459→                    <span>Status: <strong className={latestVital.patientStatus !== 'Conscious' ? 'text-amber-600 dark:text-amber-400' : ''}>{latestVital.patientStatus}</strong></span>
+   460→                    {latestVital.ventilatorOn && <Badge variant="outline" className="border-red-300 text-red-700">Ventilator ON</Badge>}
+   461→                    {latestVital.oxygenLiters > 0 && <span>O₂: {latestVital.oxygenLiters}L</span>}
+   462→                    {latestVital.rbs && <span>RBS: {latestVital.rbs}</span>}
+   463→                    <span>I: {latestVital.inputMl}ml</span>
+   464→                    <span>U: {latestVital.urineMl}ml</span>
+   465→                    <span>O: {latestVital.outputMl}ml</span>
+   466→                  </div>
+   467→                </div>
+   468→              ) : (
+   469→                <p className="py-4 text-center text-sm text-muted-foreground">No vitals recorded yet</p>
+   470→              )}
+   471→            </CardContent>
+   472→          </Card>
+   473→
+   474→          {/* Orders Summary + Pending Samples */}
+   475→          <div className="grid gap-4 lg:grid-cols-2">
+   476→            <Card>
+   477→              <CardHeader className="pb-3">
+   478→                <CardTitle className="flex items-center gap-2 text-base"><ClipboardList className="h-4 w-4 text-teal-500" />Active Orders ({doctorOrders.length})</CardTitle>
+   479→              </CardHeader>
+   480→              <CardContent>
+   481→                {doctorOrders.length === 0 ? (
+   482→                  <p className="text-sm text-muted-foreground">No active doctor orders</p>
+   483→                ) : (
+   484→                  <div className="max-h-64 space-y-2 overflow-y-auto">
+   485→                    {doctorOrders.slice(0, 10).map((order) => (
+   486→                      <div key={order.id} className="flex items-center justify-between rounded-lg border p-2.5">
+   487→                        <div className="min-w-0 flex-1">
+   488→                          <p className="truncate text-sm font-medium">{order.drugName}</p>
+   489→                          <p className="text-xs text-muted-foreground">{order.dose} • {order.route} • {order.frequency} • {order.scheduledTime}</p>
+   490→                        </div>
+   491→                        {getMedStatusBadge(order.status)}
+   492→                      </div>
+   493→                    ))}
+   494→                  </div>
+   495→                )}
+   496→              </CardContent>
+   497→            </Card>
+   498→
+   499→            <Card>
+   500→              <CardHeader className="pb-3">
+   501→                <CardTitle className="flex items-center gap-2 text-base"><Stethoscope className="h-4 w-4 text-teal-500" />Sample Collections ({sampleCollections.length})</CardTitle>
+   502→              </CardHeader>
+   503→              <CardContent>
+   504→                {sampleCollections.length === 0 ? (
+   505→                  <p className="text-sm text-muted-foreground">No sample collections</p>
+   506→                ) : (
+   507→                  <div className="max-h-64 space-y-2 overflow-y-auto">
+   508→                    {sampleCollections.map((s: { id: string; testName: string; sampleType: string; status: string; createdAt: string }) => (
+   509→                      <div key={s.id} className="flex items-center justify-between rounded-lg border p-2.5">
+   510→                        <div>
+   511→                          <p className="text-sm font-medium">{s.testName}</p>
+   512→                          <p className="text-xs text-muted-foreground">{s.sampleType} • {format(new Date(s.createdAt), 'dd MMM, HH:mm')}</p>
+   513→                        </div>
+   514→                        <Badge variant="outline" className={cn(
+   515→                          s.status === 'Ordered' && 'border-amber-300 text-amber-700',
+   516→                          s.status === 'Collected' && 'border-teal-300 text-teal-700',
+   517→                          s.status === 'SentToLab' && 'border-sky-300 text-sky-700',
+   518→                          s.status === 'Reported' && 'border-emerald-300 text-emerald-700'
+   519→                        )}>
+   520→                          {s.status}
+   521→                        </Badge>
+   522→                      </div>
+   523→                    ))}
+   524→                  </div>
+   525→                )}
+   526→              </CardContent>
+   527→            </Card>
+   528→          </div>
+   529→        </TabsContent>
+   530→
+   531→        {/* VITALS TAB */}
+   532→        <TabsContent value="vitals" className="space-y-4">
+   533→          <VitalForm admissionId={admissionId} />
+   534→          <VitalsHistoryTable vitalRecords={vitalRecords} />
+   535→        </TabsContent>
+   536→
+   537→        {/* MEDICINES TAB */}
+   538→        <TabsContent value="medicines" className="space-y-4">
+   539→          <MedicinesTab
+   540→            admissionId={admissionId}
+   541→            orders={doctorOrders}
+   542→            onAdminister={(orderId, status) => setAdministerTarget({ orderId, status })}
+   543→          />
+   544→        </TabsContent>
+   545→
+   546→        {/* INVESTIGATIONS TAB */}
+   547→        <TabsContent value="investigations" className="space-y-4">
+   548→          <InvestigationsTab admissionId={admissionId} />
+   549→        </TabsContent>
+   550→
+   551→        {/* HISTORY TAB */}
+   552→        <TabsContent value="history" className="space-y-4">
+   553→          <div className="grid gap-4 lg:grid-cols-2">
+   554→            <Card>
+   555→              <CardHeader className="pb-3">
+   556→                <CardTitle className="flex items-center gap-2 text-base"><ClipboardList className="h-4 w-4 text-teal-500" />History Sheet</CardTitle>
+   557→              </CardHeader>
+   558→              <CardContent className="space-y-3">
+   559→                <div>
+   560→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Chief Complaints</h4>
+   561→                  <p className="whitespace-pre-wrap text-sm">{admission.chiefComplaints || 'Not recorded'}</p>
+   562→                </div>
+   563→                <div>
+   564→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Past History</h4>
+   565→                  <p className="whitespace-pre-wrap text-sm">{admission.pastHistory || 'Not recorded'}</p>
+   566→                </div>
+   567→                <div>
+   568→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Personal History</h4>
+   569→                  <p className="whitespace-pre-wrap text-sm">
+   570→                    {admission.personalHistory && admission.personalHistory !== '{}' ? (typeof admission.personalHistory === 'string' ? admission.personalHistory : 'Recorded (see doctor view)') : 'Not recorded'}
+   571→                  </p>
+   572→                </div>
+   573→                <div>
+   574→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Drug History</h4>
+   575→                  <p className="whitespace-pre-wrap text-sm">{admission.drugHistory || 'Not recorded'}</p>
+   576→                </div>
+   577→              </CardContent>
+   578→            </Card>
+   579→
+   580→            <Card>
+   581→              <CardHeader className="pb-3">
+   582→                <CardTitle className="flex items-center gap-2 text-base"><Stethoscope className="h-4 w-4 text-teal-500" />Physical Examination</CardTitle>
+   583→              </CardHeader>
+   584→              <CardContent className="space-y-3">
+   585→                <div className="grid grid-cols-2 gap-2 text-sm">
+   586→                  <InfoRow label="Consciousness" value={admission.consciousnessLevel} />
+   587→                  <InfoRow label="Obeys Commands" value={admission.obeyingCommands ? 'Yes' : 'No'} />
+   588→                  <InfoRow label="Responds to DPS" value={admission.respondingToDPS ? 'Yes' : 'No'} />
+   589→                  <InfoRow label="Oriented" value={admission.oriented ? 'Yes' : 'No'} />
+   590→                  <InfoRow label="Speech" value={admission.speech} />
+   591→                </div>
+   592→                <div>
+   593→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Examination Notes</h4>
+   594→                  <p className="whitespace-pre-wrap text-sm">{admission.examinationNotes || 'Not recorded'}</p>
+   595→                </div>
+   596→                <div>
+   597→                  <h4 className="mb-1 text-xs font-semibold uppercase text-muted-foreground">General Signs</h4>
+   598→                  <p className="whitespace-pre-wrap text-sm">
+   599→                    {admission.generalSigns && admission.generalSigns !== '{}' ? (typeof admission.generalSigns === 'string' ? admission.generalSigns : 'Recorded (see doctor view)') : 'Not recorded'}
+   600→                  </p>
+   601→                </div>
+   602→              </CardContent>
+   603→            </Card>
+   604→          </div>
+   605→        </TabsContent>
+   606→      </Tabs>
+   607→
+   608→      {/* Administer Confirm Dialog */}
+   609→      <AlertDialog open={!!administerTarget} onOpenChange={(open) => !open && setAdministerTarget(null)}>
+   610→        <AlertDialogContent>
+   611→          <AlertDialogHeader>
+   612→            <AlertDialogTitle>
+   613→              {administerTarget?.status === 'Given' ? 'Confirm Medicine Given' : `Mark as ${administerTarget?.status}`}
+   614→            </AlertDialogTitle>
+   615→            <AlertDialogDescription>
+   616→              {administerTarget?.status === 'Given'
+   617→                ? 'Confirm that this medicine has been administered to the patient.'
+   618→                : `Are you sure you want to mark this medicine as ${administerTarget?.status}?`}
+   619→            </AlertDialogDescription>
+   620→          </AlertDialogHeader>
+   621→          <AlertDialogFooter>
+   622→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   623→            <AlertDialogAction
+   624→              onClick={() => {
+   625→                if (administerTarget) {
+   626→                  administerMutation.mutate({ orderId: administerTarget.orderId, status: administerTarget.status })
+   627→                }
+   628→              }}
+   629→              disabled={administerMutation.isPending}
+   630→            >
+   631→              {administerMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+   632→              Confirm
+   633→            </AlertDialogAction>
+   634→          </AlertDialogFooter>
+   635→        </AlertDialogContent>
+   636→      </AlertDialog>
+   637→    </div>
+   638→  )
+   639→}
+   640→
+   641→// ============ VITAL FORM SUB-COMPONENT ============
+   642→
+   643→function VitalForm({ admissionId }: { admissionId: string }) {
+   644→  const queryClient = useQueryClient()
+   645→  const [form, setForm] = useState({
+   646→    temperature: '',
+   647→    pulse: '',
+   648→    spo2: '',
+   649→    bpSystolic: '',
+   650→    bpDiastolic: '',
+   651→    respiratoryRate: '',
+   652→    patientStatus: 'Conscious',
+   653→    ventilatorOn: false,
+   654→    oxygenLiters: '',
+   655→    inputMl: '',
+   656→    urineMl: '',
+   657→    outputMl: '',
+   658→    infusionPump: '',
+   659→    rbs: '',
+   660→    remarks: '',
+   661→  })
+   662→
+   663→  const update = useCallback((key: string, value: string | boolean) => {
+   664→    setForm((prev) => ({ ...prev, [key]: value }))
+   665→  }, [])
+   666→
+   667→  const saveMutation = useMutation({
+   668→    mutationFn: async () => {
+   669→      const res = await fetch(`/api/dashboard/nurse/patients/${admissionId}/vitals`, {
+   670→        method: 'POST',
+   671→        headers: { 'Content-Type': 'application/json' },
+   672→        body: JSON.stringify(form),
+   673→      })
+   674→      if (!res.ok) throw new Error('Failed to save vitals')
+   675→      return res.json()
+   676→    },
+   677→    onSuccess: (data) => {
+   678→      queryClient.invalidateQueries({ queryKey: ['nurse-patient', admissionId] })
+   679→      queryClient.invalidateQueries({ queryKey: ['nurse-patients'] })
+   680→      queryClient.invalidateQueries({ queryKey: ['nurse-stats'] })
+   681→      toast.success('Vitals recorded successfully')
+   682→      if (data.criticalCount > 0) {
+   683→        toast.error(`⚠️ ${data.criticalCount} critical alert(s) sent to doctor!`)
+   684→      }
+   685→      // Reset form
+   686→      setForm({
+   687→        temperature: '', pulse: '', spo2: '', bpSystolic: '', bpDiastolic: '',
+   688→        respiratoryRate: '', patientStatus: 'Conscious', ventilatorOn: false,
+   689→        oxygenLiters: '', inputMl: '', urineMl: '', outputMl: '',
+   690→        infusionPump: '', rbs: '', remarks: '',
+   691→      })
+   692→    },
+   693→    onError: () => toast.error('Failed to record vitals'),
+   694→  })
+   695→
+   696→  const inputCls = 'h-9'
+   697→
+   698→  return (
+   699→    <Card>
+   700→      <CardHeader className="pb-3">
+   701→        <CardTitle className="flex items-center gap-2 text-base"><Activity className="h-4 w-4 text-teal-500" />Record New Vitals</CardTitle>
+   702→      </CardHeader>
+   703→      <CardContent className="space-y-4">
+   704→        {/* Row 1: Temp, Pulse, SpO2, RR */}
+   705→        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   706→          <div className="space-y-1.5">
+   707→            <Label className="text-xs">Temperature (°F)</Label>
+   708→            <Input className={inputCls} type="number" step="0.1" placeholder="98.6" value={form.temperature} onChange={(e) => update('temperature', e.target.value)} />
+   709→          </div>
+   710→          <div className="space-y-1.5">
+   711→            <Label className="text-xs">Pulse (bpm)</Label>
+   712→            <Input className={inputCls} type="number" placeholder="72" value={form.pulse} onChange={(e) => update('pulse', e.target.value)} />
+   713→          </div>
+   714→          <div className="space-y-1.5">
+   715→            <Label className="text-xs">SpO2 (%)</Label>
+   716→            <Input className={inputCls} type="number" step="0.1" placeholder="98" value={form.spo2} onChange={(e) => update('spo2', e.target.value)} />
+   717→          </div>
+   718→          <div className="space-y-1.5">
+   719→            <Label className="text-xs">Resp. Rate (/min)</Label>
+   720→            <Input className={inputCls} type="number" placeholder="18" value={form.respiratoryRate} onChange={(e) => update('respiratoryRate', e.target.value)} />
+   721→          </div>
+   722→        </div>
+   723→
+   724→        {/* Row 2: BP */}
+   725→        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   726→          <div className="space-y-1.5">
+   727→            <Label className="text-xs">BP Systolic</Label>
+   728→            <Input className={inputCls} type="number" placeholder="120" value={form.bpSystolic} onChange={(e) => update('bpSystolic', e.target.value)} />
+   729→          </div>
+   730→          <div className="space-y-1.5">
+   731→            <Label className="text-xs">BP Diastolic</Label>
+   732→            <Input className={inputCls} type="number" placeholder="80" value={form.bpDiastolic} onChange={(e) => update('bpDiastolic', e.target.value)} />
+   733→          </div>
+   734→          <div className="space-y-1.5">
+   735→            <Label className="text-xs">Patient Status</Label>
+   736→            <Select value={form.patientStatus} onValueChange={(v) => update('patientStatus', v)}>
+   737→              <SelectTrigger className={inputCls}><SelectValue /></SelectTrigger>
+   738→              <SelectContent>
+   739→                <SelectItem value="Conscious">Conscious</SelectItem>
+   740→                <SelectItem value="Semiconscious">Semiconscious</SelectItem>
+   741→                <SelectItem value="Unconscious">Unconscious</SelectItem>
+   742→              </SelectContent>
+   743→            </Select>
+   744→          </div>
+   745→          <div className="flex items-end gap-3">
+   746→            <div className="flex items-center gap-2 pb-1">
+   747→              <Switch checked={form.ventilatorOn} onCheckedChange={(v) => update('ventilatorOn', v)} />
+   748→              <Label className="text-xs">Ventilator</Label>
+   749→            </div>
+   750→          </div>
+   751→        </div>
+   752→
+   753→        {/* Row 3: O2, Input, Urine, Output */}
+   754→        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   755→          <div className="space-y-1.5">
+   756→            <Label className="text-xs">O₂ Liters</Label>
+   757→            <Input className={inputCls} type="number" step="0.5" placeholder="0" value={form.oxygenLiters} onChange={(e) => update('oxygenLiters', e.target.value)} />
+   758→          </div>
+   759→          <div className="space-y-1.5">
+   760→            <Label className="text-xs">Input (ml)</Label>
+   761→            <Input className={inputCls} type="number" placeholder="0" value={form.inputMl} onChange={(e) => update('inputMl', e.target.value)} />
+   762→          </div>
+   763→          <div className="space-y-1.5">
+   764→            <Label className="text-xs">Urine (ml)</Label>
+   765→            <Input className={inputCls} type="number" placeholder="0" value={form.urineMl} onChange={(e) => update('urineMl', e.target.value)} />
+   766→          </div>
+   767→          <div className="space-y-1.5">
+   768→            <Label className="text-xs">Output (ml)</Label>
+   769→            <Input className={inputCls} type="number" placeholder="0" value={form.outputMl} onChange={(e) => update('outputMl', e.target.value)} />
+   770→          </div>
+   771→        </div>
+   772→
+   773→        {/* Row 4: Infusion Pump, RBS, Remarks */}
+   774→        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+   775→          <div className="space-y-1.5">
+   776→            <Label className="text-xs">Infusion Pump</Label>
+   777→            <Input className={inputCls} placeholder="Details..." value={form.infusionPump} onChange={(e) => update('infusionPump', e.target.value)} />
+   778→          </div>
+   779→          <div className="space-y-1.5">
+   780→            <Label className="text-xs">RBS (optional)</Label>
+   781→            <Input className={inputCls} type="number" step="1" placeholder="mg/dL" value={form.rbs} onChange={(e) => update('rbs', e.target.value)} />
+   782→          </div>
+   783→          <div className="space-y-1.5">
+   784→            <Label className="text-xs">Remarks</Label>
+   785→            <Input className={inputCls} placeholder="Any notes..." value={form.remarks} onChange={(e) => update('remarks', e.target.value)} />
+   786→          </div>
+   787→        </div>
+   788→
+   789→        {/* Submit */}
+   790→        <div className="flex justify-end">
+   791→          <Button
+   792→            onClick={() => saveMutation.mutate()}
+   793→            disabled={saveMutation.isPending}
+   794→            className="bg-teal-600 hover:bg-teal-700"
+   795→          >
+   796→            {saveMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+   797→            Save Vitals
+   798→          </Button>
+   799→        </div>
+   800→      </CardContent>
+   801→    </Card>
+   802→  )
+   803→}
+   804→
+   805→// ============ VITALS HISTORY TABLE ============
+   806→
+   807→function VitalsHistoryTable({ vitalRecords }: { vitalRecords: VitalRecord[] }) {
+   808→  return (
+   809→    <Card>
+   810→      <CardHeader className="pb-3">
+   811→        <CardTitle className="flex items-center gap-2 text-base"><Clock className="h-4 w-4 text-teal-500" />Vitals History</CardTitle>
+   812→      </CardHeader>
+   813→      <CardContent className="p-0">
+   814→        <div className="max-h-96 overflow-y-auto">
+   815→          <Table>
+   816→            <TableHeader>
+   817→              <TableRow>
+   818→                <TableHead className="text-xs">Time</TableHead>
+   819→                <TableHead className="text-xs">Temp</TableHead>
+   820→                <TableHead className="text-xs">Pulse</TableHead>
+   821→                <TableHead className="text-xs">SpO2</TableHead>
+   822→                <TableHead className="text-xs">BP</TableHead>
+   823→                <TableHead className="text-xs">RR</TableHead>
+   824→                <TableHead className="text-xs">I/O</TableHead>
+   825→                <TableHead className="text-xs">Remarks</TableHead>
+   826→              </TableRow>
+   827→            </TableHeader>
+   828→            <TableBody>
+   829→              {vitalRecords.length === 0 && (
+   830→                <TableRow>
+   831→                  <TableCell colSpan={8} className="py-8 text-center text-sm text-muted-foreground">No vitals recorded yet</TableCell>
+   832→                </TableRow>
+   833→              )}
+   834→              {vitalRecords.map((v) => (
+   835→                <TableRow key={v.id}>
+   836→                  <TableCell className="whitespace-nowrap text-xs">
+   837→                    {format(new Date(v.recordedAt), 'dd MMM HH:mm')}
+   838→                  </TableCell>
+   839→                  <TableCell className={cn('text-xs font-medium', v.temperature > 0 && isAbnormal('temperature', v.temperature) ? 'text-red-600 dark:text-red-400' : '')}>
+   840→                    {v.temperature > 0 ? `${v.temperature}°F` : '—'}
+   841→                  </TableCell>
+   842→                  <TableCell className={cn('text-xs font-medium', v.pulse > 0 && isAbnormal('pulse', v.pulse) ? 'text-red-600 dark:text-red-400' : '')}>
+   843→                    {v.pulse > 0 ? v.pulse : '—'}
+   844→                  </TableCell>
+   845→                  <TableCell className={cn('text-xs font-medium', v.spo2 > 0 && isAbnormal('spo2', v.spo2) ? 'text-red-600 dark:text-red-400' : '')}>
+   846→                    {v.spo2 > 0 ? `${v.spo2}%` : '—'}
+   847→                  </TableCell>
+   848→                  <TableCell className={cn('text-xs font-medium', v.bpSystolic > 0 && isAbnormal('bpSystolic', v.bpSystolic) ? 'text-red-600 dark:text-red-400' : '')}>
+   849→                    {v.bpSystolic > 0 ? `${v.bpSystolic}/${v.bpDiastolic}` : '—'}
+   850→                  </TableCell>
+   851→                  <TableCell className={cn('text-xs font-medium', v.respiratoryRate > 0 && isAbnormal('respiratoryRate', v.respiratoryRate) ? 'text-red-600 dark:text-red-400' : '')}>
+   852→                    {v.respiratoryRate > 0 ? v.respiratoryRate : '—'}
+   853→                  </TableCell>
+   854→                  <TableCell className="text-xs">
+   855→                    {v.inputMl > 0 || v.urineMl > 0 ? (
+   856→                      <span>I:{v.inputMl} U:{v.urineMl}</span>
+   857→                    ) : '—'}
+   858→                  </TableCell>
+   859→                  <TableCell className="max-w-[120px] truncate text-xs text-muted-foreground">{v.remarks || '—'}</TableCell>
+   860→                </TableRow>
+   861→              ))}
+   862→            </TableBody>
+   863→          </Table>
+   864→        </div>
+   865→      </CardContent>
+   866→    </Card>
+   867→  )
+   868→}
+   869→
+   870→// ============ MEDICINES TAB ============
+   871→
+   872→function MedicinesTab({
+   873→  admissionId,
+   874→  orders,
+   875→  onAdminister,
+   876→}: {
+   877→  admissionId: string
+   878→  orders: DoctorOrder[]
+   879→  onAdminister: (orderId: string, status: string) => void
+   880→}) {
+   881→  const { data: medData } = useQuery({
+   882→    queryKey: ['nurse-medicines', admissionId],
+   883→    queryFn: () => fetch(`/api/dashboard/nurse/patients/${admissionId}/medicines`).then((r) => r.json()),
+   884→  })
+   885→
+   886→  const groupedOrders = medData?.grouped || {}
+   887→  const timeSlots = Object.keys(groupedOrders).sort()
+   888→
+   889→  if (orders.length === 0) {
+   890→    return (
+   891→      <Card>
+   892→        <CardContent className="flex flex-col items-center py-12">
+   893→          <Pill className="mb-3 h-12 w-12 text-muted-foreground/40" />
+   894→          <p className="text-sm text-muted-foreground">No active medicine orders for this patient</p>
+   895→        </CardContent>
+   896→      </Card>
+   897→    )
+   898→  }
+   899→
+   900→  return (
+   901→    <div className="space-y-4">
+   902→      {timeSlots.map((time) => (
+   903→        <Card key={time}>
+   904→          <CardHeader className="pb-2">
+   905→            <CardTitle className="flex items-center gap-2 text-sm font-semibold">
+   906→              <Clock className="h-4 w-4 text-teal-500" />
+   907→              Scheduled: {time}
+   908→              <Badge variant="secondary" className="text-[10px]">
+   909→                {groupedOrders[time].length} order(s)
+   910→              </Badge>
+   911→            </CardTitle>
+   912→          </CardHeader>
+   913→          <CardContent className="space-y-2">
+   914→            {groupedOrders[time].map((order: DoctorOrder) => (
+   915→              <motion.div
+   916→                key={order.id}
+   917→                initial={{ opacity: 0, x: -5 }}
+   918→                animate={{ opacity: 1, x: 0 }}
+   919→                className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+   920→              >
+   921→                <div className="min-w-0 flex-1">
+   922→                  <div className="flex items-center gap-2">
+   923→                    <p className="truncate text-sm font-semibold">{order.drugName}</p>
+   924→                    {order.isStat && <Badge className="bg-red-100 text-red-700 text-[10px]">STAT</Badge>}
+   925→                    {order.isPrn && <Badge variant="outline" className="text-[10px]">PRN</Badge>}
+   926→                  </div>
+   927→                  <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+   928→                    {getRouteBadge(order.route)}
+   929→                    <span>{order.dose}</span>
+   930→                    <span>•</span>
+   931→                    <span>{order.frequency}</span>
+   932→                    {order.instructions && (
+   933→                      <>
+   934→                        <span>•</span>
+   935→                        <span className="italic">{order.instructions}</span>
+   936→                      </>
+   937→                    )}
+   938→                  </div>
+   939→                  <p className="mt-0.5 text-[10px] text-muted-foreground">by {order.doctorName}</p>
+   940→                </div>
+   941→
+   942→                <div className="flex items-center gap-2">
+   943→                  {getMedStatusBadge(order.status)}
+   944→                  {(order.status === 'Pending' || order.status === 'Overdue') && (
+   945→                    <div className="flex gap-1">
+   946→                      <Button
+   947→                        size="sm"
+   948→                        className="h-7 bg-emerald-600 text-xs hover:bg-emerald-700"
+   949→                        onClick={() => onAdminister(order.id, 'Given')}
+   950→                      >
+   951→                        <CheckCircle2 className="mr-1 h-3 w-3" />
+   952→                        Mark Given
+   953→                      </Button>
+   954→                      <DropdownMenu>
+   955→                        <DropdownMenuTrigger asChild>
+   956→                          <Button variant="outline" size="sm" className="h-7 text-xs">
+   957→                            <MoreHorizontal className="h-3 w-3" />
+   958→                          </Button>
+   959→                        </DropdownMenuTrigger>
+   960→                        <DropdownMenuContent align="end">
+   961→                          <DropdownMenuItem onClick={() => onAdminister(order.id, 'Missed')}>Missed</DropdownMenuItem>
+   962→                          <DropdownMenuItem onClick={() => onAdminister(order.id, 'Refused')}>Refused</DropdownMenuItem>
+   963→                          <DropdownMenuItem onClick={() => onAdminister(order.id, 'Skipped')}>Skipped</DropdownMenuItem>
+   964→                          <DropdownMenuItem onClick={() => onAdminister(order.id, 'NotAvailable')}>Not Available</DropdownMenuItem>
+   965→                        </DropdownMenuContent>
+   966→                      </DropdownMenu>
+   967→                    </div>
+   968→                  )}
+   969→                </div>
+   970→              </motion.div>
+   971→            ))}
+   972→          </CardContent>
+   973→        </Card>
+   974→      ))}
+   975→    </div>
+   976→  )
+   977→}
+   978→
+   979→// ============ INVESTIGATIONS TAB ============
+   980→
+   981→interface InvestigationSample {
+   982→  id: string
+   983→  testName: string
+   984→  sampleType: string
+   985→  status: string
+   986→  collectedAt: string | null
+   987→  sentToLabAt: string | null
+   988→  remarks: string
+   989→  createdAt: string
+   990→  doctorName: string
+   991→  nurseName: string
+   992→  report: {
+   993→    id: string
+   994→    testName: string
+   995→    reportDate: string
+   996→    resultData: string
+   997→    normalRange: string
+   998→    isAbnormal: boolean
+   999→    remarks: string
+  1000→  } | null
+  1001→}
+  1002→
+  1003→function getSampleStatusBadge(status: string) {
+  1004→  switch (status) {
+  1005→    case 'Ordered':
+  1006→      return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 dark:bg-amber-950/50 dark:text-amber-400">Ordered</Badge>
+  1007→    case 'Collected':
+  1008→      return <Badge className="bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-950/50 dark:text-teal-400">Collected</Badge>
+  1009→    case 'SentToLab':
+  1010→      return <Badge className="bg-sky-100 text-sky-700 hover:bg-sky-100 dark:bg-sky-950/50 dark:text-sky-400">Sent to Lab</Badge>
+  1011→    case 'Reported':
+  1012→      return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/50 dark:text-emerald-400">Reported</Badge>
+  1013→    case 'Filed':
+  1014→      return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-400">Filed</Badge>
+  1015→    default:
+  1016→      return <Badge variant="secondary">{status}</Badge>
+  1017→  }
+  1018→}
+  1019→
+  1020→function parseResultSummary(resultData: string): string {
+  1021→  try {
+  1022→    const data = JSON.parse(resultData)
+  1023→    if (typeof data === 'object' && data !== null) {
+  1024→      return Object.entries(data)
+  1025→        .map(([key, value]) => `${key}: ${value}`)
+  1026→        .join(', ')
+  1027→    }
+  1028→    return String(data)
+  1029→  } catch {
+  1030→    return resultData || 'No data'
+  1031→  }
+  1032→}
+  1033→
+  1034→function InvestigationsTab({ admissionId }: { admissionId: string }) {
+  1035→  const queryClient = useQueryClient()
+  1036→  const [showCollectDialog, setShowCollectDialog] = useState(false)
+  1037→  const [collectForm, setCollectForm] = useState({ testName: '', sampleType: SAMPLE_TYPES[0] as string, remarks: '' })
+  1038→
+  1039→  // Fetch investigations
+  1040→  const { data: invData, isLoading: invLoading } = useQuery({
+  1041→    queryKey: ['nurse-investigations', admissionId],
+  1042→    queryFn: () => fetch(`/api/dashboard/nurse/patients/${admissionId}/investigations`).then((r) => r.json()),
+  1043→  })
+  1044→
+  1045→  const samples: InvestigationSample[] = invData?.samples || []
+  1046→
+  1047→  // POST: Collect sample
+  1048→  const collectMutation = useMutation({
+  1049→    mutationFn: async (data: { testName: string; sampleType: string; remarks?: string }) => {
+  1050→      const res = await fetch(`/api/dashboard/nurse/patients/${admissionId}/investigations`, {
+  1051→        method: 'POST',
+  1052→        headers: { 'Content-Type': 'application/json' },
+  1053→        body: JSON.stringify(data),
+  1054→      })
+  1055→      if (!res.ok) {
+  1056→        const d = await res.json()
+  1057→        throw new Error(d.error || 'Failed to collect sample')
+  1058→      }
+  1059→      return res.json()
+  1060→    },
+  1061→    onSuccess: () => {
+  1062→      queryClient.invalidateQueries({ queryKey: ['nurse-investigations', admissionId] })
+  1063→      queryClient.invalidateQueries({ queryKey: ['nurse-patient', admissionId] })
+  1064→      toast.success('Sample collected successfully')
+  1065→      setShowCollectDialog(false)
+  1066→      setCollectForm({ testName: '', sampleType: SAMPLE_TYPES[0] as string, remarks: '' })
+  1067→    },
+  1068→    onError: (err: Error) => toast.error(err.message),
+  1069→  })
+  1070→
+  1071→  // PATCH: Update sample status
+  1072→  const updateStatusMutation = useMutation({
+  1073→    mutationFn: async ({ sampleId, status, remarks }: { sampleId: string; status: string; remarks?: string }) => {
+  1074→      const res = await fetch(`/api/dashboard/nurse/patients/${admissionId}/investigations/${sampleId}`, {
+  1075→        method: 'PATCH',
+  1076→        headers: { 'Content-Type': 'application/json' },
+  1077→        body: JSON.stringify({ status, remarks }),
+  1078→      })
+  1079→      if (!res.ok) {
+  1080→        const d = await res.json()
+  1081→        throw new Error(d.error || 'Failed to update status')
+  1082→      }
+  1083→      return res.json()
+  1084→    },
+  1085→    onSuccess: () => {
+  1086→      queryClient.invalidateQueries({ queryKey: ['nurse-investigations', admissionId] })
+  1087→      queryClient.invalidateQueries({ queryKey: ['nurse-patient', admissionId] })
+  1088→      toast.success('Sample status updated')
+  1089→    },
+  1090→    onError: (err: Error) => toast.error(err.message),
+  1091→  })
+  1092→
+  1093→  // Categorize samples
+  1094→  const pendingSamples = samples.filter((s) => s.status === 'Ordered' || s.status === 'Collected')
+  1095→  const inProgressSamples = samples.filter((s) => s.status === 'SentToLab')
+  1096→  const reportedSamples = samples.filter((s) => s.status === 'Reported' || s.status === 'Filed')
+  1097→
+  1098→  if (invLoading) {
+  1099→    return (
+  1100→      <div className="space-y-4">
+  1101→        <Skeleton className="h-8 w-48" />
+  1102→        <Skeleton className="h-40 rounded-xl" />
+  1103→        <Skeleton className="h-40 rounded-xl" />
+  1104→      </div>
+  1105→    )
+  1106→  }
+  1107→
+  1108→  return (
+  1109→    <div className="space-y-6">
+  1110→      {/* Header with Add button */}
+  1111→      <div className="flex items-center justify-between">
+  1112→        <div className="flex items-center gap-2">
+  1113→          <FlaskConical className="h-5 w-5 text-teal-500" />
+  1114→          <h3 className="text-base font-semibold">Investigations & Sample Collection</h3>
+  1115→          {pendingSamples.length > 0 && (
+  1116→            <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400">
+  1117→              {pendingSamples.length} pending
+  1118→            </Badge>
+  1119→          )}
+  1120→        </div>
+  1121→        <Button
+  1122→          size="sm"
+  1123→          className="bg-teal-600 hover:bg-teal-700"
+  1124→          onClick={() => setShowCollectDialog(true)}
+  1125→        >
+  1126→          <Plus className="mr-1.5 h-3.5 w-3.5" />
+  1127→          Collect Sample
+  1128→        </Button>
+  1129→      </div>
+  1130→
+  1131→      {/* Pending Samples */}
+  1132→      <Card>
+  1133→        <CardHeader className="pb-3">
+  1134→          <CardTitle className="flex items-center gap-2 text-base">
+  1135→            <Clock className="h-4 w-4 text-amber-500" />
+  1136→            Pending Samples ({pendingSamples.length})
+  1137→          </CardTitle>
+  1138→        </CardHeader>
+  1139→        <CardContent>
+  1140→          {pendingSamples.length === 0 ? (
+  1141→            <p className="py-4 text-center text-sm text-muted-foreground">No pending samples</p>
+  1142→          ) : (
+  1143→            <div className="max-h-72 space-y-2 overflow-y-auto">
+  1144→              {pendingSamples.map((sample, idx) => (
+  1145→                <motion.div
+  1146→                  key={sample.id}
+  1147→                  initial={{ opacity: 0, y: 5 }}
+  1148→                  animate={{ opacity: 1, y: 0 }}
+  1149→                  transition={{ delay: idx * 0.05 }}
+  1150→                  className="flex flex-col gap-2 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
+  1151→                >
+  1152→                  <div className="min-w-0 flex-1">
+  1153→                    <div className="flex items-center gap-2">
+  1154→                      <TestTube className={cn('h-4 w-4 shrink-0', sample.sampleType === 'Blood' ? 'text-red-500' : 'text-teal-500')} />
+  1155→                      <p className="truncate text-sm font-semibold">{sample.testName}</p>
+  1156→                      {getSampleStatusBadge(sample.status)}
+  1157→                    </div>
+  1158→                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+  1159→                      <Badge variant="outline" className="text-[10px]">{sample.sampleType}</Badge>
+  1160→                      <span>Ordered by {sample.doctorName}</span>
+  1161→                      {sample.createdAt && <span>• {format(new Date(sample.createdAt), 'dd MMM, HH:mm')}</span>}
+  1162→                    </div>
+  1163→                    {sample.remarks && <p className="mt-1 text-xs text-muted-foreground italic">{sample.remarks}</p>}
+  1164→                  </div>
+  1165→                  <div className="flex gap-2">
+  1166→                    {sample.status === 'Ordered' && (
+  1167→                      <Button
+  1168→                        size="sm"
+  1169→                        className="h-7 bg-teal-600 text-xs hover:bg-teal-700"
+  1170→                        disabled={collectMutation.isPending}
+  1171→                        onClick={() => {
+  1172→                          collectMutation.mutate({
+  1173→                            testName: sample.testName,
+  1174→                            sampleType: sample.sampleType,
+  1175→                          })
+  1176→                        }}
+  1177→                      >
+  1178→                        {collectMutation.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
+  1179→                        Collect
+  1180→                      </Button>
+  1181→                    )}
+  1182→                    {sample.status === 'Collected' && (
+  1183→                      <Button
+  1184→                        size="sm"
+  1185→                        className="h-7 bg-sky-600 text-xs hover:bg-sky-700"
+  1186→                        disabled={updateStatusMutation.isPending}
+  1187→                        onClick={() => {
+  1188→                          updateStatusMutation.mutate({
+  1189→                            sampleId: sample.id,
+  1190→                            status: 'SentToLab',
+  1191→                          })
+  1192→                        }}
+  1193→                      >
+  1194→                        {updateStatusMutation.isPending ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Send className="mr-1 h-3 w-3" />}
+  1195→                        Send to Lab
+  1196→                      </Button>
+  1197→                    )}
+  1198→                  </div>
+  1199→                </motion.div>
+  1200→              ))}
+  1201→            </div>
+  1202→          )}
+  1203→        </CardContent>
+  1204→      </Card>
+  1205→
+  1206→      {/* In Progress (Sent to Lab) */}
+  1207→      {inProgressSamples.length > 0 && (
+  1208→        <Card>
+  1209→          <CardHeader className="pb-3">
+  1210→            <CardTitle className="flex items-center gap-2 text-base">
+  1211→              <FlaskConical className="h-4 w-4 text-sky-500" />
+  1212→              In Progress — Awaiting Report ({inProgressSamples.length})
+  1213→            </CardTitle>
+  1214→          </CardHeader>
+  1215→          <CardContent>
+  1216→            <div className="max-h-64 space-y-2 overflow-y-auto">
+  1217→              {inProgressSamples.map((sample, idx) => (
+  1218→                <motion.div
+  1219→                  key={sample.id}
+  1220→                  initial={{ opacity: 0, y: 5 }}
+  1221→                  animate={{ opacity: 1, y: 0 }}
+  1222→                  transition={{ delay: idx * 0.05 }}
+  1223→                  className="flex items-center justify-between rounded-lg border p-3"
+  1224→                >
+  1225→                  <div className="min-w-0 flex-1">
+  1226→                    <div className="flex items-center gap-2">
+  1227→                      <TestTube className="h-4 w-4 text-sky-500" />
+  1228→                      <p className="truncate text-sm font-medium">{sample.testName}</p>
+  1229→                      {getSampleStatusBadge(sample.status)}
+  1230→                    </div>
+  1231→                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+  1232→                      <Badge variant="outline" className="text-[10px]">{sample.sampleType}</Badge>
+  1233→                      <span>Collected by {sample.nurseName}</span>
+  1234→                      {sample.sentToLabAt && <span>• Sent {format(new Date(sample.sentToLabAt), 'dd MMM, HH:mm')}</span>}
+  1235→                    </div>
+  1236→                  </div>
+  1237→                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+  1238→                    <Clock className="h-3 w-3" />
+  1239→                    <span>Awaiting lab</span>
+  1240→                  </div>
+  1241→                </motion.div>
+  1242→              ))}
+  1243→            </div>
+  1244→          </CardContent>
+  1245→        </Card>
+  1246→      )}
+  1247→
+  1248→      {/* Reports Ready */}
+  1249→      {reportedSamples.length > 0 && (
+  1250→        <Card>
+  1251→          <CardHeader className="pb-3">
+  1252→            <CardTitle className="flex items-center gap-2 text-base">
+  1253→              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+  1254→              Reports Ready ({reportedSamples.length})
+  1255→            </CardTitle>
+  1256→          </CardHeader>
+  1257→          <CardContent>
+  1258→            <div className="max-h-72 space-y-2 overflow-y-auto">
+  1259→              {reportedSamples.map((sample, idx) => (
+  1260→                <motion.div
+  1261→                  key={sample.id}
+  1262→                  initial={{ opacity: 0, y: 5 }}
+  1263→                  animate={{ opacity: 1, y: 0 }}
+  1264→                  transition={{ delay: idx * 0.05 }}
+  1265→                  className={cn(
+  1266→                    'rounded-lg border p-3',
+  1267→                    sample.report?.isAbnormal && 'border-red-300 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20'
+  1268→                  )}
+  1269→                >
+  1270→                  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
+  1271→                    <div className="min-w-0 flex-1">
+  1272→                      <div className="flex items-center gap-2">
+  1273→                        <TestTube className="h-4 w-4 text-emerald-500" />
+  1274→                        <p className="truncate text-sm font-semibold">{sample.testName}</p>
+  1275→                        {getSampleStatusBadge(sample.status)}
+  1276→                        {sample.report?.isAbnormal && (
+  1277→                          <Badge className="bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400">
+  1278→                            <AlertTriangle className="mr-1 h-3 w-3" />
+  1279→                            Abnormal
+  1280→                          </Badge>
+  1281→                        )}
+  1282→                      </div>
+  1283→                      <div className="mt-1 text-xs text-muted-foreground">
+  1284→                        {sample.sampleType}
+  1285→                        {sample.report?.reportDate && (
+  1286→                          <span> • Reported {format(new Date(sample.report.reportDate), 'dd MMM yyyy, HH:mm')}</span>
+  1287→                        )}
+  1288→                      </div>
+  1289→                    </div>
+  1290→                  </div>
+  1291→                  {sample.report && (
+  1292→                    <div className="mt-2 rounded-md bg-background p-2 text-xs">
+  1293→                      <p className="font-medium">Result:</p>
+  1294→                      <p className={cn('mt-0.5', sample.report.isAbnormal ? 'text-red-600 dark:text-red-400' : 'text-foreground')}>
+  1295→                        {parseResultSummary(sample.report.resultData)}
+  1296→                      </p>
+  1297→                      {sample.report.remarks && (
+  1298→                        <p className="mt-1 text-muted-foreground italic">{sample.report.remarks}</p>
+  1299→                      )}
+  1300→                    </div>
+  1301→                  )}
+  1302→                </motion.div>
+  1303→              ))}
+  1304→            </div>
+  1305→          </CardContent>
+  1306→        </Card>
+  1307→      )}
+  1308→
+  1309→      {/* All History Table */}
+  1310→      <Card>
+  1311→        <CardHeader className="pb-3">
+  1312→          <CardTitle className="flex items-center gap-2 text-base">
+  1313→            <History className="h-4 w-4 text-teal-500" />
+  1314→            All Investigation History ({samples.length})
+  1315→          </CardTitle>
+  1316→        </CardHeader>
+  1317→        <CardContent className="p-0">
+  1318→          <div className="max-h-96 overflow-y-auto">
+  1319→            <Table>
+  1320→              <TableHeader>
+  1321→                <TableRow>
+  1322→                  <TableHead className="text-xs">Test Name</TableHead>
+  1323→                  <TableHead className="text-xs">Sample</TableHead>
+  1324→                  <TableHead className="text-xs">Status</TableHead>
+  1325→                  <TableHead className="text-xs">Doctor</TableHead>
+  1326→                  <TableHead className="text-xs">Collected</TableHead>
+  1327→                  <TableHead className="text-xs">Sent</TableHead>
+  1328→                  <TableHead className="text-xs">Abnormal</TableHead>
+  1329→                </TableRow>
+  1330→              </TableHeader>
+  1331→              <TableBody>
+  1332→                {samples.length === 0 && (
+  1333→                  <TableRow>
+  1334→                    <TableCell colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
+  1335→                      No investigations recorded yet
+  1336→                    </TableCell>
+  1337→                  </TableRow>
+  1338→                )}
+  1339→                {samples.map((s) => (
+  1340→                  <TableRow key={s.id}>
+  1341→                    <TableCell className="text-xs font-medium">{s.testName}</TableCell>
+  1342→                    <TableCell className="text-xs">{s.sampleType}</TableCell>
+  1343→                    <TableCell>{getSampleStatusBadge(s.status)}</TableCell>
+  1344→                    <TableCell className="text-xs text-muted-foreground">{s.doctorName}</TableCell>
+  1345→                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+  1346→                      {s.collectedAt ? format(new Date(s.collectedAt), 'dd MMM, HH:mm') : '—'}
+  1347→                    </TableCell>
+  1348→                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+  1349→                      {s.sentToLabAt ? format(new Date(s.sentToLabAt), 'dd MMM, HH:mm') : '—'}
+  1350→                    </TableCell>
+  1351→                    <TableCell>
+  1352→                      {s.report?.isAbnormal ? (
+  1353→                        <Badge className="bg-red-100 text-red-700 text-[10px] dark:bg-red-950/50 dark:text-red-400">
+  1354→                          <AlertTriangle className="mr-1 h-2.5 w-2.5" />
+  1355→                          Yes
+  1356→                        </Badge>
+  1357→                      ) : s.report ? (
+  1358→                        <Badge className="bg-emerald-100 text-emerald-700 text-[10px] dark:bg-emerald-950/50 dark:text-emerald-400">
+  1359→                          Normal
+  1360→                        </Badge>
+  1361→                      ) : (
+  1362→                        <span className="text-xs text-muted-foreground">—</span>
+  1363→                      )}
+  1364→                    </TableCell>
+  1365→                  </TableRow>
+  1366→                ))}
+  1367→              </TableBody>
+  1368→            </Table>
+  1369→          </div>
+  1370→        </CardContent>
+  1371→      </Card>
+  1372→
+  1373→      {/* Collect Sample Dialog */}
+  1374→      <Dialog open={showCollectDialog} onOpenChange={setShowCollectDialog}>
+  1375→        <DialogContent className="sm:max-w-md">
+  1376→          <DialogHeader>
+  1377→            <DialogTitle className="flex items-center gap-2">
+  1378→              <TestTube className="h-5 w-5 text-teal-500" />
+  1379→              Collect New Sample
+  1380→            </DialogTitle>
+  1381→            <DialogDescription>
+  1382→              Record a new sample collection for this patient. The sample will be marked as collected.
+  1383→            </DialogDescription>
+  1384→          </DialogHeader>
+  1385→          <div className="space-y-4 py-2">
+  1386→            <div className="space-y-1.5">
+  1387→              <Label className="text-xs">Test Name *</Label>
+  1388→              <Input
+  1389→                placeholder="e.g. Complete Blood Count"
+  1390→                value={collectForm.testName}
+  1391→                onChange={(e) => setCollectForm((p) => ({ ...p, testName: e.target.value }))}
+  1392→              />
+  1393→            </div>
+  1394→            <div className="space-y-1.5">
+  1395→              <Label className="text-xs">Sample Type *</Label>
+  1396→              <Select
+  1397→                value={collectForm.sampleType}
+  1398→                onValueChange={(v) => setCollectForm((p) => ({ ...p, sampleType: v }))}
+  1399→              >
+  1400→                <SelectTrigger>
+  1401→                  <SelectValue />
+  1402→                </SelectTrigger>
+  1403→                <SelectContent>
+  1404→                  {SAMPLE_TYPES.map((t) => (
+  1405→                    <SelectItem key={t} value={t}>{t}</SelectItem>
+  1406→                  ))}
+  1407→                </SelectContent>
+  1408→              </Select>
+  1409→            </div>
+  1410→            <div className="space-y-1.5">
+  1411→              <Label className="text-xs">Remarks</Label>
+  1412→              <Textarea
+  1413→                placeholder="Any notes about the collection..."
+  1414→                value={collectForm.remarks}
+  1415→                onChange={(e) => setCollectForm((p) => ({ ...p, remarks: e.target.value }))}
+  1416→                rows={2}
+  1417→              />
+  1418→            </div>
+  1419→          </div>
+  1420→          <div className="flex justify-end gap-2">
+  1421→            <Button variant="outline" onClick={() => setShowCollectDialog(false)}>Cancel</Button>
+  1422→            <Button
+  1423→              className="bg-teal-600 hover:bg-teal-700"
+  1424→              disabled={!collectForm.testName || !collectForm.sampleType || collectMutation.isPending}
+  1425→              onClick={() => {
+  1426→                collectMutation.mutate({
+  1427→                  testName: collectForm.testName,
+  1428→                  sampleType: collectForm.sampleType,
+  1429→                  remarks: collectForm.remarks || undefined,
+  1430→                })
+  1431→              }}
+  1432→            >
+  1433→              {collectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+  1434→              Collect Sample
+  1435→            </Button>
+  1436→          </div>
+  1437→        </DialogContent>
+  1438→      </Dialog>
+  1439→    </div>
+  1440→  )
+  1441→}
+  1442→
+  1443→// ============ SKELETON ============
+  1444→
+  1445→function DetailSkeleton() {
+  1446→  return (
+  1447→    <div className="space-y-6">
+  1448→      <Skeleton className="h-8 w-20" />
+  1449→      <div className="space-y-2">
+  1450→        <Skeleton className="h-7 w-64" />
+  1451→        <Skeleton className="h-4 w-96" />
+  1452→      </div>
+  1453→      <Skeleton className="h-10 w-full max-w-md" />
+  1454→      <div className="grid gap-4 lg:grid-cols-2">
+  1455→        {Array.from({ length: 2 }).map((_, i) => (
+  1456→          <Skeleton key={i} className="h-64 rounded-xl" />
+  1457→        ))}
+  1458→      </div>
+  1459→    </div>
+  1460→  )
+  1461→}
+  1462→
