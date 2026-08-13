@@ -23,11 +23,43 @@ const DEFAULT_SETTINGS = {
     smsEnabled: false,
     pushEnabled: true,
     reminderTime: '30',
+    realtimeEnabled: true,
+    soundEnabled: true,
+    desktopNotifications: true,
   },
   appearance: {
     primaryColor: '#0d9488',
     darkMode: 'system',
     sidebarPosition: 'left',
+  },
+  hospitalInfo: {
+    hospitalName: '',
+    hospitalAddress: '',
+    hospitalPhone: '',
+    hospitalEmail: '',
+    hospitalLogo: '',
+    hospitalGstNo: '',
+    hospitalRegNo: '',
+  },
+  regional: {
+    dateFormat: 'DD/MM/YYYY',
+    timeFormat: '12h',
+    currencySymbol: '₹',
+    country: 'India',
+    language: 'en',
+  },
+  billing: {
+    defaultTaxPercent: 0,
+    autoGenerateBillNo: true,
+    billPrefix: 'BILL-',
+    showDiscountField: true,
+    paymentTerms: 'Due on Discharge',
+  },
+  lab: {
+    defaultTatHours: 24,
+    autoVerifyNormalResults: false,
+    reportHeaderNote: '',
+    reportFooterNote: '',
   },
 }
 
@@ -55,17 +87,21 @@ function writeSettings(settings: unknown) {
 const ALLOWED_KEYS: Record<string, string[]> = {
   general: ['siteName', 'email', 'phone', 'timezone', 'currency'],
   appointments: ['defaultDuration', 'dailyLimit', 'autoApprove'],
-  notifications: ['emailEnabled', 'smsEnabled', 'pushEnabled', 'reminderTime'],
+  notifications: ['emailEnabled', 'smsEnabled', 'pushEnabled', 'reminderTime', 'realtimeEnabled', 'soundEnabled', 'desktopNotifications'],
   appearance: ['primaryColor', 'darkMode', 'sidebarPosition'],
+  hospitalInfo: ['hospitalName', 'hospitalAddress', 'hospitalPhone', 'hospitalEmail', 'hospitalLogo', 'hospitalGstNo', 'hospitalRegNo'],
+  regional: ['dateFormat', 'timeFormat', 'currencySymbol', 'country', 'language'],
+  billing: ['defaultTaxPercent', 'autoGenerateBillNo', 'billPrefix', 'showDiscountField', 'paymentTerms'],
+  lab: ['defaultTatHours', 'autoVerifyNormalResults', 'reportHeaderNote', 'reportFooterNote'],
 }
 
-const MAX_STRING_LENGTH = 255
+const MAX_STRING_LENGTH = 500
 
 function sanitizeString(value: unknown): string {
- if (typeof value === 'string') {
-   return value.trim().slice(0, MAX_STRING_LENGTH)
- }
- return String(value).trim().slice(0, MAX_STRING_LENGTH)
+  if (typeof value === 'string') {
+    return value.trim().slice(0, MAX_STRING_LENGTH)
+  }
+  return String(value).trim().slice(0, MAX_STRING_LENGTH)
 }
 
 function validateSettings(body: unknown): Record<string, unknown> {

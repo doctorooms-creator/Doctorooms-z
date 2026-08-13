@@ -1,0 +1,522 @@
+     1→   800→   800→- Edited `/src/app/dashboard/doctor/ipd/patients/[admissionId]/client.tsx`
+     2→   801→   801→- Added imports: `LogOut`, `CalendarDays`, `Shield` icons; `Alert, AlertDescription, AlertTitle` from shadcn/ui
+     3→   802→   802→- Added state: `showDischargeDialog`, `dischargeForm` (type, diagnosis, summary, roomDays)
+     4→   803→   803→- Added `dischargeMutation` (useMutation, POST to discharge API, invalidates queries, navigates back to IPD list)
+     5→   804→   804→- Added `calculatedRoomDays` helper (days since admission + 1, minimum 1)
+     6→   805→   805→- **Discharge Button** in header area:
+     7→   806→   806→  - Only visible when `admission.status === 'Admitted'`
+     8→   807→   807→  - Red-tinted outline button with LogOut icon, responsive text (hidden on mobile)
+     9→   808→   808→  - Pre-populates form with initialDiagnosis and calculatedRoomDays on click
+    10→   809→   809→- **Discharge Dialog** (full-featured):
+    11→   810→   810→  - Dynamic warning Alerts based on discharge type:
+    12→   811→   811→    - DAMA: Amber alert about risk acknowledgement, legal/insurance implications
+    13→   812→   812→    - Expired: Red alert about death documentation, MLC procedures
+    14→   813→   813→    - LAMA: Orange alert about documenting circumstances
+    15→   814→   814→  - Discharge Type Select with color-coded border (emerald/amber/orange/red) and icons per option
+    16→   815→   815→  - Room Rent Days Input (auto-calculated, editable, min=1, with date reference text)
+    17→   816→   816→  - Final Diagnosis Textarea (required, pre-populated with initial diagnosis)
+    18→   817→   817→  - Discharge Summary Textarea (required, with detailed placeholder)
+    19→   818→   818→  - Summary panel showing what will happen (status change, orders stopped, bed freed, nurse assignments completed)
+    20→   819→   819→  - Color-coded confirm button matching discharge type (teal/amber/orange/red)
+    21→   820→   820→  - Cancel + Confirm buttons in DialogFooter
+    22→   821→   821→  - Disabled state when required fields empty or mutation loading
+    23→   822→   822→  - Framer motion animations on alerts and summary panel
+    24→   823→   823→  - Scroll-safe dialog (`max-h-[90vh] overflow-y-auto`)
+    25→   824→   824→  - Full dark mode support
+    26→   825→   825→
+    27→   826→   826→Lint: ✅ Zero errors
+    28→   827→   827→
+    29→   828→   828→---
+    30→   829→   829→Task ID: N4
+    31→   830→   830→Agent: Vital Trend Charts Builder
+    32→   831→   831→Task: Vital Trend Charts — Visual time-series display of BP, Pulse, SpO2, Temperature over time for IPD patients
+    33→   832→   832→
+    34→   833→   833→Work Log:
+    35→   834→   834→- Read existing nurse patient detail page (`client.tsx`) and vitals API route to understand data flow
+    36→   835→   835→- Analyzed `VITAL_THRESHOLDS` from `@/lib/ipd-utils` for critical/warning/normal thresholds
+    37→   836→   836→- Created `/src/app/dashboard/nurse/patients/[admissionId]/vital-charts.tsx` — comprehensive SVG-based chart component
+    38→   837→   837→- Integrated `VitalTrendCharts` into the existing vitals tab between `VitalForm` and `VitalsHistoryTable`
+    39→   838→   838→
+    40→   839→   839→### Vital Trend Charts Features:
+    41→   840→   840→1. **BP Trend Chart** — Dual-line (systolic=teal solid, diastolic=amber dashed) with:
+    42→   841→   841→   - Normal range shading (90-140 systolic, 60-90 diastolic)
+    43→   842→   842→   - Critical lines at 180 (high) and 90 (low) with labels
+    44→   843→   843→   - Gradient fill under systolic line
+    45→   844→   844→   - Legend for systolic/diastolic
+    46→   845→   845→
+    47→   846→   846→2. **Pulse Trend Chart** — Single line (rose) with:
+    48→   847→   847→   - Normal range 60-100 shaded
+    49→   848→   848→   - Critical lines at 50 and 130
+    50→   849→   849→   - Data points colored by severity
+    51→   850→   850→
+    52→   851→   851→3. **SpO2 Trend Chart** — Single line (sky) with:
+    53→   852→   852→   - Normal range 94-100 shaded
+    54→   853→   853→   - Critical line at 90%
+    55→   854→   854→   - Red zone shading below 90%
+    56→   855→   855→
+    57→   856→   856→4. **Temperature Trend Chart** — Single line (amber) with:
+    58→   857→   857→   - Normal range 97-99.5°F shaded
+    59→   858→   858→   - Fever line at 102.2°F (dashed amber)
+    60→   859→   859→
+    61→   860→   860→5. **Input/Output Bar Chart** — Stacked bars per reading:
+    62→   861→   861→   - Green for input, amber for urine, red for other output
+    63→   862→   862→   - Full-width card spanning both columns
+    64→   863→   863→
+    65→   864→   864→### Technical Implementation:
+    66→   865→   865→- Pure SVG approach (viewBox-based, responsive)
+    67→   866→   866→- Auto-scaling Y axis with padding based on data range
+    68→   867→   867→- Smart X-axis time labels (HH:mm for same-day, dd/MM HH:mm for multi-day)
+    69→   868→   868→- Adaptive label step to avoid crowding
+    70→   869→   869→- Data points colored by severity (teal=normal, amber=warning, red=critical)
+    71→   870→   870→- Gradient fills under lines
+    72→   871→   871→- Normal range shaded areas
+    73→   872→   872→- Framer Motion staggered card animations
+    74→   873→   873→- Status badges with trend indicators (ArrowUp/ArrowDown/Minus)
+    75→   874→   874→- Min/Max range display per chart
+    76→   875→   875→- Empty state message when < 2 vital records
+    77→   876→   876→- Last 24 readings used for chart readability
+    78→   877→   877→- Dark mode compatible via CSS variable colors
+    79→   878→   878→- 2-column grid on desktop, 1-column on mobile (I/O chart spans full width)
+    80→   879→   879→
+    81→   880→   880→### Files Modified:
+    82→   881→   881→- **Created**: `src/app/dashboard/nurse/patients/[admissionId]/vital-charts.tsx`
+    83→   882→   882→- **Modified**: `src/app/dashboard/nurse/patients/[admissionId]/client.tsx` (import + integration)
+    84→   883→   883→
+    85→   884→   884→Lint: ✅ Zero errors
+    86→   885→   885→
+    87→   886→   886→---
+    88→   887→   887→Task ID: N5, N7, N4
+    89→   888→   888→Agent: Main Orchestrator + 3 Subagents
+    90→   889→   889→Task: Phase N-5 (Investigations), N-7 (Discharge), N-4 (Vital Charts) — Complete IPD Flow
+    91→   890→   890→
+    92→   891→   891→Work Log:
+    93→   892→   892→- Assessed full IPD system status: N-1 through N-6 mostly complete, gaps in N-4/N-5/N-7
+    94→   893→   893→- Built Nurse Sample Collection: 2 API routes (GET/POST investigations, PATCH sample status)
+    95→   894→   894→- Added Investigations tab to nurse patient detail (collect, send to lab, view reports)
+    96→   895→   895→- Built Doctor Discharge API: POST endpoint with Prisma transaction (update admission + stop all orders + free bed + complete nurse assignments)
+    97→   896→   896→- Added Discharge button + dialog to doctor IPD patient detail (type selector, summary, auto room rent calc)
+    98→   897→   897→- Built Vital Trend Charts: Pure SVG component with 5 chart types (BP dual-line, Pulse, SpO2, Temperature, Fluid I/O)
+    99→   898→   898→- Integrated charts into nurse patient detail vitals tab
+   100→   899→   899→- All lint checks pass, all pages return 200
+   101→   900→   900→
+   102→   901→   901→Stage Summary:
+   103→   902→   902→- IPD system is now functionally complete for core workflows:
+   104→   903→   903→  1. Receptionist admits patient → bed allocated
+   105→   904→   904→  2. Doctor writes orders (history, exam, medicines, investigations)
+   106→   905→   905→  3. Nurse records vitals hourly with trend visualization
+   107→   906→   906→  4. Nurse administers medicines, collects samples
+   108→   907→   907→  5. Doctor reviews, visits, and discharges patient
+   109→   908→   908→  6. Bed freed, orders stopped automatically on discharge
+   110→   909→   909→  7. Shift handover between nurses
+   111→   910→   910→- Files created: 2 API routes (investigations + sample status), 1 discharge API, 1 vital-charts component
+   112→   911→   911→- Files modified: nurse patient detail client.tsx (added investigations tab + vital charts), doctor IPD patient detail client.tsx (added discharge)
+   113→   912→   912→- Remaining N-8 items: Print forms, patient transfer, DAMA enhanced workflow
+   114→   913→   913→
+   115→   914→   914→---
+   116→   915→   915→Task ID: 1b-api
+   117→   916→   916→Agent: API Agent
+   118→   917→   917→Task: Charge Master Billing — 4 API Routes (Charge Categories + Charge Items)
+   119→   918→   918→
+   120→   919→   919→Work Log:
+   121→   920→   920→- Created `/src/app/api/charge-categories/route.ts` — POST (create category) + GET (list categories with _count.chargeItems)
+   122→   921→   921→- Created `/src/app/api/charge-categories/[id]/route.ts` — PUT (update category) + DELETE (soft delete → status='Inactive')
+   123→   922→   922→- Created `/src/app/api/charge-items/route.ts` — POST (create item with category validation) + GET (list items with category.name, filter by categoryId/status/search)
+   124→   923→   923→- Created `/src/app/api/charge-items/[id]/route.ts` — PUT (update item, validates categoryId ownership) + DELETE (soft delete → status='Inactive')
+   125→   924→   924→- All routes use `requireRole` auth pattern (hospital or admin), resolve hospitalId from user's hospital profile
+   126→   925→   925→- All routes follow existing project patterns: NextRequest/NextResponse, Prisma via `@/lib/db`, auth via `@/lib/api-auth`
+   127→   926→   926→- GET endpoints support query filters (?status=Active, ?categoryId=xxx, ?search=term)
+   128→   927→   927→- Ownership verification on all PUT/DELETE (item must belong to authenticated hospital)
+   129→   928→   928→
+   130→   929→   929→Stage Summary:
+   131→   930→   930→- 4 API route files created for Charge Master billing feature
+   132→   931→   931→- Full CRUD (minus hard delete) for ChargeCategory and ChargeItem models
+   133→   932→   932→- Auth: hospital + admin roles supported, hospitalId always resolved from session
+   134→   933→   933→- No files modified, no dependencies added
+   135→   934→   934→- Files created:
+   136→   935→   935→  1. `/src/app/api/charge-categories/route.ts`
+   137→   936→   936→  2. `/src/app/api/charge-categories/[id]/route.ts`
+   138→   937→   937→  3. `/src/app/api/charge-items/route.ts`
+   139→   938→   938→  4. `/src/app/api/charge-items/[id]/route.ts`
+   140→   939→   939→
+   141→   940→   940→---
+   142→   941→   941→Task ID: 1b-ui
+   143→   942→   942→Agent: Main Orchestrator
+   144→   943→   943→Task: Charge Master UI — Hospital & Receptionist Dashboard Pages
+   145→   944→   944→
+   146→   945→   945→Work Log:
+   147→   946→   946→- Created hospital Charge Master dashboard page + client component at `/src/app/dashboard/hospital/charge-master/`
+   148→   947→   947→- Created receptionist Charge Master dashboard page + client component at `/src/app/dashboard/receptionist/charge-master/`
+   149→   948→   948→- Receptionist client re-exports the hospital client component (shared UI)
+   150→   949→   949→
+   151→   950→   950→Charge Master Client Component (`client.tsx`) Features:
+   152→   951→   951→- Two-tab layout using shadcn Tabs: **Categories** | **Charge Items**
+   153→   952→   952→- **Categories Tab**: Responsive card grid showing name, description, tax %, item count, status badge. Add/Edit dialogs with name, description, taxable toggle (animated tax % field). Delete via AlertDialog (soft deactivate).
+   154→   953→   953→- **Charge Items Tab**: Scrollable table showing name, shortCode (monospace), category badge, unitType, rate (₹ formatted), status. Filters: category dropdown + search input. Add/Edit dialogs with category select, name, shortCode, unitType select (8 options), rate, taxable toggle. Delete via AlertDialog.
+   155→   954→   954→- TanStack Query: `useQuery` for GET /api/charge-categories and GET /api/charge-items (with filter params). `useMutation` for all POST/PUT/DELETE operations with cache invalidation.
+   156→   955→   955→- Loading skeletons for both tabs (card skeleton for categories, table skeleton for items)
+   157→   956→   956→- Empty states with contextual messaging (filters active vs. no data)
+   158→   957→   957→- Framer Motion animations: staggered card entry, dialog field animations, fade-in for table
+   159→   958→   958→- shadcn/ui components: Tabs, Card, Dialog, AlertDialog, Table, Select, Switch, Badge, Skeleton, Input, Label, Button
+   160→   959→   959→- Lucide icons: Plus, Pencil, Trash2, Search, Tags, Receipt, Loader2
+   161→   960→   960→- Color scheme: teal primary (matching existing hospital dashboard), emerald for Active badges, no indigo/blue
+   162→   961→   961→- Responsive: mobile-first grid (1→2→3→4 columns), stacked filters on mobile
+   163→   962→   962→
+   164→   963→   963→Files created:
+   165→   964→   964→  1. `/src/app/dashboard/hospital/charge-master/page.tsx` — Server wrapper
+   166→   965→   965→  2. `/src/app/dashboard/hospital/charge-master/client.tsx` — Full client component (~580 lines)
+   167→   966→   966→  3. `/src/app/dashboard/receptionist/charge-master/page.tsx` — Server wrapper
+   168→   967→   967→  4. `/src/app/dashboard/receptionist/charge-master/client.tsx` — Re-export of hospital client
+   169→   968→   968→
+   170→   969→   969→---
+   171→   970→   970→Task ID: 1cde-api
+   172→   971→   971→Agent: Billing API Builder
+   173→   972→   972→Task: Create all billing API route files for Phases 1C, 1D, 1E, and 1G
+   174→   973→   973→
+   175→   974→   974→Work Log:
+   176→   975→   975→- Read worklog.md for project context and prior phase history
+   177→   976→   976→- Read prisma/schema.prisma to understand IpdBill, BillLineItem, BillPayment, PatientAdvance, OpdBill, IpdAdmission, Bed, Ward, Booking, Hospital models
+   178→   977→   977→- Read src/lib/api-auth.ts to understand auth patterns (requireRole, requireAuth, RECEPTION_ROLES)
+   179→   978→   978→- Read existing charge-items/route.ts for reference on hospital auth resolution pattern
+   180→   979→   979→- Created 10 API route files across 4 phases:
+   181→   980→   980→
+   182→   981→   981→**Phase 1C: IPD Bill Creation (4 files)**
+   183→   982→   982→1. `/src/app/api/ipd-bills/route.ts` — GET (list with pagination, status/search/date filters, returns patientName/admissionNo/billNo/totalAmount/netPayable/status); POST (generate draft bill from admissionId, calc roomRent=bed.dailyRate×daysAdmitted, auto billNo IPD-BILL-YYYY-NNNNNN, service/lab/medicine/ot/other=0)
+   184→   983→   983→2. `/src/app/api/ipd-bills/generate/route.ts` — POST (same generate logic, separate route for clarity)
+   185→   984→   984→3. `/src/app/api/ipd-bills/[id]/route.ts` — GET (bill detail with lineItems, payments, advances, admission.patientName/admissionNo/ward.name/bed.bedNumber); PUT (update draft only: add/remove BillLineItems, recalc subtotal/tax/total/netPayable)
+   186→   985→   985→4. `/src/app/api/ipd-bills/[id]/finalize/route.ts` — POST (set status=Final, finalizedAt=now, recalc totals from lineItems, netPayable=totalAmount-advanceAdjusted, update admission.paymentStatus)
+   187→   986→   986→
+   188→   987→   987→**Phase 1D: Advance Deposit (2 files)**
+   189→   988→   988→5. `/src/app/api/patient-advances/route.ts` — GET (list by admissionId with receiptNo/amount/paymentMethod/date); POST (record advance, auto receiptNo ADV-YYYY-NNNNNN, increment admission.advanceAmount, update bill.advanceAdjusted if bill exists)
+   190→   989→   989→6. `/src/app/api/patient-advances/summary/route.ts` — GET (aggregate: totalAdvance, lastAdvanceDate, lastAdvanceAmount, advanceCount)
+   191→   990→   990→
+   192→   991→   991→**Phase 1E: Payment Collection (2 files)**
+   193→   992→   992→7. `/src/app/api/bill-payments/route.ts` — GET (list with date/method filters, returns receiptNo/billNo/patientName/amount/method/date); POST (record payment, auto receiptNo REC-YYYY-NNNNNN, update bill status to Paid/PartiallyPaid, update admission.paymentStatus)
+   194→   993→   993→8. `/src/app/api/bill-payments/daily-summary/route.ts` — GET (today's totals: totalCash/totalUPI/totalCard/totalNetBanking/totalCheque/grandTotal/count)
+   195→   994→   994→
+   196→   995→   995→**Phase 1G: OPD Billing (2 files)**
+   197→   996→   996→9. `/src/app/api/opd-bills/route.ts` — GET (list with date/doctorId/method filters, returns receiptNo/patientName/doctorName/amount/method/date); POST (create OPD bill, validate booking.status='Visited', auto receiptNo OPD-BILL-YYYY-NNNNNN, calc subtotal from consultationFee+lab+medicine+other)
+   198→   997→   997→10. `/src/app/api/opd-bills/[id]/route.ts` — GET (bill detail with booking, patient, doctor, hospital info)
+   199→   998→   998→
+   200→   999→   999→All files follow:
+   201→  1000→  1000→- Next.js 16 dynamic route params: `params: Promise<{ id: string }>` + `await params`
+   202→  1001→  1001→- Import pattern: `requireRole`/`requireAuth` from `@/lib/api-auth`, `db` from `@/lib/db`, `NextRequest`/`NextResponse` from `next/server`
+   203→  1002→  1002→- Hospital auth resolution: hospital/admin/receptionist roles → hospitalId via Hospital.userId or Receptionist.hospitalId
+   204→  1003→  1003→- Auto-generated numbers: PREFIX-YYYY-NNNNNN format with findFirst+desc+increment pattern
+   205→  1004→  1004→- No lint or dev run executed
+   206→  1005→  1005→
+   207→  1006→  1006→---
+   208→  1007→  1007→Task ID: 1cde-ui
+   209→  1008→  1008→Agent: Main
+   210→  1009→  1009→Task: Create ALL billing UI pages for Hospital dashboard
+   211→  1010→  1010→
+   212→  1011→  1011→Work Log:
+   213→  1012→  1012→- Created billing dashboard API at `/src/app/api/billing/dashboard/route.ts`:
+   214→  1013→  1013→  - GET endpoint returning: todayCollection (IPD payments + OPD bills today), monthCollection, pendingBills count, pendingAmount, recentPayments (last 10)
+   215→  1014→  1014→  - Auth: hospital/admin/receptionist via resolveHospitalId pattern
+   216→  1015→  1015→
+   217→  1016→  1016→- Created discharge API at `/src/app/api/ipd-admissions/[id]/discharge/route.ts`:
+   218→  1017→  1017→  - POST endpoint with auth: hospital/admin/receptionist
+   219→  1018→  1018→  - Body: { dischargeType (Normal/DAMA/LAMA), dischargeTime }
+   220→  1019→  1019→  - Logic: auto-generates bill if not exists, finalizes if Draft, sets admission status (Discharged/DAMA/LAMA), frees bed (Available), completes all nurse assignments
+   221→  1020→  1020→  - Uses Prisma $transaction for atomic operations
+   222→  1021→  1021→
+   223→  1022→  1022→- Updated sidebar config (`/src/lib/sidebar-config.ts`):
+   224→  1023→  1023→  - Added `LogOut` icon import from lucide-react
+   225→  1024→  1024→  - Added Discharge entry to hospital billing children: `{ label: 'Discharge', href: '/dashboard/hospital/billing/discharge', icon: LogOut }`
+   226→  1025→  1025→  - Added Discharge entry to receptionist billing children (same href)
+   227→  1026→  1026→
+   228→  1027→  1027→## Pages Created (7 billing pages = 14 files):
+   229→  1028→  1028→
+   230→  1029→  1029→### 1. Billing Dashboard (`/dashboard/hospital/billing`)
+   231→  1030→  1030→- `page.tsx` — Server wrapper
+   232→  1031→  1031→- `client.tsx` — Full dashboard with:
+   233→  1032→  1032→  - 4 stat cards: Today's Collection (teal), Monthly Collection (emerald), Pending Bills (amber), Pending Amount (rose)
+   234→  1033→  1033→  - Quick Action buttons: Generate IPD Bill, Record Payment, Record Advance (Link to sub-pages)
+   235→  1034→  1034→  - Recent Payments table (last 10 from API)
+   236→  1035→  1035→  - Uses useQuery for `/api/billing/dashboard`, framer-motion animations
+   237→  1036→  1036→
+   238→  1037→  1037→### 2. IPD Bills (`/dashboard/hospital/billing/ipd`)
+   239→  1038→  1038→- `page.tsx` — Server wrapper
+   240→  1039→  1039→- `client.tsx` — IPD bills list with:
+   241→  1040→  1040→  - Status filter tabs: All | Draft | Final | Paid | PartiallyPaid
+   242→  1041→  1041→  - Search bar, refresh button, pagination
+   243→  1042→  1042→  - Table: Bill No, Patient, Admission No, Total, Advance Adj., Net Payable, Status (colored badges), Actions (View/Finalize)
+   244→  1043→  1043→  - Generate Bill dialog: select admitted patient (fetches /api/ipd-admissions?status=Admitted), POST /api/ipd-bills
+   245→  1044→  1044→  - Finalize action calls POST /api/ipd-bills/[id]/finalize
+   246→  1045→  1045→  - Color-coded status badges: Draft=slate, Final=amber, Paid=emerald, PartiallyPaid=teal
+   247→  1046→  1046→
+   248→  1047→  1047→### 3. Bill Detail (`/dashboard/hospital/billing/ipd/[id]`)
+   249→  1048→  1048→- `page.tsx` — Server wrapper with params
+   250→  1049→  1049→- `client.tsx` — Full bill detail with:
+   251→  1050→  1050→  - Header: Bill No, Status badge, back button
+   252→  1051→  1051→  - Patient info cards: Patient, Admission No, Ward/Bed, Doctor
+   253→  1052→  1052→  - Line Items table: Item, Category, Qty, Rate, Amount, Tax, Total, Remove button (if Draft)
+   254→  1053→  1053→  - Add Item dialog: charge item search/select from /api/charge-items, quantity input
+   255→  1054→  1054→  - Bill Summary card: Room Rent, Subtotal, Tax, Discount, Total, Advance Adjusted, Net Payable
+   256→  1055→  1055→  - Payment History table with advance deposits section
+   257→  1056→  1056→  - Finalize button (if Draft) with confirmation dialog
+   258→  1057→  1057→
+   259→  1058→  1058→### 4. Advance Deposits (`/dashboard/hospital/billing/advances`)
+   260→  1059→  1059→- `page.tsx` — Server wrapper
+   261→  1060→  1060→- `client.tsx` — Advance deposits management:
+   262→  1061→  1061→  - Lists all admissions (searchable by name/admission no)
+   263→  1062→  1062→  - Add Advance dialog: admission select, amount, payment method (Cash/UPI/Card/NetBanking/Cheque), reference, notes
+   264→  1063→  1063→  - POST /api/patient-advances
+   265→  1064→  1064→  - Color-coded payment method badges
+   266→  1065→  1065→
+   267→  1066→  1066→### 5. Payments (`/dashboard/hospital/billing/payments`)
+   268→  1067→  1067→- `page.tsx` — Server wrapper
+   269→  1068→  1068→- `client.tsx` — Payment collection page:
+   270→  1069→  1069→  - 4 summary cards: Cash (emerald), UPI (violet), Card (amber), Total Today (teal) from /api/bill-payments/daily-summary
+   271→  1070→  1070→  - Filters: Date range (from/to), payment method dropdown, search
+   272→  1071→  1071→  - Payments table: Receipt No, Bill No, Patient, Amount, Method, Date
+   273→  1072→  1072→  - Record Payment dialog: select bill (Final/PartiallyPaid), amount, method, reference
+   274→  1073→  1073→  - POST /api/bill-payments
+   275→  1074→  1074→
+   276→  1075→  1075→### 6. OPD Bills (`/dashboard/hospital/billing/opd`)
+   277→  1076→  1076→- `page.tsx` — Server wrapper
+   278→  1077→  1077→- `client.tsx` — OPD billing page:
+   279→  1078→  1078→  - Filters: Date range, payment method
+   280→  1079→  1079→  - Table: Receipt No, Date, Patient, Doctor, Consultation Fee, Lab, Medicine, Total, Method
+   281→  1080→  1080→  - Create Bill dialog: select visited booking, enter consultation/lab/medicine/other charges, payment method, reference
+   282→  1081→  1081→  - POST /api/opd-bills
+   283→  1082→  1082→
+   284→  1083→  1083→### 7. Discharge (`/dashboard/hospital/billing/discharge`)
+   285→  1084→  1084→- `page.tsx` — Server wrapper
+   286→  1085→  1085→- `client.tsx` — Discharge management:
+   287→  1086→  1086→  - Table of admitted patients with Discharge button
+   288→  1087→  1087→  - Search by name, admission no, doctor
+   289→  1088→  1088→  - Discharge dialog: patient summary card, discharge type selector (Normal/DAMA/LAMA), warning alerts for DAMA/LAMA, bill summary (advance, room rent days), discharge time
+   290→  1089→  1089→  - POST /api/ipd-admissions/[id]/discharge
+   291→  1090→  1090→  - Color-coded confirm button: Normal=emerald, DAMA=amber, LAMA=orange
+   292→  1091→  1091→
+   293→  1092→  1092→## Technical Details:
+   294→  1093→  1093→- All pages use: 'use client', TanStack Query (useQuery, useMutation, useQueryClient), sonner toast, shadcn/ui components, lucide-react icons, Tailwind CSS 4
+   295→  1094→  1094→- No indigo/blue colors — uses teal (primary), emerald (success), amber (warning), rose (danger), violet (accent)
+   296→  1095→  1095→- Responsive design with overflow-x-auto on tables, mobile-friendly card layouts
+   297→  1096→  1096→- Sticky footer compatible (no fixed positioning)
+   298→  1097→  1097→- Loading skeletons for all data-dependent sections
+   299→  1098→  1098→- Empty states with icons and contextual messaging
+   300→  1099→  1099→- Pagination on all list pages
+   301→  1100→  1100→- framer-motion animations (AnimatePresence on table rows, staggered card entry)
+   302→  1101→  1101→- All 14 page files + 2 API routes + 1 sidebar config edit = 17 file operations total
+   303→  1102→  1102→- No lint or dev run executed
+   304→  1103→  1103→
+   305→  1104→  1104→---
+   306→  1105→  1105→Task ID: 2-lab
+   307→  1106→  1106→Agent: Main Orchestrator
+   308→  1107→  1107→Task: Lab/Pathology Module — Phases 2A-2D Complete Build
+   309→  1108→  1108→
+   310→  1109→  1109→Work Log:
+   311→  1110→  1110→
+   312→  1111→  1111→## Phase 2A: Lab Test Master
+   313→  1112→  1112→- Created `POST/GET /api/lab-test-masters` — Create test with parameters in transaction; list with filters (category, status, search) and _count.parameters
+   314→  1113→  1113→- Created `GET/PUT/DELETE /api/lab-test-masters/[id]` — Detail with parameters, update (delete+recreate params in transaction), soft delete (status=Inactive)
+   315→  1114→  1114→- Created `/dashboard/hospital/lab/test-master/page.tsx` + `client.tsx` — Full CRUD table with search/category filters, Add/Edit dialog with dynamic parameter rows (add/remove), gender-specific normal ranges (Male/Female/Child), category badges with color coding
+   316→  1115→  1115→
+   317→  1116→  1116→## Phase 2B: Lab Technician
+   318→  1117→  1117→- Created `GET /api/lab-technician/dashboard` — Stats: ordered, sampleCollected, resultEntered, verified, todayReports, totalPending, hospital/tech info
+   319→  1118→  1118→- Created `GET/PUT /api/lab-technician/profile` — View/edit profile (qualification, specialization, phoneNo)
+   320→  1119→  1119→- Created `/dashboard/lab-technician/page.tsx` + `client.tsx` — Dashboard with 4 stat cards (Pending Collection, Awaiting Results, Ready to Verify, Today's Reports), quick action cards linking to worklist/result-entry/profile
+   321→  1120→  1120→- Created `/dashboard/lab-technician/profile/page.tsx` + `client.tsx` — Profile card with avatar, editable fields (qualification, specialization, phone), hospital/employee info
+   322→  1121→  1121→
+   323→  1122→  1122→## Phase 2C: Lab Worklist + Result Entry
+   324→  1123→  1123→- Created `POST/GET /api/lab-reports` — Order lab test (auto-generate reportNo LR-NNNNN, create empty LabParameterValue for each param); list with filters (fromDate, toDate, status, patientName, testName)
+   325→  1124→  1124→- Created `GET /api/lab-reports/worklist` — Worklist for lab_technician/hospital, filter by status+urgency, ordered by urgency desc then createdAt asc
+   326→  1125→  1125→- Created `GET /api/lab-reports/[id]` — Full report detail with parameters, patient, hospital, verifiedBy
+   327→  1126→  1126→- Created `PUT /api/lab-reports/[id]/collect-sample` — Mark collected (Ordered → SampleCollected), auth: lab_technician/nurse
+   328→  1127→  1127→- Created `PUT /api/lab-reports/[id]/enter-result` — Enter results with auto-calculate isAbnormal based on gender/age normal ranges, status → ResultEntered
+   329→  1128→  1128→- Created `PUT /api/lab-reports/[id]/verify` — Verify report (ResultEntered → Verified), links to LabTechnician.verifiedById
+   330→  1129→  1129→- Created `/dashboard/lab-technician/worklist/page.tsx` + `client.tsx` — Filter tabs (All/Pending Collection/Awaiting Results), urgency filter, table with actions (Collect Sample/Enter Result), 15s auto-refresh, collect confirmation dialog
+   331→  1130→  1130→- Created `/dashboard/lab-technician/result-entry/page.tsx` — Redirect to worklist
+   332→  1131→  1131→- Created `/dashboard/lab-technician/result-entry/[id]/page.tsx` + `client.tsx` — Patient/test info card, parameter input rows with normal range display, real-time abnormal highlight (red border + icon), gender-specific range display, save button with abnormal warning
+   333→  1132→  1132→- Created `/dashboard/lab-technician/reports/page.tsx` + `client.tsx` — Pending Verification section (ResultEntered) with Verify action, Verified Reports section, view dialog with parameter values table and abnormal highlighting
+   334→  1133→  1133→
+   335→  1134→  1134→## Phase 2D: Hospital & Doctor Lab Report Views
+   336→  1135→  1135→- Created `/dashboard/hospital/lab/reports/page.tsx` + `client.tsx` — All hospital lab reports with patient name search, status filter, view dialog with full parameter results
+   337→  1136→  1136→- Created `/dashboard/doctor/lab-results/page.tsx` + `client.tsx` — Doctor's patients' lab results, default filter to Verified, abnormal count badge in view dialog, normal range column for doctor review
+   338→  1137→  1137→
+   339→  1138→  1138→## Technical Details:
+   340→  1139→  1139→- 27 files created: 7 API routes + 20 UI pages/clients
+   341→  1140→  1140→- All APIs use: `import { requireRole, requireAuth } from '@/lib/api-auth'` + `import { db } from '@/lib/db'` + `import { NextRequest, NextResponse } from 'next/server'`
+   342→  1141→  1141→- Next.js 16 pattern: `params: Promise<{ id: string }>` and `const { id } = await params`
+   343→  1142→  1142→- All UI uses: 'use client', TanStack Query, sonner toast, shadcn/ui, lucide-react, framer-motion
+   344→  1143→  1143→- Color scheme: teal (primary), emerald (success), amber (warning), violet (accent), red (danger/abnormal)
+   345→  1144→  1144→- No indigo/blue colors
+   346→  1145→  1145→- Responsive tables with max-h + overflow-y-auto
+   347→  1146→  1146→- Sidebar already had lab_technician entries and hospital Lab section — no sidebar changes needed
+   348→  1147→  1147→- No lint or dev run executed
+   349→  1148→  1148→
+   350→  1149→  1149→---
+   351→  1150→  1150→Task ID: 3-inv
+   352→  1151→  1151→Agent: Inventory Module Builder
+   353→  1152→  1152→Task: Hospital Management System — Phase 3A-3D: Inventory Management Module
+   354→  1153→  1153→
+   355→  1154→  1154→Work Log:
+   356→  1155→  1155→- Built complete Inventory Management module (Phase 3A through 3D) — 17 files total
+   357→  1156→  1156→
+   358→  1157→  1157→## Phase 3A: Inventory Item Master
+   359→  1158→  1158→- **FILE 1**: `src/app/api/inventory-items/route.ts` — POST (create item, hospital/admin auth, auto-set hospitalId + currentStock=0) + GET (list with category/status/search/lowStock filters, returns lowStock flag)
+   360→  1159→  1159→- **FILE 2**: `src/app/api/inventory-items/[id]/route.ts` — GET (detail with lowStock) + PUT (update fields) + DELETE (soft delete → status=Inactive)
+   361→  1160→  1160→- **FILE 3**: `src/app/dashboard/hospital/inventory/items/page.tsx` — Server component wrapper
+   362→  1161→  1161→- **FILE 4**: `src/app/dashboard/hospital/inventory/items/client.tsx` — Full CRUD UI with table (Name, Category badge, Batch, Unit, Unit Price, Stock, Min Stock red if below, Status, Actions), Add/Edit dialog with all 16 fields, Delete confirmation, category filter + search, responsive, low-stock red badge
+   363→  1162→  1162→
+   364→  1163→  1163→## Phase 3B: Stock Movements
+   365→  1164→  1164→- **FILE 5**: `src/app/api/stock-movements/route.ts` — POST (record movement, auth: hospital/pharmacist, auto-create StockMovement + update currentStock; Purchase/Return: stock+=qty, others: stock-=qty, validates sufficient stock) + GET (list with itemId/movementType/fromDate/toDate filters, includes item name + movedBy name)
+   366→  1165→  1165→- **FILE 6**: `src/app/api/stock-movements/summary/route.ts` — GET returns { totalItems, totalValue, lowStockCount, expiredCount, categoryBreakdown }
+   367→  1166→  1166→- **FILE 7**: `src/app/dashboard/hospital/inventory/stock/page.tsx` — Server component wrapper
+   368→  1167→  1167→- **FILE 8**: `src/app/dashboard/hospital/inventory/stock/client.tsx` — 4 summary cards (Total Items, Total Value, Low Stock, Expiring Soon), filter by item/type/date range, movements table with color-coded type badges (green +/-), Add Movement dialog (select item, type, qty, ref, locations, notes)
+   369→  1168→  1168→
+   370→  1169→  1169→## Phase 3C: Purchase Orders
+   371→  1170→  1170→- **FILE 9**: `src/app/api/purchase-orders/route.ts` — POST (create PO, auto-generate poNumber, calculate totalAmount, create items via nested create) + GET (list with status/supplier/date filters, includes itemsCount)
+   372→  1171→  1171→- **FILE 10**: `src/app/api/purchase-orders/[id]/route.ts` — GET (detail with items + item names, fullyReceived flag) + DELETE (cancel → status=Cancelled, validates non-terminal status)
+   373→  1172→  1172→- **FILE 11**: `src/app/api/purchase-orders/[id]/receive/route.ts` — PUT (receive items: create StockMovement per item, update currentStock, update receivedQty, set status to Received/Partially Received)
+   374→  1173→  1173→- **FILE 12**: `src/app/dashboard/hospital/inventory/purchase-orders/page.tsx` — Server component wrapper
+   375→  1174→  1174→- **FILE 13**: `src/app/dashboard/hospital/inventory/purchase-orders/client.tsx` — PO table (PO No, Supplier, Items Count, Total, Status badge, Expected Date, Actions), Create PO dialog (supplier details + dynamic item rows with total calc), View PO dialog (full detail + item received progress), Receive PO dialog (items with received qty inputs), Cancel confirmation
+   376→  1175→  1175→
+   377→  1176→  1176→## Phase 3D: Low Stock Alerts
+   378→  1177→  1177→- **FILE 14**: `src/app/api/inventory/low-stock/route.ts` — GET returns items where currentStock <= minStockLevel with severity (Critical/Warning/Low) + stockPercent
+   379→  1178→  1178→- **FILE 15**: `src/app/api/inventory/expiring-soon/route.ts` — GET returns items expiring within 30 days with daysLeft + isExpired flag
+   380→  1179→  1179→- **FILE 16**: `src/app/dashboard/hospital/inventory/low-stock/page.tsx` — Server component wrapper
+   381→  1180→  1180→- **FILE 17**: `src/app/dashboard/hospital/inventory/low-stock/client.tsx` — 4 alert summary cards (Critical/Warning/Expiring Soon/Expired with themed borders), Low Stock table (Item, Category, Current Stock red, Min Stock, Progress bar, Reorder Qty, Severity badge, Quick "Create PO" button), Expiring Soon table (Item, Batch, Expiry Date, Days Left color-coded, Stock, Urgency badge), auto-refresh 30s
+   382→  1181→  1181→
+   383→  1182→  1182→Technical Notes:
+   384→  1183→  1183→- All APIs use: `import { requireRole, requireAuth } from '@/lib/api-auth'` + `import { db } from '@/lib/db'` + `import { NextRequest, NextResponse } from 'next/server'`
+   385→  1184→  1184→- Next.js 16 pattern: `params: Promise<{ id: string }>` and `const { id } = await params`
+   386→  1185→  1185→- Auth pattern: getHospitalAuth (hospital/admin), getReadAuth (hospital/admin/pharmacist), getWriteAuth (hospital/admin)
+   387→  1186→  1186→- Low stock API uses in-memory filter (currentStock <= minStockLevel) since SQLite doesn't support field comparison in WHERE
+   388→  1187→  1187→- Stock movement types: Purchase, Sale, Issue, Return, Transfer, Adjustment, Expired, Damaged
+   389→  1188→  1188→- PO statuses: Draft, Pending, Approved, Partially Received, Received, Cancelled
+   390→  1189→  1189→- Color coding: emerald (Purchase/Return/Active), red (Critical/Expired/Low Stock), amber (Warning), orange (Damaged/Expiring), sky (Transfer), violet (Adjustment)
+   391→  1190→  1190→- No indigo/blue colors used
+   392→  1191→  1191→- All UI: responsive, shadcn/ui, TanStack Query, sonner, framer-motion AnimatePresence, lucide-react
+   393→  1192→  1192→- Sidebar already had hospital inventory entries — no sidebar changes needed
+   394→  1193→  1193→- No lint or dev run executed
+   395→  1194→  1194→
+   396→  1195→  1195→---
+   397→  1196→  1196→Task ID: 4
+   398→  1197→  1197→Agent: Main Orchestrator
+   399→  1198→  1198→Task: Reports & Analytics Module (Phase 4A-4D)
+   400→  1199→  1199→
+   401→  1200→  1200→Work Log:
+   402→  1201→  1201→- Built complete Reports & Analytics module with 30 files (18 API routes + 12 UI files)
+   403→  1202→  1202→- Phase 4A Revenue Dashboard: 6 API routes (summary, department-wise, doctor-wise, payment-methods, outstanding, daily-collection) + page + client with period selector, 4 stat cards, payment method CSS bars, daily trend bars, dept/doctor tables, outstanding bills tab
+   404→  1203→  1203→- Phase 4B IPD Analytics: 4 API routes (summary, bed-occupancy, length-of-stay, disease-wise) + page + client with stat cards, ward breakdown, SVG donut pie for discharge types, avg LOS bars, 30-day occupancy trend, disease table
+   405→  1204→  1204→- Phase 4C OPD + Financial: 4 API routes (opd/summary, opd/hourly, financial/profit-loss, financial/aging-receivable) + 2 page/client pairs. OPD dashboard: department bars, day-of-week bars, hourly patient flow. Financial: P&L with revenue/expense breakdown, monthly profit/loss bars, aging receivable bucket cards + bills table
+   406→  1205→  1205→- Phase 4D Inventory + Lab: 4 API routes (inventory/summary, inventory/consumption, lab/summary, lab/tatl) + 2 page/client pairs. Inventory: stock value by category, movement types, top consumed items. Lab: test summary with category breakdown, TAT tab with per-test and per-category turnaround time analysis
+   407→  1206→  1206→- All APIs use requireRole('hospital') || requireRole('admin') auth pattern
+   408→  1207→  1207→- All UI uses CSS-only charts (colored divs with height/width, SVG donut), no external chart libraries
+   409→  1208→  1208→- Currency formatted as ₹ with toLocaleString('en-IN')
+   410→  1209→  1209→- date-fns used for all date calculations
+   411→  1210→  1210→- No indigo/blue colors; uses emerald, amber, violet, rose, teal, orange, sky, slate palette
+   412→  1211→  1211→- Responsive design throughout with Tailwind breakpoints
+   413→  1212→  1212→- TanStack Query for data fetching, framer-motion for tab transitions, shadcn/ui components
+   414→  1213→  1213→- Sidebar entries already existed for all 6 report sub-pages
+   415→  1214→  1214→- Work record saved to agent-ctx/4-reports-main.md
+   416→  1215→  1215→- No lint or dev run executed
+   417→  1216→  1216→
+   418→  1217→  1217→---
+   419→  1218→  1218→Task ID: 5-ipd-ot
+   420→  1219→  1219→Agent: Main
+   421→  1220→  1220→Task: Phase 5 — IPD Completion + Operation Theater + Bed Transfer + Diet Orders
+   422→  1221→  1221→
+   423→  1222→  1222→Work Log:
+   424→  1223→  1223→
+   425→  1224→  1224→## Phase 5A: IPD Completion APIs (8 files)
+   426→  1225→  1225→- Created `src/app/api/ipd-doctor-visits/route.ts` — POST (create visit, auth: doctor, validates admission ownership, auto-fills doctorId from session) + GET (list visits by admissionId with doctorName)
+   427→  1226→  1226→- Created `src/app/api/ipd-doctor-visits/[id]/route.ts` — PUT (update visit, own-doctor-only check, accepts examinationFindings/currentDiagnosis/newOrders/stoppedOrders/advise)
+   428→  1227→  1227→- Created `src/app/api/investigation-reports/route.ts` — POST (create report, auth: doctor, JSON fields for resultData/normalRange) + GET (list by admissionId)
+   429→  1228→  1228→- Created `src/app/api/ipd-sample-collections/route.ts` — POST (order sample, auth: doctor, auto-resolves nurseId from NursePatientAssignment or ward fallback) + GET (list by admissionId, optional status filter)
+   430→  1229→  1229→- Created `src/app/api/ipd-sample-collections/[id]/collect/route.ts` — PUT (mark collected, auth: nurse, Ordered→Collected)
+   431→  1230→  1230→- Created `src/app/api/ipd-sample-collections/[id]/send-to-lab/route.ts` — PUT (mark sent to lab, auth: nurse, Collected→SentToLab)
+   432→  1231→  1231→- Created `src/app/api/shift-handovers/route.ts` — POST (create handover, auth: nurse, auto-fills fromNurseId/hospitalId) + GET (list by wardId/shiftDate, includes fromNurse/toNurse/ward names)
+   433→  1232→  1232→- Created `src/app/api/shift-handovers/[id]/acknowledge/route.ts` — PUT (acknowledge, auth: nurse, only receiving nurse can acknowledge, sets acknowledgedAt/acknowledgedBy)
+   434→  1233→  1233→
+   435→  1234→  1234→## Phase 5B: Operation Theater APIs (6 files)
+   436→  1235→  1235→- Created `src/app/api/operation-theaters/route.ts` — POST (create OT, auth: hospital/admin, resolves hospitalId) + GET (list OTs with today's schedule count via _count)
+   437→  1236→  1236→- Created `src/app/api/operation-theaters/[id]/route.ts` — PUT (update OT fields) + DELETE (only if no schedules exist)
+   438→  1237→  1237→- Created `src/app/api/ot-schedules/route.ts` — POST (schedule surgery, auth: doctor/hospital, auto-fills patient info from admission, auto-generates scheduleNo OT-YYYY-NNNN, sets OT to Occupied) + GET (list with filters: otId, date, status, surgeonId)
+   439→  1238→  1238→- Created `src/app/api/ot-schedules/today/route.ts` — GET (today's OT board, groups schedules by OT, returns OT status based on active surgeries)
+   440→  1239→  1239→- Created `src/app/api/ot-schedules/[id]/route.ts` — GET (detail with relations) + PUT (update status to InProgress/Completed/Cancelled/Postponed, auto-manages OT availability, sets actualStartTime/actualEndTime)
+   441→  1240→  1240→
+   442→  1241→  1241→## Phase 5B: OT UI Pages (4 files)
+   443→  1242→  1242→- Created `src/app/dashboard/hospital/ot/page.tsx` — server component wrapper
+   444→  1243→  1243→- Created `src/app/dashboard/hospital/ot/client.tsx` — full OT Board UI:
+   445→  1244→  1244→  - 4 stat cards: Total OTs, Available, Today's Surgeries, In Progress
+   446→  1245→  1245→  - Add OT dialog (name, type, floor)
+   447→  1246→  1246→  - Schedule Surgery dialog (OT select, admission ID, surgery name, type, date, time, duration, notes)
+   448→  1247→  1247→  - Tabs: OT Board (grid of OT cards with color-coded left borders by type, surgery list inside each card) + All Schedules (table)
+   449→  1248→  1248→  - Delete OT confirmation dialog
+   450→  1249→  1249→  - 30s auto-refresh on OT board data
+   451→  1250→  1250→  - Color system: Available=emerald, Occupied=red, Scheduled=amber, Major OT=rose border, Minor=amber border, Emergency=red border, DayCare=teal border
+   452→  1251→  1251→- Created `src/app/dashboard/doctor/ot-surgeries/page.tsx` — server component wrapper
+   453→  1252→  1252→- Created `src/app/dashboard/doctor/ot-surgeries/client.tsx` — Doctor's surgeries list:
+   454→  1253→  1253→  - 3 stat cards: Scheduled, In Progress, Completed
+   455→  1254→  1254→  - Status filter dropdown
+   456→  1255→  1255→  - Table with Schedule #, OT, Patient, Surgery, Date, Time, Duration, Status, Actions
+   457→  1256→  1256→  - Status action buttons: Scheduled→Start/Cancel/Postpone, InProgress→Complete
+   458→  1257→  1257→  - Action confirmation dialogs with time input and cancellation reason
+   459→  1258→  1258→  - 30s auto-refresh
+   460→  1259→  1259→
+   461→  1260→  1260→## Phase 5C: Bed Transfer (3 files)
+   462→  1261→  1261→- Created `src/app/api/bed-transfers/route.ts` — POST (transfer patient, auth: hospital/receptionist, validates target bed Available, transaction: free old bed + occupy new bed + update admission bedId/wardId + create BedTransfer record) + GET (list by admissionId with fromBed/toBed ward names)
+   463→  1262→  1262→- Created `src/app/dashboard/hospital/bed-transfer/page.tsx` — server component wrapper
+   464→  1263→  1263→- Created `src/app/dashboard/hospital/bed-transfer/client.tsx` — Bed Transfer UI:
+   465→  1264→  1264→  - Search admission by ID/number
+   466→  1265→  1265→  - Current location display (bed number, type badge, ward)
+   467→  1266→  1266→  - Available beds grouped by ward in Select dropdown
+   468→  1267→  1267→  - Transfer reason textarea
+   469→  1268→  1268→  - Transfer mutation with toast notifications
+   470→  1269→  1269→  - Available Beds summary card with grid and refresh button
+   471→  1270→  1270→  - Transfer History table for selected admission
+   472→  1271→  1271→
+   473→  1272→  1272→## Phase 5D: Diet Order APIs (2 files)
+   474→  1273→  1273→- Created `src/app/api/diet-orders/route.ts` — POST (order diet, auth: doctor, validates admission status) + GET (list by admissionId, optional status filter)
+   475→  1274→  1274→- Created `src/app/api/diet-orders/[id]/stop/route.ts` — PUT (stop diet, auth: doctor/nurse, validates Active status, sets stoppedBy/stoppedAt/stoppedReason)
+   476→  1275→  1275→
+   477→  1276→  1276→## Technical Notes
+   478→  1277→  1277→- All API routes follow Next.js 16 pattern: `params: Promise<{ id: string }>` with `const { id } = await params`
+   479→  1278→  1278→- Import pattern: `import { requireRole, requireAuth } from '@/lib/api-auth'` + `import { db } from '@/lib/db'` + `import { NextRequest, NextResponse } from 'next/server'`
+   480→  1279→  1279→- All UI uses shadcn/ui components, TanStack Query, sonner toasts, lucide-react icons
+   481→  1280→  1280→- Responsive design with Tailwind breakpoints
+   482→  1281→  1281→- No indigo/blue colors used
+   483→  1282→  1282→- Schema push confirmed — database already in sync
+   484→  1283→  1283→- Sidebar already had OT and Bed Transfer entries configured
+   485→  1284→  1284→
+   486→  1285→  1285→Stage Summary:
+   487→  1286→  1286→- 22 files created (14 API routes + 4 UI pages + 4 page wrappers)
+   488→  1287→  1287→- All 4 phases (5A, 5B, 5C, 5D) complete
+   489→  1288→  1288→- No lint or dev run executed per instructions
+   490→  1289→  1289→
+   491→  1290→  1290→---
+   492→  1291→  1291→Task ID: 6-print
+   493→  1292→  1292→Agent: Main
+   494→  1293→  1293→Task: Build Print System (Phase 6) — print CSS, utilities, 6 print components, discharge summaries page + API
+   495→  1294→  1294→
+   496→  1295→  1295→Work Log:
+   497→  1296→  1296→- Created `src/styles/print.css` — @media print rules for A4 output, .print-area styling, table/summary/signature classes
+   498→  1297→  1297→- Created `src/lib/print-utils.ts` — triggerPrint(), numberToWords (INR with Crore/Lakh), formatCurrency (en-IN), formatDate, formatDateTime
+   499→  1298→  1298→- Created `src/components/shared/PrintLayout.tsx` — 'use client' wrapper with hospital header, title, print button (no-print), footer with timestamp
+   500→  1299→  1299→- Created `src/components/print/IpdBillPrint.tsx` — Full IPD bill with patient info, line items table, category summary (room/services/lab/medicine/OT/other), payment history, signatures
+   501→  1300→  1300→- Created `src/components/print/OpdBillPrint.tsx` — OPD receipt with consultation/lab/medicine breakdown, amount in words, payment info
+   502→  1301→  1301→- Created `src/components/print/AdvanceReceiptPrint.tsx` — Advance deposit receipt with admission details, payment method, disclaimer
+   503→  1302→  1302→- Created `src/components/print/PaymentReceiptPrint.tsx` — Bill payment receipt with bill summary context, amount in words
+   504→  1303→  1303→- Created `src/components/print/DischargeSummaryPrint.tsx` — Medical discharge summary: demographics, diagnosis, treatment history, examination, follow-up, signatures
+   505→  1304→  1304→- Created `src/components/print/LabReportPrint.tsx` — Lab report with parameters table, normal range, abnormal row highlighting (pink background + H flag)
+   506→  1305→  1305→- Created `src/app/api/discharge-summaries/route.ts` — GET list of discharged patients, auth: hospital/admin, filters: fromDate, toDate, doctorId, returns patientName, admissionNo, dischargeDate, dischargeType, finalDiagnosis, doctorName
+   507→  1306→  1306→- Created `src/app/dashboard/hospital/discharge-summaries/page.tsx` — page wrapper
+   508→  1307→  1307→- Created `src/app/dashboard/hospital/discharge-summaries/client.tsx` — Table with search, date range, doctor filter, View button opens dialog with DischargeSummaryPrint, uses TanStack Query
+   509→  1308→  1308→- Updated `src/app/layout.tsx` — added `import '@/styles/print.css'` for global print stylesheet
+   510→  1309→  1309→- All print components use PrintLayout, print-utils formatting, print.css classes, standard Tailwind for layout
+   511→  1310→  1310→- No indigo/blue colors used
+   512→  1311→  1311→
+   513→  1312→  1312→Stage Summary:
+   514→  1313→  1313→- 12 files created, 1 file modified (layout.tsx)
+   515→  1314→  1314→- 6 reusable print components (IPD bill, OPD bill, advance receipt, payment receipt, discharge summary, lab report)
+   516→  1315→  1315→- 1 shared PrintLayout component with hospital header and print button
+   517→  1316→  1316→- 1 API route for discharge summaries with filtering
+   518→  1317→  1317→- 1 hospital dashboard page (discharge-summaries) with view/print dialog
+   519→  1318→  1318→- Print CSS handles A4 layout, hides non-print elements, formats tables/summaries/signatures
+   520→  1319→  1319→- Indian number formatting (en-IN locale, Crore/Lakh words)
+   521→
+   522→[showing lines 800-1319 of 1320; use offset=1320 with limit to continue reading]
