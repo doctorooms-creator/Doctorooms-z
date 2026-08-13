@@ -1,0 +1,1192 @@
+     1→# 🏥 HOSPITAL MANAGEMENT SYSTEM — COMPLETE DEVELOPMENT PLAN
+     2→# Architect-Level Blueprint for AI Execution
+     3→
+     4→---
+     5→
+     6→## 📌 DOCUMENT PURPOSE
+     7→
+     8→This is the **single source of truth** for all remaining development. Any AI agent reading this file must be able to execute development without asking questions. Every schema field, every API route, every UI component, every business rule is specified.
+     9→
+    10→**Rules for AI executing this plan:**
+    11→- Follow phases in order (P0 → P1 → P2 → P3)
+    12→- Within each phase, sub-phases can be parallelized where marked
+    13→- Always run `bun run db:push` after schema changes
+    14→- Always add dev users to `api-auth.ts` DEV_USERS for new roles
+    15→- Always add sidebar entries to `sidebar-config.ts`
+    16→- Use existing shadcn/ui components from `src/components/ui/`
+    17→- Use `requireRole(req, 'roleName')` for API auth
+    18→- Use `getAuthUser(req)` for any-role auth
+    19→- Use `import { db } from '@/lib/db'` for database
+    20→- Use TanStack Query (`useQuery`, `useMutation`) for data fetching
+    21→- All API routes go under `src/app/api/`
+    22→- All dashboard pages go under `src/app/dashboard/{role}/`
+    23→- Each page = `page.tsx` (server wrapper) + `client.tsx` (client component)
+    24→- Use `date-fns` for date formatting
+    25→- Use `sonner` for toast notifications
+    26→- Use `lucide-react` for icons
+    27→- Use Tailwind CSS 4 classes only
+    28→- Footer must be sticky to bottom
+    29→- No indigo/blue colors unless specified
+    30→- Responsive: mobile-first design
+    31→
+    32→---
+    33→
+    34→## 📊 CURRENT STATE INVENTORY
+    35→
+    36→### Existing Roles (8)
+    37→`admin`, `doctor`, `patient`, `hospital`, `receptionist`, `assistant`, `pharmacist`, `nurse`
+    38→
+    39→### Existing Prisma Models (40+)
+    40→**Foundation:** User, Doctor, Hospital, Department, DoctorHospital, Booking, BookingChat
+    41→**Prescription:** Prescription, PMedicine, PLabel, PSuggestion, PDignoTable, PCo, POtherSetting, DoctorMedicine, CategoryMaster, FindingsMaster, FindingsMedicine, TableTemplateMaster, CoMaster, QuestionsMaster, SuggestionsMaster, LabelMaster, PrescriptionAccessRequest
+    42→**Roles:** DoctorAssistant, DoctorPharmacist, Receptionist, StaffNurse
+    43→**IPD:** Ward, Bed, NursePatientAssignment, IpdAdmission, VitalRecord, DoctorOrder, MedicineAdministration, SampleCollection, InvestigationReport, ShiftHandover, DoctorVisit
+    44→**Other:** DoctorRating, DoctorSchedule, DoctorHoliday, DoctorGallery, Post, Notification, Slider, HospitalInquiry, DiseaseMaster, MedicalDocument
+    45→
+    46→### Existing Dashboard Pages (~75+)
+    47→**Admin:** Dashboard, Users, Doctors, Hospitals, Wards, Nurses, Blog, Inquiries, Settings
+    48→**Doctor:** Dashboard, Appointments, Prescriptions (list/new/[id]), Earnings, Schedule, Patients, Medicines, Rx Settings (8 sub-pages), Profile, Gallery, Posts, IPD (list + patient detail)
+    49→**Receptionist:** Dashboard, Appointments, Pending Bookings, Walk-in, Queue, Print Queue, Schedule, Medicines, Patients, Reports, Blog, Profile, Notifications, IPD
+    50→**Pharmacist:** Dashboard, Prescriptions, Medicines
+    51→**Nurse:** Dashboard, My Patients, Ward View, Shift Handover, Profile, Patient Detail (vitals/medicines/investigations)
+    52→**Patient:** Dashboard, Appointments, Health Records, Rx Access, Blog, Feedback, Notifications, Profile, Settings
+    53→**Hospital:** Dashboard, Departments, Department-Doctors, Doctors, Appointments, Queue Display
+    54→**Assistant:** Dashboard, Appointments, Patients, Rx Queue
+    55→
+    56→### Existing API Routes (~90+)
+    57→Full list available via glob `src/app/api/**/*.ts`
+    58→
+    59→### Key Existing Patterns
+    60→- **Auth:** `requireRole(req, 'role')` / `requireAuth(req)` from `@/lib/api-auth`
+    61→- **DB:** `import { db } from '@/lib/db'`
+    62→- **Dev Users:** Hardcoded in `api-auth.ts` DEV_USERS object
+    63→- **Sidebar:** `sidebar-config.ts` — `RoleSidebarMap` type
+    64→- **IPD Utils:** `ipd-utils.ts` — `getCurrentShift()`, `checkVitalAlerts()`, `VITAL_THRESHOLDS`
+    65→- **Token Utils:** `token-utils.ts` — OPD token generation
+    66→- **Date Utils:** `date-utils.ts`
+    67→
+    68→---
+    69→
+    70→## 🏗️ NEW MODELS TO ADD (Prisma Schema)
+    71→
+    72→Below are ALL new Prisma models. They must be added to `prisma/schema.prisma` in the order shown. Existing models that need new fields are marked with `[MODIFY EXISTING]`.
+    73→
+    74→---
+    75→
+    76→### MODULE A: BILLING & PAYMENTS
+    77→
+    78→```prisma
+    79→// ============ BILLING: CHARGE CATEGORY (Master) ============
+    80→
+    81→model ChargeCategory {
+    82→  id            String   @id @default(cuid())
+    83→  hospitalId    String
+    84→  name          String   @default("")        // "Room Rent", "Doctor Fee", "Medicine", "Investigation", "OT Charges", "Consumables"
+    85→  nameHi        String   @default("")
+    86→  code          String   @default("")        // "ROOM", "DOCFEE", "MED", "INV", "OT", "CONS"
+    87→  isEditable    Boolean  @default(true)       // Can receptionist add custom items under this?
+    88→  isActive      Boolean  @default(true)
+    89→  sortOrder     Int      @default(0)
+    90→  createdAt     DateTime @default(now())
+    91→  updatedAt     DateTime @updatedAt
+    92→
+    93→  hospital      Hospital  @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+    94→  chargeItems   ChargeItem[]
+    95→}
+    96→
+    97→// ============ BILLING: CHARGE ITEM (Master — rate cards) ============
+    98→
+    99→model ChargeItem {
+   100→  id              String   @id @default(cuid())
+   101→  categoryId      String
+   102→  hospitalId      String
+   103→  name            String   @default("")        // "General Ward Bed", "CT Scan", "Blood CBC", "Appendectomy"
+   104→  nameHi          String   @default("")
+   105→  code            String   @default("")        // "GW-BED", "CT-SCAN", "BLOOD-CBC"
+   106→  defaultRate     Float    @default(0)          // Default price
+   107→  unit            String   @default("Per Day")  // "Per Day", "Per Test", "Per Unit", "Per Surgery", "One Time"
+   108→  isInsuranceApplicable Boolean @default(true)  // Can be claimed under insurance?
+   109→  status          String   @default("Active")   // Active, Inactive
+   110→  createdAt       DateTime @default(now())
+   111→  updatedAt       DateTime @updatedAt
+   112→
+   113→  category        ChargeCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+   114→  hospital        Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   115→  billLineItems   BillLineItem[]
+   116→}
+   117→
+   118→// ============ BILLING: IPD BILL ============
+   119→
+   120→model IpdBill {
+   121→  id              String   @id @default(cuid())
+   122→  billNo          String   @unique @default("")   // "BILL-2026-000001"
+   123→  admissionId     String   @unique                 // One bill per admission
+   124→  hospitalId      String
+   125→
+   126→  // --- Amounts ---
+   127→  subtotal        Float    @default(0)              // Sum of all line items
+   128→  discountAmount  Float    @default(0)
+   129→  discountReason  String   @default("")
+   130→  taxAmount       Float    @default(0)
+   131→  taxPercent      Float    @default(0)              // e.g. 5, 12, 18
+   132→  roundOff        Float    @default(0)              // Rounding to nearest rupee
+   133→  netAmount       Float    @default(0)              // Final payable = subtotal - discount + tax + roundOff
+   134→
+   135→  // --- Payment Status ---
+   136→  totalPaid       Float    @default(0)              // Sum of all payments
+   137→  balanceDue      Float    @default(0)              // netAmount - totalPaid
+   138→  paymentStatus   String   @default("Unpaid")       // Unpaid, Partial, Paid, WrittenOff
+   139→
+   140→  // --- Insurance/TPA ---
+   141→  insuranceProvider String  @default("")           // "Star Health", "ICICI Lombard", "CGHS", "ESI"
+   142→  policyNumber    String   @default("")
+   143→  insuredName     String   @default("")
+   144→  insuredRelation String   @default("")           // Self, Spouse, Child, Parent
+   145→  tpaApprovalNo   String   @default("")
+   146→  tpaApprovedAmount Float  @default(0)
+   147→  isInsuranceCase Boolean  @default(false)
+   148→  insuranceStatus String   @default("")           // "", "Submitted", "Approved", "Rejected", "Settled"
+   149→
+   150→  // --- Audit ---
+   151→  createdById     String                           // Receptionist User.id who created
+   152→  createdAt       DateTime @default(now())
+   153→  updatedAt       DateTime @updatedAt
+   154→
+   155→  // --- Relations ---
+   156→  admission       IpdAdmission @relation(fields: [admissionId], references: [id])
+   157→  hospital        Hospital     @relation(fields: [hospitalId], references: [id])
+   158→  createdBy       User         @relation("BillCreator", fields: [createdById], references: [id])
+   159→  lineItems       BillLineItem[]
+   160→  payments        BillPayment[]
+   161→  advances        PatientAdvance[]
+   162→}
+   163→
+   164→// ============ BILLING: BILL LINE ITEM ============
+   165→
+   166→model BillLineItem {
+   167→  id              String   @id @default(cuid())
+   168→  billId          String
+   169→  chargeItemId    String?                         // Link to master rate card (null for custom items)
+   170→  categoryId      String?                         // Link to category
+   171→
+   172→  description     String   @default("")           // "Room Rent - General Ward (5 days)", "Tab. Paracetamol 500mg x 30"
+   173→  quantity        Float    @default(1)
+   174→  rate            Float    @default(0)              // Per unit rate
+   175→  amount          Float    @default(0)              // quantity * rate
+   176→  discount        Float    @default(0)              // Per-line discount
+   177→  netAmount       Float    @default(0)              // amount - discount
+   178→
+   179→  // --- Dates for duration-based charges ---
+   180→  startDate       DateTime?
+   181→  endDate         DateTime?
+   182→  days            Int      @default(0)              // Auto-calculated for room rent
+   183→
+   184→  // --- Source tracking ---
+   185→  sourceType      String   @default("Manual")      // "Manual", "RoomRent", "DoctorVisit", "Investigation", "Medicine", "OT", "Consumable"
+   186→  sourceId        String   @default("")           // Reference to source record ID
+   187→
+   188→  status          String   @default("Active")      // Active, Cancelled
+   189→  cancelledBy     String?
+   190→  cancelledAt     DateTime?
+   191→  cancelReason    String   @default("")
+   192→
+   193→  createdAt       DateTime @default(now())
+   194→  updatedAt       DateTime @updatedAt
+   195→
+   196→  bill            IpdBill      @relation(fields: [billId], references: [id], onDelete: Cascade)
+   197→  chargeItem      ChargeItem?  @relation(fields: [chargeItemId], references: [id])
+   198→}
+   199→
+   200→// ============ BILLING: PAYMENT RECEIPT ============
+   201→
+   202→model BillPayment {
+   203→  id              String   @id @default(cuid())
+   204→  billId          String
+   205→  receiptNo       String   @unique @default("")   // "REC-2026-000001"
+   206→  hospitalId      String
+   207→
+   208→  amount          Float    @default(0)
+   209→  paymentMethod   String   @default("Cash")         // Cash, UPI, Card, NetBanking, Cheque, Insurance, WrittenOff
+   210→  paymentRef      String   @default("")           // UPI txn ID, Cheque number, etc.
+   211→  receivedById    String                          // User.id of receptionist who collected
+   212→  receivedAt      DateTime @default(now())
+   213→  remarks         String   @default("")
+   214→
+   215→  bill            IpdBill @relation(fields: [billId], references: [id], onDelete: Cascade)
+   216→  hospital        Hospital @relation(fields: [hospitalId], references: [id])
+   217→  receivedBy      User     @relation("PaymentReceiver", fields: [receivedById], references: [id])
+   218→}
+   219→
+   220→// ============ BILLING: PATIENT ADVANCE DEPOSIT ============
+   221→
+   222→model PatientAdvance {
+   223→  id              String   @id @default(cuid())
+   224→  admissionId     String
+   225→  billId          String?                         // Linked to bill once created
+   226→  hospitalId      String
+   227→
+   228→  amount          Float    @default(0)
+   229→  receiptNo       String   @default("")           // "ADV-2026-000001"
+   230→  paymentMethod   String   @default("Cash")
+   231→  paymentRef      String   @default("")
+   232→  receivedById    String
+   233→  receivedAt      DateTime @default(now())
+   234→  remarks         String   @default("")
+   235→  status          String   @default("Active")      // Active, Adjusted, Refunded
+   236→
+   237→  admission       IpdAdmission @relation(fields: [admissionId], references: [id])
+   238→  hospital        Hospital     @relation(fields: [hospitalId], references: [id])
+   239→  receivedBy      User         @relation("AdvanceReceiver", fields: [receivedById], references: [id])
+   240→  bill            IpdBill?     @relation(fields: [billId], references: [id])
+   241→}
+   242→
+   243→// ============ BILLING: OPD BILL (simple, for OPD consultations) ============
+   244→
+   245→model OpdBill {
+   246→  id              String   @id @default(cuid())
+   247→  billNo          String   @unique @default("")   // "OPD-BILL-2026-000001"
+   248→  bookingId       String?
+   249→  hospitalId      String?
+   250→  doctorId        String
+   251→
+   252→  patientName     String   @default("")
+   253→  consultationFee Float    @default(0)
+   254→  otherCharges    Float    @default(0)              // Sum of additional line items
+   255→  totalAmount     Float    @default(0)              // consultationFee + otherCharges
+   256→  discount        Float    @default(0)
+   257→  netAmount       Float    @default(0)
+   258→  paymentMethod   String   @default("Cash")
+   259→  paymentStatus   String   @default("Unpaid")       // Unpaid, Paid
+   260→  receivedById    String?
+   261→  receivedAt      DateTime?
+   262→  remarks         String   @default("")
+   263→
+   264→  createdAt       DateTime @default(now())
+   265→  updatedAt       DateTime @updatedAt
+   266→
+   267→  doctor          Doctor @relation(fields: [doctorId], references: [id])
+   268→  booking         Booking? @relation("OpdBillBooking", fields: [bookingId], references: [id])
+   269→}
+   270→```
+   271→
+   272→**[MODIFY EXISTING] IpdAdmission — add these fields:**
+   273→```prisma
+   274→  // Add inside IpdAdmission model:
+   275→  advanceAmount    Float    @default(0)              // Total advance collected
+   276→  estimatedBill    Float    @default(0)              // Estimated total bill (for display)
+   277→```
+   278→
+   279→**[MODIFY EXISTING] User — add these relations:**
+   280→```prisma
+   281→  // Add inside User model:
+   282→  createdBills     IpdBill[]       @relation("BillCreator")
+   283→  receivedPayments BillPayment[]   @relation("PaymentReceiver")
+   284→  receivedAdvances PatientAdvance[] @relation("AdvanceReceiver")
+   285→```
+   286→
+   287→**[MODIFY EXISTING] Hospital — add these relations:**
+   288→```prisma
+   289→  // Add inside Hospital model:
+   290→  chargeCategories ChargeCategory[]
+   291→  chargeItems      ChargeItem[]
+   292→  ipdBills         IpdBill[]
+   293→  billPayments     BillPayment[]
+   294→  patientAdvances  PatientAdvance[]
+   295→  operationTheaters OperationTheater[]
+   296→  otSchedules      OtSchedule[]
+   297→  labTechnicianProfiles LabTechnician[]
+   298→  dietOrders       DietOrder[]
+   299→  inventoryItems   InventoryItem[]
+   300→  purchaseOrders   PurchaseOrder[]
+   301→  stockMovements   StockMovement[]
+   302→```
+   303→
+   304→**[MODIFY EXISTING] IpdAdmission — add these relations:**
+   305→```prisma
+   306→  // Add inside IpdAdmission model:
+   307→  bill             IpdBill?
+   308→  patientAdvances  PatientAdvance[]
+   309→  otSchedules      OtSchedule[]
+   310→  dietOrders       DietOrder[]
+   311→  bedTransfers     BedTransfer[]
+   312→```
+   313→
+   314→---
+   315→
+   316→### MODULE B: LAB / PATHOLOGY
+   317→
+   318→```prisma
+   319→// ============ LAB: LAB TECHNICIAN ============
+   320→
+   321→model LabTechnician {
+   322→  id            String   @id @default(cuid())
+   323→  userId        String   @unique
+   324→  hospitalId    String
+   325→  employeeId    String   @default("")         // "LAB-001"
+   326→  qualification String   @default("")         // DMLT, BSc MLT, MSc MLT
+   327→  specialization String   @default("")        // "Pathology", "Biochemistry", "Microbiology"
+   328→  phoneNo       String   @default("")
+   329→  status        String   @default("Active")    // Active, Inactive
+   330→  createdAt     DateTime @default(now())
+   331→  updatedAt     DateTime @updatedAt
+   332→
+   333→  user          User     @relation("LabTechUser", fields: [userId], references: [id], onDelete: Cascade)
+   334→  hospital      Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   335→  labReports    LabReport[]
+   336→}
+   337→
+   338→// ============ LAB: TEST MASTER (Master — all tests hospital can do) ============
+   339→
+   340→model LabTestMaster {
+   341→  id              String   @id @default(cuid())
+   342→  hospitalId      String
+   343→  name            String   @default("")          // "Complete Blood Count (CBC)", "Liver Function Test (LFT)"
+   344→  shortName       String   @default("")          // "CBC", "LFT"
+   345→  category        String   @default("")          // "Haematology", "Biochemistry", "Microbiology", "Serology", "Urine", "Radiology"
+   346→  sampleType      String   @default("Blood")      // "Blood", "Urine", "Sputum", "CSF", "Swab", "Stool"
+   347→  containerType   String   @default("")          // "EDTA Tube", "Plain Tube", "Urine Container"
+   348→  fastingRequired Boolean  @default(false)
+   349→  reportType      String   @default("Tabular")    // "Tabular", "Qualitative", "Microbiology", "Single Value"
+   350→  turnAroundHours Int      @default(4)            // Expected TAT in hours
+   351→  defaultRate     Float    @default(0)
+   352→  status          String   @default("Active")
+   353→  sortOrder       Int      @default(0)
+   354→  createdAt       DateTime @default(now())
+   355→  updatedAt       DateTime @updatedAt
+   356→
+   357→  hospital        Hospital          @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   358→  testParameters   LabTestParameter[]
+   359→  labReports      LabReport[]
+   360→}
+   361→
+   362→// ============ LAB: TEST PARAMETER (Normal ranges per parameter) ============
+   363→
+   364→model LabTestParameter {
+   365→  id              String   @id @default(cuid())
+   366→  testId          String
+   367→  name            String   @default("")          // "Hemoglobin", "WBC", "RBC", "Platelet", "Blood Sugar"
+   368→  shortName       String   @default("")          // "Hb", "WBC", "RBC", "PLT", "BS"
+   369→  unit            String   @default("")          // "g/dL", "cells/cu.mm", "mg/dL"
+   370→  normalMaleMin   Float    @default(0)
+   371→  normalMaleMax   Float    @default(0)
+   372→  normalFemaleMin Float    @default(0)
+   373→  normalFemaleMax Float    @default(0)
+   374→  normalChildMin  Float    @default(0)
+   375→  normalChildMax  Float    @default(0)
+   376→  criticalLow     Float?
+   377→  criticalHigh    Float?
+   378→  sortOrder       Int      @default(0)
+   379→  createdAt       DateTime @default(now())
+   380→  updatedAt       DateTime @updatedAt
+   381→
+   382→  test            LabTestMaster @relation(fields: [testId], references: [id], onDelete: Cascade)
+   383→  reportValues    LabParameterValue[]
+   384→}
+   385→
+   386→// ============ LAB: LAB REPORT (The actual report for a patient) ============
+   387→
+   388→model LabReport {
+   389→  id              String   @id @default(cuid())
+   390→  reportNo        String   @unique @default("")   // "LAB-2026-000001"
+   391→  hospitalId      String
+   392→  admissionId     String?                         // IPD patient (null for OPD)
+   393→  bookingId       String?                         // OPD booking (null for IPD)
+   394→  patientName     String   @default("")
+   395→  patientAge      Int      @default(0)
+   396→  patientGender   String   @default("")
+   397→  testId          String                         // LabTestMaster.id
+   398→
+   399→  sampleCollectionId String?                      // Link to existing SampleCollection
+   400→  sampleCollectedAt  DateTime?
+   401→  sampleReceivedAt   DateTime?
+   402→
+   403→  status          String   @default("Ordered")    // Ordered, SampleCollected, Processing, Ready, Verified, Printed, Filed
+   404→  isUrgent        Boolean  @default(false)
+   405→  remarks         String   @default("")
+   406→
+   407→  reportedById    String?                         // Lab Tech User.id
+   408→  reportedAt      DateTime?
+   409→  verifiedById    String?                         // Pathologist / Senior Doctor User.id
+   410→  verifiedAt      DateTime?
+   411→
+   412→  createdAt       DateTime @default(now())
+   413→  updatedAt       DateTime @updatedAt
+   414→
+   415→  hospital        Hospital         @relation(fields: [hospitalId], references: [id])
+   416→  admission       IpdAdmission?    @relation("LabReportAdmission", fields: [admissionId], references: [id])
+   417→  booking         Booking?         @relation("LabReportBooking", fields: [bookingId], references: [id])
+   418→  test            LabTestMaster    @relation(fields: [testId], references: [id])
+   419→  reportedBy      User?            @relation("LabReportedBy", fields: [reportedById], references: [id])
+   420→  verifiedBy      User?            @relation("LabVerifiedBy", fields: [verifiedById], references: [id])
+   421→  parameterValues LabParameterValue[]
+   422→}
+   423→
+   424→// ============ LAB: LAB PARAMETER VALUE (Actual result values) ============
+   425→
+   426→model LabParameterValue {
+   427→  id              String   @id @default(cuid())
+   428→  reportId        String
+   429→  parameterId     String
+   430→  value           String   @default("")          // "12.5" — String because some are text like "Positive", "Negative"
+   431→  isAbnormal      Boolean  @default(false)         // Auto-set: value outside normal range
+   432→  isCritical      Boolean  @default(false)         // Auto-set: value exceeds critical range
+   433→  remarks         String   @default("")
+   434→  enteredById     String?                         // Lab Tech User.id
+   435→  enteredAt       DateTime @default(now())
+   436→
+   437→  report          LabReport        @relation(fields: [reportId], references: [id], onDelete: Cascade)
+   438→  parameter       LabTestParameter @relation(fields: [parameterId], references: [id])
+   439→}
+   440→```
+   441→
+   442→**[MODIFY EXISTING] User — add:**
+   443→```prisma
+   444→  labTechProfile   LabTechnician?  @relation("LabTechUser")
+   445→  labReportsEntered LabReport[]    @relation("LabReportedBy")
+   446→  labReportsVerified LabReport[]   @relation("LabVerifiedBy")
+   447→```
+   448→
+   449→---
+   450→
+   451→### MODULE C: INVENTORY MANAGEMENT
+   452→
+   453→```prisma
+   454→// ============ INVENTORY: ITEM ============
+   455→
+   456→model InventoryItem {
+   457→  id              String   @id @default(cuid())
+   458→  hospitalId      String
+   459→  name            String   @default("")          // "Paracetamol 500mg Tab", "Normal Saline 500ml", "Syringe 5ml"
+   460→  genericName     String   @default("")          // "Paracetamol"
+   461→  category        String   @default("")          // "Tablet", "Injection", "IV Fluid", "Consumable", "Surgical"
+   462→  unit            String   @default("")          // "Tab", "Vial", "Bottle", "Piece", "Box"
+   463→  manufacturer    String   @default("")
+   464→  batchNo         String   @default("")
+   465→  expiryDate      DateTime?
+   466→  mrp             Float    @default(0)
+   467→  purchaseRate    Float    @default(0)
+   468→  sellingRate     Float    @default(0)
+   469→  currentStock    Float    @default(0)             // Current quantity in hand
+   470→  minStockLevel   Float    @default(10)            // Alert threshold
+   471→  maxStockLevel   Float    @default(500)
+   472→  reorderQty      Float    @default(100)           // Suggested reorder quantity
+   473→  storeLocation   String   @default("")          // "Main Store", "Ward Store - ICU", "Pharmacy"
+   474→  hsnCode         String   @default("")          // For GST
+   475→  gstPercent      Float    @default(0)
+   476→  status          String   @default("Active")      // Active, Inactive, Expired
+   477→  createdAt       DateTime @default(now())
+   478→  updatedAt       DateTime @updatedAt
+   479→
+   480→  hospital        Hospital       @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   481→  stockMovements  StockMovement[]
+   482→  purchaseOrderItems PurchaseOrderItem[]
+   483→}
+   484→
+   485→// ============ INVENTORY: STOCK MOVEMENT ============
+   486→
+   487→model StockMovement {
+   488→  id              String   @id @default(cuid())
+   489→  hospitalId      String
+   490→  itemId          String
+   491→  movementType    String   @default("In")          // "In", "Out", "Adjustment", "Return", "Expired", "Damaged"
+   492→  quantity        Float    @default(0)
+   493→  previousStock   Float    @default(0)
+   494→  newStock        Float    @default(0)
+   495→  referenceType   String   @default("")          // "PurchaseOrder", "IssueToWard", "PatientUse", "ManualAdjustment"
+   496→  referenceId     String   @default("")
+   497→  fromLocation    String   @default("")
+   498→  toLocation      String   @default("")
+   499→  remarks         String   @default("")
+   500→  performedById   String                          // User.id
+   501→  performedAt     DateTime @default(now())
+   502→  createdAt       DateTime @default(now())
+   503→  updatedAt       DateTime @updatedAt
+   504→
+   505→  hospital        Hospital       @relation(fields: [hospitalId], references: [id])
+   506→  item            InventoryItem @relation(fields: [itemId], references: [id])
+   507→  performedBy     User           @relation("StockPerformer", fields: [performedById], references: [id])
+   508→}
+   509→
+   510→// ============ INVENTORY: PURCHASE ORDER ============
+   511→
+   512→model PurchaseOrder {
+   513→  id              String   @id @default(cuid())
+   514→  poNumber        String   @unique @default("")   // "PO-2026-000001"
+   515→  hospitalId      String
+   516→  supplierName    String   @default("")
+   517→  supplierContact String   @default("")
+   518→  supplierAddress String   @default("")
+   519→  expectedDate    DateTime?
+   520→  status          String   @default("Draft")      // Draft, Submitted, Approved, PartiallyReceived, Received, Cancelled
+   521→  totalAmount     Float    @default(0)
+   522→  approvedById    String?
+   523→  approvedAt      DateTime?
+   524→  remarks         String   @default("")
+   525→  createdAt       DateTime @default(now())
+   526→  updatedAt       DateTime @updatedAt
+   527→
+   528→  hospital        Hospital           @relation(fields: [hospitalId], references: [id])
+   529→  items           PurchaseOrderItem[]
+   530→}
+   531→
+   532→// ============ INVENTORY: PURCHASE ORDER ITEM ============
+   533→
+   534→model PurchaseOrderItem {
+   535→  id              String   @id @default(cuid())
+   536→  poId            String
+   537→  itemId          String
+   538→  quantity        Float    @default(0)
+   539→  rate            Float    @default(0)
+   540→  amount          Float    @default(0)
+   541→  receivedQty     Float    @default(0)
+   542→  createdAt       DateTime @default(now())
+   543→  updatedAt       DateTime @updatedAt
+   544→
+   545→  po              PurchaseOrder  @relation(fields: [poId], references: [id], onDelete: Cascade)
+   546→  item            InventoryItem  @relation(fields: [itemId], references: [id])
+   547→}
+   548→```
+   549→
+   550→**[MODIFY EXISTING] User — add:**
+   551→```prisma
+   552→  stockMovements   StockMovement[]  @relation("StockPerformer")
+   553→```
+   554→
+   555→---
+   556→
+   557→### MODULE D: OPERATION THEATER
+   558→
+   559→```prisma
+   560→// ============ OT: OPERATION THEATER ============
+   561→
+   562→model OperationTheater {
+   563→  id              String   @id @default(cuid())
+   564→  hospitalId      String
+   565→  name            String   @default("")          // "OT-1", "OT-2 (Major)", "Minor OT"
+   566→  otType          String   @default("Major")       // "Major", "Minor", "Emergency", "C-Section"
+   567→  floorNo         String   @default("")
+   568→  status          String   @default("Active")      // Active, Inactive, Maintenance
+   569→  createdAt       DateTime @default(now())
+   570→  updatedAt       DateTime @updatedAt
+   571→
+   572→  hospital        Hospital    @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   573→  schedules       OtSchedule[]
+   574→}
+   575→
+   576→// ============ OT: OT SCHEDULE ============
+   577→
+   578→model OtSchedule {
+   579→  id              String   @id @default(cuid())
+   580→  hospitalId      String
+   581→  otId            String
+   582→  admissionId     String
+   583→
+   584→  surgeryName     String   @default("")          // "Appendectomy", "Laparoscopic Cholecystectomy"
+   585→  surgeryType     String   @default("Elective")    // "Elective", "Emergency", "Scheduled"
+   586→  anesthesiaType  String   @default("")          // "General", "Spinal", "Local", "Sedation"
+   587→
+   588→  scheduledDate   DateTime
+   589→  scheduledStart  String   @default("")          // "09:00"
+   590→  scheduledEnd    String   @default("")          // "11:00"
+   591→  estimatedDurationMinutes Int @default(60)
+   592→
+   593→  surgeonId       String                          // Primary surgeon Doctor.id
+   594→  assistantSurgeonIds String @default("[]")      // JSON array of Doctor.id
+   595→  anesthetistId   String?                         // Doctor.id
+   596→  scrubNurseId    String?                         // StaffNurse id (User.id)
+   597→
+   598→  status          String   @default("Scheduled")  // Scheduled, InProgress, Completed, Cancelled, Postponed
+   599→  actualStart     DateTime?
+   600→  actualEnd       DateTime?
+   601→
+   602→  // --- Post-Op ---
+   603→  postOpNotes     String   @default("")
+   604→  complications   String   @default("")
+   605→
+   606→  createdAt       DateTime @default(now())
+   607→  updatedAt       DateTime @updatedAt
+   608→
+   609→  hospital        Hospital       @relation(fields: [hospitalId], references: [id])
+   610→  ot              OperationTheater @relation(fields: [otId], references: [id])
+   611→  admission       IpdAdmission   @relation(fields: [admissionId], references: [id])
+   612→  surgeon         Doctor        @relation("OtSurgeon", fields: [surgeonId], references: [id])
+   613→}
+   614→
+   615→// ============ IPD: BED TRANSFER ============
+   616→
+   617→model BedTransfer {
+   618→  id              String   @id @default(cuid())
+   619→  admissionId     String
+   620→  fromBedId       String
+   621→  toBedId         String
+   622→  fromWardId      String
+   623→  toWardId        String
+   624→  reason          String   @default("")          // "Upgraded to Private", "Shifted to ICU", "Step-down to General"
+   625→  transferDate    DateTime @default(now())
+   626→  transferredBy   String                          // User.id (nurse or receptionist)
+   627→  createdAt       DateTime @default(now())
+   628→
+   629→  admission       IpdAdmission @relation(fields: [admissionId], references: [id])
+   630→}
+   631→```
+   632→
+   633→**[MODIFY EXISTING] Doctor — add:**
+   634→```prisma
+   635→  otSurgeries     OtSchedule[]  @relation("OtSurgeon")
+   636→```
+   637→
+   638→---
+   639→
+   640→### MODULE E: DIET / KITCHEN
+   641→
+   642→```prisma
+   643→// ============ DIET: DIET ORDER ============
+   644→
+   645→model DietOrder {
+   646→  id              String   @id @default(cuid())
+   647→  admissionId     String
+   648→  hospitalId      String
+   649→
+   650→  dietType        String   @default("Normal")      // "Normal", "Diabetic", "Renal", "Cardiac", "Liquid", "Semi-Solid", "NPO (Nothing by mouth)"
+   651→  mealType        String   @default("")          // "Breakfast", "Lunch", "Snacks", "Dinner"
+   652→  specialInstructions String @default("")       // "No salt", "High protein", "Low fat"
+   653→  orderedBy       String                          // Doctor.id
+   654→  orderedAt       DateTime @default(now())
+   655→  status          String   @default("Active")      // Active, Modified, Stopped
+   656→
+   657→  createdAt       DateTime @default(now())
+   658→  updatedAt       DateTime @updatedAt
+   659→
+   660→  admission       IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+   661→  hospital        Hospital     @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   662→}
+   663→```
+   664→
+   665→---
+   666→
+   667→### MODULE F: NOTIFICATION ENHANCEMENT (WebSocket Infrastructure)
+   668→
+   669→No new Prisma model. Uses existing `Notification` model.
+   670→
+   671→**New mini-service:** `mini-services/notification-service/index.ts`
+   672→- Socket.io server on port 3005
+   673→- Rooms: `hospital:{hospitalId}`, `nurse:{nurseId}`, `doctor:{doctorId}`
+   674→- Events: `new-order`, `vital-alert`, `lab-ready`, `bill-update`, `ot-status`, `admission`
+   675→- API: POST to emit event (called by other API routes)
+   676→
+   677→---
+   678→
+   679→## 🗺️ PHASE MAP — DEVELOPMENT ORDER
+   680→
+   681→```
+   682→PHASE 1 (P0): BILLING & DISCHARGE — Makes it a BUSINESS tool
+   683→├── 1A: Schema (all billing models + IpdAdmission modifications)
+   684→├── 1B: Charge Master (Admin CRUD for categories + items)
+   685→├── 1C: IPD Bill Creation & Line Items
+   686→├── 1D: Advance Deposit Management
+   687→├── 1E: Payment Collection & Receipts
+   688→├── 1F: Discharge Flow (discharge summary + final bill + clearance checklist)
+   689→├── 1G: OPD Billing
+   690→└── 1H: Bill Printing
+   691→
+   692→PHASE 2 (P1): LAB / PATHOLOGY — Every hospital needs a lab
+   693→├── 2A: Schema (LabTech, LabTestMaster, LabTestParameter, LabReport, LabParameterValue)
+   694→├── 2B: Lab Test Master (Admin CRUD)
+   695→├── 2C: Lab Technician Role (new role, sidebar, dev user)
+   696→├── 2D: Lab Technician Dashboard (worklist, sample management)
+   697→├── 2E: Result Entry & Verification
+   698→├── 2F: Report Viewing (Doctor, Nurse, Patient portals)
+   699→└── 2G: Lab Report Printing
+   700→
+   701→PHASE 3 (P1): INVENTORY MANAGEMENT — Operational efficiency
+   702→├── 3A: Schema (InventoryItem, StockMovement, PurchaseOrder, PurchaseOrderItem)
+   703→├── 3B: Inventory Master (Admin CRUD)
+   704→├── 3C: Stock Movement Tracking
+   705→├── 3D: Low Stock Alerts
+   706→├── 3E: Purchase Order Management
+   707→└── 3F: Issue to Ward / Patient Consumption
+   708→
+   709→PHASE 4 (P1): REPORTS & ANALYTICS — Owner visibility
+   710→├── 4A: Admin Revenue Dashboard (daily/weekly/monthly collections)
+   711→├── 4B: IPD Analytics (bed occupancy, ALOS, department-wise stats)
+   712→├── 4C: OPD Analytics (patient flow, doctor-wise, department-wise)
+   713→├── 4D: Financial Reports (P&L, outstanding bills, insurance summary)
+   714→├── 4E: Inventory Reports (consumption, expiry, low stock)
+   715→└── 4F: Lab Reports (tests done, TAT compliance, revenue)
+   716→
+   717→PHASE 5 (P2): COMPLETE IPD (N-2 to N-8) + OT + BED TRANSFER
+   718→├── 5A: IPD Admission Enhancement (insurance fields, TPA)
+   719→├── 5B: Doctor Orders with WebSocket notification
+   720→├── 5C: Nurse Medicine Administration (scheduled view, give/skip/refuse)
+   721→├── 5D: Vital Monitoring Enhancement (trend charts, smart alerts)
+   722→├── 5E: Investigation Integration with Lab module
+   723→├── 5F: Shift Handover Enhancement (auto-populate pending tasks)
+   724→├── 5G: Doctor Visit & Round Notes
+   725→├── 5H: Bed Transfer Workflow
+   726→├── 5I: OT Module (scheduling, status tracking, post-op)
+   727→├── 5J: Diet Order Module
+   728→└── 5K: Discharge Summary Generation (auto-compile all data)
+   729→
+   730→PHASE 6 (P2): PRINT SYSTEM — Indian hospitals are paper-heavy
+   731→├── 6A: IPD Admission Sheet Print
+   732→├── 6B: Discharge Summary Print (comprehensive)
+   733→├── 6C: Bill Print (IPD + OPD)
+   734→├── 6D: Receipt Print (Payment + Advance)
+   735→├── 6E: Lab Report Print (with hospital header, normal ranges, abnormal flags)
+   736→├── 6F: Prescription Print (enhance existing)
+   737→├── 6G: Vital Monitoring Chart Print
+   738→└── 6H: Consent Forms Print (surgery, anesthesia, blood transfusion)
+   739→
+   740→PHASE 7 (P3): FAMILY / ATTENDANT PORTAL
+   741→├── 7A: Admission Access Code (6-digit, generated at admission)
+   742→├── 7B: Public patient status page (no login required, just access code)
+   743→├── 7C: Live vitals display (last 24h)
+   744→├── 7D: Current medicines display
+   745→├── 7E: Doctor visit notes (selective)
+   746→├── 7F: Lab reports view
+   747→└── 7G: Running bill amount
+   748→
+   749→PHASE 8 (P3): POLISH & ADVANCED
+   750→├── 8A: WebSocket Notification Service (mini-service on port 3005)
+   751→├── 8B: Real-time order notification (Doctor → Nurse)
+   752→├── 8C: Real-time vital alerts (Nurse → Doctor)
+   753→├── 8D: Mobile/tablet responsive optimization
+   754→├── 8E: PWA manifest for offline capability
+   755→└── 8F: Admin Settings Enhancement (hospital profile, billing config, print config)
+   756→```
+   757→
+   758→---
+   759→
+   760→## 📋 DETAILED PHASE 1: BILLING & DISCHARGE
+   761→
+   762→### Phase 1A: Schema Changes
+   763→
+   764→**File:** `prisma/schema.prisma`
+   765→
+   766→Add ALL models from Module A above (ChargeCategory, ChargeItem, IpdBill, BillLineItem, BillPayment, PatientAdvance, OpdBill).
+   767→
+   768→Add relations to existing models:
+   769→- `User`: `createdBills`, `receivedPayments`, `receivedAdvances`
+   770→- `Hospital`: `chargeCategories`, `chargeItems`, `ipdBills`, `billPayments`, `patientAdvances`
+   771→- `IpdAdmission`: `bill`, `patientAdvances`, `advanceAmount`, `estimatedBill`
+   772→
+   773→After editing schema:
+   774→```bash
+   775→bun run db:push
+   776→bun run db:generate
+   777→```
+   778→
+   779→---
+   780→
+   781→### Phase 1B: Charge Master (Admin)
+   782→
+   783→**Purpose:** Admin sets up charge categories and items (rate card). Receptionist uses these when creating bills.
+   784→
+   785→#### API Routes
+   786→
+   787→**1. Charge Category CRUD**
+   788→`POST/GET /api/dashboard/admin/charge-categories`
+   789→```
+   790→POST: Create category
+   791→Auth: requireRole(req, 'admin')
+   792→Body: { hospitalId, name, nameHi?, code, isEditable?, isActive?, sortOrder? }
+   793→Response: { success: true, category: ChargeCategory }
+   794→
+   795→GET: List categories
+   796→Auth: requireRole(req, 'admin')
+   797→Query: ?hospitalId=xxx
+   798→Response: { success: true, categories: ChargeCategory[] }
+   799→```
+   800→
+   801→`PATCH/DELETE /api/dashboard/admin/charge-categories/[id]`
+   802→```
+   803→PATCH: Update category
+   804→Auth: requireRole(req, 'admin')
+   805→Body: { name?, nameHi?, code?, isEditable?, isActive?, sortOrder? }
+   806→Response: { success: true, category: ChargeCategory }
+   807→
+   808→DELETE: Delete category (only if no items linked)
+   809→Auth: requireRole(req, 'admin')
+   810→Response: { success: true }
+   811→```
+   812→
+   813→**2. Charge Item CRUD**
+   814→`POST/GET /api/dashboard/admin/charge-items`
+   815→```
+   816→POST: Create item
+   817→Auth: requireRole(req, 'admin')
+   818→Body: { categoryId, hospitalId, name, nameHi?, code?, defaultRate, unit?, isInsuranceApplicable? }
+   819→Response: { success: true, item: ChargeItem }
+   820→
+   821→GET: List items
+   822→Auth: requireRole(req, 'admin')
+   823→Query: ?hospitalId=xxx&categoryId=xxx&search=xxx
+   824→Response: { success: true, items: ChargeItem[] (with category) }
+   825→```
+   826→
+   827→`PATCH/DELETE /api/dashboard/admin/charge-items/[id]`
+   828→```
+   829→PATCH: Update item
+   830→Auth: requireRole(req, 'admin')
+   831→Body: { name?, defaultRate?, unit?, status? ... }
+   832→Response: { success: true }
+   833→
+   834→DELETE: Delete item
+   835→Auth: requireRole(req, 'admin')
+   836→Response: { success: true }
+   837→```
+   838→
+   839→#### UI Pages
+   840→
+   841→**Admin Charge Master Page**
+   842→- Route: `/dashboard/admin/charge-master`
+   843→- File: `page.tsx` (server) + `client.tsx` (client)
+   844→- Layout:
+   845→  - Top: Two tabs — "Categories" and "Items"
+   846→  - Categories Tab:
+   847→    - Table: Name, Code, Editable, Active, Actions (Edit/Delete)
+   848→    - "Add Category" button → Dialog with form
+   849→  - Items Tab:
+   850→    - Filter row: Category dropdown, Search input
+   851→    - Table: Name, Category, Default Rate, Unit, Status, Actions
+   852→    - "Add Item" button → Dialog with form (category dropdown auto-fills from categories)
+   853→
+   854→#### Sidebar Change
+   855→Add to `admin` array in `sidebar-config.ts`:
+   856→```ts
+   857→{ label: 'Charge Master', href: '/dashboard/admin/charge-master', icon: IndianRupee },
+   858→```
+   859→
+   860→---
+   861→
+   862→### Phase 1C: IPD Bill Creation & Line Items
+   863→
+   864→**Purpose:** Receptionist creates bill for admitted patient, adds charge line items.
+   865→
+   866→#### API Routes
+   867→
+   868→**1. Create/Get IPD Bill**
+   869→`POST /api/dashboard/receptionist/ipd-bills`
+   870→```
+   871→POST: Create bill for admission
+   872→Auth: requireRole(req, 'receptionist')
+   873→Body: { admissionId, hospitalId, taxPercent?, insuranceProvider?, policyNumber?, insuredName?, insuredRelation?, isInsuranceCase? }
+   874→Logic:
+   875→  1. Check admission exists and status is 'Admitted'
+   876→  2. Check no existing bill for this admission (unique constraint)
+   877→  3. Generate billNo: "BILL-" + year + "-" + 6-digit sequential
+   878→  4. Auto-add room rent line item: calculate days from admissionDate to now, multiply by Bed.dailyRate
+   879→  5. Create IpdBill record
+   880→  6. Return bill with line items
+   881→Response: { success: true, bill: IpdBill (with lineItems, payments, advances) }
+   882→```
+   883→
+   884→`GET /api/dashboard/receptionist/ipd-bills/[admissionId]`
+   885→```
+   886→GET: Get bill for admission
+   887→Auth: requireRole(req, 'receptionist')
+   888→Response: { success: true, bill: IpdBill (include lineItems, payments, advances, admission, bed, ward) }
+   889→
+   890→GET returns 404 if no bill created yet (frontend shows "Create Bill" button)
+   891→```
+   892→
+   893→**2. Bill Line Items**
+   894→`POST /api/dashboard/receptionist/ipd-bills/[admissionId]/line-items`
+   895→```
+   896→POST: Add line item
+   897→Auth: requireRole(req, 'receptionist')
+   898→Body: { chargeItemId?, description, quantity, rate?, discount?, sourceType?, sourceId?, startDate?, endDate? }
+   899→Logic:
+   900→  1. If chargeItemId provided, fetch ChargeItem to get default rate
+   901→  2. Calculate: amount = quantity * rate, netAmount = amount - discount
+   902→  3. Create BillLineItem
+   903→  4. Recalculate bill totals: subtotal = SUM(netAmount), netAmount = subtotal - discount + tax + roundOff
+   904→  5. Update balanceDue = netAmount - totalPaid
+   905→  6. Return updated bill
+   906→Response: { success: true, bill: IpdBill (updated with new line item) }
+   907→```
+   908→
+   909→`PATCH /api/dashboard/receptionist/ipd-bills/[admissionId]/line-items/[lineItemId]`
+   910→```
+   911→PATCH: Update line item (change qty, rate, discount, or cancel)
+   912→Auth: requireRole(req, 'receptionist')
+   913→Body: { quantity?, rate?, discount?, status? ("Cancelled"), cancelReason? }
+   914→Logic:
+   915→  1. If status === 'Cancelled', set cancelledBy, cancelledAt
+   916→  2. Recalculate bill totals
+   917→Response: { success: true, bill: IpdBill }
+   918→```
+   919→
+   920→`DELETE /api/dashboard/receptionist/ipd-bills/[admissionId]/line-items/[lineItemId]`
+   921→```
+   922→DELETE: Remove line item
+   923→Auth: requireRole(req, 'receptionist')
+   924→Logic: Soft delete (set status='Cancelled'), recalculate totals
+   925→Response: { success: true, bill: IpdBill }
+   926→```
+   927→
+   928→**3. Auto-add Room Rent (called when bill is created and daily)**
+   929→`POST /api/dashboard/receptionist/ipd-bills/[admissionId]/auto-room-rent`
+   930→```
+   931→POST: Recalculate/update room rent line item
+   932→Auth: requireRole(req, 'receptionist')
+   933→Logic:
+   934→  1. Find or create room rent line item (sourceType='RoomRent')
+   935→  2. Calculate days: floor((now - admissionDate) / 86400000) — but account for bed transfers
+   936→  3. Rate = current Bed.dailyRate
+   937→  4. Update quantity=days, rate=bedRate, amount=days*rate
+   938→  5. Recalculate bill totals
+   939→Response: { success: true, bill: IpdBill }
+   940→```
+   941→
+   942→**4. Bill Summary (Recalculate)**
+   943→`POST /api/dashboard/receptionist/ipd-bills/[admissionId]/recalculate`
+   944→```
+   945→POST: Recalculate entire bill
+   946→Auth: requireRole(req, 'receptionist')
+   947→Logic:
+   948→  1. subtotal = SUM of all Active line items' netAmount
+   949→  2. discountAmount = from bill record
+   950→  3. taxAmount = (subtotal - discountAmount) * (taxPercent / 100)
+   951→  4. roundOff = Math.round(netAmount) - netAmount (where netAmount = subtotal - discount + tax)
+   952→  5. netAmount = Math.round(subtotal - discountAmount + taxAmount)
+   953→  6. balanceDue = netAmount - totalPaid
+   954→  7. Update bill
+   955→Response: { success: true, bill: IpdBill }
+   956→```
+   957→
+   958→#### UI Pages
+   959→
+   960→**Receptionist IPD Billing Page**
+   961→- Route: `/dashboard/receptionist/ipd-billing`
+   962→- File: `page.tsx` + `client.tsx`
+   963→- This is the BILL LIST view — shows all admitted patients with their bill status
+   964→- Layout:
+   965→  - Header: "IPD Billing" with search bar
+   966→  - Table/Cards: Patient Name, Admission No, Ward/Bed, Days Admitted, Bill Amount, Paid, Balance, Status (Unpaid/Partial/Paid), Actions ("View Bill")
+   967→  - Click "View Bill" → navigates to `/dashboard/receptionist/ipd-billing/[admissionId]`
+   968→
+   969→**Receptionist IPD Bill Detail Page**
+   970→- Route: `/dashboard/receptionist/ipd-billing/[admissionId]/page.tsx` + `client.tsx`
+   971→- Layout:
+   972→  - Top: Patient info card (Name, Age, Admission No, Ward/Bed, Attending Doctor, Days Admitted)
+   973→  - If no bill exists: Big "Create Bill" button
+   974→  - Bill Header: Bill No, Created Date, Payment Status badge
+   975→   - Insurance Section (if applicable): Provider, Policy No, TPA Approval
+   976→   - **Line Items Table:**
+   977→    - Columns: #, Description, Qty, Rate, Amount, Discount, Net, Source, Actions (Edit/Cancel)
+   978→    - Bottom row: Subtotal, Discount, Tax, Round Off, **NET AMOUNT** (bold, large)
+   979→  - "Add Charge" button → Dialog with:
+   980→    - Search/Select from ChargeItem master (grouped by category)
+   981→    - OR manual entry (description, qty, rate)
+   982→    - Source type dropdown
+   983→  - **Payments Section:**
+   984→    - Table of past payments (Receipt No, Date, Amount, Method, Received By)
+   985→    - "Record Payment" button → Dialog (amount, method, reference, remarks)
+   986→  - **Advance Section:**
+   987→    - Table of advances collected
+   988→     - "Collect Advance" button → Dialog (amount, method, reference)
+   989→  - **Summary Card:**
+   990→    - Total Billed | Total Paid | Total Advance | Balance Due
+   991→  - "Update Room Rent" button (recalculates)
+   992→  - "Recalculate Bill" button
+   993→  - **"Discharge" button** (only if balance is 0 or admin override) → Goes to discharge flow
+   994→
+   995→#### Sidebar Change
+   996→Add to `receptionist` array in `sidebar-config.ts`:
+   997→```ts
+   998→{ label: 'IPD Billing', href: '/dashboard/receptionist/ipd-billing', icon: IndianRupee },
+   999→```
+  1000→
+  1001→---
+  1002→
+  1003→### Phase 1D: Advance Deposit Management
+  1004→
+  1005→#### API Routes
+  1006→
+  1007→`POST/GET /api/dashboard/receptionist/ipd-bills/[admissionId]/advances`
+  1008→```
+  1009→POST: Collect advance
+  1010→Auth: requireRole(req, 'receptionist')
+  1011→Body: { amount, paymentMethod, paymentRef?, remarks? }
+  1012→Logic:
+  1013→  1. Create PatientAdvance record
+  1014→  2. Generate receiptNo: "ADV-" + year + "-" + 6-digit
+  1015→  3. Update IpdAdmission.advanceAmount += amount
+  1016→  4. If bill exists, also link advance to bill
+  1017→Response: { success: true, advance: PatientAdvance, updatedBill?: IpdBill }
+  1018→
+  1019→GET: List advances for admission
+  1020→Auth: requireRole(req, 'receptionist')
+  1021→Response: { success: true, advances: PatientAdvance[] }
+  1022→```
+  1023→
+  1024→---
+  1025→
+  1026→### Phase 1E: Payment Collection & Receipts
+  1027→
+  1028→#### API Routes
+  1029→
+  1030→`POST /api/dashboard/receptionist/ipd-bills/[admissionId]/payments`
+  1031→```
+  1032→POST: Record payment
+  1033→Auth: requireRole(req, 'receptionist')
+  1034→Body: { amount, paymentMethod, paymentRef?, remarks? }
+  1035→Logic:
+  1036→  1. Validate amount > 0
+  1037→  2. Create BillPayment record
+  1038→  3. Generate receiptNo: "REC-" + year + "-" + 6-digit
+  1039→  4. Update bill: totalPaid += amount, recalculate balanceDue, update paymentStatus
+  1040→  5. paymentStatus logic: balanceDue <= 0 ? 'Paid' : totalPaid > 0 ? 'Partial' : 'Unpaid'
+  1041→Response: { success: true, payment: BillPayment, bill: IpdBill }
+  1042→```
+  1043→
+  1044→`GET /api/dashboard/receptionist/ipd-bills/[admissionId]/payments`
+  1045→```
+  1046→GET: List payments
+  1047→Auth: requireRole(req, 'receptionist')
+  1048→Response: { success: true, payments: BillPayment[] }
+  1049→```
+  1050→
+  1051→---
+  1052→
+  1053→### Phase 1F: Discharge Flow
+  1054→
+  1055→**Purpose:** Complete discharge process — clearance checklist → discharge summary generation → final bill → bed release.
+  1056→
+  1057→#### API Routes
+  1058→
+  1059→**1. Discharge Checklist**
+  1060→`GET /api/dashboard/doctor/ipd/patients/[admissionId]/discharge-checklist`
+  1061→```
+  1062→GET: Get discharge readiness status
+  1063→Auth: requireAuth(req) — doctor or receptionist
+  1064→Response: {
+  1065→  success: true,
+  1066→  checklist: {
+  1067→    allMedicinesCompleted: boolean,  // No active DoctorOrders without completed administrations
+  1068→    pendingInvestigations: number,  // Count of SampleCollection with status != 'Reported'
+  1069→    pendingLabReports: number,       // Count of LabReport with status != 'Verified'
+  1070→    pendingMedicines: number,        // Count of MedicineAdministration with status 'Pending'
+  1071→    billPaid: boolean,               // IpdBill.paymentStatus === 'Paid'
+  1072→    hasDischargeSummary: boolean,    // IpdAdmission.dischargeSummary !== ''
+  1073→    vitalAlerts: boolean,            // Any critical vital in last 24h
+  1074→    otPending: boolean,              // Any OtSchedule with status 'Scheduled' or 'InProgress'
+  1075→  },
+  1076→  canDischarge: boolean  // true if billPaid && !otPending && !vitalAlerts
+  1077→}
+  1078→```
+  1079→
+  1080→**2. Generate Discharge Summary**
+  1081→`POST /api/dashboard/doctor/ipd/patients/[admissionId]/discharge-summary`
+  1082→```
+  1083→POST: Auto-generate discharge summary from all IPD data
+  1084→Auth: requireRole(req, 'doctor')
+  1085→Body: { finalDiagnosis, dischargeType, advise, followUpDays?, followUpDoctorId? }
+  1086→Logic:
+  1087→  1. Compile from DB:
+  1088→     - Admission details (date, diagnosis, ward, bed)
+  1089→     - History (chief complaints, past history, personal history)
+  1090→     - Physical examination notes
+  1091→     - All doctor visit notes (chronological)
+  1092→     - All active/completed doctor orders (medicines)
+  1093→     - All investigation reports (with abnormal flags)
+  1094→     - All vitals summary (latest + any critical events)
+  1095→     - OT records if any
+  1096→  2. Format as structured text/markdown
+  1097→  3. Save to IpdAdmission.dischargeSummary
+  1098→Response: { success: true, summary: string }
+  1099→```
+  1100→
+  1101→**3. Process Discharge**
+  1102→`POST /api/dashboard/receptionist/ipd/[admissionId]/discharge`
+  1103→```
+  1104→POST: Execute discharge
+  1105→Auth: requireRole(req, 'receptionist')
+  1106→Body: { dischargeType: "Normal"|"DAMA"|"LAMA"|"Expired", dischargeTime, finalDiagnosis? }
+  1107→Logic:
+  1108→  1. Update IpdAdmission:
+  1109→     - status = 'Discharged' (or 'DAMA'/'LAMA'/'Expired' based on dischargeType)
+  1110→     - dischargeDate = now
+  1111→     - dischargeTime = provided
+  1112→     - dischargeType = provided
+  1113→  2. Release bed: Bed.status = 'Available', Bed.admissionId = null
+  1114→  3. Deactivate nurse assignments: NursePatientAssignment.status = 'Completed', unassignedAt = now
+  1115→  4. Stop all active DoctorOrders: status = 'Completed', stoppedAt = now
+  1116→  5. If dischargeType === 'Normal' && bill exists && balanceDue > 0:
+  1117→     - Return warning: "Balance due exists. Confirm discharge anyway?"
+  1118→     - Frontend must show confirmation dialog
+  1119→Response: { success: true, admission: IpdAdmission }
+  1120→```
+  1121→
+  1122→#### UI Pages
+  1123→
+  1124→**Doctor Discharge Page** (add tab to existing doctor IPD patient detail)
+  1125→- In `/dashboard/doctor/ipd/patients/[admissionId]/client.tsx` add a "Discharge" tab
+  1126→- Contents:
+  1127→  - **Discharge Checklist Card:** Green checkmarks / Red warnings for each item
+  1128→  - **Final Diagnosis** input
+  1129→  - **Discharge Type** select: Normal, DAMA, LAMA, Expired
+  1130→  - **Advice** textarea
+  1131→  - **Follow-up** section: days + doctor select
+  1132→  - **"Generate Summary" button** → calls generate discharge summary API
+  1133→  - **Preview** of generated summary (markdown rendered)
+  1134→  - **"Save & Ready for Discharge" button**
+  1135→
+  1136→**Receptionist Discharge Page**
+  1137→- Route: `/dashboard/receptionist/ipd-billing/[admissionId]/discharge/page.tsx` + `client.tsx`
+  1138→- Or: Add discharge section to the bill detail page as a dialog/sheet
+  1139→- Contents:
+  1140→  - **Checklist Status** (read-only, from doctor's checklist)
+  1141→  - **Bill Status Card:** Total, Paid, Balance
+  1142→  - **If balance > 0:** "Collect Payment" button OR "Discharge with Due" toggle (admin override)
+  1143→  - **Discharge Type** select
+  1144→  - **Confirmation Dialog:** "Are you sure you want to discharge [patient name]? Bed [bed] will be released."
+  1145→  - **After discharge:** Show success with option to print discharge summary + final bill
+  1146→
+  1147→---
+  1148→
+  1149→### Phase 1G: OPD Billing
+  1150→
+  1151→#### API Routes
+  1152→
+  1153→`POST/GET /api/dashboard/receptionist/opd-bills`
+  1154→```
+  1155→POST: Create OPD bill
+  1156→Auth: requireRole(req, 'receptionist')
+  1157→Body: { bookingId?, doctorId, patientName, consultationFee, otherCharges?, discount?, paymentMethod, remarks? }
+  1158→Logic:
+  1159→  1. Generate billNo: "OPD-BILL-" + year + "-" + 6-digit
+  1160→  2. Calculate: totalAmount = consultationFee + otherCharges, netAmount = totalAmount - discount
+  1161→  3. If paymentMethod !== 'Unpaid': paymentStatus = 'Paid', receivedAt = now
+  1162→  4. Create OpdBill
+  1163→  5. If bookingId, link to booking
+  1164→Response: { success: true, bill: OpdBill }
+  1165→
+  1166→GET: List OPD bills
+  1167→Auth: requireRole(req, 'receptionist')
+  1168→Query: ?hospitalId=xxx&fromDate=xxx&toDate=xxx&paymentStatus=xxx
+  1169→Response: { success: true, bills: OpdBill[] }
+  1170→```
+  1171→
+  1172→**UI:** Add OPD billing section to existing Receptionist dashboard or create `/dashboard/receptionist/opd-billing` page with table of bills.
+  1173→
+  1174→---
+  1175→
+  1176→### Phase 1H: Bill Printing
+  1177→
+  1178→**Approach:** Use `window.print()` with a hidden print-only div that has proper A4 CSS styling.
+  1179→
+  1180→**Bill Print Component:** `src/components/billing/ipd-bill-print.tsx`
+  1181→```tsx
+  1182→// Props: { bill: IpdBillWithAll, hospital: Hospital, patient: IpdAdmission }
+  1183→// Rendered in a div with className="print-only" (hidden on screen, shown in print)
+  1184→// CSS: @media print { .print-only { display: block !important; } .no-print { display: none !important; } }
+  1185→// Content:
+  1186→//   - Hospital header (name, address, phone, logo)
+  1187→//   - "CASH BILL" / "INSURANCE BILL" header
+  1188→//   - Bill No, Date, Patient Details
+  1189→//   - Line Items table
+  1190→//   - Totals section
+  1191→//   - Payment history
+  1192→//   - Footer: 
