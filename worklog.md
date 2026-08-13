@@ -1100,3 +1100,94 @@ Work Log:
 - framer-motion animations (AnimatePresence on table rows, staggered card entry)
 - All 14 page files + 2 API routes + 1 sidebar config edit = 17 file operations total
 - No lint or dev run executed
+
+---
+Task ID: 2-lab
+Agent: Main Orchestrator
+Task: Lab/Pathology Module — Phases 2A-2D Complete Build
+
+Work Log:
+
+## Phase 2A: Lab Test Master
+- Created `POST/GET /api/lab-test-masters` — Create test with parameters in transaction; list with filters (category, status, search) and _count.parameters
+- Created `GET/PUT/DELETE /api/lab-test-masters/[id]` — Detail with parameters, update (delete+recreate params in transaction), soft delete (status=Inactive)
+- Created `/dashboard/hospital/lab/test-master/page.tsx` + `client.tsx` — Full CRUD table with search/category filters, Add/Edit dialog with dynamic parameter rows (add/remove), gender-specific normal ranges (Male/Female/Child), category badges with color coding
+
+## Phase 2B: Lab Technician
+- Created `GET /api/lab-technician/dashboard` — Stats: ordered, sampleCollected, resultEntered, verified, todayReports, totalPending, hospital/tech info
+- Created `GET/PUT /api/lab-technician/profile` — View/edit profile (qualification, specialization, phoneNo)
+- Created `/dashboard/lab-technician/page.tsx` + `client.tsx` — Dashboard with 4 stat cards (Pending Collection, Awaiting Results, Ready to Verify, Today's Reports), quick action cards linking to worklist/result-entry/profile
+- Created `/dashboard/lab-technician/profile/page.tsx` + `client.tsx` — Profile card with avatar, editable fields (qualification, specialization, phone), hospital/employee info
+
+## Phase 2C: Lab Worklist + Result Entry
+- Created `POST/GET /api/lab-reports` — Order lab test (auto-generate reportNo LR-NNNNN, create empty LabParameterValue for each param); list with filters (fromDate, toDate, status, patientName, testName)
+- Created `GET /api/lab-reports/worklist` — Worklist for lab_technician/hospital, filter by status+urgency, ordered by urgency desc then createdAt asc
+- Created `GET /api/lab-reports/[id]` — Full report detail with parameters, patient, hospital, verifiedBy
+- Created `PUT /api/lab-reports/[id]/collect-sample` — Mark collected (Ordered → SampleCollected), auth: lab_technician/nurse
+- Created `PUT /api/lab-reports/[id]/enter-result` — Enter results with auto-calculate isAbnormal based on gender/age normal ranges, status → ResultEntered
+- Created `PUT /api/lab-reports/[id]/verify` — Verify report (ResultEntered → Verified), links to LabTechnician.verifiedById
+- Created `/dashboard/lab-technician/worklist/page.tsx` + `client.tsx` — Filter tabs (All/Pending Collection/Awaiting Results), urgency filter, table with actions (Collect Sample/Enter Result), 15s auto-refresh, collect confirmation dialog
+- Created `/dashboard/lab-technician/result-entry/page.tsx` — Redirect to worklist
+- Created `/dashboard/lab-technician/result-entry/[id]/page.tsx` + `client.tsx` — Patient/test info card, parameter input rows with normal range display, real-time abnormal highlight (red border + icon), gender-specific range display, save button with abnormal warning
+- Created `/dashboard/lab-technician/reports/page.tsx` + `client.tsx` — Pending Verification section (ResultEntered) with Verify action, Verified Reports section, view dialog with parameter values table and abnormal highlighting
+
+## Phase 2D: Hospital & Doctor Lab Report Views
+- Created `/dashboard/hospital/lab/reports/page.tsx` + `client.tsx` — All hospital lab reports with patient name search, status filter, view dialog with full parameter results
+- Created `/dashboard/doctor/lab-results/page.tsx` + `client.tsx` — Doctor's patients' lab results, default filter to Verified, abnormal count badge in view dialog, normal range column for doctor review
+
+## Technical Details:
+- 27 files created: 7 API routes + 20 UI pages/clients
+- All APIs use: `import { requireRole, requireAuth } from '@/lib/api-auth'` + `import { db } from '@/lib/db'` + `import { NextRequest, NextResponse } from 'next/server'`
+- Next.js 16 pattern: `params: Promise<{ id: string }>` and `const { id } = await params`
+- All UI uses: 'use client', TanStack Query, sonner toast, shadcn/ui, lucide-react, framer-motion
+- Color scheme: teal (primary), emerald (success), amber (warning), violet (accent), red (danger/abnormal)
+- No indigo/blue colors
+- Responsive tables with max-h + overflow-y-auto
+- Sidebar already had lab_technician entries and hospital Lab section — no sidebar changes needed
+- No lint or dev run executed
+
+---
+Task ID: 3-inv
+Agent: Inventory Module Builder
+Task: Hospital Management System — Phase 3A-3D: Inventory Management Module
+
+Work Log:
+- Built complete Inventory Management module (Phase 3A through 3D) — 17 files total
+
+## Phase 3A: Inventory Item Master
+- **FILE 1**: `src/app/api/inventory-items/route.ts` — POST (create item, hospital/admin auth, auto-set hospitalId + currentStock=0) + GET (list with category/status/search/lowStock filters, returns lowStock flag)
+- **FILE 2**: `src/app/api/inventory-items/[id]/route.ts` — GET (detail with lowStock) + PUT (update fields) + DELETE (soft delete → status=Inactive)
+- **FILE 3**: `src/app/dashboard/hospital/inventory/items/page.tsx` — Server component wrapper
+- **FILE 4**: `src/app/dashboard/hospital/inventory/items/client.tsx` — Full CRUD UI with table (Name, Category badge, Batch, Unit, Unit Price, Stock, Min Stock red if below, Status, Actions), Add/Edit dialog with all 16 fields, Delete confirmation, category filter + search, responsive, low-stock red badge
+
+## Phase 3B: Stock Movements
+- **FILE 5**: `src/app/api/stock-movements/route.ts` — POST (record movement, auth: hospital/pharmacist, auto-create StockMovement + update currentStock; Purchase/Return: stock+=qty, others: stock-=qty, validates sufficient stock) + GET (list with itemId/movementType/fromDate/toDate filters, includes item name + movedBy name)
+- **FILE 6**: `src/app/api/stock-movements/summary/route.ts` — GET returns { totalItems, totalValue, lowStockCount, expiredCount, categoryBreakdown }
+- **FILE 7**: `src/app/dashboard/hospital/inventory/stock/page.tsx` — Server component wrapper
+- **FILE 8**: `src/app/dashboard/hospital/inventory/stock/client.tsx` — 4 summary cards (Total Items, Total Value, Low Stock, Expiring Soon), filter by item/type/date range, movements table with color-coded type badges (green +/-), Add Movement dialog (select item, type, qty, ref, locations, notes)
+
+## Phase 3C: Purchase Orders
+- **FILE 9**: `src/app/api/purchase-orders/route.ts` — POST (create PO, auto-generate poNumber, calculate totalAmount, create items via nested create) + GET (list with status/supplier/date filters, includes itemsCount)
+- **FILE 10**: `src/app/api/purchase-orders/[id]/route.ts` — GET (detail with items + item names, fullyReceived flag) + DELETE (cancel → status=Cancelled, validates non-terminal status)
+- **FILE 11**: `src/app/api/purchase-orders/[id]/receive/route.ts` — PUT (receive items: create StockMovement per item, update currentStock, update receivedQty, set status to Received/Partially Received)
+- **FILE 12**: `src/app/dashboard/hospital/inventory/purchase-orders/page.tsx` — Server component wrapper
+- **FILE 13**: `src/app/dashboard/hospital/inventory/purchase-orders/client.tsx` — PO table (PO No, Supplier, Items Count, Total, Status badge, Expected Date, Actions), Create PO dialog (supplier details + dynamic item rows with total calc), View PO dialog (full detail + item received progress), Receive PO dialog (items with received qty inputs), Cancel confirmation
+
+## Phase 3D: Low Stock Alerts
+- **FILE 14**: `src/app/api/inventory/low-stock/route.ts` — GET returns items where currentStock <= minStockLevel with severity (Critical/Warning/Low) + stockPercent
+- **FILE 15**: `src/app/api/inventory/expiring-soon/route.ts` — GET returns items expiring within 30 days with daysLeft + isExpired flag
+- **FILE 16**: `src/app/dashboard/hospital/inventory/low-stock/page.tsx` — Server component wrapper
+- **FILE 17**: `src/app/dashboard/hospital/inventory/low-stock/client.tsx` — 4 alert summary cards (Critical/Warning/Expiring Soon/Expired with themed borders), Low Stock table (Item, Category, Current Stock red, Min Stock, Progress bar, Reorder Qty, Severity badge, Quick "Create PO" button), Expiring Soon table (Item, Batch, Expiry Date, Days Left color-coded, Stock, Urgency badge), auto-refresh 30s
+
+Technical Notes:
+- All APIs use: `import { requireRole, requireAuth } from '@/lib/api-auth'` + `import { db } from '@/lib/db'` + `import { NextRequest, NextResponse } from 'next/server'`
+- Next.js 16 pattern: `params: Promise<{ id: string }>` and `const { id } = await params`
+- Auth pattern: getHospitalAuth (hospital/admin), getReadAuth (hospital/admin/pharmacist), getWriteAuth (hospital/admin)
+- Low stock API uses in-memory filter (currentStock <= minStockLevel) since SQLite doesn't support field comparison in WHERE
+- Stock movement types: Purchase, Sale, Issue, Return, Transfer, Adjustment, Expired, Damaged
+- PO statuses: Draft, Pending, Approved, Partially Received, Received, Cancelled
+- Color coding: emerald (Purchase/Return/Active), red (Critical/Expired/Low Stock), amber (Warning), orange (Damaged/Expiring), sky (Transfer), violet (Adjustment)
+- No indigo/blue colors used
+- All UI: responsive, shadcn/ui, TanStack Query, sonner, framer-motion AnimatePresence, lucide-react
+- Sidebar already had hospital inventory entries — no sidebar changes needed
+- No lint or dev run executed
