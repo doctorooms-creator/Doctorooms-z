@@ -1191,3 +1191,98 @@ Technical Notes:
 - All UI: responsive, shadcn/ui, TanStack Query, sonner, framer-motion AnimatePresence, lucide-react
 - Sidebar already had hospital inventory entries — no sidebar changes needed
 - No lint or dev run executed
+
+---
+Task ID: 4
+Agent: Main Orchestrator
+Task: Reports & Analytics Module (Phase 4A-4D)
+
+Work Log:
+- Built complete Reports & Analytics module with 30 files (18 API routes + 12 UI files)
+- Phase 4A Revenue Dashboard: 6 API routes (summary, department-wise, doctor-wise, payment-methods, outstanding, daily-collection) + page + client with period selector, 4 stat cards, payment method CSS bars, daily trend bars, dept/doctor tables, outstanding bills tab
+- Phase 4B IPD Analytics: 4 API routes (summary, bed-occupancy, length-of-stay, disease-wise) + page + client with stat cards, ward breakdown, SVG donut pie for discharge types, avg LOS bars, 30-day occupancy trend, disease table
+- Phase 4C OPD + Financial: 4 API routes (opd/summary, opd/hourly, financial/profit-loss, financial/aging-receivable) + 2 page/client pairs. OPD dashboard: department bars, day-of-week bars, hourly patient flow. Financial: P&L with revenue/expense breakdown, monthly profit/loss bars, aging receivable bucket cards + bills table
+- Phase 4D Inventory + Lab: 4 API routes (inventory/summary, inventory/consumption, lab/summary, lab/tatl) + 2 page/client pairs. Inventory: stock value by category, movement types, top consumed items. Lab: test summary with category breakdown, TAT tab with per-test and per-category turnaround time analysis
+- All APIs use requireRole('hospital') || requireRole('admin') auth pattern
+- All UI uses CSS-only charts (colored divs with height/width, SVG donut), no external chart libraries
+- Currency formatted as ₹ with toLocaleString('en-IN')
+- date-fns used for all date calculations
+- No indigo/blue colors; uses emerald, amber, violet, rose, teal, orange, sky, slate palette
+- Responsive design throughout with Tailwind breakpoints
+- TanStack Query for data fetching, framer-motion for tab transitions, shadcn/ui components
+- Sidebar entries already existed for all 6 report sub-pages
+- Work record saved to agent-ctx/4-reports-main.md
+- No lint or dev run executed
+
+---
+Task ID: 5-ipd-ot
+Agent: Main
+Task: Phase 5 — IPD Completion + Operation Theater + Bed Transfer + Diet Orders
+
+Work Log:
+
+## Phase 5A: IPD Completion APIs (8 files)
+- Created `src/app/api/ipd-doctor-visits/route.ts` — POST (create visit, auth: doctor, validates admission ownership, auto-fills doctorId from session) + GET (list visits by admissionId with doctorName)
+- Created `src/app/api/ipd-doctor-visits/[id]/route.ts` — PUT (update visit, own-doctor-only check, accepts examinationFindings/currentDiagnosis/newOrders/stoppedOrders/advise)
+- Created `src/app/api/investigation-reports/route.ts` — POST (create report, auth: doctor, JSON fields for resultData/normalRange) + GET (list by admissionId)
+- Created `src/app/api/ipd-sample-collections/route.ts` — POST (order sample, auth: doctor, auto-resolves nurseId from NursePatientAssignment or ward fallback) + GET (list by admissionId, optional status filter)
+- Created `src/app/api/ipd-sample-collections/[id]/collect/route.ts` — PUT (mark collected, auth: nurse, Ordered→Collected)
+- Created `src/app/api/ipd-sample-collections/[id]/send-to-lab/route.ts` — PUT (mark sent to lab, auth: nurse, Collected→SentToLab)
+- Created `src/app/api/shift-handovers/route.ts` — POST (create handover, auth: nurse, auto-fills fromNurseId/hospitalId) + GET (list by wardId/shiftDate, includes fromNurse/toNurse/ward names)
+- Created `src/app/api/shift-handovers/[id]/acknowledge/route.ts` — PUT (acknowledge, auth: nurse, only receiving nurse can acknowledge, sets acknowledgedAt/acknowledgedBy)
+
+## Phase 5B: Operation Theater APIs (6 files)
+- Created `src/app/api/operation-theaters/route.ts` — POST (create OT, auth: hospital/admin, resolves hospitalId) + GET (list OTs with today's schedule count via _count)
+- Created `src/app/api/operation-theaters/[id]/route.ts` — PUT (update OT fields) + DELETE (only if no schedules exist)
+- Created `src/app/api/ot-schedules/route.ts` — POST (schedule surgery, auth: doctor/hospital, auto-fills patient info from admission, auto-generates scheduleNo OT-YYYY-NNNN, sets OT to Occupied) + GET (list with filters: otId, date, status, surgeonId)
+- Created `src/app/api/ot-schedules/today/route.ts` — GET (today's OT board, groups schedules by OT, returns OT status based on active surgeries)
+- Created `src/app/api/ot-schedules/[id]/route.ts` — GET (detail with relations) + PUT (update status to InProgress/Completed/Cancelled/Postponed, auto-manages OT availability, sets actualStartTime/actualEndTime)
+
+## Phase 5B: OT UI Pages (4 files)
+- Created `src/app/dashboard/hospital/ot/page.tsx` — server component wrapper
+- Created `src/app/dashboard/hospital/ot/client.tsx` — full OT Board UI:
+  - 4 stat cards: Total OTs, Available, Today's Surgeries, In Progress
+  - Add OT dialog (name, type, floor)
+  - Schedule Surgery dialog (OT select, admission ID, surgery name, type, date, time, duration, notes)
+  - Tabs: OT Board (grid of OT cards with color-coded left borders by type, surgery list inside each card) + All Schedules (table)
+  - Delete OT confirmation dialog
+  - 30s auto-refresh on OT board data
+  - Color system: Available=emerald, Occupied=red, Scheduled=amber, Major OT=rose border, Minor=amber border, Emergency=red border, DayCare=teal border
+- Created `src/app/dashboard/doctor/ot-surgeries/page.tsx` — server component wrapper
+- Created `src/app/dashboard/doctor/ot-surgeries/client.tsx` — Doctor's surgeries list:
+  - 3 stat cards: Scheduled, In Progress, Completed
+  - Status filter dropdown
+  - Table with Schedule #, OT, Patient, Surgery, Date, Time, Duration, Status, Actions
+  - Status action buttons: Scheduled→Start/Cancel/Postpone, InProgress→Complete
+  - Action confirmation dialogs with time input and cancellation reason
+  - 30s auto-refresh
+
+## Phase 5C: Bed Transfer (3 files)
+- Created `src/app/api/bed-transfers/route.ts` — POST (transfer patient, auth: hospital/receptionist, validates target bed Available, transaction: free old bed + occupy new bed + update admission bedId/wardId + create BedTransfer record) + GET (list by admissionId with fromBed/toBed ward names)
+- Created `src/app/dashboard/hospital/bed-transfer/page.tsx` — server component wrapper
+- Created `src/app/dashboard/hospital/bed-transfer/client.tsx` — Bed Transfer UI:
+  - Search admission by ID/number
+  - Current location display (bed number, type badge, ward)
+  - Available beds grouped by ward in Select dropdown
+  - Transfer reason textarea
+  - Transfer mutation with toast notifications
+  - Available Beds summary card with grid and refresh button
+  - Transfer History table for selected admission
+
+## Phase 5D: Diet Order APIs (2 files)
+- Created `src/app/api/diet-orders/route.ts` — POST (order diet, auth: doctor, validates admission status) + GET (list by admissionId, optional status filter)
+- Created `src/app/api/diet-orders/[id]/stop/route.ts` — PUT (stop diet, auth: doctor/nurse, validates Active status, sets stoppedBy/stoppedAt/stoppedReason)
+
+## Technical Notes
+- All API routes follow Next.js 16 pattern: `params: Promise<{ id: string }>` with `const { id } = await params`
+- Import pattern: `import { requireRole, requireAuth } from '@/lib/api-auth'` + `import { db } from '@/lib/db'` + `import { NextRequest, NextResponse } from 'next/server'`
+- All UI uses shadcn/ui components, TanStack Query, sonner toasts, lucide-react icons
+- Responsive design with Tailwind breakpoints
+- No indigo/blue colors used
+- Schema push confirmed — database already in sync
+- Sidebar already had OT and Bed Transfer entries configured
+
+Stage Summary:
+- 22 files created (14 API routes + 4 UI pages + 4 page wrappers)
+- All 4 phases (5A, 5B, 5C, 5D) complete
+- No lint or dev run executed per instructions
