@@ -14,13 +14,37 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { CalendarDays, Users, Clock, ArrowRight, Plus, Stethoscope, ClipboardCheck, UserCheck, Building2, MapPin, Phone } from 'lucide-react'
+import {
+  CalendarDays,
+  Users,
+  Clock,
+  ArrowRight,
+  Plus,
+  Stethoscope,
+  ClipboardCheck,
+  UserCheck,
+  Building2,
+  MapPin,
+  Phone,
+  Heart,
+  Brain,
+  Eye,
+  Bone,
+  Baby,
+  Pill,
+  Activity,
+  Microscope,
+  Scissors,
+  ListOrdered,
+  type LucideIcon,
+} from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 interface ReceptionistStats {
+  isHospitalMode?: boolean
   todayAppointments: number
   todayVisited: number
   pendingApprovals: number
@@ -46,11 +70,19 @@ interface ReceptionistStats {
     appointmentNo: string
     patientName: string
     patientImg: string | null
-    doctorName: string
+    doctorName?: string
     date: string
     status: string
     disease: string
     charge: number
+  }[]
+  departments?: {
+    id: string
+    name: string
+    shortCode: string
+    icon: string
+    todayCount: number
+    activeDoctors: number
   }[]
 }
 
@@ -63,12 +95,50 @@ const statusColors: Record<string, string> = {
   Extend: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-400',
 }
 
+// Department shortCode → Lucide icon mapping
+const departmentIconMap: Record<string, LucideIcon> = {
+  CARD: Heart,
+  NEUR: Brain,
+  ORTH: Bone,
+  OPTH: Eye,
+  GYNE: Baby,
+  PED: Baby,
+  PATH: Microscope,
+  RAD: Activity,
+  ENT: Stethoscope,
+  SURG: Scissors,
+  GEN: Stethoscope,
+  PHAR: Pill,
+  DERMA: Eye,
+  DENT: Bone,
+  PSYC: Brain,
+  ONCO: Activity,
+  NEPH: Activity,
+  GASTRO: Stethoscope,
+  PULM: Activity,
+  UROL: Stethoscope,
+}
+
+// Color palette for department cards
+const departmentColors = [
+  { bg: 'bg-teal-50 dark:bg-teal-950/30', border: 'border-teal-200 dark:border-teal-800', iconBg: 'bg-teal-100 dark:bg-teal-900/50', iconColor: 'text-teal-600 dark:text-teal-400', badge: 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-400' },
+  { bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-800', iconBg: 'bg-amber-100 dark:bg-amber-900/50', iconColor: 'text-amber-600 dark:text-amber-400', badge: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400' },
+  { bg: 'bg-violet-50 dark:bg-violet-950/30', border: 'border-violet-200 dark:border-violet-800', iconBg: 'bg-violet-100 dark:bg-violet-900/50', iconColor: 'text-violet-600 dark:text-violet-400', badge: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-400' },
+  { bg: 'bg-rose-50 dark:bg-rose-950/30', border: 'border-rose-200 dark:border-rose-800', iconBg: 'bg-rose-100 dark:bg-rose-900/50', iconColor: 'text-rose-600 dark:text-rose-400', badge: 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400' },
+  { bg: 'bg-sky-50 dark:bg-sky-950/30', border: 'border-sky-200 dark:border-sky-800', iconBg: 'bg-sky-100 dark:bg-sky-900/50', iconColor: 'text-sky-600 dark:text-sky-400', badge: 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-400' },
+  { bg: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-200 dark:border-emerald-800', iconBg: 'bg-emerald-100 dark:bg-emerald-900/50', iconColor: 'text-emerald-600 dark:text-emerald-400', badge: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400' },
+  { bg: 'bg-orange-50 dark:bg-orange-950/30', border: 'border-orange-200 dark:border-orange-800', iconBg: 'bg-orange-100 dark:bg-orange-900/50', iconColor: 'text-orange-600 dark:text-orange-400', badge: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400' },
+  { bg: 'bg-cyan-50 dark:bg-cyan-950/30', border: 'border-cyan-200 dark:border-cyan-800', iconBg: 'bg-cyan-100 dark:bg-cyan-900/50', iconColor: 'text-cyan-600 dark:text-cyan-400', badge: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/50 dark:text-cyan-400' },
+]
+
 export default function ReceptionistDashboardPage() {
   const router = useRouter()
   const { data: stats, isLoading } = useQuery<ReceptionistStats>({
     queryKey: ['receptionist-stats'],
     queryFn: () => fetch('/api/dashboard/receptionist/stats').then((r) => r.json()),
   })
+
+  const isHospitalMode = stats?.isHospitalMode === true
 
   if (isLoading) {
     return <ReceptionistDashboardSkeleton />
@@ -159,6 +229,59 @@ export default function ReceptionistDashboardPage() {
         />
       </div>
 
+      {/* Hospital Mode: Departments section */}
+      {isHospitalMode && stats?.departments && stats.departments.length > 0 && (
+        <section>
+          <h3 className="mb-3 text-base font-semibold">Departments</h3>
+          <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+            {stats.departments.map((dept, i) => {
+              const color = departmentColors[i % departmentColors.length]
+              const DeptIcon = departmentIconMap[dept.shortCode.toUpperCase()] || Building2
+              return (
+                <motion.div
+                  key={dept.id}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.06, duration: 0.35 }}
+                >
+                  <Card className={cn(
+                    'cursor-default border transition-all duration-200 hover:shadow-md',
+                    color.border,
+                    color.bg
+                  )}>
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className={cn(
+                          'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+                          color.iconBg
+                        )}>
+                          <DeptIcon className={cn('h-5 w-5', color.iconColor)} />
+                        </div>
+                        <span className={cn(
+                          'inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase',
+                          color.badge
+                        )}>
+                          {dept.shortCode}
+                        </span>
+                      </div>
+                      <p className="mt-3 truncate text-sm font-bold">{dept.name}</p>
+                      <div className="mt-2 space-y-0.5">
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{dept.todayCount}</span> patients today
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{dept.activeDoctors}</span> doctors active
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       {/* Quick actions */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <Button
@@ -197,6 +320,27 @@ export default function ReceptionistDashboardPage() {
           <Users className="h-4 w-4" />
           View Patients
         </Button>
+        {/* Hospital Mode: View Queue & OPD Walk-in */}
+        {isHospitalMode && (
+          <>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/dashboard/receptionist/walk-in')}
+              className="flex items-center gap-2 border-amber-300 text-amber-700 hover:bg-amber-50 hover:text-amber-800 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-950/30"
+            >
+              <ListOrdered className="h-4 w-4" />
+              View Queue
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => router.push('/dashboard/receptionist/walk-in')}
+              className="flex items-center gap-2 border-teal-300 text-teal-700 hover:bg-teal-50 hover:text-teal-800 dark:border-teal-700 dark:text-teal-400 dark:hover:bg-teal-950/30"
+            >
+              <Plus className="h-4 w-4" />
+              OPD Walk-in
+            </Button>
+          </>
+        )}
       </div>
 
       {/* Today's appointments */}
@@ -214,6 +358,7 @@ export default function ReceptionistDashboardPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Patient</TableHead>
+                {isHospitalMode && <TableHead>Doctor</TableHead>}
                 <TableHead>Time</TableHead>
                 <TableHead>Disease</TableHead>
                 <TableHead>Status</TableHead>
@@ -223,7 +368,7 @@ export default function ReceptionistDashboardPage() {
             <TableBody>
               {stats?.todayAppointmentsList?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={isHospitalMode ? 6 : 5} className="py-8 text-center text-muted-foreground">
                     No appointments scheduled for today
                   </TableCell>
                 </TableRow>
@@ -248,6 +393,11 @@ export default function ReceptionistDashboardPage() {
                       </div>
                     </div>
                   </TableCell>
+                  {isHospitalMode && (
+                    <TableCell className="text-sm text-muted-foreground">
+                      {appt.doctorName || '—'}
+                    </TableCell>
+                  )}
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(appt.date), 'h:mm a')}
                   </TableCell>
@@ -311,6 +461,25 @@ function ReceptionistDashboardSkeleton() {
             <div className="mt-3 h-8 w-20 animate-pulse rounded bg-muted" />
           </div>
         ))}
+      </div>
+      {/* Departments skeleton placeholder */}
+      <div>
+        <div className="mb-3 h-5 w-28 animate-pulse rounded bg-muted" />
+        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-border bg-card p-4">
+              <div className="flex items-start justify-between">
+                <div className="h-10 w-10 animate-pulse rounded-lg bg-muted" />
+                <div className="h-5 w-12 animate-pulse rounded-md bg-muted" />
+              </div>
+              <div className="mt-3 h-4 w-24 animate-pulse rounded bg-muted" />
+              <div className="mt-2 space-y-1">
+                <div className="h-3 w-20 animate-pulse rounded bg-muted" />
+                <div className="h-3 w-16 animate-pulse rounded bg-muted" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
       <div className="rounded-xl border border-border bg-card">
         <div className="border-b border-border p-4">

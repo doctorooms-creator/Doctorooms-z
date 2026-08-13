@@ -1,0 +1,723 @@
+     1→     1→'use client'
+     2→     2→
+     3→     3→import { useState, useCallback } from 'react'
+     4→     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→     5→import { motion } from 'framer-motion'
+     6→     6→import { Card, CardContent } from '@/components/ui/card'
+     7→     7→import { Button } from '@/components/ui/button'
+     8→     8→import { Input } from '@/components/ui/input'
+     9→     9→import { Label } from '@/components/ui/label'
+    10→    10→import { Badge } from '@/components/ui/badge'
+    11→    11→import { Calendar as CalendarUI } from '@/components/ui/calendar'
+    12→    12→import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+    13→    13→import {
+    14→    14→  Dialog,
+    15→    15→  DialogContent,
+    16→    16→  DialogDescription,
+    17→    17→  DialogFooter,
+    18→    18→  DialogHeader,
+    19→    19→  DialogTitle,
+    20→    20→} from '@/components/ui/dialog'
+    21→    21→import {
+    22→    22→  AlertDialog,
+    23→    23→  AlertDialogAction,
+    24→    24→  AlertDialogCancel,
+    25→    25→  AlertDialogContent,
+    26→    26→  AlertDialogDescription,
+    27→    27→  AlertDialogFooter,
+    28→    28→  AlertDialogHeader,
+    29→    29→  AlertDialogTitle,
+    30→    30→} from '@/components/ui/alert-dialog'
+    31→    31→import {
+    32→    32→  Clock,
+    33→    33→  CalendarOff,
+    34→    34→  CalendarRange,
+    35→    35→  Plus,
+    36→    36→  Trash2,
+    37→    37→  Pencil,
+    38→    38→  CalendarDays,
+    39→    39→  Layers,
+    40→    40→} from 'lucide-react'
+    41→    41→import { format } from 'date-fns'
+    42→    42→import { cn } from '@/lib/utils'
+    43→    43→import { toast } from 'sonner'
+    44→    44→
+    45→    45→// ==================== TYPES ====================
+    46→    46→
+    47→    47→interface ScheduleDay {
+    48→    48→  day: string
+    49→    49→  startTime: string
+    50→    50→  endTime: string
+    51→    51→  slotDuration: number
+    52→    52→  timeSlots: string[]
+    53→    53→}
+    54→    54→
+    55→    55→interface Holiday {
+    56→    56→  id: string
+    57→    57→  date: string
+    58→    58→  remark: string
+    59→    59→}
+    60→    60→
+    61→    61→interface ScheduleData {
+    62→    62→  doctor: {
+    63→    63→    id: string
+    64→    64→    name: string
+    65→    65→    profileImg: string
+    66→    66→    specialization: string
+    67→    67→  }
+    68→    68→  schedules: (ScheduleDay | null)[]
+    69→    69→  holidays: Holiday[]
+    70→    70→  todayName: string
+    71→    71→}
+    72→    72→
+    73→    73→interface HolidayRow {
+    74→    74→  date: Date | undefined
+    75→    75→  remark: string
+    76→    76→}
+    77→    77→
+    78→    78→const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    79→    79→
+    80→    80→export default function ReceptionistSchedulePage() {
+    81→    81→  const queryClient = useQueryClient()
+    82→    82→
+    83→    83→  // Schedule query
+    84→    84→  const { data, isLoading } = useQuery<ScheduleData>({
+    85→    85→    queryKey: ['receptionist-schedule'],
+    86→    86→    queryFn: () => fetch('/api/dashboard/receptionist/schedule').then(r => r.json()),
+    87→    87→  })
+    88→    88→
+    89→    89→  // Holidays query (separate, includes past + future)
+    90→    90→  const { data: holidaysData } = useQuery<{ holidays: Holiday[] }>({
+    91→    91→    queryKey: ['receptionist-holidays'],
+    92→    92→    queryFn: () => fetch('/api/receptionist/holidays').then(r => r.json()),
+    93→    93→  })
+    94→    94→
+    95→    95→  // Booking days query
+    96→    96→  const { data: bookingDaysData } = useQuery<{ bookingDays: number }>({
+    97→    97→    queryKey: ['receptionist-booking-days'],
+    98→    98→    queryFn: () => fetch('/api/receptionist/booking-days').then(r => r.json()),
+    99→    99→  })
+   100→   100→
+   101→   101→  // State
+   102→   102→  const [addHolidayOpen, setAddHolidayOpen] = useState(false)
+   103→   103→  const [batchHolidayOpen, setBatchHolidayOpen] = useState(false)
+   104→   104→  const [bookingDaysOpen, setBookingDaysOpen] = useState(false)
+   105→   105→  const [deleteId, setDeleteId] = useState<string | null>(null)
+   106→   106→  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
+   107→   107→  const [remark, setRemark] = useState('')
+   108→   108→  const [bookingDaysInput, setBookingDaysInput] = useState('')
+   109→   109→  const [batchRows, setBatchRows] = useState<HolidayRow[]>([
+   110→   110→    { date: undefined, remark: '' },
+   111→   111→  ])
+   112→   112→
+   113→   113→  // Add holiday mutation
+   114→   114→  const addMutation = useMutation({
+   115→   115→    mutationFn: async (payload: { date: string; remark: string }) => {
+   116→   116→      const res = await fetch('/api/receptionist/holidays', {
+   117→   117→        method: 'POST',
+   118→   118→        headers: { 'Content-Type': 'application/json' },
+   119→   119→        body: JSON.stringify(payload),
+   120→   120→      })
+   121→   121→      const data = await res.json()
+   122→   122→      if (!res.ok) throw new Error(data.error || 'Failed to add holiday')
+   123→   123→      return data
+   124→   124→    },
+   125→   125→    onSuccess: () => {
+   126→   126→      queryClient.invalidateQueries({ queryKey: ['receptionist-holidays'] })
+   127→   127→      queryClient.invalidateQueries({ queryKey: ['receptionist-schedule'] })
+   128→   128→      toast.success('Holiday added successfully')
+   129→   129→      setAddHolidayOpen(false)
+   130→   130→      setSelectedDate(undefined)
+   131→   131→      setRemark('')
+   132→   132→    },
+   133→   133→    onError: (err) => toast.error(err.message),
+   134→   134→  })
+   135→   135→
+   136→   136→  // Delete holiday mutation
+   137→   137→  const deleteMutation = useMutation({
+   138→   138→    mutationFn: async (id: string) => {
+   139→   139→      const res = await fetch(`/api/receptionist/holidays/${id}`, { method: 'DELETE' })
+   140→   140→      const data = await res.json()
+   141→   141→      if (!res.ok) throw new Error(data.error || 'Failed to delete holiday')
+   142→   142→      return data
+   143→   143→    },
+   144→   144→    onSuccess: () => {
+   145→   145→      queryClient.invalidateQueries({ queryKey: ['receptionist-holidays'] })
+   146→   146→      queryClient.invalidateQueries({ queryKey: ['receptionist-schedule'] })
+   147→   147→      toast.success('Holiday deleted')
+   148→   148→      setDeleteId(null)
+   149→   149→    },
+   150→   150→    onError: (err) => toast.error(err.message),
+   151→   151→  })
+   152→   152→
+   153→   153→  // Update booking days mutation
+   154→   154→  const updateBookingDaysMutation = useMutation({
+   155→   155→    mutationFn: async (bookingDays: number) => {
+   156→   156→      const res = await fetch('/api/receptionist/booking-days', {
+   157→   157→        method: 'PUT',
+   158→   158→        headers: { 'Content-Type': 'application/json' },
+   159→   159→        body: JSON.stringify({ bookingDays }),
+   160→   160→      })
+   161→   161→      const data = await res.json()
+   162→   162→      if (!res.ok) throw new Error(data.error || 'Failed to update')
+   163→   163→      return data
+   164→   164→    },
+   165→   165→    onSuccess: (data) => {
+   166→   166→      queryClient.invalidateQueries({ queryKey: ['receptionist-booking-days'] })
+   167→   167→      toast.success(`Booking days updated to ${data.bookingDays}`)
+   168→   168→      setBookingDaysOpen(false)
+   169→   169→    },
+   170→   170→    onError: (err) => toast.error(err.message),
+   171→   171→  })
+   172→   172→
+   173→   173→  // Handlers
+   174→   174→  const handleAddHoliday = useCallback(() => {
+   175→   175→    if (!selectedDate) {
+   176→   176→      toast.error('Please select a date')
+   177→   177→      return
+   178→   178→    }
+   179→   179→    addMutation.mutate({
+   180→   180→      date: format(selectedDate, 'yyyy-MM-dd'),
+   181→   181→      remark: remark.trim(),
+   182→   182→    })
+   183→   183→  }, [selectedDate, remark, addMutation])
+   184→   184→
+   185→   185→  const handleSaveBookingDays = useCallback(() => {
+   186→   186→    const val = parseInt(bookingDaysInput, 10)
+   187→   187→    if (isNaN(val) || val < 1 || val > 365) {
+   188→   188→      toast.error('Must be a number between 1 and 365')
+   189→   189→      return
+   190→   190→    }
+   191→   191→    updateBookingDaysMutation.mutate(val)
+   192→   192→  }, [bookingDaysInput, updateBookingDaysMutation])
+   193→   193→
+   194→   194→  const handleBatchAdd = useCallback(() => {
+   195→   195→    const validRows = batchRows.filter(r => r.date)
+   196→   196→    if (validRows.length === 0) {
+   197→   197→      toast.error('Add at least one holiday with a date')
+   198→   198→      return
+   199→   199→    }
+   200→   200→    let successCount = 0
+   201→   201→    let failCount = 0
+   202→   202→    const promises = validRows.map(row => {
+   203→   203→      return fetch('/api/receptionist/holidays', {
+   204→   204→        method: 'POST',
+   205→   205→        headers: { 'Content-Type': 'application/json' },
+   206→   206→        body: JSON.stringify({ date: format(row.date!, 'yyyy-MM-dd'), remark: row.remark.trim() }),
+   207→   207→      })
+   208→   208→        .then(res => {
+   209→   209→          if (res.ok) {
+   210→   210→            successCount++
+   211→   211→          } else {
+   212→   212→            failCount++
+   213→   213→          }
+   214→   214→        })
+   215→   215→        .catch(() => {
+   216→   216→          failCount++
+   217→   217→        })
+   218→   218→    })
+   219→   219→    Promise.all(promises).then(() => {
+   220→   220→      queryClient.invalidateQueries({ queryKey: ['receptionist-holidays'] })
+   221→   221→      queryClient.invalidateQueries({ queryKey: ['receptionist-schedule'] })
+   222→   222→      if (successCount > 0) toast.success(`${successCount} holiday${successCount > 1 ? 's' : ''} added`)
+   223→   223→      if (failCount > 0) toast.error(`${failCount} holiday${failCount > 1 ? 's' : ''} failed (duplicate or past date)`)
+   224→   224→      setBatchHolidayOpen(false)
+   225→   225→      setBatchRows([{ date: undefined, remark: '' }])
+   226→   226→    })
+   227→   227→  }, [batchRows, queryClient])
+   228→   228→
+   229→   229→  const addBatchRow = useCallback(() => {
+   230→   230→    setBatchRows(prev => [...prev, { date: undefined, remark: '' }])
+   231→   231→  }, [])
+   232→   232→
+   233→   233→  const removeBatchRow = useCallback((index: number) => {
+   234→   234→    setBatchRows(prev => prev.filter((_, i) => i !== index))
+   235→   235→  }, [])
+   236→   236→
+   237→   237→  const updateBatchRow = useCallback((index: number, field: keyof HolidayRow, value: Date | undefined | string) => {
+   238→   238→    setBatchRows(prev => prev.map((row, i) => i === index ? { ...row, [field]: value } : row))
+   239→   239→  }, [])
+   240→   240→
+   241→   241→  // Helpers
+   242→   242→  const todayStr = format(new Date(), 'yyyy-MM-dd')
+   243→   243→  const allHolidays = holidaysData?.holidays ?? []
+   244→   244→  const futureHolidays = allHolidays.filter(h => {
+   245→   245→    try { return new Date(h.date) >= new Date(todayStr) } catch { return false }
+   246→   246→  })
+   247→   247→  const pastHolidays = allHolidays.filter(h => {
+   248→   248→    try { return new Date(h.date) < new Date(todayStr) } catch { return false }
+   249→   249→  })
+   250→   250→  const isPast = (dateStr: string) => { try { return new Date(dateStr) < new Date(todayStr) } catch { return false } }
+   251→   251→  const bookingDays = bookingDaysData?.bookingDays ?? 180
+   252→   252→
+   253→   253→  if (isLoading) {
+   254→   254→    return (
+   255→   255→      <div className="space-y-6">
+   256→   256→        <div className="h-6 w-48 animate-pulse rounded bg-muted" />
+   257→   257→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+   258→   258→          {Array.from({ length: 7 }).map((_, i) => (
+   259→   259→            <div key={i} className="h-36 animate-pulse rounded-xl border border-border bg-card" />
+   260→   260→          ))}
+   261→   261→        </div>
+   262→   262→      </div>
+   263→   263→    )
+   264→   264→  }
+   265→   265→
+   266→   266→  if (!data) return null
+   267→   267→
+   268→   268→  return (
+   269→   269→    <div className="space-y-6">
+   270→   270→      {/* Header */}
+   271→   271→      <div className="flex items-center gap-3">
+   272→   272→        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/40">
+   273→   273→          <Clock className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   274→   274→        </div>
+   275→   275→        <div>
+   276→   276→          <h2 className="text-xl font-semibold tracking-tight">Doctor&apos;s Schedule</h2>
+   277→   277→          <p className="text-sm text-muted-foreground">
+   278→   278→            Dr. {data.doctor.name}{data.doctor.specialization ? ` · ${data.doctor.specialization}` : ''}
+   279→   279→          </p>
+   280→   280→        </div>
+   281→   281→      </div>
+   282→   282→
+   283→   283→      {/* Booking Days Card */}
+   284→   284→      <motion.div
+   285→   285→        initial={{ opacity: 0, y: 12 }}
+   286→   286→        animate={{ opacity: 1, y: 0 }}
+   287→   287→        transition={{ duration: 0.3 }}
+   288→   288→      >
+   289→   289→        <Card className="border-emerald-200/60 dark:border-emerald-900/30">
+   290→   290→          <CardContent className="flex items-center justify-between p-4">
+   291→   291→            <div className="flex items-center gap-3">
+   292→   292→              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+   293→   293→                <CalendarRange className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+   294→   294→              </div>
+   295→   295→              <div>
+   296→   296→                <p className="text-sm text-muted-foreground">Booking Window</p>
+   297→   297→                <p className="text-base font-semibold">
+   298→   298→                  Patients can book up to <span className="text-emerald-600 dark:text-emerald-400">{bookingDays} days</span> in advance
+   299→   299→                </p>
+   300→   300→              </div>
+   301→   301→            </div>
+   302→   302→            <Button
+   303→   303→              variant="outline"
+   304→   304→              size="sm"
+   305→   305→              onClick={() => {
+   306→   306→                setBookingDaysInput(String(bookingDays))
+   307→   307→                setBookingDaysOpen(true)
+   308→   308→              }}
+   309→   309→            >
+   310→   310→              <Pencil className="mr-1.5 h-3.5 w-3.5" />
+   311→   311→              Edit
+   312→   312→            </Button>
+   313→   313→          </CardContent>
+   314→   314→        </Card>
+   315→   315→      </motion.div>
+   316→   316→
+   317→   317→      {/* Weekly Schedule Grid */}
+   318→   318→      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+   319→   319→        {data.schedules.map((day, i) => {
+   320→   320→          const dayName = dayNames[i]
+   321→   321→          if (!day) {
+   322→   322→            return (
+   323→   323→              <motion.div
+   324→   324→                key={dayName}
+   325→   325→                initial={{ opacity: 0, y: 20 }}
+   326→   326→                animate={{ opacity: 1, y: 0 }}
+   327→   327→                transition={{ delay: i * 0.05 }}
+   328→   328→              >
+   329→   329→                <Card className="h-full opacity-60">
+   330→   330→                  <CardContent className="p-4">
+   331→   331→                    <div className="flex items-center justify-between">
+   332→   332→                      <p className="text-sm font-semibold text-muted-foreground">{dayName}</p>
+   333→   333→                      <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+   334→   334→                        Off
+   335→   335→                      </span>
+   336→   336→                    </div>
+   337→   337→                    <p className="mt-3 text-xs text-muted-foreground/60">No schedule</p>
+   338→   338→                  </CardContent>
+   339→   339→                </Card>
+   340→   340→              </motion.div>
+   341→   341→            )
+   342→   342→          }
+   343→   343→
+   344→   344→          const isToday = day.day === data.todayName
+   345→   345→          return (
+   346→   346→            <motion.div
+   347→   347→              key={day.day}
+   348→   348→              initial={{ opacity: 0, y: 20 }}
+   349→   349→              animate={{ opacity: 1, y: 0 }}
+   350→   350→              transition={{ delay: i * 0.05 }}
+   351→   351→            >
+   352→   352→              <Card className={cn(
+   353→   353→                'h-full border-l-4 transition-shadow hover:shadow-md',
+   354→   354→                isToday ? 'border-l-teal-500 bg-teal-50/30 dark:bg-teal-950/10' : 'border-l-emerald-400'
+   355→   355→              )}>
+   356→   356→                <CardContent className="p-4">
+   357→   357→                  <div className="flex items-center justify-between">
+   358→   358→                    <div className="flex items-center gap-2">
+   359→   359→                      <div className={cn(
+   360→   360→                        'h-2 w-2 rounded-full',
+   361→   361→                        isToday ? 'bg-teal-500' : 'bg-emerald-500'
+   362→   362→                      )} />
+   363→   363→                      <p className={cn('text-sm font-semibold', isToday && 'text-teal-700 dark:text-teal-400')}>
+   364→   364→                        {day.day}
+   365→   365→                      </p>
+   366→   366→                      {isToday && (
+   367→   367→                        <span className="rounded-full bg-teal-100 px-1.5 py-0.5 text-[10px] font-medium text-teal-700 dark:bg-teal-900/50 dark:text-teal-400">
+   368→   368→                          Today
+   369→   369→                        </span>
+   370→   370→                      )}
+   371→   371→                    </div>
+   372→   372→                    <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
+   373→   373→                      Active
+   374→   374→                    </span>
+   375→   375→                  </div>
+   376→   376→                  <div className="mt-3 space-y-2">
+   377→   377→                    <div className="flex items-center gap-1.5 text-sm">
+   378→   378→                      <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+   379→   379→                      <span className="font-medium">{day.startTime} - {day.endTime}</span>
+   380→   380→                    </div>
+   381→   381→                    <p className="text-xs text-muted-foreground">
+   382→   382→                      Slot duration: {day.slotDuration} min
+   383→   383→                    </p>
+   384→   384→                    {day.timeSlots.length > 0 && (
+   385→   385→                      <div className="mt-2 max-h-24 overflow-y-auto">
+   386→   386→                        <p className="text-[10px] font-medium text-muted-foreground mb-1">TIME SLOTS</p>
+   387→   387→                        <div className="flex flex-wrap gap-1">
+   388→   388→                          {day.timeSlots.map((slot) => (
+   389→   389→                            <span
+   390→   390→                              key={slot}
+   391→   391→                              className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium"
+   392→   392→                            >
+   393→   393→                              {slot}
+   394→   394→                            </span>
+   395→   395→                          ))}
+   396→   396→                        </div>
+   397→   397→                      </div>
+   398→   398→                    )}
+   399→   399→                  </div>
+   400→   400→                </CardContent>
+   401→   401→              </Card>
+   402→   402→            </motion.div>
+   403→   403→          )
+   404→   404→        })}
+   405→   405→      </div>
+   406→   406→
+   407→   407→      {/* Holidays Section */}
+   408→   408→      <motion.div
+   409→   409→        initial={{ opacity: 0, y: 12 }}
+   410→   410→        animate={{ opacity: 1, y: 0 }}
+   411→   411→        transition={{ duration: 0.3, delay: 0.2 }}
+   412→   412→        className="space-y-3"
+   413→   413→      >
+   414→   414→        <div className="flex items-center justify-between">
+   415→   415→          <div className="flex items-center gap-2">
+   416→   416→            <CalendarOff className="h-5 w-5 text-red-500" />
+   417→   417→            <h3 className="text-base font-semibold">Holidays</h3>
+   418→   418→            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-700 dark:bg-red-900/50 dark:text-red-400">
+   419→   419→              {futureHolidays.length} upcoming
+   420→   420→            </span>
+   421→   421→          </div>
+   422→   422→          <div className="flex gap-2">
+   423→   423→            <Button
+   424→   424→              variant="outline"
+   425→   425→              size="sm"
+   426→   426→              onClick={() => {
+   427→   427→                setBatchRows([{ date: undefined, remark: '' }])
+   428→   428→                setBatchHolidayOpen(true)
+   429→   429→              }}
+   430→   430→            >
+   431→   431→              <Layers className="mr-1.5 h-3.5 w-3.5" />
+   432→   432→              Batch Add
+   433→   433→            </Button>
+   434→   434→            <Button
+   435→   435→              size="sm"
+   436→   436→              onClick={() => {
+   437→   437→                setSelectedDate(undefined)
+   438→   438→                setRemark('')
+   439→   439→                setAddHolidayOpen(true)
+   440→   440→              }}
+   441→   441→            >
+   442→   442→              <Plus className="mr-1.5 h-3.5 w-3.5" />
+   443→   443→              Add Holiday
+   444→   444→            </Button>
+   445→   445→          </div>
+   446→   446→        </div>
+   447→   447→
+   448→   448→        {allHolidays.length === 0 ? (
+   449→   449→          <div className="rounded-xl border border-dashed border-border py-8 text-center">
+   450→   450→            <CalendarOff className="mx-auto mb-2 h-10 w-10 text-muted-foreground/30" />
+   451→   451→            <p className="text-sm text-muted-foreground">No holidays scheduled</p>
+   452→   452→          </div>
+   453→   453→        ) : (
+   454→   454→          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   455→   455→            {/* Future holidays first */}
+   456→   456→            {futureHolidays.map((holiday, i) => (
+   457→   457→              <motion.div
+   458→   458→                key={holiday.id}
+   459→   459→                initial={{ opacity: 0, y: 10 }}
+   460→   460→                animate={{ opacity: 1, y: 0 }}
+   461→   461→                transition={{ delay: i * 0.04 }}
+   462→   462→              >
+   463→   463→                <Card className="border-red-200/50 dark:border-red-900/30">
+   464→   464→                  <CardContent className="flex items-center gap-3 p-3">
+   465→   465→                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
+   466→   466→                      <CalendarDays className="h-5 w-5 text-red-500" />
+   467→   467→                    </div>
+   468→   468→                    <div className="flex-1 min-w-0">
+   469→   469→                      <div className="flex items-center gap-2">
+   470→   470→                        <p className="text-sm font-medium truncate">
+   471→   471→                          {format(new Date(holiday.date), 'MMM d, yyyy')}
+   472→   472→                        </p>
+   473→   473→                        <Badge variant="outline" className="shrink-0 border-emerald-300 text-emerald-700 dark:border-emerald-700 dark:text-emerald-400 text-[10px] px-1.5 py-0">
+   474→   474→                          Upcoming
+   475→   475→                        </Badge>
+   476→   476→                      </div>
+   477→   477→                      <p className="text-xs text-muted-foreground truncate">{holiday.remark || 'No remark'}</p>
+   478→   478→                    </div>
+   479→   479→                    <Button
+   480→   480→                      variant="ghost"
+   481→   481→                      size="icon"
+   482→   482→                      className="shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 h-8 w-8"
+   483→   483→                      onClick={() => setDeleteId(holiday.id)}
+   484→   484→                    >
+   485→   485→                      <Trash2 className="h-4 w-4" />
+   486→   486→                    </Button>
+   487→   487→                  </CardContent>
+   488→   488→                </Card>
+   489→   489→              </motion.div>
+   490→   490→            ))}
+   491→   491→            {/* Past holidays */}
+   492→   492→            {pastHolidays.map((holiday, i) => (
+   493→   493→              <motion.div
+   494→   494→                key={holiday.id}
+   495→   495→                initial={{ opacity: 0, y: 10 }}
+   496→   496→                animate={{ opacity: 1, y: 0 }}
+   497→   497→                transition={{ delay: (futureHolidays.length + i) * 0.04 }}
+   498→   498→              >
+   499→   499→                <Card className="border-border/50 opacity-60">
+   500→   500→                  <CardContent className="flex items-center gap-3 p-3">
+   501→   501→                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+   502→   502→                      <CalendarDays className="h-5 w-5 text-muted-foreground" />
+   503→   503→                    </div>
+   504→   504→                    <div className="flex-1 min-w-0">
+   505→   505→                      <div className="flex items-center gap-2">
+   506→   506→                        <p className="text-sm font-medium truncate text-muted-foreground">
+   507→   507→                          {format(new Date(holiday.date), 'MMM d, yyyy')}
+   508→   508→                        </p>
+   509→   509→                        <Badge variant="outline" className="shrink-0 border-red-300 text-red-600 dark:border-red-800 dark:text-red-400 text-[10px] px-1.5 py-0">
+   510→   510→                          Past
+   511→   511→                        </Badge>
+   512→   512→                      </div>
+   513→   513→                      <p className="text-xs text-muted-foreground/60 truncate">{holiday.remark || 'No remark'}</p>
+   514→   514→                    </div>
+   515→   515→                  </CardContent>
+   516→   516→                </Card>
+   517→   517→              </motion.div>
+   518→   518→            ))}
+   519→   519→          </div>
+   520→   520→        )}
+   521→   521→      </motion.div>
+   522→   522→
+   523→   523→      {/* Add Holiday Dialog */}
+   524→   524→      <Dialog open={addHolidayOpen} onOpenChange={setAddHolidayOpen}>
+   525→   525→        <DialogContent className="sm:max-w-[400px]">
+   526→   526→          <DialogHeader>
+   527→   527→            <DialogTitle>Add Holiday</DialogTitle>
+   528→   528→            <DialogDescription>
+   529→   529→              Select a date and optionally add a remark.
+   530→   530→            </DialogDescription>
+   531→   531→          </DialogHeader>
+   532→   532→          <div className="space-y-4 py-2">
+   533→   533→            <div className="space-y-2">
+   534→   534→              <Label>Date</Label>
+   535→   535→              <Popover>
+   536→   536→                <PopoverTrigger asChild>
+   537→   537→                  <Button
+   538→   538→                    variant="outline"
+   539→   539→                    className={cn(
+   540→   540→                      'w-full justify-start text-left font-normal',
+   541→   541→                      !selectedDate && 'text-muted-foreground'
+   542→   542→                    )}
+   543→   543→                  >
+   544→   544→                    <CalendarDays className="mr-2 h-4 w-4" />
+   545→   545→                    {selectedDate ? format(selectedDate, 'PPP') : 'Pick a date'}
+   546→   546→                  </Button>
+   547→   547→                </PopoverTrigger>
+   548→   548→                <PopoverContent className="w-auto p-0" align="start">
+   549→   549→                  <CalendarUI
+   550→   550→                    mode="single"
+   551→   551→                    selected={selectedDate}
+   552→   552→                    onSelect={setSelectedDate}
+   553→   553→                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+   554→   554→                  />
+   555→   555→                </PopoverContent>
+   556→   556→              </Popover>
+   557→   557→            </div>
+   558→   558→            <div className="space-y-2">
+   559→   559→              <Label>Remark (optional)</Label>
+   560→   560→              <Input
+   561→   561→                placeholder="e.g. Republic Day"
+   562→   562→                value={remark}
+   563→   563→                onChange={(e) => setRemark(e.target.value)}
+   564→   564→              />
+   565→   565→            </div>
+   566→   566→          </div>
+   567→   567→          <DialogFooter>
+   568→   568→            <Button variant="outline" onClick={() => setAddHolidayOpen(false)}>Cancel</Button>
+   569→   569→            <Button
+   570→   570→              onClick={handleAddHoliday}
+   571→   571→              disabled={addMutation.isPending || !selectedDate}
+   572→   572→            >
+   573→   573→              {addMutation.isPending ? 'Adding...' : 'Add Holiday'}
+   574→   574→            </Button>
+   575→   575→          </DialogFooter>
+   576→   576→        </DialogContent>
+   577→   577→      </Dialog>
+   578→   578→
+   579→   579→      {/* Batch Add Holidays Dialog */}
+   580→   580→      <Dialog open={batchHolidayOpen} onOpenChange={(open) => {
+   581→   581→        if (!open) setBatchRows([{ date: undefined, remark: '' }])
+   582→   582→        setBatchHolidayOpen(open)
+   583→   583→      }}>
+   584→   584→        <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
+   585→   585→          <DialogHeader>
+   586→   586→            <DialogTitle>Batch Add Holidays</DialogTitle>
+   587→   587→            <DialogDescription>
+   588→   588→              Add multiple holidays at once. Duplicate or past dates will be skipped.
+   589→   589→            </DialogDescription>
+   590→   590→          </DialogHeader>
+   591→   591→          <div className="space-y-3 py-2">
+   592→   592→            {batchRows.map((row, index) => (
+   593→   593→              <div key={index} className="flex items-end gap-2">
+   594→   594→                <div className="flex-1 space-y-1.5">
+   595→   595→                  <Label className="text-xs">Date</Label>
+   596→   596→                  <Popover>
+   597→   597→                    <PopoverTrigger asChild>
+   598→   598→                      <Button
+   599→   599→                        variant="outline"
+   600→   600→                        className={cn(
+   601→   601→                          'w-full justify-start text-left font-normal h-9 text-sm',
+   602→   602→                          !row.date && 'text-muted-foreground'
+   603→   603→                        )}
+   604→   604→                      >
+   605→   605→                        <CalendarDays className="mr-2 h-3.5 w-3.5" />
+   606→   606→                        {row.date ? format(row.date, 'MMM d, yyyy') : 'Pick a date'}
+   607→   607→                      </Button>
+   608→   608→                    </PopoverTrigger>
+   609→   609→                    <PopoverContent className="w-auto p-0" align="start">
+   610→   610→                      <CalendarUI
+   611→   611→                        mode="single"
+   612→   612→                        selected={row.date}
+   613→   613→                        onSelect={(d) => updateBatchRow(index, 'date', d)}
+   614→   614→                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+   615→   615→                      />
+   616→   616→                    </PopoverContent>
+   617→   617→                  </Popover>
+   618→   618→                </div>
+   619→   619→                <div className="flex-1 space-y-1.5">
+   620→   620→                  <Label className="text-xs">Remark</Label>
+   621→   621→                  <Input
+   622→   622→                    placeholder="Optional"
+   623→   623→                    value={row.remark}
+   624→   624→                    onChange={(e) => updateBatchRow(index, 'remark', e.target.value)}
+   625→   625→                    className="h-9 text-sm"
+   626→   626→                  />
+   627→   627→                </div>
+   628→   628→                {batchRows.length > 1 && (
+   629→   629→                  <Button
+   630→   630→                    variant="ghost"
+   631→   631→                    size="icon"
+   632→   632→                    className="shrink-0 h-9 w-9 text-muted-foreground hover:text-red-500"
+   633→   633→                    onClick={() => removeBatchRow(index)}
+   634→   634→                  >
+   635→   635→                    <Trash2 className="h-4 w-4" />
+   636→   636→                  </Button>
+   637→   637→                )}
+   638→   638→              </div>
+   639→   639→            ))}
+   640→   640→            <Button
+   641→   641→              variant="outline"
+   642→   642→              size="sm"
+   643→   643→              className="w-full border-dashed"
+   644→   644→              onClick={addBatchRow}
+   645→   645→            >
+   646→   646→              <Plus className="mr-1.5 h-3.5 w-3.5" />
+   647→   647→              Add Row
+   648→   648→            </Button>
+   649→   649→          </div>
+   650→   650→          <DialogFooter>
+   651→   651→            <Button variant="outline" onClick={() => setBatchHolidayOpen(false)}>Cancel</Button>
+   652→   652→            <Button
+   653→   653→              onClick={handleBatchAdd}
+   654→   654→              disabled={batchRows.every(r => !r.date)}
+   655→   655→            >
+   656→   656→              Save All ({batchRows.filter(r => r.date).length})
+   657→   657→            </Button>
+   658→   658→          </DialogFooter>
+   659→   659→        </DialogContent>
+   660→   660→      </Dialog>
+   661→   661→
+   662→   662→      {/* Booking Days Edit Dialog */}
+   663→   663→      <Dialog open={bookingDaysOpen} onOpenChange={setBookingDaysOpen}>
+   664→   664→        <DialogContent className="sm:max-w-[400px]">
+   665→   665→          <DialogHeader>
+   666→   666→            <DialogTitle>Edit Booking Window</DialogTitle>
+   667→   667→            <DialogDescription>
+   668→   668→              Set how many days in advance patients can book appointments.
+   669→   669→            </DialogDescription>
+   670→   670→          </DialogHeader>
+   671→   671→          <div className="space-y-4 py-2">
+   672→   672→            <div className="space-y-2">
+   673→   673→              <Label>Days (1 - 365)</Label>
+   674→   674→              <Input
+   675→   675→                type="number"
+   676→   676→                min={1}
+   677→   677→                max={365}
+   678→   678→                value={bookingDaysInput}
+   679→   679→                onChange={(e) => setBookingDaysInput(e.target.value)}
+   680→   680→                placeholder="e.g. 180"
+   681→   681→              />
+   682→   682→              <p className="text-xs text-muted-foreground">
+   683→   683→                Current: {bookingDays} days
+   684→   684→              </p>
+   685→   685→            </div>
+   686→   686→          </div>
+   687→   687→          <DialogFooter>
+   688→   688→            <Button variant="outline" onClick={() => setBookingDaysOpen(false)}>Cancel</Button>
+   689→   689→            <Button
+   690→   690→              onClick={handleSaveBookingDays}
+   691→   691→              disabled={updateBookingDaysMutation.isPending}
+   692→   692→            >
+   693→   693→              {updateBookingDaysMutation.isPending ? 'Saving...' : 'Save'}
+   694→   694→            </Button>
+   695→   695→          </DialogFooter>
+   696→   696→        </DialogContent>
+   697→   697→      </Dialog>
+   698→   698→
+   699→   699→      {/* Delete Confirmation */}
+   700→   700→      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+   701→   701→        <AlertDialogContent>
+   702→   702→          <AlertDialogHeader>
+   703→   703→            <AlertDialogTitle>Delete Holiday</AlertDialogTitle>
+   704→   704→            <AlertDialogDescription>
+   705→   705→              Are you sure you want to delete this holiday? This action cannot be undone.
+   706→   706→            </AlertDialogDescription>
+   707→   707→          </AlertDialogHeader>
+   708→   708→          <AlertDialogFooter>
+   709→   709→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   710→   710→            <AlertDialogAction
+   711→   711→              className="bg-red-600 hover:bg-red-700"
+   712→   712→              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+   713→   713→              disabled={deleteMutation.isPending}
+   714→   714→            >
+   715→   715→              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+   716→   716→            </AlertDialogAction>
+   717→   717→          </AlertDialogFooter>
+   718→   718→        </AlertDialogContent>
+   719→   719→      </AlertDialog>
+   720→   720→    </div>
+   721→   721→  )
+   722→   722→}
+   723→   723→

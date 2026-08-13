@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Progress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -31,12 +32,309 @@ import {
   MessageSquare,
   Star,
   CalendarPlus,
+  Hash,
+  Users,
+  Building2,
+  RefreshCw,
+  Hourglass,
 } from 'lucide-react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth-store'
 import { PrescriptionPrintView, type PrintData } from '@/components/prescription/print-view'
+
+// ==================== QUEUE POSITION SECTION ====================
+
+interface QueueInfoData {
+  totalAhead: number
+  myPosition: number
+  estimatedWaitMinutes: number
+  currentlyServingToken: string | null
+  currentlyServingPatientName: null
+}
+
+function QueuePositionSection({
+  tokenNumber,
+  queueInfo,
+  doctor,
+  department,
+  hospital,
+  isLoading,
+  bookingStatus,
+  bookingMode,
+}: {
+  tokenNumber: string
+  queueInfo: QueueInfoData | null
+  doctor: { name: string; specialization: string; profileImg: string } | null
+  department: { name: string; shortCode: string; floorNo: string; opdRoom: string } | null
+  hospital: { hospitalName: string; address: string; city: string } | null
+  isLoading: boolean
+  bookingStatus: string
+  bookingMode: string
+}) {
+  // Progress bar: if totalAhead = 0 and status is Visited, we are 100% done
+  const progressPercent =
+    bookingStatus === 'Visited'
+      ? 100
+      : queueInfo
+        ? Math.max(0, Math.min(100, ((queueInfo.myPosition > 0 ? 1 : 0) / (queueInfo.myPosition + queueInfo.totalAhead || 1)) * 100))
+        : 0
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+    >
+      <Card className="overflow-hidden border-violet-200 dark:border-violet-800 bg-gradient-to-br from-violet-50 via-white to-amber-50/30 dark:from-violet-950/30 dark:via-gray-950 dark:to-amber-950/10">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-violet-700 dark:text-violet-400">
+              <Hash className="h-4 w-4" />
+              Your Queue Position
+            </CardTitle>
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <RefreshCw className={cn('h-3 w-3', queueInfo && 'animate-spin')} style={queueInfo ? { animationDuration: '2s' } : undefined} />
+              <span>Live</span>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          {/* Token Number — Large Badge */}
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 20, delay: 0.1 }}
+              className="flex flex-col items-center gap-1"
+            >
+              <div className="flex items-center justify-center h-20 w-20 rounded-2xl bg-violet-600 shadow-lg shadow-violet-600/30">
+                <span className="text-2xl font-bold text-white tracking-tight">
+                  {tokenNumber}
+                </span>
+              </div>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider mt-0.5">
+                Your Token
+              </span>
+            </motion.div>
+
+            {isLoading ? (
+              <div className="flex-1 space-y-3">
+                <div className="h-6 w-40 animate-pulse rounded bg-muted" />
+                <div className="h-5 w-56 animate-pulse rounded bg-muted" />
+                <div className="h-5 w-48 animate-pulse rounded bg-muted" />
+              </div>
+            ) : bookingStatus === 'Visited' ? (
+              <div className="flex-1 text-center sm:text-left">
+                <div className="flex items-center justify-center sm:justify-start gap-2">
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 15, delay: 0.15 }}
+                    className="flex items-center gap-2 rounded-full bg-emerald-100 px-4 py-1.5 dark:bg-emerald-900/50"
+                  >
+                    <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">
+                      It&apos;s your turn!
+                    </span>
+                  </motion.div>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Doctor is consulting with you now.
+                </p>
+              </div>
+            ) : queueInfo ? (
+              <div className="flex-1 space-y-3">
+                {/* Position */}
+                <div className="flex items-center gap-2">
+                  <Hash className="h-4 w-4 text-violet-500" />
+                  <span className="text-sm font-semibold text-foreground">
+                    #{queueInfo.myPosition} in queue
+                  </span>
+                </div>
+
+                {/* Patients ahead */}
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-violet-500" />
+                  <span className="text-sm text-muted-foreground">
+                    {queueInfo.totalAhead === 0
+                      ? 'No one ahead — you are next!'
+                      : `${queueInfo.totalAhead} patient${queueInfo.totalAhead > 1 ? 's' : ''} ahead of you`}
+                  </span>
+                </div>
+
+                {/* Estimated wait */}
+                <div className="flex items-center gap-2">
+                  <Hourglass className="h-4 w-4 text-amber-500" />
+                  <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                    {queueInfo.estimatedWaitMinutes === 0
+                      ? '~0 minutes'
+                      : `~${queueInfo.estimatedWaitMinutes} minutes`}
+                  </span>
+                  <span className="text-sm text-muted-foreground">estimated wait</span>
+                </div>
+
+                {/* Currently Serving */}
+                {queueInfo.currentlyServingToken && (
+                  <div className="flex items-center gap-2">
+                    <Stethoscope className="h-4 w-4 text-teal-500" />
+                    <span className="text-sm text-muted-foreground">
+                      Currently Serving:{' '}
+                      <span className="font-semibold text-teal-700 dark:text-teal-400">
+                        {queueInfo.currentlyServingToken}
+                      </span>
+                    </span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex-1 text-center sm:text-left">
+                <p className="text-sm text-muted-foreground">
+                  Queue information will be available once your appointment is confirmed.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Progress Bar */}
+          {(queueInfo || bookingStatus === 'Visited') && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.25 }}
+              className="space-y-2"
+            >
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Queue Progress</span>
+                <span className="font-medium">
+                  {bookingStatus === 'Visited'
+                    ? 'Consulting'
+                    : queueInfo
+                      ? `${Math.round(progressPercent)}%`
+                      : '—'}
+                </span>
+              </div>
+              <Progress
+                value={progressPercent}
+                className="h-2.5 bg-violet-100 dark:bg-violet-900/30 [&>[data-slot=progress-indicator]]:bg-gradient-to-r [&>[data-slot=progress-indicator]]:from-violet-500 [&>[data-slot=progress-indicator]]:to-violet-400"
+              />
+              {/* Step indicator dots */}
+              <div className="flex items-center justify-between">
+                <StepDot label="Waiting" active={bookingStatus === 'Approve' && (queueInfo?.totalAhead ?? 0) > 0} done={bookingStatus === 'Visited'} />
+                <div className="flex-1 h-px bg-border mx-2" />
+                <StepDot label="Next" active={bookingStatus === 'Approve' && (queueInfo?.totalAhead ?? 0) === 0} done={bookingStatus === 'Visited'} />
+                <div className="flex-1 h-px bg-border mx-2" />
+                <StepDot label="Consulting" active={bookingStatus === 'Visited'} done={bookingStatus === 'Visited'} />
+              </div>
+            </motion.div>
+          )}
+
+          {/* Doctor & Location Info */}
+          {(doctor || department || hospital) && (
+            <>
+              <Separator />
+              <div className="grid gap-3 sm:grid-cols-2">
+                {/* Doctor info */}
+                {doctor && (
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-teal-100 dark:bg-teal-900/50 shrink-0">
+                      <Stethoscope className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">Doctor</p>
+                      <p className="text-sm font-medium text-teal-700 dark:text-teal-400 truncate">
+                        Dr. {doctor.name} ({doctor.specialization})
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Department info */}
+                {department && (
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-violet-100 dark:bg-violet-900/50 shrink-0">
+                      <Building2 className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">Department</p>
+                      <p className="text-sm font-medium truncate">
+                        {department.name}
+                        {department.floorNo && (
+                          <span className="text-muted-foreground"> — {department.floorNo}</span>
+                        )}
+                        {department.opdRoom && (
+                          <span className="text-muted-foreground">, {department.opdRoom}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Hospital info */}
+                {hospital && (
+                  <div className="flex items-center gap-2.5 sm:col-span-2">
+                    <div className="flex items-center justify-center h-9 w-9 rounded-lg bg-amber-100 dark:bg-amber-900/50 shrink-0">
+                      <MapPin className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">Location</p>
+                      <p className="text-sm font-medium truncate">
+                        {hospital.hospitalName}
+                        {hospital.address && (
+                          <span className="text-muted-foreground"> — {hospital.address}</span>
+                        )}
+                        {hospital.city && (
+                          <span className="text-muted-foreground">, {hospital.city}</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Video call indicator */}
+              {bookingMode === 'VideoCall' && (
+                <div className="flex items-center gap-2 rounded-lg bg-teal-50 border border-teal-200 px-3 py-2 dark:bg-teal-950/30 dark:border-teal-800">
+                  <Video className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+                  <span className="text-xs text-teal-700 dark:text-teal-400 font-medium">
+                    This is a video consultation
+                  </span>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+    </motion.div>
+  )
+}
+
+/** Small step indicator dot */
+function StepDot({ label, active, done }: { label: string; active: boolean; done: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <motion.div
+        animate={done ? { scale: [1, 1.2, 1] } : active ? { scale: [1, 1.1, 1] } : {}}
+        transition={{ repeat: active ? Infinity : 0, duration: 1.5 }}
+        className={cn(
+          'h-3 w-3 rounded-full border-2 transition-colors',
+          done
+            ? 'bg-violet-500 border-violet-500'
+            : active
+              ? 'bg-violet-200 border-violet-500 dark:bg-violet-800'
+              : 'bg-transparent border-muted-foreground/30'
+        )}
+      />
+      <span className={cn(
+        'text-[10px] font-medium transition-colors',
+        done ? 'text-violet-600 dark:text-violet-400' : active ? 'text-foreground' : 'text-muted-foreground'
+      )}>
+        {label}
+      </span>
+    </div>
+  )
+}
 
 // ==================== TYPES ====================
 
@@ -88,6 +386,20 @@ export default function AppointmentDetailPage() {
   })
 
   const { appointment, doctor, patient, prescriptions, statusTimeline } = data || {}
+
+  // Queue info query — auto-refreshes every 30 seconds
+  const { data: queueData, isLoading: queueLoading } = useQuery({
+    queryKey: ['patient-queue', id],
+    queryFn: () => fetch(`/api/patient/bookings/queue?bookingId=${id}`).then((r) => r.json()),
+    enabled: !!id && !!appointment?.tokenNumber,
+    refetchInterval: 30_000,
+  })
+
+  const queueInfo = queueData?.queueInfo
+  const queueDoctor = queueData?.doctor
+  const queueDepartment = queueData?.department
+  const queueHospital = queueData?.hospital
+  const showQueueSection = appointment?.tokenNumber && appointment?.status !== 'Finish' && appointment?.status !== 'Canceled'
 
   // Check if this booking has been rated
   const { data: ratingData } = useQuery({
@@ -337,6 +649,20 @@ export default function AppointmentDetailPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Queue Position Section */}
+          {showQueueSection && (
+            <QueuePositionSection
+              tokenNumber={appointment.tokenNumber}
+              queueInfo={queueInfo}
+              doctor={queueDoctor}
+              department={queueDepartment}
+              hospital={queueHospital}
+              isLoading={queueLoading}
+              bookingStatus={appointment.status}
+              bookingMode={appointment.bookingMode}
+            />
+          )}
 
           {/* Quick Re-book */}
           {(appointment?.status === 'Visited' || appointment?.status === 'Finish') && appointment?.doctorId && (

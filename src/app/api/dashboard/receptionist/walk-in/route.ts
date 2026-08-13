@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth, RECEPTION_ROLES } from '@/lib/api-auth'
 import { todayISTRange, todayISTStr, currentTimeIST } from '@/lib/date-utils'
+import { generateTokenNumber } from '@/lib/token-utils'
 
 // ============ GET: Today's queue for the receptionist's doctor(s) ============
 export async function GET(req: NextRequest) {
@@ -90,6 +91,8 @@ export async function GET(req: NextRequest) {
         doctorId: booking.doctorId,
         doctorName: booking.doctor?.user?.name || 'Unknown',
         departmentId: booking.departmentId || null,
+        tokenNumber: booking.tokenNumber || null,
+        tokenOrder: booking.tokenOrder || 0,
         queuePosition: 0, // will be calculated per-doctor below
       }))
 
@@ -279,7 +282,18 @@ export async function POST(req: NextRequest) {
       // 4. Generate appointment number
       const appointmentNo = `DOC-${doctor.id.slice(0, 4).toUpperCase()}-${Date.now()}`
 
-      // 5. Look up patient by mobile number
+      // 5. Generate token number for hospital mode
+      let tokenNumber = ''
+      let tokenOrder = 0
+      try {
+        const token = await generateTokenNumber(doctor.id, departmentId)
+        tokenNumber = token.tokenNumber
+        tokenOrder = token.tokenOrder
+      } catch (tokenErr) {
+        console.error('Token generation failed (non-critical):', tokenErr)
+      }
+
+      // 6. Look up patient by mobile number
       let patientUserId: string | null = null
       if (mobileNo?.trim()) {
         const existingPatient = await db.user.findFirst({
@@ -291,7 +305,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 6. Create booking
+      // 7. Create booking
       const booking = await db.booking.create({
         data: {
           appointmentNo,
@@ -310,10 +324,12 @@ export async function POST(req: NextRequest) {
           hospitalId: receptionist.hospitalId,
           departmentId,
           receptionistId: user.id,
+          tokenNumber,
+          tokenOrder,
         },
       })
 
-      // 7. Calculate queue position
+      // 8. Calculate queue position
       const patientsAhead = await db.booking.count({
         where: {
           doctorId: doctor.id,
@@ -325,7 +341,7 @@ export async function POST(req: NextRequest) {
       })
       const queuePosition = patientsAhead + 1
 
-      // 8. Notify patient if found by mobile
+      // 9. Notify patient if found by mobile
       if (patientUserId) {
         await db.notification.create({
           data: {
@@ -336,7 +352,7 @@ export async function POST(req: NextRequest) {
         })
       }
 
-      // 9. Notify doctor
+      // 10. Notify doctor
       await db.notification.create({
         data: {
           userId: doctor.userId,
@@ -358,6 +374,8 @@ export async function POST(req: NextRequest) {
           createdAt: booking.createdAt.toISOString(),
           hospitalId: booking.hospitalId,
           departmentId: booking.departmentId,
+          tokenNumber: booking.tokenNumber,
+          tokenOrder: booking.tokenOrder,
         },
         queuePosition,
         opdCount: activeBookingsCount + 1,

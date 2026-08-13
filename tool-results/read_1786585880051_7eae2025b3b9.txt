@@ -1,0 +1,1267 @@
+     1→import { PrismaClient } from '@prisma/client';
+     2→import { hash } from 'bcryptjs';
+     3→
+     4→const db = new PrismaClient();
+     5→
+     6→async function main() {
+     7→  console.log('🌱 Seeding database with comprehensive mock data...');
+     8→
+     9→  // ============ CLEAN ============
+    10→  // Sequential deletes (pgbouncer transaction mode doesn't support $transaction array syntax)
+    11→  console.log('Cleaning existing data...');
+    12→  await db.bookingChat.deleteMany();
+    13→  await db.pCo.deleteMany();
+    14→  await db.pDignoTable.deleteMany();
+    15→  await db.pSuggestion.deleteMany();
+    16→  await db.pLabel.deleteMany();
+    17→  await db.pMedicine.deleteMany();
+    18→  await db.prescriptionAccessRequest.deleteMany();
+    19→  await db.prescription.deleteMany();
+    20→  await db.medicalDocument.deleteMany();
+    21→  await db.notification.deleteMany();
+    22→  await db.doctorRating.deleteMany();
+    23→  await db.booking.deleteMany();
+    24→  await db.doctorHoliday.deleteMany();
+    25→  await db.doctorSchedule.deleteMany();
+    26→  await db.doctorMedicine.deleteMany();
+    27→  await db.doctorGallery.deleteMany();
+    28→  await db.doctorAssistant.deleteMany();
+    29→  await db.doctorPharmacist.deleteMany();
+    30→  await db.receptionist.deleteMany();
+    31→  await db.pOtherSetting.deleteMany();
+    32→  await db.coMaster.deleteMany();
+    33→  await db.labelMaster.deleteMany();
+    34→  await db.questionsMaster.deleteMany();
+    35→  await db.suggestionsMaster.deleteMany();
+    36→  await db.post.deleteMany();
+    37→  await db.hospitalInquiry.deleteMany();
+    38→  await db.diseaseMaster.deleteMany();
+    39→  await db.doctorTypeMaster.deleteMany();
+    40→  await db.hospital.deleteMany();
+    41→  await db.doctor.deleteMany();
+    42→  await db.slider.deleteMany();
+    43→  await db.user.deleteMany();
+    44→  console.log('✅ Cleaned');
+    45→
+    46→  const password = await hash('123456', 10);
+    47→  const now = new Date();
+    48→  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    49→
+    50→  // Helper: date N days from now
+    51→  const d = (days: number, hour = 10, min = 0) => {
+    52→    const dt = new Date(today);
+    53→    dt.setDate(dt.getDate() + days);
+    54→    dt.setHours(hour, min, 0, 0);
+    55→    return dt;
+    56→  };
+    57→
+    58→  // Helper: next occurrence of a specific day name (e.g. 'Monday'), minDaysFromNow=0 means today+ is OK
+    59→  const nextDay = (dayName: string, hour = 10, min = 0, minDaysFromNow = 0) => {
+    60→    const dayMap: Record<string, number> = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
+    61→    const target = dayMap[dayName];
+    62→    const current = today.getDay();
+    63→    let diff = target - current;
+    64→    if (diff < 0) diff += 7;
+    65→    while (diff < minDaysFromNow) diff += 7;
+    66→    return d(diff, hour, min);
+    67→  };
+    68→
+    69→  // Helper: previous occurrence of a specific day name (N weeks back)
+    70→  const prevDay = (dayName: string, hour = 10, min = 0, weeksBack = 1) => {
+    71→    const dayMap: Record<string, number> = { 'Sunday': 0, 'Monday': 1, 'Tuesday': 2, 'Wednesday': 3, 'Thursday': 4, 'Friday': 5, 'Saturday': 6 };
+    72→    const target = dayMap[dayName];
+    73→    const current = today.getDay();
+    74→    let diff = target - current;
+    75→    if (diff > 0) diff -= 7;
+    76→    diff -= (weeksBack - 1) * 7;
+    77→    return d(diff, hour, min);
+    78→  };
+    79→
+    80→  // =============================================
+    81→  // 1. USERS (33 total across 7 roles)
+    82→  // =============================================
+    83→  console.log('\n📋 Creating Users...');
+    84→
+    85→  const users = await db.$transaction(
+    86→    [
+    87→      // --- ADMIN (1) ---
+    88→      { name: 'Admin User', role: 'admin', status: 'Active', email: 'admin@doctorooms.com', mobileNo: '9999999999', gender: 'Male' },
+    89→
+    90→      // --- HOSPITALS (2) ---
+    91→      { name: 'City General Hospital', role: 'hospital', status: 'Active', email: 'cityhospital@doctorooms.com', mobileNo: '9812345001', gender: 'Male' },
+    92→      { name: 'Sunrise Medical Center', role: 'hospital', status: 'Active', email: 'sunrise@doctorooms.com', mobileNo: '9812345002', gender: 'Female' },
+    93→
+    94→      // --- DOCTORS (3) ---
+    95→      { name: 'Dr. Rajesh Sharma', role: 'doctor', status: 'Active', email: 'rajesh@doctorooms.com', mobileNo: '9812345003', gender: 'Male' },
+    96→      { name: 'Dr. Priya Singh', role: 'doctor', status: 'Active', email: 'priya@doctorooms.com', mobileNo: '9812345004', gender: 'Female' },
+    97→      { name: 'Dr. Amit Patel', role: 'doctor', status: 'Active', email: 'amit@doctorooms.com', mobileNo: '9812345005', gender: 'Male' },
+    98→
+    99→      // --- RECEPTIONISTS (3 - one per doctor) ---
+   100→      { name: 'Meera Joshi', role: 'receptionist', status: 'Active', email: 'meera@doctorooms.com', mobileNo: '9812345006', gender: 'Female' },
+   101→      { name: 'Pooja Sharma', role: 'receptionist', status: 'Active', email: 'pooja@doctorooms.com', mobileNo: '9812345007', gender: 'Female' },
+   102→      { name: 'Ritu Agarwal', role: 'receptionist', status: 'Active', email: 'ritu@doctorooms.com', mobileNo: '9812345008', gender: 'Female' },
+   103→
+   104→      // --- ASSISTANTS (3 - one per doctor) ---
+   105→      { name: 'Vikram Patel', role: 'assistant', status: 'Active', email: 'vikram@doctorooms.com', mobileNo: '9812345009', gender: 'Male' },
+   106→      { name: 'Sanjay Kumar', role: 'assistant', status: 'Active', email: 'sanjay@doctorooms.com', mobileNo: '9812345010', gender: 'Male' },
+   107→      { name: 'Anita Desai', role: 'assistant', status: 'Active', email: 'anita@doctorooms.com', mobileNo: '9812345011', gender: 'Female' },
+   108→
+   109→      // --- PHARMACISTS (3 - one per doctor) ---
+   110→      { name: 'Kavitha Devi', role: 'pharmacist', status: 'Active', email: 'kavitha@doctorooms.com', mobileNo: '9812345012', gender: 'Female' },
+   111→      { name: 'Ramesh Gupta', role: 'pharmacist', status: 'Active', email: 'ramesh@doctorooms.com', mobileNo: '9812345013', gender: 'Male' },
+   112→      { name: 'Suresh Menon', role: 'pharmacist', status: 'Active', email: 'suresh@doctorooms.com', mobileNo: '9812345014', gender: 'Male' },
+   113→
+   114→      // --- PATIENTS (8) ---
+   115→      { name: 'Rahul Verma', role: 'patient', status: 'Active', email: 'rahul@patient.com', mobileNo: '9800000001', gender: 'Male' },
+   116→      { name: 'Sneha Reddy', role: 'patient', status: 'Active', email: 'sneha@patient.com', mobileNo: '9800000002', gender: 'Female' },
+   117→      { name: 'Arjun Mehta', role: 'patient', status: 'Active', email: 'arjun@patient.com', mobileNo: '9800000003', gender: 'Male' },
+   118→      { name: 'Priyanka Iyer', role: 'patient', status: 'Active', email: 'priyanka@patient.com', mobileNo: '9800000004', gender: 'Female' },
+   119→      { name: 'Mohammed Ali', role: 'patient', status: 'Active', email: 'mohammed@patient.com', mobileNo: '9800000005', gender: 'Male' },
+   120→      { name: 'Lakshmi Nair', role: 'patient', status: 'Active', email: 'lakshmi@patient.com', mobileNo: '9800000006', gender: 'Female' },
+   121→      { name: 'Rohan Kulkarni', role: 'patient', status: 'Active', email: 'rohan@patient.com', mobileNo: '9800000007', gender: 'Male' },
+   122→      { name: 'Ananya Bose', role: 'patient', status: 'Active', email: 'ananya@patient.com', mobileNo: '9800000008', gender: 'Female' },
+   123→
+   124→      // --- PENDING PATIENTS (2) ---
+   125→      { name: 'Deepak Rawat', role: 'patient', status: 'Pending', email: 'deepak@patient.com', mobileNo: '9800000009', gender: 'Male' },
+   126→      { name: 'Neha Kapoor', role: 'patient', status: 'Pending', email: 'neha@patient.com', mobileNo: '9800000010', gender: 'Female' },
+   127→
+   128→      // --- BLOCKED USER (1) ---
+   129→      { name: 'Blocked Test User', role: 'patient', status: 'Block', email: 'blocked@patient.com', mobileNo: '9800000011', gender: 'Male' },
+   130→
+   131→      // --- EXTRA DOCTOR (Pending) ---
+   132→      { name: 'Dr. Kavita Joshi', role: 'doctor', status: 'Pending', email: 'kavita.doc@doctorooms.com', mobileNo: '9812345015', gender: 'Female' },
+   133→    ].map(u => db.user.create({
+   134→      data: { ...u, password, settingsJson: JSON.stringify({ emailNotifications: true, bookingReminders: true, marketingEmails: false }) },
+   135→    }))
+   136→  );
+   137→  console.log(`✅ Created ${users.length} users`);
+   138→
+   139→  // Quick refs by email
+   140→  const byEmail = (email: string) => users.find(u => u.email === email)!;
+   141→
+   142→  // =============================================
+   143→  // 2. DOCTOR PROFILES
+   144→  // =============================================
+   145→  console.log('\n🩺 Creating Doctor profiles...');
+   146→
+   147→  const doctors = await db.$transaction([
+   148→    db.doctor.create({
+   149→      data: {
+   150→        userId: byEmail('rajesh@doctorooms.com').id,
+   151→        specialization: 'Cardiologist',
+   152→        doctorType: 'Cardiology',
+   153→        description: 'Senior Cardiologist with 18+ years of experience in interventional cardiology and heart failure management.',
+   154→        education: 'MBBS, MD (Cardiology), FACC',
+   155→        experience: '18 years',
+   156→        fees: 800,
+   157→        emergencyCharge: 1500,
+   158→        city: 'Mumbai',
+   159→        state: 'Maharashtra',
+   160→        address: '302, Heart Care Center, Andheri West',
+   161→        hospitalAddress: 'City General Hospital, Mumbai',
+   162→        hospitalId: byEmail('cityhospital@doctorooms.com').id,
+   163→        contactNo: '9812345003',
+   164→        phoneNo: '022-26789012',
+   165→        isEmergency: true,
+   166→        registrationDetail: 'MMC-12345',
+   167→        lat: 19.1197,
+   168→        longi: 72.8464,
+   169→        bookingDays: 180,
+   170→        dailyLimit: 40,
+   171→      },
+   172→    }),
+   173→    db.doctor.create({
+   174→      data: {
+   175→        userId: byEmail('priya@doctorooms.com').id,
+   176→        specialization: 'Dermatologist',
+   177→        doctorType: 'Dermatology',
+   178→        description: 'Expert Dermatologist specializing in cosmetic dermatology, acne treatment, and skin cancer screening.',
+   179→        education: 'MBBS, MD (Dermatology), IADVL',
+   180→        experience: '12 years',
+   181→        fees: 600,
+   182→        emergencyCharge: 1000,
+   183→        city: 'Delhi',
+   184→        state: 'Delhi',
+   185→        address: '501, Skin & Beauty Clinic, Connaught Place',
+   186→        hospitalAddress: 'Sunrise Medical Center, Delhi',
+   187→        hospitalId: byEmail('sunrise@doctorooms.com').id,
+   188→        contactNo: '9812345004',
+   189→        phoneNo: '011-23456789',
+   190→        isEmergency: false,
+   191→        registrationDetail: 'DMC-67890',
+   192→        lat: 28.6139,
+   193→        longi: 77.2090,
+   194→        bookingDays: 180,
+   195→        dailyLimit: 50,
+   196→      },
+   197→    }),
+   198→    db.doctor.create({
+   199→      data: {
+   200→        userId: byEmail('amit@doctorooms.com').id,
+   201→        specialization: 'Orthopedic Surgeon',
+   202→        doctorType: 'Orthopedics',
+   203→        description: 'Orthopedic Surgeon with expertise in joint replacement, sports injuries, and spinal surgery.',
+   204→        education: 'MBBS, MS (Orthopedics), FRCS',
+   205→        experience: '15 years',
+   206→        fees: 1000,
+   207→        emergencyCharge: 2000,
+   208→        city: 'Pune',
+   209→        state: 'Maharashtra',
+   210→        address: '104, Ortho Care Hospital, Koregaon Park',
+   211→        hospitalAddress: '',
+   212→        hospitalId: null,
+   213→        contactNo: '9812345005',
+   214→        phoneNo: '020-25678901',
+   215→        isEmergency: true,
+   216→        registrationDetail: 'MMC-11111',
+   217→        lat: 18.5204,
+   218→        longi: 73.8567,
+   219→        bookingDays: 180,
+   220→        dailyLimit: 30,
+   221→      },
+   222→    }),
+   223→  ]);
+   224→  console.log(`✅ Created ${doctors.length} doctor profiles`);
+   225→
+   226→  const docRajesh = doctors[0];   // Cardiologist, Mumbai
+   227→  const docPriya = doctors[1];    // Dermatologist, Delhi
+   228→  const docAmit = doctors[2];     // Orthopedic, Pune
+   229→
+   230→  // =============================================
+   231→  // 3. HOSPITAL PROFILES
+   232→  // =============================================
+   233→  console.log('\n🏥 Creating Hospital profiles...');
+   234→
+   235→  await db.$transaction([
+   236→    db.hospital.create({
+   237→      data: {
+   238→        userId: byEmail('cityhospital@doctorooms.com').id,
+   239→        hospitalName: 'City General Hospital',
+   240→        address: 'Plot 45, Sector 12, Andheri West',
+   241→        city: 'Mumbai',
+   242→        state: 'Maharashtra',
+   243→        contactNo: '022-26789000',
+   244→        lat: 19.1197,
+   245→        longi: 72.8464,
+   246→        gallery: JSON.stringify(['/img/hospital1.jpg', '/img/hospital2.jpg']),
+   247→      },
+   248→    }),
+   249→    db.hospital.create({
+   250→      data: {
+   251→        userId: byEmail('sunrise@doctorooms.com').id,
+   252→        hospitalName: 'Sunrise Medical Center',
+   253→        address: '23, Connaught Place, Inner Circle',
+   254→        city: 'Delhi',
+   255→        state: 'Delhi',
+   256→        contactNo: '011-23456780',
+   257→        lat: 28.6139,
+   258→        longi: 77.2090,
+   259→        gallery: JSON.stringify(['/img/sunrise1.jpg', '/img/sunrise2.jpg', '/img/sunrise3.jpg']),
+   260→      },
+   261→    }),
+   262→  ]);
+   263→  console.log('✅ Created 2 hospital profiles');
+   264→
+   265→  // =============================================
+   266→  // 4. DOCTOR TEAMS (Receptionist + Assistant + Pharmacist per doctor)
+   267→  // =============================================
+   268→  console.log('\n👥 Creating Doctor teams...');
+   269→
+   270→  await db.$transaction([
+   271→    // Dr. Rajesh's team
+   272→    db.receptionist.create({ data: { userId: byEmail('meera@doctorooms.com').id, doctorId: docRajesh.id, address: 'Andheri West, Mumbai' } }),
+   273→    db.doctorAssistant.create({ data: { userId: byEmail('vikram@doctorooms.com').id, doctorId: docRajesh.id, address: 'Andheri West, Mumbai', description: 'Senior clinical assistant' } }),
+   274→    db.doctorPharmacist.create({ data: { userId: byEmail('kavitha@doctorooms.com').id, doctorId: docRajesh.id, address: 'Andheri West, Mumbai', dlNo: 'DL-MH-2024-001' } }),
+   275→
+   276→    // Dr. Priya's team
+   277→    db.receptionist.create({ data: { userId: byEmail('pooja@doctorooms.com').id, doctorId: docPriya.id, address: 'Connaught Place, Delhi' } }),
+   278→    db.doctorAssistant.create({ data: { userId: byEmail('sanjay@doctorooms.com').id, doctorId: docPriya.id, address: 'Connaught Place, Delhi', description: 'Dermatology assistant' } }),
+   279→    db.doctorPharmacist.create({ data: { userId: byEmail('ramesh@doctorooms.com').id, doctorId: docPriya.id, address: 'Connaught Place, Delhi', dlNo: 'DL-DL-2024-002' } }),
+   280→
+   281→    // Dr. Amit's team
+   282→    db.receptionist.create({ data: { userId: byEmail('ritu@doctorooms.com').id, doctorId: docAmit.id, address: 'Koregaon Park, Pune' } }),
+   283→    db.doctorAssistant.create({ data: { userId: byEmail('anita@doctorooms.com').id, doctorId: docAmit.id, address: 'Koregaon Park, Pune', description: 'Orthopedic assistant' } }),
+   284→    db.doctorPharmacist.create({ data: { userId: byEmail('suresh@doctorooms.com').id, doctorId: docAmit.id, address: 'Koregaon Park, Pune', dlNo: 'DL-MH-2024-003' } }),
+   285→  ]);
+   286→  console.log('✅ Created 9 team members (3 per doctor)');
+   287→
+   288→  // =============================================
+   289→  // 5. DOCTOR SCHEDULES
+   290→  // =============================================
+   291→  console.log('\n📅 Creating Doctor schedules...');
+   292→
+   293→  await db.$transaction([
+   294→    // Dr. Rajesh - Mon/Wed/Fri morning, Tue/Thu evening
+   295→    db.doctorSchedule.create({ data: { doctorId: docRajesh.id, day: 'Monday', startTime: '09:00', endTime: '13:00', slotDuration: 30, timeSlots: JSON.stringify(['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30']) } }),
+   296→    db.doctorSchedule.create({ data: { doctorId: docRajesh.id, day: 'Tuesday', startTime: '16:00', endTime: '20:00', slotDuration: 30, timeSlots: JSON.stringify(['16:00','16:30','17:00','17:30','18:00','18:30','19:00','19:30']) } }),
+   297→    db.doctorSchedule.create({ data: { doctorId: docRajesh.id, day: 'Wednesday', startTime: '09:00', endTime: '13:00', slotDuration: 30, timeSlots: JSON.stringify(['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30']) } }),
+   298→    db.doctorSchedule.create({ data: { doctorId: docRajesh.id, day: 'Thursday', startTime: '16:00', endTime: '20:00', slotDuration: 30, timeSlots: JSON.stringify(['16:00','16:30','17:00','17:30','18:00','18:30','19:00','19:30']) } }),
+   299→    db.doctorSchedule.create({ data: { doctorId: docRajesh.id, day: 'Friday', startTime: '09:00', endTime: '13:00', slotDuration: 30, timeSlots: JSON.stringify(['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30']) } }),
+   300→
+   301→    // Dr. Priya - Mon-Sat all day
+   302→    db.doctorSchedule.create({ data: { doctorId: docPriya.id, day: 'Monday', startTime: '10:00', endTime: '17:00', slotDuration: 20, timeSlots: JSON.stringify(['10:00','10:20','10:40','11:00','11:20','11:40','12:00','12:20','14:00','14:20','14:40','15:00','15:20','15:40','16:00','16:20','16:40']) } }),
+   303→    db.doctorSchedule.create({ data: { doctorId: docPriya.id, day: 'Tuesday', startTime: '10:00', endTime: '17:00', slotDuration: 20, timeSlots: JSON.stringify(['10:00','10:20','10:40','11:00','11:20','11:40','12:00','12:20','14:00','14:20','14:40','15:00','15:20','15:40','16:00','16:20','16:40']) } }),
+   304→    db.doctorSchedule.create({ data: { doctorId: docPriya.id, day: 'Wednesday', startTime: '10:00', endTime: '17:00', slotDuration: 20, timeSlots: JSON.stringify(['10:00','10:20','10:40','11:00','11:20','11:40','12:00','12:20','14:00','14:20','14:40','15:00','15:20','15:40','16:00','16:20','16:40']) } }),
+   305→    db.doctorSchedule.create({ data: { doctorId: docPriya.id, day: 'Thursday', startTime: '10:00', endTime: '17:00', slotDuration: 20, timeSlots: JSON.stringify(['10:00','10:20','10:40','11:00','11:20','11:40','12:00','12:20','14:00','14:20','14:40','15:00','15:20','15:40','16:00','16:20','16:40']) } }),
+   306→    db.doctorSchedule.create({ data: { doctorId: docPriya.id, day: 'Friday', startTime: '10:00', endTime: '17:00', slotDuration: 20, timeSlots: JSON.stringify(['10:00','10:20','10:40','11:00','11:20','11:40','12:00','12:20','14:00','14:20','14:40','15:00','15:20','15:40','16:00','16:20','16:40']) } }),
+   307→    db.doctorSchedule.create({ data: { doctorId: docPriya.id, day: 'Saturday', startTime: '10:00', endTime: '14:00', slotDuration: 20, timeSlots: JSON.stringify(['10:00','10:20','10:40','11:00','11:20','11:40','12:00','12:20','13:00','13:20','13:40']) } }),
+   308→
+   309→    // Dr. Amit - Tue/Thu/Sat
+   310→    db.doctorSchedule.create({ data: { doctorId: docAmit.id, day: 'Tuesday', startTime: '09:00', endTime: '15:00', slotDuration: 30, timeSlots: JSON.stringify(['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30']) } }),
+   311→    db.doctorSchedule.create({ data: { doctorId: docAmit.id, day: 'Thursday', startTime: '09:00', endTime: '15:00', slotDuration: 30, timeSlots: JSON.stringify(['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30']) } }),
+   312→    db.doctorSchedule.create({ data: { doctorId: docAmit.id, day: 'Saturday', startTime: '09:00', endTime: '13:00', slotDuration: 30, timeSlots: JSON.stringify(['09:00','09:30','10:00','10:30','11:00','11:30','12:00','12:30']) } }),
+   313→  ]);
+   314→  console.log('✅ Created 14 doctor schedules');
+   315→
+   316→  // =============================================
+   317→  // 6. DOCTOR HOLIDAYS
+   318→  // =============================================
+   319→  console.log('\n🏖️ Creating Doctor holidays...');
+   320→
+   321→  await db.$transaction([
+   322→    db.doctorHoliday.create({ data: { userId: docRajesh.id, date: nextDay('Monday', 0, 0, 7), remark: 'Personal leave' } }),
+   323→    db.doctorHoliday.create({ data: { userId: docRajesh.id, date: nextDay('Wednesday', 0, 0, 14), remark: 'Conference - Cardiology Summit 2025' } }),
+   324→    db.doctorHoliday.create({ data: { userId: docPriya.id, date: nextDay('Friday', 0, 0, 10), remark: 'Medical workshop' } }),
+   325→    db.doctorHoliday.create({ data: { userId: docAmit.id, date: nextDay('Monday', 0, 0, 5), remark: 'Surgery day - no OPD' } }),
+   326→  ]);
+   327→  console.log('✅ Created 4 doctor holidays');
+   328→
+   329→  // =============================================
+   330→  // 7. DOCTOR MEDICINES (per doctor)
+   331→  // =============================================
+   332→  console.log('\n💊 Creating Doctor medicine lists...');
+   333→
+   334→  await db.$transaction([
+   335→    // Dr. Rajesh's medicines (Cardiology)
+   336→    ...[
+   337→      { name: 'Aspirin 75mg', dose: 'Once daily', tab: 1, description: 'Blood thinner', morning: '1', afternoon: '', evening: '' },
+   338→      { name: 'Atorvastatin 40mg', dose: 'Once daily at bedtime', tab: 1, description: 'Cholesterol lowering', morning: '', afternoon: '', evening: '1' },
+   339→      { name: 'Metoprolol 50mg', dose: 'Twice daily', tab: 1, description: 'Beta blocker for BP & heart rate', morning: '1', afternoon: '1', evening: '' },
+   340→      { name: 'Amlodipine 5mg', dose: 'Once daily', tab: 1, description: 'Calcium channel blocker', morning: '1', afternoon: '', evening: '' },
+   341→      { name: 'Clopidogrel 75mg', dose: 'Once daily', tab: 1, description: 'Antiplatelet', morning: '1', afternoon: '', evening: '' },
+   342→      { name: 'Ramipril 5mg', dose: 'Once daily', tab: 1, description: 'ACE inhibitor', morning: '1', afternoon: '', evening: '' },
+   343→      { name: 'Nitroglycerin 0.4mg', dose: 'SOS sublingual', tab: 1, description: 'For chest pain emergency', morning: '', afternoon: '', evening: 'SOS' },
+   344→      { name: 'Furosemide 40mg', dose: 'Once daily morning', tab: 1, description: 'Diuretic for fluid retention', morning: '1', afternoon: '', evening: '' },
+   345→    ].map(m => db.doctorMedicine.create({
+   346→      data: { ...m, userId: docRajesh.id, status: 'Active', createdById: byEmail('rajesh@doctorooms.com').id },
+   347→    })),
+   348→
+   349→    // Dr. Priya's medicines (Dermatology)
+   350→    ...[
+   351→      { name: 'Betamethasone Cream', dose: 'Apply twice daily', tab: 1, description: 'Topical steroid for inflammation', morning: 'Apply', afternoon: 'Apply', evening: '' },
+   352→      { name: 'Clotrimazole 1%', dose: 'Apply twice daily', tab: 1, description: 'Antifungal cream', morning: 'Apply', afternoon: 'Apply', evening: '' },
+   353→      { name: 'Isotretinoin 20mg', dose: 'Once daily with food', tab: 1, description: 'For severe acne', morning: '1', afternoon: '', evening: '' },
+   354→      { name: 'Cetirizine 10mg', dose: 'Once daily', tab: 1, description: 'Antihistamine for allergies', morning: '1', afternoon: '', evening: '' },
+   355→      { name: 'Mupirocin Ointment', dose: 'Apply 3 times daily', tab: 1, description: 'Antibiotic for skin infections', morning: 'Apply', afternoon: 'Apply', evening: 'Apply' },
+   356→      { name: 'Ketoconazole Shampoo', dose: 'Twice weekly', tab: 1, description: 'Anti-dandruff / antifungal', morning: '', afternoon: '', evening: 'Use' },
+   357→    ].map(m => db.doctorMedicine.create({
+   358→      data: { ...m, userId: docPriya.id, status: 'Active', createdById: byEmail('priya@doctorooms.com').id },
+   359→    })),
+   360→
+   361→    // Dr. Amit's medicines (Orthopedics)
+   362→    ...[
+   363→      { name: 'Ibuprofen 400mg', dose: 'Three times daily with food', tab: 1, description: 'NSAID for pain & inflammation', morning: '1', afternoon: '1', evening: '1' },
+   364→      { name: 'Tramadol 50mg', dose: 'SOS for severe pain', tab: 1, description: 'Opioid analgesic', morning: '', afternoon: '', evening: 'SOS' },
+   365→      { name: 'Calcium + Vitamin D3', dose: 'Once daily', tab: 1, description: 'Bone health supplement', morning: '1', afternoon: '', evening: '' },
+   366→      { name: 'Diclofenac Gel', dose: 'Apply 3-4 times daily', tab: 1, description: 'Topical pain relief', morning: 'Apply', afternoon: 'Apply', evening: 'Apply' },
+   367→      { name: 'Pantoprazole 40mg', dose: 'Once daily before breakfast', tab: 1, description: 'Gastroprotection with NSAIDs', morning: '1', afternoon: '', evening: '' },
+   368→      { name: 'Muscle Relaxant (Thiocolchicoside)', dose: 'Twice daily', tab: 1, description: 'For muscle spasms', morning: '1', afternoon: '1', evening: '' },
+   369→      { name: 'Collagen Peptides', dose: 'Once daily', tab: 1, description: 'Joint support supplement', morning: '1', afternoon: '', evening: '' },
+   370→    ].map(m => db.doctorMedicine.create({
+   371→      data: { ...m, userId: docAmit.id, status: 'Active', createdById: byEmail('amit@doctorooms.com').id },
+   372→    })),
+   373→  ]);
+   374→  console.log('✅ Created 21 doctor medicines (8 + 6 + 7)');
+   375→
+   376→  // =============================================
+   377→  // 8. DOCTOR GALLERY
+   378→  // =============================================
+   379→  console.log('\n🖼️ Creating Doctor gallery...');
+   380→
+   381→  await db.$transaction([
+   382→    db.doctorGallery.create({ data: { doctorId: docRajesh.id, image: '/img/doc_rajesh_1.jpg' } }),
+   383→    db.doctorGallery.create({ data: { doctorId: docRajesh.id, image: '/img/doc_rajesh_2.jpg' } }),
+   384→    db.doctorGallery.create({ data: { doctorId: docPriya.id, image: '/img/doc_priya_1.jpg' } }),
+   385→    db.doctorGallery.create({ data: { doctorId: docPriya.id, image: '/img/doc_priya_2.jpg' } }),
+   386→    db.doctorGallery.create({ data: { doctorId: docPriya.id, image: '/img/doc_priya_3.jpg' } }),
+   387→    db.doctorGallery.create({ data: { doctorId: docAmit.id, image: '/img/doc_amit_1.jpg' } }),
+   388→  ]);
+   389→  console.log('✅ Created 6 gallery images');
+   390→
+   391→  // =============================================
+   392→  // 9. DOCTOR PRESCRIPTION SETTINGS (POtherSetting)
+   393→  // =============================================
+   394→  console.log('\n📝 Creating Prescription settings...');
+   395→
+   396→  await db.$transaction([
+   397→    db.pOtherSetting.create({
+   398→      data: {
+   399→        doctorId: docRajesh.id,
+   400→        header: 'Heart Care Center',
+   401→        fullHeader: 'Heart Care Center\nDr. Rajesh Sharma (Cardiologist)\nMBBS, MD (Cardiology), FACC\nAndheri West, Mumbai | Ph: 022-26789012',
+   402→        isFullHeader: true,
+   403→        time: JSON.stringify({ showTime: true, format: '12h' }),
+   404→        createdById: byEmail('rajesh@doctorooms.com').id,
+   405→      },
+   406→    }),
+   407→    db.pOtherSetting.create({
+   408→      data: {
+   409→        doctorId: docPriya.id,
+   410→        header: 'Skin & Beauty Clinic',
+   411→        fullHeader: 'Skin & Beauty Clinic\nDr. Priya Singh (Dermatologist)\nMBBS, MD (Dermatology), IADVL\nConnaught Place, Delhi | Ph: 011-23456789',
+   412→        isFullHeader: true,
+   413→        time: JSON.stringify({ showTime: true, format: '12h' }),
+   414→        createdById: byEmail('priya@doctorooms.com').id,
+   415→      },
+   416→    }),
+   417→    db.pOtherSetting.create({
+   418→      data: {
+   419→        doctorId: docAmit.id,
+   420→        header: 'Ortho Care Hospital',
+   421→        fullHeader: 'Ortho Care Hospital\nDr. Amit Patel (Orthopedic Surgeon)\nMBBS, MS (Orthopedics), FRCS\nKoregaon Park, Pune | Ph: 020-25678901',
+   422→        isFullHeader: true,
+   423→        time: JSON.stringify({ showTime: true, format: '12h' }),
+   424→        createdById: byEmail('amit@doctorooms.com').id,
+   425→      },
+   426→    }),
+   427→  ]);
+   428→  console.log('✅ Created 3 prescription settings');
+   429→
+   430→  // =============================================
+   431→  // 10. LABEL MASTER, CO MASTER, QUESTIONS MASTER per doctor
+   432→  // =============================================
+   433→  console.log('\n🏷️ Creating Prescription templates...');
+   434→
+   435→  await db.$transaction([
+   436→    // Dr. Rajesh labels
+   437→    ...['BP (mmHg)', 'Pulse (/min)', 'Temperature (°F)', 'SpO2 (%)', 'Weight (kg)', 'Blood Sugar (mg/dL)'].map(label =>
+   438→      db.labelMaster.create({ data: { doctorId: docRajesh.id, label, status: 'Active', createdById: byEmail('rajesh@doctorooms.com').id } })
+   439→    ),
+   440→    // Dr. Priya labels
+   441→    ...['Skin Type', 'Allergy History', 'UV Exposure', 'Hydration Level', 'Previous Treatment'].map(label =>
+   442→      db.labelMaster.create({ data: { doctorId: docPriya.id, label, status: 'Active', createdById: byEmail('priya@doctorooms.com').id } })
+   443→    ),
+   444→    // Dr. Amit labels
+   445→    ...['Pain Scale (1-10)', 'Range of Motion', 'Swelling', 'Tenderness', 'X-Ray Findings', 'MRI Findings'].map(label =>
+   446→      db.labelMaster.create({ data: { doctorId: docAmit.id, label, status: 'Active', createdById: byEmail('amit@doctorooms.com').id } })
+   447→    ),
+   448→  ]);
+   449→
+   450→  await db.$transaction([
+   451→    // Dr. Rajesh chief complaints
+   452→    ...[
+   453→      { coCode: 'CC01', coDetail: 'Chest Pain' },
+   454→      { coCode: 'CC02', coDetail: 'Shortness of Breath' },
+   455→      { coCode: 'CC03', coDetail: 'Palpitations' },
+   456→      { coCode: 'CC04', coDetail: 'Dizziness' },
+   457→      { coCode: 'CC05', coDetail: 'Swelling in Legs' },
+   458→    ].map(c => db.coMaster.create({ data: { ...c, doctorId: docRajesh.id, status: 'Active', createdById: byEmail('rajesh@doctorooms.com').id } })),
+   459→
+   460→    // Dr. Priya chief complaints
+   461→    ...[
+   462→      { coCode: 'DS01', coDetail: 'Skin Rash' },
+   463→      { coCode: 'DS02', coDetail: 'Acne' },
+   464→      { coCode: 'DS03', coDetail: 'Hair Loss' },
+   465→      { coCode: 'DS04', coDetail: 'Itching' },
+   466→      { coCode: 'DS05', coDetail: 'Pigmentation' },
+   467→    ].map(c => db.coMaster.create({ data: { ...c, doctorId: docPriya.id, status: 'Active', createdById: byEmail('priya@doctorooms.com').id } })),
+   468→
+   469→    // Dr. Amit chief complaints
+   470→    ...[
+   471→      { coCode: 'OR01', coDetail: 'Knee Pain' },
+   472→      { coCode: 'OR02', coDetail: 'Back Pain' },
+   473→      { coCode: 'OR03', coDetail: 'Shoulder Pain' },
+   474→      { coCode: 'OR04', coDetail: 'Fracture' },
+   475→      { coCode: 'OR05', coDetail: 'Joint Stiffness' },
+   476→    ].map(c => db.coMaster.create({ data: { ...c, doctorId: docAmit.id, status: 'Active', createdById: byEmail('amit@doctorooms.com').id } })),
+   477→  ]);
+   478→
+   479→  await db.$transaction([
+   480→    // Dr. Rajesh questions
+   481→    ...[
+   482→      { question: 'Do you smoke or use tobacco?', explanation: 'Smoking is a major risk factor for heart disease' },
+   483→      { question: 'Any family history of heart disease?', explanation: 'Genetic predisposition to cardiac conditions' },
+   484→      { question: 'Do you experience chest pain during exercise?', explanation: 'Exertional angina assessment' },
+   485→    ].map(q => db.questionsMaster.create({ data: { ...q, doctorId: docRajesh.id, status: 'Active', createdById: byEmail('rajesh@doctorooms.com').id } })),
+   486→
+   487→    // Dr. Priya questions
+   488→    ...[
+   489→      { question: 'Have you used any new skincare products recently?', explanation: 'Contact dermatitis screening' },
+   490→      { question: 'Is the rash itchy or painful?', explanation: 'Symptom characterization' },
+   491→      { question: 'Any previous skin treatments or procedures?', explanation: 'Treatment history' },
+   492→    ].map(q => db.questionsMaster.create({ data: { ...q, doctorId: docPriya.id, status: 'Active', createdById: byEmail('priya@doctorooms.com').id } })),
+   493→
+   494→    // Dr. Amit questions
+   495→    ...[
+   496→      { question: 'When did the pain start? Was there any injury?', explanation: 'Onset and trauma history' },
+   497→      { question: 'Does the pain worsen with movement?', explanation: 'Mechanical vs inflammatory pain' },
+   498→      { question: 'Have you had any previous surgeries on this joint?', explanation: 'Surgical history' },
+   499→    ].map(q => db.questionsMaster.create({ data: { ...q, doctorId: docAmit.id, status: 'Active', createdById: byEmail('amit@doctorooms.com').id } })),
+   500→  ]);
+   501→
+   502→  // Suggestions for questions
+   503→  const questionsRajesh = await db.questionsMaster.findMany({ where: { doctorId: docRajesh.id } });
+   504→  const questionsPriya = await db.questionsMaster.findMany({ where: { doctorId: docPriya.id } });
+   505→  const questionsAmit = await db.questionsMaster.findMany({ where: { doctorId: docAmit.id } });
+   506→
+   507→  await db.$transaction([
+   508→    ...questionsRajesh.flatMap((q, i) =>
+   509→      [['Yes', 'No', 'Occasionally'], ['No', 'Yes - Father', 'Yes - Mother'], ['Yes, during running', 'No', 'Sometimes during climbing stairs']][i].map(s =>
+   510→        db.suggestionsMaster.create({
+   511→          data: { questionId: q.id, suggestions: s, status: 'Active', doctorId: docRajesh.id, createdById: byEmail('rajesh@doctorooms.com').id },
+   512→        })
+   513→      )
+   514→    ),
+   515→    ...questionsPriya.flatMap((q, i) =>
+   516→      [['Yes, a new cream', 'No', 'Yes, new soap'], ['Very itchy', 'Mildly itchy', 'Painful, not itchy'], ['Yes, laser treatment', 'No', 'Yes, chemical peel']][i].map(s =>
+   517→        db.suggestionsMaster.create({
+   518→          data: { questionId: q.id, suggestions: s, status: 'Active', doctorId: docPriya.id, createdById: byEmail('priya@doctorooms.com').id },
+   519→        })
+   520→      )
+   521→    ),
+   522→    ...questionsAmit.flatMap((q, i) =>
+   523→      [['2 weeks ago, no injury', '1 month ago, after fall', '3 days ago, sudden'], ['Yes, much worse', 'Slightly worse', 'No difference'], ['Yes, arthroscopy', 'No', 'Yes, ACL reconstruction']][i].map(s =>
+   524→        db.suggestionsMaster.create({
+   525→          data: { questionId: q.id, suggestions: s, status: 'Active', doctorId: docAmit.id, createdById: byEmail('amit@doctorooms.com').id },
+   526→        })
+   527→      )
+   528→    ),
+   529→  ]);
+   530→  console.log('✅ Created labels (17), chief complaints (15), questions (9), suggestions (27)');
+   531→
+   532→  // =============================================
+   533→  // 11. DISEASE MASTER
+   534→  // =============================================
+   535→  console.log('\n🦠 Creating Disease master...');
+   536→
+   537→  await db.$transaction([
+   538→    'Hypertension', 'Diabetes', 'Coronary Artery Disease', 'Asthma', 'Acne Vulgaris',
+   539→    'Eczema', 'Psoriasis', 'Osteoarthritis', 'Rheumatoid Arthritis', 'Lower Back Pain',
+   540→    'Migraine', 'Thyroid Disorder', 'Anemia', 'Allergic Rhinitis', 'Gastritis',
+   541→    'Urinary Tract Infection', 'Common Cold', 'Fever', 'Conjunctivitis', 'Dengue Fever',
+   542→  ].map(name => db.diseaseMaster.create({ data: { name, status: 'Active' } })),
+   543→  );
+   544→  console.log('✅ Created 20 diseases');
+   545→
+   546→  // =============================================
+   547→  // 12. DOCTOR TYPE MASTER
+   548→  // =============================================
+   549→  console.log('\n📋 Creating Doctor type master...');
+   550→
+   551→  await db.$transaction([
+   552→    'Cardiology', 'Dermatology', 'Orthopedics', 'General Medicine', 'Pediatrics',
+   553→    'Gynecology', 'ENT', 'Ophthalmology', 'Neurology', 'Psychiatry',
+   554→    'Gastroenterology', 'Urology', 'Pulmonology', 'Endocrinology', 'Oncology',
+   555→  ].map(type => db.doctorTypeMaster.create({ data: { type, status: 'Active' } })),
+   556→  );
+   557→  console.log('✅ Created 15 doctor types');
+   558→
+   559→  // =============================================
+   560→  // 13. BOOKINGS (various statuses for testing)
+   561→  // =============================================
+   562→  console.log('\n📅 Creating Bookings...');
+   563→
+   564→  const patientRahul = byEmail('rahul@patient.com');
+   565→  const patientSneha = byEmail('sneha@patient.com');
+   566→  const patientArjun = byEmail('arjun@patient.com');
+   567→  const patientPriyanka = byEmail('priyanka@patient.com');
+   568→  const patientMohammed = byEmail('mohammed@patient.com');
+   569→  const patientLakshmi = byEmail('lakshmi@patient.com');
+   570→  const patientRohan = byEmail('rohan@patient.com');
+   571→  const patientAnanya = byEmail('ananya@patient.com');
+   572→
+   573→  const bookings = await db.$transaction([
+   574→    // === PENDING bookings (for receptionist approval testing) ===
+   575→    db.booking.create({
+   576→      data: {
+   577→        appointmentNo: 'APT-001',
+   578→        doctorId: docRajesh.id,
+   579→        userId: patientRahul.id,
+   580→        patientName: patientRahul.name,
+   581→        state: 'Maharashtra',
+   582→        city: 'Mumbai',
+   583→        bookingDate: nextDay('Monday', 9, 30, 1),
+   584→        disease: 'Chest Pain',
+   585→        description: 'Experiencing mild chest discomfort during morning walks since 3 days',
+   586→        gender: 'Male',
+   587→        age: 35,
+   588→        bloodGroup: 'B+',
+   589→        weight: 72,
+   590→        height: 170,
+   591→        status: 'Pending',
+   592→        timeSlot: '09:30',
+   593→        bookingMode: 'InPerson',
+   594→        bookingType: 'By Self',
+   595→        appointmentCharge: 800,
+   596→      },
+   597→    }),
+   598→    db.booking.create({
+   599→      data: {
+   600→        appointmentNo: 'APT-002',
+   601→        doctorId: docPriya.id,
+   602→        userId: patientSneha.id,
+   603→        patientName: patientSneha.name,
+   604→        state: 'Delhi',
+   605→        city: 'Delhi',
+   606→        bookingDate: nextDay('Monday', 10, 20, 1),
+   607→        disease: 'Skin Rash',
+   608→        description: 'Red itchy rash on arms and neck for 1 week',
+   609→        gender: 'Female',
+   610→        age: 28,
+   611→        bloodGroup: 'O+',
+   612→        weight: 58,
+   613→        height: 162,
+   614→        status: 'Pending',
+   615→        timeSlot: '10:20',
+   616→        bookingMode: 'InPerson',
+   617→        bookingType: 'By Self',
+   618→        appointmentCharge: 600,
+   619→      },
+   620→    }),
+   621→    db.booking.create({
+   622→      data: {
+   623→        appointmentNo: 'APT-003',
+   624→        doctorId: docAmit.id,
+   625→        userId: patientArjun.id,
+   626→        patientName: patientArjun.name,
+   627→        state: 'Maharashtra',
+   628→        city: 'Pune',
+   629→        bookingDate: nextDay('Tuesday', 9, 0, 1),
+   630→        disease: 'Knee Pain',
+   631→        description: 'Right knee pain for 2 months, worse after climbing stairs',
+   632→        gender: 'Male',
+   633→        age: 45,
+   634→        bloodGroup: 'A+',
+   635→        weight: 82,
+   636→        height: 175,
+   637→        status: 'Pending',
+   638→        timeSlot: '09:00',
+   639→        bookingMode: 'InPerson',
+   640→        bookingType: 'By Self',
+   641→        appointmentCharge: 1000,
+   642→      },
+   643→    }),
+   644→
+   645→    // === APPROVED bookings (in doctor queue) ===
+   646→    db.booking.create({
+   647→      data: {
+   648→        appointmentNo: 'APT-004',
+   649→        doctorId: docRajesh.id,
+   650→        userId: patientPriyanka.id,
+   651→        patientName: patientPriyanka.name,
+   652→        state: 'Maharashtra',
+   653→        city: 'Mumbai',
+   654→        bookingDate: nextDay('Wednesday', 10, 0, 0),
+   655→        disease: 'Shortness of Breath',
+   656→        description: 'Difficulty breathing during exertion for 2 weeks',
+   657→        gender: 'Female',
+   658→        age: 50,
+   659→        bloodGroup: 'AB+',
+   660→        weight: 65,
+   661→        height: 158,
+   662→        status: 'Approve',
+   663→        timeSlot: '10:00',
+   664→        bookingMode: 'InPerson',
+   665→        bookingType: 'By Self',
+   666→        appointmentCharge: 800,
+   667→      },
+   668→    }),
+   669→    db.booking.create({
+   670→      data: {
+   671→        appointmentNo: 'APT-005',
+   672→        doctorId: docPriya.id,
+   673→        userId: patientMohammed.id,
+   674→        patientName: patientMohammed.name,
+   675→        state: 'Delhi',
+   676→        city: 'Delhi',
+   677→        bookingDate: nextDay('Wednesday', 14, 0, 0),
+   678→        disease: 'Acne',
+   679→        description: 'Persistent acne on face and back for 6 months',
+   680→        gender: 'Male',
+   681→        age: 22,
+   682→        bloodGroup: 'B-',
+   683→        weight: 70,
+   684→        height: 178,
+   685→        status: 'Approve',
+   686→        timeSlot: '14:00',
+   687→        bookingMode: 'VideoCall',
+   688→        videoRoomId: 'room-mohammed-priya-001',
+   689→        bookingType: 'By Self',
+   690→        appointmentCharge: 600,
+   691→      },
+   692→    }),
+   693→
+   694→    // === VISITED bookings (completed with prescriptions) ===
+   695→    db.booking.create({
+   696→      data: {
+   697→        appointmentNo: 'APT-006',
+   698→        doctorId: docRajesh.id,
+   699→        userId: patientLakshmi.id,
+   700→        patientName: patientLakshmi.name,
+   701→        state: 'Maharashtra',
+   702→        city: 'Mumbai',
+   703→        bookingDate: prevDay('Monday', 9, 0, 1),
+   704→        disease: 'Hypertension',
+   705→        description: 'High BP detected during routine checkup, headache and dizziness',
+   706→        gender: 'Female',
+   707→        age: 55,
+   708→        bloodGroup: 'O+',
+   709→        weight: 68,
+   710→        height: 155,
+   711→        status: 'Visited',
+   712→        timeSlot: '09:00',
+   713→        bookingMode: 'InPerson',
+   714→        bookingType: 'By Self',
+   715→        appointmentCharge: 800,
+   716→      },
+   717→    }),
+   718→    db.booking.create({
+   719→      data: {
+   720→        appointmentNo: 'APT-007',
+   721→        doctorId: docPriya.id,
+   722→        userId: patientRohan.id,
+   723→        patientName: patientRohan.name,
+   724→        state: 'Delhi',
+   725→        city: 'Delhi',
+   726→        bookingDate: prevDay('Monday', 11, 0, 1),
+   727→        disease: 'Eczema',
+   728→        description: 'Dry, itchy, red patches on elbows and knees for 3 months',
+   729→        gender: 'Male',
+   730→        age: 30,
+   731→        bloodGroup: 'A-',
+   732→        weight: 75,
+   733→        height: 180,
+   734→        status: 'Visited',
+   735→        timeSlot: '11:00',
+   736→        bookingMode: 'InPerson',
+   737→        bookingType: 'By Self',
+   738→        appointmentCharge: 600,
+   739→      },
+   740→    }),
+   741→    db.booking.create({
+   742→      data: {
+   743→        appointmentNo: 'APT-008',
+   744→        doctorId: docAmit.id,
+   745→        userId: patientAnanya.id,
+   746→        patientName: patientAnanya.name,
+   747→        state: 'Maharashtra',
+   748→        city: 'Pune',
+   749→        bookingDate: prevDay('Thursday', 10, 30, 1),
+   750→        disease: 'Lower Back Pain',
+   751→        description: 'Chronic lower back pain for 6 months, radiating to left leg',
+   752→        gender: 'Female',
+   753→        age: 40,
+   754→        bloodGroup: 'B+',
+   755→        weight: 62,
+   756→        height: 165,
+   757→        status: 'Visited',
+   758→        timeSlot: '10:30',
+   759→        bookingMode: 'InPerson',
+   760→        bookingType: 'By Self',
+   761→        appointmentCharge: 1000,
+   762→      },
+   763→    }),
+   764→
+   765→    // === FINISHED bookings ===
+   766→    db.booking.create({
+   767→      data: {
+   768→        appointmentNo: 'APT-009',
+   769→        doctorId: docRajesh.id,
+   770→        userId: patientRahul.id,
+   771→        patientName: patientRahul.name,
+   772→        state: 'Maharashtra',
+   773→        city: 'Mumbai',
+   774→        bookingDate: prevDay('Monday', 10, 0, 2),
+   775→        disease: 'Palpitations',
+   776→        description: 'Irregular heartbeat sensation, especially at night',
+   777→        gender: 'Male',
+   778→        age: 35,
+   779→        bloodGroup: 'B+',
+   780→        weight: 72,
+   781→        height: 170,
+   782→        status: 'Finish',
+   783→        timeSlot: '10:00',
+   784→        bookingMode: 'InPerson',
+   785→        bookingType: 'By Self',
+   786→        appointmentCharge: 800,
+   787→      },
+   788→    }),
+   789→
+   790→    // === CANCELED bookings ===
+   791→    db.booking.create({
+   792→      data: {
+   793→        appointmentNo: 'APT-010',
+   794→        doctorId: docRajesh.id,
+   795→        userId: patientSneha.id,
+   796→        patientName: patientSneha.name,
+   797→        state: 'Delhi',
+   798→        city: 'Delhi',
+   799→        bookingDate: prevDay('Wednesday', 9, 30, 1),
+   800→        disease: 'Dizziness',
+   801→        description: 'Frequent dizzy spells in the morning',
+   802→        gender: 'Female',
+   803→        age: 28,
+   804→        bloodGroup: 'O+',
+   805→        status: 'Canceled',
+   806→        timeSlot: '09:30',
+   807→        bookingMode: 'InPerson',
+   808→        bookingType: 'By Self',
+   809→        appointmentCharge: 800,
+   810→      },
+   811→    }),
+   812→
+   813→    // === WALK-IN booking (no userId) ===
+   814→    db.booking.create({
+   815→      data: {
+   816→        appointmentNo: 'APT-011',
+   817→        doctorId: docRajesh.id,
+   818→        userId: null,
+   819→        patientName: 'Suresh Pandey',
+   820→        state: 'Maharashtra',
+   821→        city: 'Mumbai',
+   822→        bookingDate: nextDay('Friday', 11, 0, 0),
+   823→        disease: 'Fever',
+   824→        description: 'High fever since yesterday evening, body ache',
+   825→        gender: 'Male',
+   826→        age: 42,
+   827→        bloodGroup: 'AB-',
+   828→        weight: 78,
+   829→        height: 172,
+   830→        status: 'Approve',
+   831→        timeSlot: '11:00',
+   832→        bookingMode: 'InPerson',
+   833→        bookingType: 'By Receptionist',
+   834→        appointmentCharge: 800,
+   835→      },
+   836→    }),
+   837→  ]);
+   838→  console.log(`✅ Created ${bookings.length} bookings (3 Pending, 3 Approved, 3 Visited, 1 Finish, 1 Canceled, 1 Walk-in)`);
+   839→
+   840→  // =============================================
+   841→  // 14. PRESCRIPTIONS (for Visited bookings)
+   842→  // =============================================
+   843→  console.log('\n📝 Creating Prescriptions...');
+   844→
+   845→  const bookingLakshmi = bookings[5]; // APT-006 Visited
+   846→  const bookingRohan = bookings[6];   // APT-007 Visited
+   847→  const bookingAnanya = bookings[7];  // APT-008 Visited
+   848→  const bookingRahulFinish = bookings[8]; // APT-009 Finish
+   849→
+   850→  const prescriptions = await db.$transaction([
+   851→    // Prescription for Lakshmi (Dr. Rajesh - Hypertension)
+   852→    db.prescription.create({
+   853→      data: {
+   854→        bookingId: bookingLakshmi.id,
+   855→        doctorId: docRajesh.id,
+   856→        patientName: 'Lakshmi Nair',
+   857→        patientAge: '55',
+   858→        disease: 'Hypertension',
+   859→        weight: '68 kg',
+   860→        bp: '160/100 mmHg',
+   861→        temperature: '98.6°F',
+   862→        description: 'Essential hypertension. Start with combination therapy. Monitor BP at home daily. Follow-up after 2 weeks.',
+   863→      },
+   864→    }),
+   865→    // Prescription for Rohan (Dr. Priya - Eczema)
+   866→    db.prescription.create({
+   867→      data: {
+   868→        bookingId: bookingRohan.id,
+   869→        doctorId: docPriya.id,
+   870→        patientName: 'Rohan Kulkarni',
+   871→        patientAge: '30',
+   872→        disease: 'Eczema',
+   873→        weight: '75 kg',
+   874→        bp: '120/80 mmHg',
+   875→        temperature: '98.4°F',
+   876→        description: 'Chronic eczema with flare-up. Avoid hot water baths. Use moisturizer frequently. Follow-up in 3 weeks.',
+   877→      },
+   878→    }),
+   879→    // Prescription for Ananya (Dr. Amit - Lower Back Pain)
+   880→    db.prescription.create({
+   881→      data: {
+   882→        bookingId: bookingAnanya.id,
+   883→        doctorId: docAmit.id,
+   884→        patientName: 'Ananya Bose',
+   885→        patientAge: '40',
+   886→        disease: 'Lower Back Pain with Sciatica',
+   887→        weight: '62 kg',
+   888→        bp: '118/76 mmHg',
+   889→        temperature: '98.6°F',
+   890→        description: 'L4-L5 disc herniation suspected. MRI recommended. Physiotherapy for 4 weeks. Avoid heavy lifting. Review with MRI report.',
+   891→      },
+   892→    }),
+   893→    // Prescription for Rahul (Dr. Rajesh - Palpitations, Finished)
+   894→    db.prescription.create({
+   895→      data: {
+   896→        bookingId: bookingRahulFinish.id,
+   897→        doctorId: docRajesh.id,
+   898→        patientName: 'Rahul Verma',
+   899→        patientAge: '35',
+   900→        disease: 'Palpitations - Anxiety related',
+   901→        weight: '72 kg',
+   902→        bp: '130/85 mmHg',
+   903→        temperature: '98.4°F',
+   904→        description: 'Sinus tachycardia, likely anxiety-related. ECG normal. Reduce caffeine. Practice breathing exercises. Follow-up in 1 month.',
+   905→      },
+   906→    }),
+   907→  ]);
+   908→  console.log(`✅ Created ${prescriptions.length} prescriptions`);
+   909→
+   910→  // Prescription medicines
+   911→  console.log('\n💊 Adding Prescription medicines...');
+   912→
+   913→  await db.$transaction([
+   914→    // For Lakshmi (Hypertension)
+   915→    ...[
+   916→      { prescriptionId: prescriptions[0].id, medicine: 'Amlodipine 5mg', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily morning', description: 'Take after breakfast' },
+   917→      { prescriptionId: prescriptions[0].id, medicine: 'Metoprolol 25mg', morning: true, afternoon: true, evening: false, tab: 1, dose: 'Twice daily', description: 'Monitor heart rate' },
+   918→      { prescriptionId: prescriptions[0].id, medicine: 'Aspirin 75mg', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily', description: 'Blood thinner' },
+   919→    ].map(m => db.pMedicine.create({ data: { ...m, createdById: byEmail('rajesh@doctorooms.com').id } })),
+   920→
+   921→    // For Rohan (Eczema)
+   922→    ...[
+   923→      { prescriptionId: prescriptions[1].id, medicine: 'Betamethasone 0.1% Cream', morning: true, afternoon: true, evening: true, tab: 1, dose: 'Apply twice daily on affected areas', description: 'Thin layer only, for 2 weeks max' },
+   924→      { prescriptionId: prescriptions[1].id, medicine: 'Cetirizine 10mg', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily at night', description: 'For itching relief' },
+   925→      { prescriptionId: prescriptions[1].id, medicine: 'Moisturizer (Ceramide-based)', morning: true, afternoon: true, evening: true, tab: 1, dose: 'Apply liberally 3-4 times daily', description: 'CeraVe or equivalent' },
+   926→    ].map(m => db.pMedicine.create({ data: { ...m, createdById: byEmail('priya@doctorooms.com').id } })),
+   927→
+   928→    // For Ananya (Lower Back Pain)
+   929→    ...[
+   930→      { prescriptionId: prescriptions[2].id, medicine: 'Ibuprofen 400mg', morning: true, afternoon: true, evening: true, tab: 1, dose: '3 times daily with food', description: 'For 5 days only' },
+   931→      { prescriptionId: prescriptions[2].id, medicine: 'Pantoprazole 40mg', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily before breakfast', description: 'Gastroprotection' },
+   932→      { prescriptionId: prescriptions[2].id, medicine: 'Thiocolchicoside 8mg', morning: true, afternoon: true, evening: false, tab: 1, dose: 'Twice daily for muscle spasm', description: 'For 7 days' },
+   933→      { prescriptionId: prescriptions[2].id, medicine: 'Calcium + D3 Tablet', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily', description: 'Long term supplement' },
+   934→    ].map(m => db.pMedicine.create({ data: { ...m, createdById: byEmail('amit@doctorooms.com').id } })),
+   935→
+   936→    // For Rahul (Palpitations)
+   937→    ...[
+   938→      { prescriptionId: prescriptions[3].id, medicine: 'Propranolol 20mg', morning: true, afternoon: false, evening: false, tab: 1, dose: 'Once daily morning', description: 'Beta blocker for palpitations' },
+   939→    ].map(m => db.pMedicine.create({ data: { ...m, createdById: byEmail('rajesh@doctorooms.com').id } })),
+   940→  ]);
+   941→
+   942→  // Prescription labels
+   943→  const labelData = [
+   944→    // Lakshmi labels
+   945→    { prescriptionId: prescriptions[0].id, label: 'BP (mmHg)', value: '160/100', labelUnit: 'mmHg', createdById: byEmail('rajesh@doctorooms.com').id },
+   946→    { prescriptionId: prescriptions[0].id, label: 'Pulse (/min)', value: '88', labelUnit: '/min', createdById: byEmail('rajesh@doctorooms.com').id },
+   947→    { prescriptionId: prescriptions[0].id, label: 'Weight (kg)', value: '68', labelUnit: 'kg', createdById: byEmail('rajesh@doctorooms.com').id },
+   948→    { prescriptionId: prescriptions[0].id, label: 'Blood Sugar (mg/dL)', value: '125', labelUnit: 'mg/dL', createdById: byEmail('rajesh@doctorooms.com').id },
+   949→    // Rohan labels
+   950→    { prescriptionId: prescriptions[1].id, label: 'Skin Type', value: 'Dry-Sensitive', labelUnit: '', createdById: byEmail('priya@doctorooms.com').id },
+   951→    { prescriptionId: prescriptions[1].id, label: 'Allergy History', value: 'Dust mite allergy', labelUnit: '', createdById: byEmail('priya@doctorooms.com').id },
+   952→    // Ananya labels
+   953→    { prescriptionId: prescriptions[2].id, label: 'Pain Scale (1-10)', value: '7', labelUnit: '/10', createdById: byEmail('amit@doctorooms.com').id },
+   954→    { prescriptionId: prescriptions[2].id, label: 'Range of Motion', value: 'Limited flexion', labelUnit: '', createdById: byEmail('amit@doctorooms.com').id },
+   955→    { prescriptionId: prescriptions[2].id, label: 'Tenderness', value: 'L4-L5 positive', labelUnit: '', createdById: byEmail('amit@doctorooms.com').id },
+   956→    // Rahul labels
+   957→    { prescriptionId: prescriptions[3].id, label: 'BP (mmHg)', value: '130/85', labelUnit: 'mmHg', createdById: byEmail('rajesh@doctorooms.com').id },
+   958→    { prescriptionId: prescriptions[3].id, label: 'Pulse (/min)', value: '92', labelUnit: '/min', createdById: byEmail('rajesh@doctorooms.com').id },
+   959→  ];
+   960→
+   961→  await db.$transaction(labelData.map((item) => db.pLabel.create({ data: item })));
+   962→
+   963→  // Prescription suggestions
+   964→  const suggestionData = [
+   965→    { prescriptionId: prescriptions[0].id, question: 'Reduce salt intake to <5g/day', suggestions: 'Avoid processed foods, pickles, papad', createdById: byEmail('rajesh@doctorooms.com').id },
+   966→    { prescriptionId: prescriptions[0].id, question: 'Exercise regularly', suggestions: '30 min brisk walk daily, avoid heavy weights', createdById: byEmail('rajesh@doctorooms.com').id },
+   967→    { prescriptionId: prescriptions[1].id, question: 'Skincare routine', suggestions: 'Lukewarm baths, pat dry, apply moisturizer within 3 min', createdById: byEmail('priya@doctorooms.com').id },
+   968→    { prescriptionId: prescriptions[1].id, question: 'Avoid triggers', suggestions: 'Avoid woolen clothes, harsh soaps, extreme temperatures', createdById: byEmail('priya@doctorooms.com').id },
+   969→    { prescriptionId: prescriptions[2].id, question: 'Physiotherapy', suggestions: 'Core strengthening, hamstring stretches, hot fomentation', createdById: byEmail('amit@doctorooms.com').id },
+   970→    { prescriptionId: prescriptions[2].id, question: 'Posture correction', suggestions: 'Ergonomic chair, avoid sitting >30 min, use lumbar support', createdById: byEmail('amit@doctorooms.com').id },
+   971→    { prescriptionId: prescriptions[3].id, question: 'Lifestyle changes', suggestions: 'Reduce caffeine to 1 cup/day, practice 4-7-8 breathing, sleep 7-8 hrs', createdById: byEmail('rajesh@doctorooms.com').id },
+   972→  ];
+   973→  await db.$transaction(suggestionData.map((item) => db.pSuggestion.create({ data: item })));
+   974→
+   975→  // Diagnosis tables
+   976→  await db.$transaction([
+   977→    db.pDignoTable.create({
+   978→      data: {
+   979→        prescriptionId: prescriptions[0].id,
+   980→        rows: 3, cols: 2,
+   981→        headerLabel: JSON.stringify(['Test', 'Result']),
+   982→        colsLabel: JSON.stringify(['ECG', 'Normal sinus rhythm']),
+   983→        footerLabel: JSON.stringify(['Chest X-Ray', 'Normal']),
+   984→        extraLabel: 'Blood report awaited',
+   985→        createdById: byEmail('rajesh@doctorooms.com').id,
+   986→      },
+   987→    }),
+   988→    db.pDignoTable.create({
+   989→      data: {
+   990→        prescriptionId: prescriptions[2].id,
+   991→        rows: 3, cols: 2,
+   992→        headerLabel: JSON.stringify(['Investigation', 'Finding']),
+   993→        colsLabel: JSON.stringify(['X-Ray LS Spine', 'Reduced L4-L5 disc space']),
+   994→        footerLabel: JSON.stringify(['MRI LS Spine', 'Recommended']),
+   995→        extraLabel: 'MRI to confirm disc herniation',
+   996→        createdById: byEmail('amit@doctorooms.com').id,
+   997→      },
+   998→    }),
+   999→  ]);
+  1000→  // Chief complaints (PCo) linked to prescriptions
+  1001→  const coRajesh = await db.coMaster.findMany({ where: { doctorId: docRajesh.id } });
+  1002→  const coPriya = await db.coMaster.findMany({ where: { doctorId: docPriya.id } });
+  1003→  const coAmit = await db.coMaster.findMany({ where: { doctorId: docAmit.id } });
+  1004→
+  1005→  await db.$transaction([
+  1006→    // Lakshmi (Hypertension) - Chest Pain + Shortness of Breath
+  1007→    db.pCo.create({ data: { prescriptionId: prescriptions[0].id, coId: coRajesh.find(c => c.coDetail === 'Chest Pain')!.id, createdById: byEmail('rajesh@doctorooms.com').id } }),
+  1008→    db.pCo.create({ data: { prescriptionId: prescriptions[0].id, coId: coRajesh.find(c => c.coDetail === 'Shortness of Breath')!.id, createdById: byEmail('rajesh@doctorooms.com').id } }),
+  1009→    db.pCo.create({ data: { prescriptionId: prescriptions[0].id, coId: coRajesh.find(c => c.coDetail === 'Dizziness')!.id, createdById: byEmail('rajesh@doctorooms.com').id } }),
+  1010→    // Rohan (Eczema) - Skin Rash + Itching
+  1011→    db.pCo.create({ data: { prescriptionId: prescriptions[1].id, coId: coPriya.find(c => c.coDetail === 'Skin Rash')!.id, createdById: byEmail('priya@doctorooms.com').id } }),
+  1012→    db.pCo.create({ data: { prescriptionId: prescriptions[1].id, coId: coPriya.find(c => c.coDetail === 'Itching')!.id, createdById: byEmail('priya@doctorooms.com').id } }),
+  1013→    // Ananya (Lower Back Pain) - Back Pain
+  1014→    db.pCo.create({ data: { prescriptionId: prescriptions[2].id, coId: coAmit.find(c => c.coDetail === 'Back Pain')!.id, createdById: byEmail('amit@doctorooms.com').id } }),
+  1015→    // Rahul (Palpitations)
+  1016→    db.pCo.create({ data: { prescriptionId: prescriptions[3].id, coId: coRajesh.find(c => c.coDetail === 'Palpitations')!.id, createdById: byEmail('rajesh@doctorooms.com').id } }),
+  1017→  ]);
+  1018→  console.log('✅ Created prescription items (11 medicines, 11 labels, 7 suggestions, 2 diagnosis tables, 7 chief complaints)');
+  1019→
+  1020→  // =============================================
+  1021→  // 15. RATINGS
+  1022→  // =============================================
+  1023→  console.log('\n⭐ Creating Doctor ratings...');
+  1024→
+  1025→  await db.$transaction([
+  1026→    db.doctorRating.create({
+  1027→      data: {
+  1028→        patientId: patientRahul.id,
+  1029→        doctorId: byEmail('rajesh@doctorooms.com').id,
+  1030→        bookingId: bookingRahulFinish.id,
+  1031→        star: 5,
+  1032→        consultationRating: 5,
+  1033→        waitTimeRating: 4,
+  1034→        staffRating: 5,
+  1035→        review: 'Excellent doctor! Very thorough and patient. Explained everything clearly.',
+  1036→        wouldRecommend: true,
+  1037→        isAnonymous: false,
+  1038→      },
+  1039→    }),
+  1040→    db.doctorRating.create({
+  1041→      data: {
+  1042→        patientId: patientLakshmi.id,
+  1043→        doctorId: byEmail('rajesh@doctorooms.com').id,
+  1044→        bookingId: bookingLakshmi.id,
+  1045→        star: 4,
+  1046→        consultationRating: 5,
+  1047→        waitTimeRating: 3,
+  1048→        staffRating: 4,
+  1049→        review: 'Very knowledgeable. Slightly long wait but worth it.',
+  1050→        wouldRecommend: true,
+  1051→        isAnonymous: false,
+  1052→      },
+  1053→    }),
+  1054→    db.doctorRating.create({
+  1055→      data: {
+  1056→        patientId: patientRohan.id,
+  1057→        doctorId: byEmail('priya@doctorooms.com').id,
+  1058→        bookingId: bookingRohan.id,
+  1059→        star: 4,
+  1060→        consultationRating: 4,
+  1061→        waitTimeRating: 5,
+  1062→        staffRating: 4,
+  1063→        review: 'Good treatment. Skin is already improving.',
+  1064→        wouldRecommend: true,
+  1065→        isAnonymous: false,
+  1066→      },
+  1067→    }),
+  1068→    db.doctorRating.create({
+  1069→      data: {
+  1070→        patientId: patientAnanya.id,
+  1071→        doctorId: byEmail('amit@doctorooms.com').id,
+  1072→        bookingId: bookingAnanya.id,
+  1073→        star: 5,
+  1074→        consultationRating: 5,
+  1075→        waitTimeRating: 4,
+  1076→        staffRating: 5,
+  1077→        review: 'Dr. Amit is amazing! Very caring and explained the MRI need clearly.',
+  1078→        wouldRecommend: true,
+  1079→        isAnonymous: false,
+  1080→      },
+  1081→    }),
+  1082→  ]);
+  1083→  console.log('✅ Created 4 doctor ratings');
+  1084→
+  1085→  // =============================================
+  1086→  // 16. NOTIFICATIONS
+  1087→  // =============================================
+  1088→  console.log('\n🔔 Creating Notifications...');
+  1089→
+  1090→  await db.$transaction([
+  1091→    // For Rahul - booking pending
+  1092→    db.notification.create({ data: { userId: patientRahul.id, title: 'Appointment Booked', message: 'Your appointment with Dr. Rajesh Sharma is pending approval. You will be notified once confirmed.', status: 'UNREAD' } }),
+  1093→    // For Sneha - booking pending
+  1094→    db.notification.create({ data: { userId: patientSneha.id, title: 'Appointment Booked', message: 'Your appointment with Dr. Priya Singh is pending approval.', status: 'UNREAD' } }),
+  1095→    // For Arjun - booking pending
+  1096→    db.notification.create({ data: { userId: patientArjun.id, title: 'Appointment Booked', message: 'Your appointment with Dr. Amit Patel is pending approval.', status: 'UNREAD' } }),
+  1097→    // For Priyanka - booking approved
+  1098→    db.notification.create({ data: { userId: patientPriyanka.id, title: 'Appointment Approved', message: 'Your appointment with Dr. Rajesh Sharma has been approved. Please arrive 15 minutes early.', status: 'UNREAD' } }),
+  1099→    // For Mohammed - booking approved
+  1100→    db.notification.create({ data: { userId: patientMohammed.id, title: 'Appointment Approved', message: 'Your video consultation with Dr. Priya Singh is approved. Link will be shared before the appointment.', status: 'UNREAD' } }),
+  1101→    // For Lakshmi - prescription ready
+  1102→    db.notification.create({ data: { userId: patientLakshmi.id, title: 'Prescription Ready', message: 'Your prescription from Dr. Rajesh Sharma is ready. Please collect your medicines from the pharmacy.', status: 'READ' } }),
+  1103→    // For Rohan - prescription ready
+  1104→    db.notification.create({ data: { userId: patientRohan.id, title: 'Prescription Ready', message: 'Your prescription from Dr. Priya Singh is ready.', status: 'READ' } }),
+  1105→    // For Ananya - prescription ready
+  1106→    db.notification.create({ data: { userId: patientAnanya.id, title: 'Prescription Ready', message: 'Your prescription from Dr. Amit Patel is ready. MRI has been recommended.', status: 'READ' } }),
+  1107→    // For Dr. Rajesh - new pending bookings
+  1108→    db.notification.create({ data: { userId: byEmail('rajesh@doctorooms.com').id, title: 'New Booking Request', message: 'Rahul Verma has booked an appointment for tomorrow 9:30 AM. Awaiting receptionist approval.', status: 'UNREAD' } }),
+  1109→    db.notification.create({ data: { userId: byEmail('rajesh@doctorooms.com').id, title: 'Walk-in Patient', message: 'Suresh Pandey (walk-in) has been added to your queue for today 11:00 AM.', status: 'UNREAD' } }),
+  1110→    // For receptionist Meera - pending approvals
+  1111→    db.notification.create({ data: { userId: byEmail('meera@doctorooms.com').id, title: 'Pending Approvals', message: 'You have 1 pending appointment request from Rahul Verma. Please review and approve.', status: 'UNREAD' } }),
+  1112→    // For receptionist Pooja - pending approvals
+  1113→    db.notification.create({ data: { userId: byEmail('pooja@doctorooms.com').id, title: 'Pending Approvals', message: 'You have 1 pending appointment request from Sneha Reddy. Please review.', status: 'UNREAD' } }),
+  1114→    // For receptionist Ritu - pending approvals
+  1115→    db.notification.create({ data: { userId: byEmail('ritu@doctorooms.com').id, title: 'Pending Approvals', message: 'You have 1 pending appointment request from Arjun Mehta. Please review.', status: 'UNREAD' } }),
+  1116→  ]);
+  1117→  console.log('✅ Created 13 notifications');
+  1118→
+  1119→  // =============================================
+  1120→  // 17. BLOG POSTS
+  1121→  // =============================================
+  1122→  console.log('\n📰 Creating Blog posts...');
+  1123→
+  1124→  await db.$transaction([
+  1125→    db.post.create({
+  1126→      data: {
+  1127→        title: '10 Tips for a Healthy Heart',
+  1128→        permalink: '10-tips-healthy-heart',
+  1129→        content: 'Heart disease is the leading cause of death globally. Here are 10 practical tips to keep your heart healthy: 1. Exercise regularly, 2. Eat a balanced diet, 3. Quit smoking, 4. Manage stress, 5. Get enough sleep, 6. Monitor blood pressure, 7. Control cholesterol, 8. Maintain healthy weight, 9. Limit alcohol, 10. Get regular checkups.',
+  1130→        blogImg: '/img/blog-heart-health.jpg',
+  1131→        type: 'Blog',
+  1132→        status: 'Published',
+  1133→        authorId: byEmail('rajesh@doctorooms.com').id,
+  1134→      },
+  1135→    }),
+  1136→    db.post.create({
+  1137→      data: {
+  1138→        title: 'Understanding Eczema: Causes and Treatment',
+  1139→        permalink: 'understanding-eczema',
+  1140→        content: 'Eczema is a chronic skin condition that affects millions. Learn about the causes, triggers, and latest treatment options including topical steroids, immunomodulators, and biologics.',
+  1141→        blogImg: '/img/blog-eczema.jpg',
+  1142→        type: 'Blog',
+  1143→        status: 'Published',
+  1144→        authorId: byEmail('priya@doctorooms.com').id,
+  1145→      },
+  1146→    }),
+  1147→    db.post.create({
+  1148→      data: {
+  1149→        title: 'When to See an Orthopedic Doctor',
+  1150→        permalink: 'when-to-see-orthopedic',
+  1151→        content: 'Many people ignore joint pain until it becomes severe. Learn the warning signs that indicate you should consult an orthopedic specialist: persistent pain, swelling, reduced mobility, joint instability, and pain that interferes with daily activities.',
+  1152→        blogImg: '/img/blog-ortho.jpg',
+  1153→        type: 'Blog',
+  1154→        status: 'Draft',
+  1155→        authorId: byEmail('amit@doctorooms.com').id,
+  1156→      },
+  1157→    }),
+  1158→    db.post.create({
+  1159→      data: {
+  1160→        title: 'New Cardiac Treatment Guidelines Released',
+  1161→        permalink: 'new-cardiac-guidelines-2025',
+  1162→        content: 'The American Heart Association has released updated guidelines for cardiac treatment. Key changes include new blood pressure targets and revised recommendations for statin therapy.',
+  1163→        type: 'News',
+  1164→        status: 'Published',
+  1165→        authorId: byEmail('rajesh@doctorooms.com').id,
+  1166→      },
+  1167→    }),
+  1168→  ]);
+  1169→  console.log('✅ Created 4 blog posts');
+  1170→
+  1171→  // =============================================
+  1172→  // 18. SLIDERS
+  1173→  // =============================================
+  1174→  console.log('\n🖼️ Creating Sliders...');
+  1175→
+  1176→  await db.$transaction([
+  1177→    db.slider.create({ data: { sliderImage: '/img/slider1.jpg', position: 1, status: 'Active', title: 'Book Doctor Appointments Online', subtitle: 'Skip the queue, book from home', link: '/dashboard/patient' } }),
+  1178→    db.slider.create({ data: { sliderImage: '/img/slider2.jpg', position: 2, status: 'Active', title: 'Expert Doctors Near You', subtitle: 'Find specialists in your city', link: '/search' } }),
+  1179→    db.slider.create({ data: { sliderImage: '/img/slider3.jpg', position: 3, status: 'Active', title: 'Video Consultations Available', subtitle: 'Consult doctors from the comfort of your home', link: '/dashboard/patient' } }),
+  1180→  ]);
+  1181→  console.log('✅ Created 3 sliders');
+  1182→
+  1183→  // =============================================
+  1184→  // 19. HOSPITAL INQUIRIES
+  1185→  // =============================================
+  1186→  console.log('\n📬 Creating Hospital inquiries...');
+  1187→
+  1188→  await db.$transaction([
+  1189→    db.hospitalInquiry.create({
+  1190→      data: {
+  1191→        name: 'Vikram Singh',
+  1192→        email: 'vikram.singh@email.com',
+  1193→        phone: '9800000100',
+  1194→        subject: 'Cardiology Department Timing',
+  1195→        message: 'What are the OPD timings for the cardiology department? I want to visit for my father\'s follow-up.',
+  1196→        status: 'Pending',
+  1197→        userId: null,
+  1198→      },
+  1199→    }),
+  1200→    db.hospitalInquiry.create({
+  1201→      data: {
+  1202→        name: 'Rahul Verma',
+  1203→        email: 'rahul@patient.com',
+  1204→        phone: '9800000001',
+  1205→        subject: 'Insurance Empanelment',
+  1206→        message: 'Do you accept Star Health Insurance for cardiac procedures?',
+  1207→        status: 'Pending',
+  1208→        userId: patientRahul.id,
+  1209→      },
+  1210→    }),
+  1211→  ]);
+  1212→  console.log('✅ Created 2 hospital inquiries');
+  1213→
+  1214→  // =============================================
+  1215→  // 20. MEDICAL DOCUMENTS (for patients)
+  1216→  // =============================================
+  1217→  console.log('\n📁 Creating Medical documents...');
+  1218→
+  1219→  await db.$transaction([
+  1220→    db.medicalDocument.create({ data: { patientId: patientLakshmi.id, title: 'Blood Report - June 2025', category: 'Lab Report', fileUrl: '/docs/lakshmi_blood_june2025.pdf', fileName: 'blood_report_june2025.pdf', fileSize: 245000, mimeType: 'application/pdf', description: 'Complete blood count and lipid profile' } }),
+  1221→    db.medicalDocument.create({ data: { patientId: patientLakshmi.id, title: 'ECG Report', category: 'Test Report', fileUrl: '/docs/lakshmi_ecg.pdf', fileName: 'ecg_report.pdf', fileSize: 180000, mimeType: 'application/pdf', description: '12-lead ECG, normal sinus rhythm' } }),
+  1222→    db.medicalDocument.create({ data: { patientId: patientAnanya.id, title: 'X-Ray LS Spine', category: 'Imaging', fileUrl: '/docs/ananya_xray_ls.pdf', fileName: 'xray_ls_spine.pdf', fileSize: 520000, mimeType: 'application/pdf', description: 'X-ray showing reduced L4-L5 disc space' } }),
+  1223→    db.medicalDocument.create({ data: { patientId: patientRahul.id, title: 'Previous Prescription', category: 'Prescription', fileUrl: '/docs/rahul_prev_rx.pdf', fileName: 'prev_prescription.pdf', fileSize: 120000, mimeType: 'application/pdf', description: 'Prescription from last visit' } }),
+  1224→    db.medicalDocument.create({ data: { patientId: patientRohan.id, title: 'Skin Allergy Test', category: 'Lab Report', fileUrl: '/docs/rohan_allergy_test.pdf', fileName: 'allergy_test.pdf', fileSize: 310000, mimeType: 'application/pdf', description: 'Patch test results showing dust mite allergy' } }),
+  1225→  ]);
+  1226→  console.log('✅ Created 5 medical documents');
+  1227→
+  1228→  // =============================================
+  1229→  // 21. CHAT MESSAGES (for active bookings)
+  1230→  // =============================================
+  1231→  console.log('\n💬 Creating Chat messages...');
+  1232→
+  1233→  await db.$transaction([
+  1234→    // Chat between Priyanka and Dr. Rajesh receptionist for approved booking
+  1235→    db.bookingChat.create({ data: { bookingId: bookings[3].id, fromId: patientPriyanka.id, toId: byEmail('meera@doctorooms.com').id, message: 'Hi, I have uploaded my previous reports. Can you confirm my appointment?', status: 'READ' } }),
+  1236→    db.bookingChat.create({ data: { bookingId: bookings[3].id, fromId: byEmail('meera@doctorooms.com').id, toId: patientPriyanka.id, message: 'Yes, your appointment is confirmed for today at 10:00 AM. Please bring your ID and insurance card.', status: 'READ' } }),
+  1237→    db.bookingChat.create({ data: { bookingId: bookings[3].id, fromId: patientPriyanka.id, toId: byEmail('meera@doctorooms.com').id, message: 'Thank you! I will be there on time.', status: 'READ' } }),
+  1238→  ]);
+  1239→  console.log('✅ Created 3 chat messages');
+  1240→
+  1241→  // =============================================
+  1242→  // DONE!
+  1243→  // =============================================
+  1244→  console.log('\n🎉 ============================================');
+  1245→  console.log('   SEEDING COMPLETE!');
+  1246→  console.log('   ============================================');
+  1247→  console.log(`   Users:            25 (1 admin + 2 hospitals + 4 doctors + 3 receptionists + 3 assistants + 3 pharmacists + 8 patients + 2 pending patients + 1 blocked)`);
+  1248→  console.log(`   Doctors:          3 (with full profiles)`);
+  1249→  console.log(`   Doctor Teams:     9 (receptionist + assistant + pharmacist per doctor)`);
+  1250→  console.log(`   Schedules:        14 (across all doctors)`);
+  1251→  console.log(`   Medicines:        21 (doctor-specific)`);
+  1252→  console.log(`   Bookings:         11 (3 Pending, 3 Approved, 3 Visited, 1 Finish, 1 Canceled, 1 Walk-in)`);
+  1253→  console.log(`   Prescriptions:    4 (with medicines, labels, suggestions, diagnosis tables)`);
+  1254→  console.log(`   Ratings:          4`);
+  1255→  console.log(`   Notifications:    13`);
+  1256→  console.log(`   Blog Posts:       4`);
+  1257→  console.log(`   Disease Masters:  20`);
+  1258→  console.log(`   Doctor Types:     15`);
+  1259→  console.log(`   Medical Docs:     5`);
+  1260→  console.log(`   Chat Messages:    3`);
+  1261→  console.log('   ============================================\n');
+  1262→}
+  1263→
+  1264→main()
+  1265→  .catch(e => { console.error('❌ Seed error:', e); process.exit(1); })
+  1266→  .finally(() => db.$disconnect());
+  1267→

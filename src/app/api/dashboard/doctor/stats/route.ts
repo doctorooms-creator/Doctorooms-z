@@ -81,6 +81,7 @@ export async function GET(req: NextRequest) {
         disease: b.disease,
         date: b.bookingDate,
         status: b.status,
+        tokenNumber: b.tokenNumber || null,
       })),
       recentReviews: recentReviews.map((r) => ({
         id: r.id,

@@ -1,6 +1,6 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { StatCard } from '@/components/dashboard/stat-card'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -15,13 +15,32 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { FileText, Clock, Package, ArrowRight, Stethoscope, Pill } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { FileText, Clock, Package, ArrowRight, Stethoscope, Pill, Building2, MoreHorizontal, CheckCircle2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
 
 interface PharmacistStats {
+  isHospitalMode: boolean
   totalPrescriptions: number
   todayPrescriptions: number
   pendingFulfillments: number
@@ -31,30 +50,122 @@ interface PharmacistStats {
     profileImg: string | null
     specialization: string
   } | null
+  hospital: {
+    id: string
+    name: string
+    profileImg: string | null
+    hospitalType: string
+    address: string
+    city: string
+  } | null
   recentPrescriptions: {
     id: string
     patientName: string
     disease: string
     createdAt: string
     medicineCount: number
+    fulfillmentStatus: string
+    doctorName?: string
+    departmentName?: string | null
   }[]
+}
+
+function getFulfillmentBadge(status: string) {
+  switch (status) {
+    case 'Pending':
+      return (
+        <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-400">
+          Pending
+        </Badge>
+      )
+    case 'Packed':
+      return (
+        <Badge variant="outline" className="border-teal-300 bg-teal-50 text-teal-700 dark:border-teal-700 dark:bg-teal-950/40 dark:text-teal-400">
+          Packed
+        </Badge>
+      )
+    case 'Dispensed':
+      return (
+        <Badge variant="outline" className="border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+          <CheckCircle2 className="mr-1 h-3 w-3" />
+          Dispensed
+        </Badge>
+      )
+    default:
+      return <Badge variant="secondary">{status}</Badge>
+  }
 }
 
 export default function PharmacistDashboardPage() {
   const router = useRouter()
+  const queryClient = useQueryClient()
+  const [fulfillTarget, setFulfillTarget] = useState<{ id: string; status: string } | null>(null)
+
   const { data: stats, isLoading } = useQuery<PharmacistStats>({
     queryKey: ['pharmacist-stats'],
     queryFn: () => fetch('/api/dashboard/pharmacist/stats').then((r) => r.json()),
+  })
+
+  const fulfillMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const res = await fetch(`/api/dashboard/pharmacist/prescriptions/${id}/fulfill`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to update')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pharmacist-stats'] })
+      toast.success('Prescription updated successfully')
+      setFulfillTarget(null)
+    },
+    onError: (err: Error) => {
+      toast.error(err.message)
+    },
   })
 
   if (isLoading) {
     return <PharmacistDashboardSkeleton />
   }
 
+  const isHospitalMode = stats?.isHospitalMode ?? false
+
   return (
     <div className="space-y-6">
-      {/* Doctor info banner */}
-      {stats?.doctor && (
+      {/* Hospital info banner (hospital mode) */}
+      {isHospitalMode && stats?.hospital && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center gap-4 rounded-xl border border-teal-200 bg-teal-50/50 p-4 dark:border-teal-900 dark:bg-teal-950/30"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/50">
+            <Building2 className="h-6 w-6 text-teal-600 dark:text-teal-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-muted-foreground">Hospital Pharmacy</p>
+              <Badge variant="outline" className="border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400">
+                {stats.hospital.hospitalType}
+              </Badge>
+            </div>
+            <p className="truncate text-lg font-semibold">{stats.hospital.name}</p>
+            {(stats.hospital.city || stats.hospital.address) && (
+              <p className="truncate text-sm text-muted-foreground">
+                {[stats.hospital.address, stats.hospital.city].filter(Boolean).join(', ')}
+              </p>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Doctor info banner (clinic mode) */}
+      {!isHospitalMode && stats?.doctor && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -62,7 +173,7 @@ export default function PharmacistDashboardPage() {
         >
           <Avatar className="h-12 w-12">
             <AvatarImage src={stats.doctor.profileImg || ''} />
-            <AvatarFallback className="bg-teal-100 dark:bg-teal-900/50 text-lg">
+            <AvatarFallback className="bg-teal-100 text-lg dark:bg-teal-900/50">
               {stats.doctor.name.charAt(0)}
             </AvatarFallback>
           </Avatar>
@@ -80,7 +191,10 @@ export default function PharmacistDashboardPage() {
       )}
 
       {/* Stat cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={cn(
+        'grid gap-4',
+        isHospitalMode ? 'sm:grid-cols-2 lg:grid-cols-4' : 'sm:grid-cols-2 lg:grid-cols-3'
+      )}>
         <StatCard
           title="Total Prescriptions"
           value={stats?.totalPrescriptions ?? 0}
@@ -102,6 +216,15 @@ export default function PharmacistDashboardPage() {
           gradient="from-violet-500 to-violet-600"
           iconBg="bg-violet-100 dark:bg-violet-900/50"
         />
+        {isHospitalMode && (
+          <StatCard
+            title="Hospital Mode"
+            value="All Depts"
+            icon={Building2}
+            gradient="from-sky-500 to-sky-600"
+            iconBg="bg-sky-100 dark:bg-sky-900/50"
+          />
+        )}
       </div>
 
       {/* Quick actions */}
@@ -147,15 +270,18 @@ export default function PharmacistDashboardPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Patient</TableHead>
+                {isHospitalMode && <TableHead>Doctor</TableHead>}
                 <TableHead>Disease</TableHead>
                 <TableHead>Medicines</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead>Date</TableHead>
+                <TableHead className="w-10"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {stats?.recentPrescriptions?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={isHospitalMode ? 7 : 6} className="py-8 text-center text-muted-foreground">
                     No prescriptions yet
                   </TableCell>
                 </TableRow>
@@ -169,6 +295,16 @@ export default function PharmacistDashboardPage() {
                   className="group border-b border-border transition-colors hover:bg-muted/50"
                 >
                   <TableCell className="font-medium">{rx.patientName}</TableCell>
+                  {isHospitalMode && (
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-medium">{rx.doctorName}</span>
+                        {rx.departmentName && (
+                          <span className="text-xs text-muted-foreground">{rx.departmentName}</span>
+                        )}
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell>
                     {rx.disease ? (
                       <Badge variant="secondary" className="text-xs">{rx.disease}</Badge>
@@ -182,8 +318,35 @@ export default function PharmacistDashboardPage() {
                       <span className="text-sm text-muted-foreground">{rx.medicineCount} medicine{rx.medicineCount !== 1 ? 's' : ''}</span>
                     </div>
                   </TableCell>
+                  <TableCell>{getFulfillmentBadge(rx.fulfillmentStatus)}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {format(new Date(rx.createdAt), 'MMM d, yyyy')}
+                  </TableCell>
+                  <TableCell>
+                    {rx.fulfillmentStatus !== 'Dispensed' && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Actions</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => setFulfillTarget({ id: rx.id, status: 'Packed' })}
+                          >
+                            <Package className="mr-2 h-4 w-4" />
+                            Mark as Packed
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setFulfillTarget({ id: rx.id, status: 'Dispensed' })}
+                          >
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            Mark as Dispensed
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
                   </TableCell>
                 </motion.tr>
               ))}
@@ -191,6 +354,33 @@ export default function PharmacistDashboardPage() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Confirm fulfillment dialog */}
+      <AlertDialog open={!!fulfillTarget} onOpenChange={(open) => !open && setFulfillTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Mark as {fulfillTarget?.status}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to update this prescription's status to &quot;{fulfillTarget?.status}&quot;? This action will be recorded.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (fulfillTarget) {
+                  fulfillMutation.mutate({ id: fulfillTarget.id, status: fulfillTarget.status })
+                }
+              }}
+              disabled={fulfillMutation.isPending}
+            >
+              {fulfillMutation.isPending ? 'Updating...' : 'Confirm'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

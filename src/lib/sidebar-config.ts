@@ -1,6 +1,6 @@
 import {
   type LucideIcon,
-  LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus, KeyRound, IndianRupee, FlaskConical, PenLine, BarChart3, Printer, Shield, FolderOpen, Thermometer, CircleHelp, Lightbulb, Tag, Search, Table, ClipboardList,
+  LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus, KeyRound, IndianRupee, FlaskConical, PenLine, BarChart3, Printer, Shield, FolderOpen, Thermometer, CircleHelp, Lightbulb, Tag, Search, Table, ClipboardList, ListOrdered,
 } from 'lucide-react'
 
 export interface SidebarItem {
@@ -78,6 +78,7 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Appointments', href: '/dashboard/receptionist/appointments', icon: CalendarDays },
     { label: 'Pending Bookings', href: '/dashboard/receptionist/pending-bookings', icon: Clock },
     { label: 'Walk-in', href: '/dashboard/receptionist/walk-in', icon: UserPlus },
+    { label: 'Queue', href: '/dashboard/receptionist/queue', icon: ListOrdered },
     { label: 'Print Queue', href: '/dashboard/receptionist/print-queue', icon: Printer },
     { label: 'Schedule', href: '/dashboard/receptionist/schedule', icon: Clock },
     { label: 'Medicines', href: '/dashboard/receptionist/medicines', icon: Pill },

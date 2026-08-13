@@ -1,0 +1,864 @@
+    60→  Plus,
+    61→  Search,
+    62→  MoreHorizontal,
+    63→  ShieldBan,
+    64→  ShieldCheck,
+    65→  Trash2,
+    66→  Users,
+    67→  Loader2,
+    68→  Building2,
+    69→  UserPlus,
+    70→  Stethoscope,
+    71→  Pill,
+    72→  HandHelping,
+    73→  HeadsetMic,
+    74→} from 'lucide-react'
+    75→import { format } from 'date-fns'
+    76→import { cn } from '@/lib/utils'
+    77→import { resolveAvatarUrl } from '@/lib/avatar-url'
+    78→import { toast } from 'sonner'
+    79→
+    80→// ── Types ───────────────────────────────────────────────────────────────────
+    81→
+    82→interface StaffMember {
+    83→  userId: string
+    84→  name: string
+    85→  email: string
+    86→  role: string
+    87→  gender: string
+    88→  status: string
+    89→  mobileNo: string
+    90→  profileImg: string
+    91→  createdAt: string
+    92→  departmentName?: string
+    93→  doctorName?: string
+    94→  designation?: string
+    95→}
+    96→
+    97→interface StaffCounts {
+    98→  receptionists: number
+    99→  pharmacists: number
+   100→  assistants: number
+   101→  doctors: number
+   102→}
+   103→
+   104→interface StaffResponse {
+   105→  staff: StaffMember[]
+   106→  counts: StaffCounts
+   107→}
+   108→
+   109→interface Department {
+   110→  id: string
+   111→  name: string
+   112→}
+   113→
+   114→// ── Constants ───────────────────────────────────────────────────────────────
+   115→
+   116→const ROLE_TABS = [
+   117→  { key: '', label: 'All' },
+   118→  { key: 'receptionist', label: 'Receptionists' },
+   119→  { key: 'pharmacist', label: 'Pharmacists' },
+   120→  { key: 'assistant', label: 'Assistants' },
+   121→  { key: 'doctor', label: 'Doctors' },
+   122→] as const
+   123→
+   124→const roleBadgeColors: Record<string, string> = {
+   125→  receptionist: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-400',
+   126→  pharmacist: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400',
+   127→  assistant: 'bg-pink-100 text-pink-700 dark:bg-pink-900/50 dark:text-pink-400',
+   128→  doctor: 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-400',
+   129→}
+   130→
+   131→const statusBadgeColors: Record<string, string> = {
+   132→  Active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400',
+   133→  Block: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-400',
+   134→}
+   135→
+   136→const roleIcons: Record<string, React.ElementType> = {
+   137→  receptionist: HeadsetMic,
+   138→  pharmacist: Pill,
+   139→  assistant: HandHelping,
+   140→  doctor: Stethoscope,
+   141→}
+   142→
+   143→const countKeys: Record<string, keyof StaffCounts> = {
+   144→  receptionist: 'receptionists',
+   145→  pharmacist: 'pharmacists',
+   146→  assistant: 'assistants',
+   147→  doctor: 'doctors',
+   148→}
+   149→
+   150→// ── Component ───────────────────────────────────────────────────────────────
+   151→
+   152→export default function HospitalStaffPage({ params }: { params: Promise<{ id: string }> }) {
+   153→  const [activeTab, setActiveTab] = useState('')
+   154→  const [searchTerm, setSearchTerm] = useState('')
+   155→  const [debouncedSearch, setDebouncedSearch] = useState('')
+   156→  const [showAddDialog, setShowAddDialog] = useState(false)
+   157→  const [removeTarget, setRemoveTarget] = useState<StaffMember | null>(null)
+   158→
+   159→  // Add staff form state
+   160→  const [formRole, setFormRole] = useState<'receptionist' | 'pharmacist' | 'assistant'>('receptionist')
+   161→  const [formName, setFormName] = useState('')
+   162→  const [formEmail, setFormEmail] = useState('')
+   163→  const [formPassword, setFormPassword] = useState('')
+   164→  const [formGender, setFormGender] = useState('Male')
+   165→  const [formMobile, setFormMobile] = useState('')
+   166→  const [formDepartmentId, setFormDepartmentId] = useState('')
+   167→  const [formDoctorEmail, setFormDoctorEmail] = useState('')
+   168→
+   169→  const queryClient = useQueryClient()
+   170→
+   171→  // Resolve params (Next.js 16 async params)
+   172→  const [hospitalId, setHospitalId] = useState<string>('')
+   173→  useEffect(() => {
+   174→    params.then((p) => setHospitalId(p.id))
+   175→  }, [params])
+   176→
+   177→  // Debounce search
+   178→  useEffect(() => {
+   179→    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300)
+   180→    return () => clearTimeout(timer)
+   181→  }, [searchTerm])
+   182→
+   183→  // ── Queries ──────────────────────────────────────────────────────────────
+   184→
+   185→  const { data, isLoading } = useQuery<StaffResponse>({
+   186→    queryKey: ['hospital-staff', hospitalId, activeTab, debouncedSearch],
+   187→    queryFn: () => {
+   188→      const url = new URL(`/api/dashboard/admin/hospitals/${hospitalId}/staff`)
+   189→      if (activeTab) url.searchParams.set('role', activeTab)
+   190→      if (debouncedSearch) url.searchParams.set('search', debouncedSearch)
+   191→      return fetch(url.toString()).then((r) => r.json())
+   192→    },
+   193→    enabled: !!hospitalId,
+   194→  })
+   195→
+   196→  const { data: departmentsData } = useQuery<{ departments: Department[] }>({
+   197→    queryKey: ['admin-hospital-departments', hospitalId],
+   198→    queryFn: () =>
+   199→      fetch(`/api/dashboard/admin/hospitals/${hospitalId}/departments`).then((r) => r.json()),
+   200→    enabled: !!hospitalId,
+   201→  })
+   202→
+   203→  // ── Mutations ────────────────────────────────────────────────────────────
+   204→
+   205→  const createMutation = useMutation({
+   206→    mutationFn: async (payload: Record<string, unknown>) => {
+   207→      const res = await fetch(`/api/dashboard/admin/hospitals/${hospitalId}/staff`, {
+   208→        method: 'POST',
+   209→        headers: { 'Content-Type': 'application/json' },
+   210→        body: JSON.stringify(payload),
+   211→      })
+   212→      const data = await res.json()
+   213→      if (!res.ok) throw new Error(data.error || 'Failed to create staff')
+   214→      return data
+   215→    },
+   216→    onSuccess: () => {
+   217→      toast.success('Staff member created successfully')
+   218→      resetForm()
+   219→      setShowAddDialog(false)
+   220→      queryClient.invalidateQueries({ queryKey: ['hospital-staff'] })
+   221→    },
+   222→    onError: (err: Error) => {
+   223→      toast.error(err.message)
+   224→    },
+   225→  })
+   226→
+   227→  const removeMutation = useMutation({
+   228→    mutationFn: async (userId: string) => {
+   229→      const res = await fetch(`/api/dashboard/admin/hospitals/${hospitalId}/staff/${userId}`, {
+   230→        method: 'DELETE',
+   231→      })
+   232→      const data = await res.json()
+   233→      if (!res.ok) throw new Error(data.error || 'Failed to remove staff')
+   234→      return data
+   235→    },
+   236→    onSuccess: () => {
+   237→      toast.success('Staff member removed and deactivated')
+   238→      setRemoveTarget(null)
+   239→      queryClient.invalidateQueries({ queryKey: ['hospital-staff'] })
+   240→    },
+   241→    onError: (err: Error) => {
+   242→      toast.error(err.message)
+   243→    },
+   244→  })
+   245→
+   246→  const toggleStatusMutation = useMutation({
+   247→    mutationFn: async ({ userId, status }: { userId: string; status: 'Active' | 'Block' }) => {
+   248→      const res = await fetch(`/api/dashboard/admin/hospitals/${hospitalId}/staff/${userId}`, {
+   249→        method: 'PUT',
+   250→        headers: { 'Content-Type': 'application/json' },
+   251→        body: JSON.stringify({ status }),
+   252→      })
+   253→      const data = await res.json()
+   254→      if (!res.ok) throw new Error(data.error || 'Failed to update status')
+   255→      return data
+   256→    },
+   257→    onSuccess: (_, variables) => {
+   258→      toast.success(`Staff member ${variables.status === 'Active' ? 'activated' : 'blocked'}`)
+   259→      queryClient.invalidateQueries({ queryKey: ['hospital-staff'] })
+   260→    },
+   261→    onError: (err: Error) => {
+   262→      toast.error(err.message)
+   263→    },
+   264→  })
+   265→
+   266→  // ── Handlers ─────────────────────────────────────────────────────────────
+   267→
+   268→  const resetForm = useCallback(() => {
+   269→    setFormRole('receptionist')
+   270→    setFormName('')
+   271→    setFormEmail('')
+   272→    setFormPassword('')
+   273→    setFormGender('Male')
+   274→    setFormMobile('')
+   275→    setFormDepartmentId('')
+   276→    setFormDoctorEmail('')
+   277→  }, [])
+   278→
+   279→  const handleCreate = useCallback(() => {
+   280→    if (!formName.trim() || !formEmail.trim() || !formPassword.trim()) {
+   281→      toast.error('Name, email, and password are required')
+   282→      return
+   283→    }
+   284→
+   285→    const payload: Record<string, unknown> = {
+   286→      role: formRole,
+   287→      name: formName.trim(),
+   288→      email: formEmail.trim(),
+   289→      password: formPassword,
+   290→      gender: formGender,
+   291→    }
+   292→    if (formMobile.trim()) payload.mobileNo = formMobile.trim()
+   293→    if (formRole === 'receptionist' && formDepartmentId) payload.departmentId = formDepartmentId
+   294→    if (formRole === 'assistant') {
+   295→      if (!formDoctorEmail.trim()) {
+   296→        toast.error('Doctor email is required for assistants')
+   297→        return
+   298→      }
+   299→      payload.doctorEmail = formDoctorEmail.trim()
+   300→    }
+   301→
+   302→    createMutation.mutate(payload)
+   303→  }, [formRole, formName, formEmail, formPassword, formGender, formMobile, formDepartmentId, formDoctorEmail, createMutation])
+   304→
+   305→  const handleTabChange = useCallback((key: string) => {
+   306→    setActiveTab(key)
+   307→  }, [])
+   308→
+   309→  // ── Computed ─────────────────────────────────────────────────────────────
+   310→
+   311→  const staff = data?.staff ?? []
+   312→  const counts = data?.counts
+   313→  const totalCount = counts
+   314→    ? counts.receptionists + counts.pharmacists + counts.assistants + counts.doctors
+   315→    : 0
+   316→
+   317→  // ── Render helpers ───────────────────────────────────────────────────────
+   318→
+   319→  const renderRoleBadge = (role: string) => {
+   320→    const Icon = roleIcons[role]
+   321→    return (
+   322→      <span
+   323→        className={cn(
+   324→          'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium capitalize',
+   325→          roleBadgeColors[role] || 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300'
+   326→        )}
+   327→      >
+   328→        {Icon && <Icon className="h-3 w-3" />}
+   329→        {role}
+   330→      </span>
+   331→    )
+   332→  }
+   333→
+   334→  const renderStatusBadge = (status: string) => (
+   335→    <span
+   336→      className={cn(
+   337→        'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
+   338→        statusBadgeColors[status] || 'bg-gray-100 text-gray-700'
+   339→      )}
+   340→    >
+   341→      {status}
+   342→    </span>
+   343→  )
+   344→
+   345→  const renderStaffAvatar = (member: StaffMember, size: string = 'h-8 w-8') => {
+   346→    const avatarUrl = resolveAvatarUrl(member.profileImg)
+   347→    const initials = member.name
+   348→      .split(' ')
+   349→      .map((n) => n[0])
+   350→      .join('')
+   351→      .toUpperCase()
+   352→      .slice(0, 2)
+   353→    return (
+   354→      <Avatar className={size}>
+   355→        <AvatarImage src={avatarUrl} alt={member.name} />
+   356→        <AvatarFallback className="text-xs font-medium">{initials}</AvatarFallback>
+   357→      </Avatar>
+   358→    )
+   359→  }
+   360→
+   361→  const renderSubInfo = (member: StaffMember) => {
+   362→    if (member.role === 'receptionist' && member.departmentName) {
+   363→      return <span className="text-xs text-muted-foreground">{member.departmentName}</span>
+   364→    }
+   365→    if (member.role === 'assistant' && member.doctorName) {
+   366→      return <span className="text-xs text-muted-foreground">Dr. {member.doctorName}</span>
+   367→    }
+   368→    if (member.role === 'doctor' && member.designation) {
+   369→      return <span className="text-xs text-muted-foreground">{member.designation}</span>
+   370→    }
+   371→    return <span className="text-xs text-muted-foreground">—</span>
+   372→  }
+   373→
+   374→  // ── Loading Skeleton ─────────────────────────────────────────────────────
+   375→
+   376→  if (isLoading) {
+   377→    return (
+   378→      <div className="space-y-6">
+   379→        {/* Breadcrumb skeleton */}
+   380→        <div className="flex items-center gap-2">
+   381→          <Skeleton className="h-4 w-12" />
+   382→          <Skeleton className="h-4 w-4" />
+   383→          <Skeleton className="h-4 w-16" />
+   384→          <Skeleton className="h-4 w-4" />
+   385→          <Skeleton className="h-4 w-24" />
+   386→        </div>
+   387→
+   388→        {/* Header skeleton */}
+   389→        <div className="flex items-center justify-between">
+   390→          <div className="space-y-1">
+   391→            <Skeleton className="h-7 w-48" />
+   392→            <Skeleton className="h-4 w-32" />
+   393→          </div>
+   394→          <Skeleton className="h-10 w-32" />
+   395→        </div>
+   396→
+   397→        {/* Tabs skeleton */}
+   398→        <Skeleton className="h-9 w-full max-w-md" />
+   399→
+   400→        {/* Search skeleton */}
+   401→        <Skeleton className="h-10 w-full max-w-sm" />
+   402→
+   403→        {/* Table skeleton */}
+   404→        <Card>
+   405→          <CardContent className="p-0">
+   406→            <div className="divide-y divide-border">
+   407→              {Array.from({ length: 6 }).map((_, i) => (
+   408→                <div key={i} className="flex items-center gap-4 px-4 py-3">
+   409→                  <Skeleton className="h-8 w-8 rounded-full" />
+   410→                  <div className="flex-1 space-y-1">
+   411→                    <Skeleton className="h-4 w-32" />
+   412→                    <Skeleton className="h-3 w-44" />
+   413→                  </div>
+   414→                  <Skeleton className="h-6 w-20 rounded-full" />
+   415→                  <Skeleton className="h-6 w-14 rounded-full" />
+   416→                  <Skeleton className="h-8 w-8" />
+   417→                </div>
+   418→              ))}
+   419→            </div>
+   420→          </CardContent>
+   421→        </Card>
+   422→      </div>
+   423→    )
+   424→  }
+   425→
+   426→  // ── Main Render ──────────────────────────────────────────────────────────
+   427→
+   428→  return (
+   429→    <div className="space-y-6">
+   430→      {/* Breadcrumb */}
+   431→      <Breadcrumb>
+   432→        <BreadcrumbList>
+   433→          <BreadcrumbItem>
+   434→            <BreadcrumbLink href="/dashboard/admin">Admin</BreadcrumbLink>
+   435→          </BreadcrumbItem>
+   436→          <BreadcrumbSeparator />
+   437→          <BreadcrumbItem>
+   438→            <BreadcrumbLink href="/dashboard/admin/hospitals">Hospitals</BreadcrumbLink>
+   439→          </BreadcrumbItem>
+   440→          <BreadcrumbSeparator />
+   441→          <BreadcrumbItem>
+   442→            <BreadcrumbPage>Manage Staff</BreadcrumbPage>
+   443→          </BreadcrumbItem>
+   444→        </BreadcrumbList>
+   445→      </Breadcrumb>
+   446→
+   447→      {/* Header */}
+   448→      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   449→        <div className="space-y-1">
+   450→          <h1 className="text-2xl font-bold tracking-tight">Manage Staff</h1>
+   451→          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+   452→            <Building2 className="h-4 w-4" />
+   453→            <span>Hospital ID: {hospitalId}</span>
+   454→            <span className="text-muted-foreground/50">|</span>
+   455→            <Users className="h-4 w-4" />
+   456→            <span>{totalCount} staff member{totalCount !== 1 ? 's' : ''}</span>
+   457→          </div>
+   458→        </div>
+   459→        <Button onClick={() => setShowAddDialog(true)}>
+   460→          <Plus className="mr-2 h-4 w-4" />
+   461→          Add Staff
+   462→        </Button>
+   463→      </div>
+   464→
+   465→      {/* Role Filter Tabs */}
+   466→      <div className="flex flex-wrap gap-1.5">
+   467→        {ROLE_TABS.map((tab) => {
+   468→          const count =
+   469→            tab.key === ''
+   470→              ? totalCount
+   471→              : counts
+   472→                ? counts[countKeys[tab.key]]
+   473→                : 0
+   474→          return (
+   475→            <button
+   476→              key={tab.key}
+   477→              onClick={() => handleTabChange(tab.key)}
+   478→              className={cn(
+   479→                'inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+   480→                activeTab === tab.key
+   481→                  ? 'bg-primary text-primary-foreground shadow-sm'
+   482→                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
+   483→              )}
+   484→            >
+   485→              {tab.label}
+   486→              <span
+   487→                className={cn(
+   488→                  'inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-xs',
+   489→                  activeTab === tab.key
+   490→                    ? 'bg-primary-foreground/20 text-primary-foreground'
+   491→                    : 'bg-background/50 text-muted-foreground'
+   492→                )}
+   493→              >
+   494→                {count}
+   495→              </span>
+   496→            </button>
+   497→          )
+   498→        })}
+   499→      </div>
+   500→
+   501→      {/* Search Bar */}
+   502→      <div className="relative max-w-sm">
+   503→        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   504→        <Input
+   505→          placeholder="Search by name or email..."
+   506→          value={searchTerm}
+   507→          onChange={(e) => setSearchTerm(e.target.value)}
+   508→          className="pl-9"
+   509→        />
+   510→      </div>
+   511→
+   512→      {/* Staff Content */}
+   513→      <Card>
+   514→        <CardContent className="p-0">
+   515→          {staff.length === 0 ? (
+   516→            /* Empty State */
+   517→            <div className="flex flex-col items-center justify-center py-16 text-center">
+   518→              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+   519→                <Users className="h-8 w-8 text-muted-foreground/50" />
+   520→              </div>
+   521→              <h3 className="mt-4 text-sm font-medium">No staff members found</h3>
+   522→              <p className="mt-1 text-xs text-muted-foreground">
+   523→                {debouncedSearch
+   524→                  ? 'Try adjusting your search query'
+   525→                  : activeTab
+   526→                    ? `No ${activeTab}s assigned to this hospital yet`
+   527→                    : 'Add staff members to get started'}
+   528→              </p>
+   529→              {!debouncedSearch && !activeTab && (
+   530→                <Button
+   531→                  variant="outline"
+   532→                  size="sm"
+   533→                  className="mt-4"
+   534→                  onClick={() => setShowAddDialog(true)}
+   535→                >
+   536→                  <UserPlus className="mr-2 h-3.5 w-3.5" />
+   537→                  Add First Staff
+   538→                </Button>
+   539→              )}
+   540→            </div>
+   541→          ) : (
+   542→            <>
+   543→              {/* Desktop Table (hidden on mobile) */}
+   544→              <div className="hidden md:block overflow-x-auto">
+   545→                <Table>
+   546→                  <TableHeader>
+   547→                    <TableRow>
+   548→                      <TableHead>Name</TableHead>
+   549→                      <TableHead className="hidden lg:table-cell">Email</TableHead>
+   550→                      <TableHead>Role</TableHead>
+   551→                      <TableHead className="hidden lg:table-cell">Department / Doctor</TableHead>
+   552→                      <TableHead>Status</TableHead>
+   553→                      <TableHead className="hidden xl:table-cell">Created</TableHead>
+   554→                      <TableHead className="w-12">Actions</TableHead>
+   555→                    </TableRow>
+   556→                  </TableHeader>
+   557→                  <TableBody>
+   558→                    <AnimatePresence>
+   559→                      {staff.map((member, i) => (
+   560→                        <motion.tr
+   561→                          key={member.userId}
+   562→                          initial={{ opacity: 0, y: 5 }}
+   563→                          animate={{ opacity: 1, y: 0 }}
+   564→                          exit={{ opacity: 0 }}
+   565→                          transition={{ delay: i * 0.03 }}
+   566→                          className="group border-b border-border transition-colors hover:bg-muted/50"
+   567→                        >
+   568→                          <TableCell>
+   569→                            <div className="flex items-center gap-2.5">
+   570→                              {renderStaffAvatar(member)}
+   571→                              <div>
+   572→                                <p className="text-sm font-medium">{member.name}</p>
+   573→                                <p className="text-xs text-muted-foreground lg:hidden">
+   574→                                  {member.email}
+   575→                                </p>
+   576→                              </div>
+   577→                            </div>
+   578→                          </TableCell>
+   579→                          <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
+   580→                            {member.email}
+   581→                          </TableCell>
+   582→                          <TableCell>{renderRoleBadge(member.role)}</TableCell>
+   583→                          <TableCell className="hidden lg:table-cell">
+   584→                            {renderSubInfo(member)}
+   585→                          </TableCell>
+   586→                          <TableCell>{renderStatusBadge(member.status)}</TableCell>
+   587→                          <TableCell className="hidden xl:table-cell text-sm text-muted-foreground">
+   588→                            {format(new Date(member.createdAt), 'MMM d, yyyy')}
+   589→                          </TableCell>
+   590→                          <TableCell>
+   591→                            <DropdownMenu>
+   592→                              <DropdownMenuTrigger asChild>
+   593→                                <Button variant="ghost" size="icon" className="h-8 w-8">
+   594→                                  <MoreHorizontal className="h-4 w-4" />
+   595→                                </Button>
+   596→                              </DropdownMenuTrigger>
+   597→                              <DropdownMenuContent align="end">
+   598→                                {member.status === 'Active' ? (
+   599→                                  <DropdownMenuItem
+   600→                                    onClick={() =>
+   601→                                      toggleStatusMutation.mutate({
+   602→                                        userId: member.userId,
+   603→                                        status: 'Block',
+   604→                                      })
+   605→                                    }
+   606→                                    disabled={toggleStatusMutation.isPending}
+   607→                                  >
+   608→                                    <ShieldBan className="mr-2 h-4 w-4 text-red-600" /> Block
+   609→                                  </DropdownMenuItem>
+   610→                                ) : (
+   611→                                  <DropdownMenuItem
+   612→                                    onClick={() =>
+   613→                                      toggleStatusMutation.mutate({
+   614→                                        userId: member.userId,
+   615→                                        status: 'Active',
+   616→                                      })
+   617→                                    }
+   618→                                    disabled={toggleStatusMutation.isPending}
+   619→                                  >
+   620→                                    <ShieldCheck className="mr-2 h-4 w-4 text-emerald-600" /> Activate
+   621→                                  </DropdownMenuItem>
+   622→                                )}
+   623→                                <DropdownMenuItem
+   624→                                  className="text-destructive focus:text-destructive"
+   625→                                  onClick={() => setRemoveTarget(member)}
+   626→                                >
+   627→                                  <Trash2 className="mr-2 h-4 w-4" /> Remove Staff
+   628→                                </DropdownMenuItem>
+   629→                              </DropdownMenuContent>
+   630→                            </DropdownMenu>
+   631→                          </TableCell>
+   632→                        </motion.tr>
+   633→                      ))}
+   634→                    </AnimatePresence>
+   635→                  </TableBody>
+   636→                </Table>
+   637→              </div>
+   638→
+   639→              {/* Mobile Cards (hidden on desktop) */}
+   640→              <div className="md:hidden divide-y divide-border">
+   641→                <AnimatePresence>
+   642→                  {staff.map((member, i) => (
+   643→                    <motion.div
+   644→                      key={member.userId}
+   645→                      initial={{ opacity: 0, y: 8 }}
+   646→                      animate={{ opacity: 1, y: 0 }}
+   647→                      exit={{ opacity: 0 }}
+   648→                      transition={{ delay: i * 0.04 }}
+   649→                      className="p-4 transition-colors hover:bg-muted/50"
+   650→                    >
+   651→                      <div className="flex items-start gap-3">
+   652→                        {renderStaffAvatar(member, 'h-10 w-10')}
+   653→                        <div className="flex-1 min-w-0">
+   654→                          <div className="flex items-center justify-between gap-2">
+   655→                            <p className="text-sm font-medium truncate">{member.name}</p>
+   656→                            <div className="flex items-center gap-1.5 shrink-0">
+   657→                              {renderStatusBadge(member.status)}
+   658→                              <DropdownMenu>
+   659→                                <DropdownMenuTrigger asChild>
+   660→                                  <Button variant="ghost" size="icon" className="h-7 w-7">
+   661→                                    <MoreHorizontal className="h-3.5 w-3.5" />
+   662→                                  </Button>
+   663→                                </DropdownMenuTrigger>
+   664→                                <DropdownMenuContent align="end">
+   665→                                  {member.status === 'Active' ? (
+   666→                                    <DropdownMenuItem
+   667→                                      onClick={() =>
+   668→                                        toggleStatusMutation.mutate({
+   669→                                          userId: member.userId,
+   670→                                          status: 'Block',
+   671→                                        })
+   672→                                      }
+   673→                                    >
+   674→                                      <ShieldBan className="mr-2 h-4 w-4 text-red-600" /> Block
+   675→                                    </DropdownMenuItem>
+   676→                                  ) : (
+   677→                                    <DropdownMenuItem
+   678→                                      onClick={() =>
+   679→                                        toggleStatusMutation.mutate({
+   680→                                          userId: member.userId,
+   681→                                          status: 'Active',
+   682→                                        })
+   683→                                      }
+   684→                                    >
+   685→                                      <ShieldCheck className="mr-2 h-4 w-4 text-emerald-600" /> Activate
+   686→                                    </DropdownMenuItem>
+   687→                                  )}
+   688→                                  <DropdownMenuItem
+   689→                                    className="text-destructive focus:text-destructive"
+   690→                                    onClick={() => setRemoveTarget(member)}
+   691→                                  >
+   692→                                    <Trash2 className="mr-2 h-4 w-4" /> Remove Staff
+   693→                                  </DropdownMenuItem>
+   694→                                </DropdownMenuContent>
+   695→                              </DropdownMenu>
+   696→                            </div>
+   697→                          </div>
+   698→                          <p className="text-xs text-muted-foreground truncate mt-0.5">{member.email}</p>
+   699→                          <div className="flex items-center gap-2 mt-2">
+   700→                            {renderRoleBadge(member.role)}
+   701→                            {(member.departmentName || member.doctorName || member.designation) && (
+   702→                              <span className="text-xs text-muted-foreground">
+   703→                                {member.role === 'assistant' && member.doctorName
+   704→                                  ? `Dr. ${member.doctorName}`
+   705→                                  : member.departmentName || member.designation || '—'}
+   706→                              </span>
+   707→                            )}
+   708→                          </div>
+   709→                          <p className="text-xs text-muted-foreground/70 mt-1.5">
+   710→                            Added {format(new Date(member.createdAt), 'MMM d, yyyy')}
+   711→                          </p>
+   712→                        </div>
+   713→                      </div>
+   714→                    </motion.div>
+   715→                  ))}
+   716→                </AnimatePresence>
+   717→              </div>
+   718→            </>
+   719→          )}
+   720→        </CardContent>
+   721→      </Card>
+   722→
+   723→      {/* ── Add Staff Dialog ──────────────────────────────────────────────────── */}
+   724→      <Dialog open={showAddDialog} onOpenChange={(open) => {
+   725→        if (!open) resetForm()
+   726→        setShowAddDialog(open)
+   727→      }}>
+   728→        <DialogContent className="sm:max-w-md">
+   729→          <DialogHeader>
+   730→            <DialogTitle>Add Staff Member</DialogTitle>
+   731→          </DialogHeader>
+   732→
+   733→          <div className="space-y-4 py-2">
+   734→            {/* Role Selector */}
+   735→            <div className="space-y-2">
+   736→              <Label>Role *</Label>
+   737→              <Select
+   738→                value={formRole}
+   739→                onValueChange={(v) => {
+   740→                  setFormRole(v as 'receptionist' | 'pharmacist' | 'assistant')
+   741→                  setFormDepartmentId('')
+   742→                  setFormDoctorEmail('')
+   743→                }}
+   744→              >
+   745→                <SelectTrigger>
+   746→                  <SelectValue placeholder="Select role" />
+   747→                </SelectTrigger>
+   748→                <SelectContent>
+   749→                  <SelectItem value="receptionist">
+   750→                    <span className="flex items-center gap-2">
+   751→                      <HeadsetMic className="h-3.5 w-3.5" />
+   752→                      Receptionist
+   753→                    </span>
+   754→                  </SelectItem>
+   755→                  <SelectItem value="pharmacist">
+   756→                    <span className="flex items-center gap-2">
+   757→                      <Pill className="h-3.5 w-3.5" />
+   758→                      Pharmacist
+   759→                    </span>
+   760→                  </SelectItem>
+   761→                  <SelectItem value="assistant">
+   762→                    <span className="flex items-center gap-2">
+   763→                      <HandHelping className="h-3.5 w-3.5" />
+   764→                      Assistant
+   765→                    </span>
+   766→                  </SelectItem>
+   767→                </SelectContent>
+   768→              </Select>
+   769→            </div>
+   770→
+   771→            {/* Name */}
+   772→            <div className="space-y-2">
+   773→              <Label htmlFor="staff-name">Full Name *</Label>
+   774→              <Input
+   775→                id="staff-name"
+   776→                placeholder="e.g. John Doe"
+   777→                value={formName}
+   778→                onChange={(e) => setFormName(e.target.value)}
+   779→              />
+   780→            </div>
+   781→
+   782→            {/* Email */}
+   783→            <div className="space-y-2">
+   784→              <Label htmlFor="staff-email">Email *</Label>
+   785→              <Input
+   786→                id="staff-email"
+   787→                type="email"
+   788→                placeholder="e.g. john@hospital.com"
+   789→                value={formEmail}
+   790→                onChange={(e) => setFormEmail(e.target.value)}
+   791→              />
+   792→            </div>
+   793→
+   794→            {/* Password */}
+   795→            <div className="space-y-2">
+   796→              <Label htmlFor="staff-password">Password *</Label>
+   797→              <Input
+   798→                id="staff-password"
+   799→                type="password"
+   800→                placeholder="Min. 6 characters"
+   801→                value={formPassword}
+   802→                onChange={(e) => setFormPassword(e.target.value)}
+   803→              />
+   804→            </div>
+   805→
+   806→            {/* Gender */}
+   807→            <div className="space-y-2">
+   808→              <Label>Gender</Label>
+   809→              <Select value={formGender} onValueChange={setFormGender}>
+   810→                <SelectTrigger>
+   811→                  <SelectValue />
+   812→                </SelectTrigger>
+   813→                <SelectContent>
+   814→                  <SelectItem value="Male">Male</SelectItem>
+   815→                  <SelectItem value="Female">Female</SelectItem>
+   816→                </SelectContent>
+   817→              </Select>
+   818→            </div>
+   819→
+   820→            {/* Mobile No */}
+   821→            <div className="space-y-2">
+   822→              <Label htmlFor="staff-mobile">Mobile No</Label>
+   823→              <Input
+   824→                id="staff-mobile"
+   825→                placeholder="e.g. +91 9876543210"
+   826→                value={formMobile}
+   827→                onChange={(e) => setFormMobile(e.target.value)}
+   828→              />
+   829→            </div>
+   830→
+   831→            {/* Conditional: Department for Receptionist */}
+   832→            {formRole === 'receptionist' && (
+   833→              <div className="space-y-2">
+   834→                <Label>Department</Label>
+   835→                <Select value={formDepartmentId} onValueChange={setFormDepartmentId}>
+   836→                  <SelectTrigger>
+   837→                    <SelectValue placeholder="Select department (optional)" />
+   838→                  </SelectTrigger>
+   839→                  <SelectContent>
+   840→                    {departmentsData?.departments?.map((dept) => (
+   841→                      <SelectItem key={dept.id} value={dept.id}>
+   842→                        {dept.name}
+   843→                      </SelectItem>
+   844→                    ))}
+   845→                    {(!departmentsData?.departments || departmentsData.departments.length === 0) && (
+   846→                      <SelectItem value="_none" disabled>
+   847→                        No departments available
+   848→                      </SelectItem>
+   849→                    )}
+   850→                  </SelectContent>
+   851→                </Select>
+   852→              </div>
+   853→            )}
+   854→
+   855→            {/* Conditional: Doctor Email for Assistant */}
+   856→            {formRole === 'assistant' && (
+   857→              <div className="space-y-2">
+   858→                <Label htmlFor="staff-doctor-email">Doctor Email *</Label>
+   859→                <Input
+   860→                  id="staff-doctor-email"
+   861→                  type="email"
+   862→                  placeholder="e.g. doctor@hospital.com"
+   863→                  value={formDoctorEmail}
+   864→                  onChange={(e) => setFormDoctorEmail(e.target.value)}
+   865→                />
+   866→                <p className="text-xs text-muted-foreground">
+   867→                  Enter the email of the doctor this assistant will be linked to
+   868→                </p>
+   869→              </div>
+   870→            )}
+   871→          </div>
+   872→
+   873→          <DialogFooter>
+   874→            <Button
+   875→              variant="outline"
+   876→              onClick={() => {
+   877→                resetForm()
+   878→                setShowAddDialog(false)
+   879→              }}
+   880→            >
+   881→              Cancel
+   882→            </Button>
+   883→            <Button
+   884→              onClick={handleCreate}
+   885→              disabled={createMutation.isPending}
+   886→            >
+   887→              {createMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+   888→              Create Staff
+   889→            </Button>
+   890→          </DialogFooter>
+   891→        </DialogContent>
+   892→      </Dialog>
+   893→
+   894→      {/* ── Remove Staff Confirmation ──────────────────────────────────────────── */}
+   895→      <AlertDialog open={!!removeTarget} onOpenChange={() => setRemoveTarget(null)}>
+   896→        <AlertDialogContent>
+   897→          <AlertDialogHeader>
+   898→            <AlertDialogTitle>Remove Staff Member</AlertDialogTitle>
+   899→            <AlertDialogDescription>
+   900→              Are you sure you want to remove{' '}
+   901→              <strong>{removeTarget?.name}</strong>? They will be deactivated and can no longer
+   902→              access the system.
+   903→            </AlertDialogDescription>
+   904→          </AlertDialogHeader>
+   905→          <AlertDialogFooter>
+   906→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   907→            <AlertDialogAction
+   908→              className="bg-destructive text-white hover:bg-destructive/90"
+   909→              onClick={() => {
+   910→                if (removeTarget) removeMutation.mutate(removeTarget.userId)
+   911→              }}
+   912→              disabled={removeMutation.isPending}
+   913→            >
+   914→              {removeMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+   915→              Remove
+   916→            </AlertDialogAction>
+   917→          </AlertDialogFooter>
+   918→        </AlertDialogContent>
+   919→      </AlertDialog>
+   920→    </div>
+   921→  )
+   922→}
+   923→
