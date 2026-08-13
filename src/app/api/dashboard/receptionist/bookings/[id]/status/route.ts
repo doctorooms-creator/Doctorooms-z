@@ -75,9 +75,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
 
-    // Verify booking belongs to the receptionist's doctor
-    if (booking.doctorId !== receptionist.doctorId) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    // Verify booking belongs to the receptionist's doctor or hospital
+    if (receptionist.hospitalId && !receptionist.doctorId) {
+      // Hospital mode: verify booking belongs to this hospital
+      if (booking.hospitalId !== receptionist.hospitalId) {
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      }
+    } else {
+      // Clinic mode: verify booking belongs to the receptionist's doctor
+      if (booking.doctorId !== receptionist.doctorId) {
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      }
     }
 
     // Validate transition

@@ -1,12 +1,25 @@
 'use client'
 
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useMemo } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Dialog,
   DialogContent,
@@ -23,9 +36,14 @@ import {
   Weight,
   Activity,
   Droplets,
+  Package,
+  CheckCircle2,
+  MoreHorizontal,
+  Filter,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 interface PMedicine {
   id: string
@@ -48,34 +66,106 @@ interface PLabel {
 interface Prescription {
   id: string
   patientName: string
-  patientAge: string
+  patientAge?: string
   disease: string
-  weight: string
-  bp: string
-  temperature: string
-  description: string
+  weight?: string
+  bp?: string
+  temperature?: string
+  description?: string
   createdAt: string
   medicines: PMedicine[]
   labels: PLabel[]
+  doctorName?: string
+  departmentName?: string
+  hospitalName?: string
+  fulfillmentStatus?: string
+  packedBy?: string
+  packedAt?: string | null
+  packedByName?: string
+  doctorId?: string
+  departmentId?: string
+}
+
+interface PrescriptionsResponse {
+  isHospitalMode: boolean
+  prescriptions: Prescription[]
+  fulfillmentStats?: Record<string, number>
 }
 
 export default function PharmacistPrescriptionsPage() {
+  const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [viewOpen, setViewOpen] = useState(false)
   const [selectedRx, setSelectedRx] = useState<Prescription | null>(null)
+
+  // Hospital mode filters
+  const [filterDoctor, setFilterDoctor] = useState('')
+  const [filterDept, setFilterDept] = useState('')
+  const [filterStatus, setFilterStatus] = useState('')
 
   const handleSearch = (value: string) => {
     setSearch(value)
     setTimeout(() => setDebouncedSearch(value), 300)
   }
 
-  const { data, isLoading } = useQuery<{ prescriptions: Prescription[] }>({
-    queryKey: ['pharmacist-prescriptions', debouncedSearch],
-    queryFn: () =>
-      fetch(
-        `/api/dashboard/pharmacist/prescriptions?search=${encodeURIComponent(debouncedSearch)}`
-      ).then((r) => r.json()),
+  const { data, isLoading } = useQuery<PrescriptionsResponse>({
+    queryKey: ['pharmacist-prescriptions', debouncedSearch, filterDoctor, filterDept, filterStatus],
+    queryFn: () => {
+      const params = new URLSearchParams()
+      if (debouncedSearch) params.set('search', debouncedSearch)
+      if (filterDoctor) params.set('doctorId', filterDoctor)
+      if (filterDept) params.set('departmentId', filterDept)
+      if (filterStatus) params.set('fulfillmentStatus', filterStatus)
+      return fetch(`/api/dashboard/pharmacist/prescriptions?${params.toString()}`, { credentials: 'include' })
+        .then((r) => r.json())
+    },
+  })
+
+  const isHospitalMode = data?.isHospitalMode ?? false
+
+  // Extract unique doctors and departments from prescription data for filter dropdowns
+  const prescriptionsList = data?.prescriptions ?? []
+  const doctors = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>()
+    for (const rx of prescriptionsList) {
+      if (rx.doctorId && rx.doctorName && !map.has(rx.doctorId)) {
+        map.set(rx.doctorId, { id: rx.doctorId, name: rx.doctorName })
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [prescriptionsList])
+  const departments = useMemo(() => {
+    const map = new Map<string, { id: string; name: string }>()
+    for (const rx of prescriptionsList) {
+      if (rx.departmentId && rx.departmentName && !map.has(rx.departmentId)) {
+        map.set(rx.departmentId, { id: rx.departmentId, name: rx.departmentName })
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name))
+  }, [prescriptionsList])
+
+  const fulfillMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      const res = await fetch(`/api/dashboard/pharmacist/prescriptions/${id}/fulfill`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+        credentials: 'include',
+      })
+      if (!res.ok) {
+        const errData = await res.json()
+        throw new Error(errData.error || 'Failed to update')
+      }
+      return res.json()
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pharmacist-prescriptions'] })
+      toast.success('Prescription updated successfully')
+    },
+    onError: (err: Error) => {
+      toast.error(err.message)
+    },
   })
 
   const handleView = (rx: Prescription) => {
@@ -83,18 +173,103 @@ export default function PharmacistPrescriptionsPage() {
     setViewOpen(true)
   }
 
+  const getFulfillmentBadge = (status?: string) => {
+    switch (status) {
+      case 'Pending':
+        return (
+          <Badge className="bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800">
+            Pending
+          </Badge>
+        )
+      case 'Packed':
+        return (
+          <Badge className="bg-teal-100 text-teal-700 border-teal-200 dark:bg-teal-950/40 dark:text-teal-400 dark:border-teal-800">
+            <Package className="mr-1 h-3 w-3" />
+            Packed
+          </Badge>
+        )
+      case 'Dispensed':
+        return (
+          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800">
+            <CheckCircle2 className="mr-1 h-3 w-3" />
+            Dispensed
+          </Badge>
+        )
+      default:
+        return null
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header with search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search by patient name..."
-          value={search}
-          onChange={(e) => handleSearch(e.target.value)}
-          className="pl-9"
-        />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative max-w-md flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search by patient name..."
+            value={search}
+            onChange={(e) => handleSearch(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        {isHospitalMode && (
+          <Badge variant="outline" className="w-fit border-teal-300 text-teal-700 dark:border-teal-700 dark:text-teal-400">
+            <Filter className="mr-1 h-3 w-3" />
+            Hospital Mode
+          </Badge>
+        )}
       </div>
+
+      {/* Hospital mode filter bar */}
+      {isHospitalMode && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border bg-card p-3">
+          <span className="text-sm font-medium text-muted-foreground">Filters:</span>
+          <Select value={filterDoctor || '__all__'} onValueChange={(v) => setFilterDoctor(v === '__all__' ? '' : v)}>
+            <SelectTrigger size="sm" className="w-[180px]">
+              <SelectValue placeholder="All Doctors" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Doctors</SelectItem>
+              {doctors.map((d) => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterDept || '__all__'} onValueChange={(v) => setFilterDept(v === '__all__' ? '' : v)}>
+            <SelectTrigger size="sm" className="w-[180px]">
+              <SelectValue placeholder="All Departments" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Departments</SelectItem>
+              {departments.map((d) => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterStatus || '__all__'} onValueChange={(v) => setFilterStatus(v === '__all__' ? '' : v)}>
+            <SelectTrigger size="sm" className="w-[170px]">
+              <SelectValue placeholder="All Statuses" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">All Statuses</SelectItem>
+              <SelectItem value="Pending">Pending</SelectItem>
+              <SelectItem value="Packed">Packed</SelectItem>
+              <SelectItem value="Dispensed">Dispensed</SelectItem>
+            </SelectContent>
+          </Select>
+          {(filterDoctor || filterDept || filterStatus) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground hover:text-foreground"
+              onClick={() => { setFilterDoctor(''); setFilterDept(''); setFilterStatus('') }}
+            >
+              Clear filters
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* Prescription cards */}
       {isLoading && (
@@ -120,7 +295,7 @@ export default function PharmacistPrescriptionsPage() {
         </div>
       )}
 
-      {!isLoading && data?.prescriptions?.length > 0 && (
+      {!isLoading && data?.prescriptions && data.prescriptions.length > 0 && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {data.prescriptions.map((rx, i) => (
             <motion.div
@@ -132,7 +307,16 @@ export default function PharmacistPrescriptionsPage() {
               <Card className="group transition-all hover:shadow-md hover:border-teal-300 dark:hover:border-teal-700">
                 <CardContent className="p-5 space-y-3">
                   <div className="flex items-start justify-between">
-                    <div>
+                    <div className="min-w-0 flex-1">
+                      {/* Hospital mode: doctor & department badge */}
+                      {isHospitalMode && rx.doctorName && (
+                        <Badge
+                          variant="outline"
+                          className="mb-1.5 border-teal-300 bg-teal-50 text-teal-700 text-[10px] dark:border-teal-700 dark:bg-teal-950/40 dark:text-teal-400"
+                        >
+                          {rx.doctorName}{rx.departmentName ? ` · ${rx.departmentName}` : ''}
+                        </Badge>
+                      )}
                       <p className="font-semibold text-sm">{rx.patientName}</p>
                       <div className="flex items-center gap-2 mt-0.5 text-xs text-muted-foreground">
                         <Calendar className="h-3 w-3" />
@@ -140,14 +324,43 @@ export default function PharmacistPrescriptionsPage() {
                         {rx.patientAge && <span>· Age: {rx.patientAge}</span>}
                       </div>
                     </div>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-teal-600 hover:text-teal-700 dark:text-teal-400"
-                      onClick={() => handleView(rx)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {isHospitalMode && getFulfillmentBadge(rx.fulfillmentStatus)}
+                      {isHospitalMode && rx.fulfillmentStatus !== 'Dispensed' && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-teal-600">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Actions</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              onClick={() => fulfillMutation.mutate({ id: rx.id, status: 'Packed' })}
+                              disabled={fulfillMutation.isPending}
+                            >
+                              <Package className="mr-2 h-4 w-4" />
+                              Mark as Packed
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => fulfillMutation.mutate({ id: rx.id, status: 'Dispensed' })}
+                              disabled={fulfillMutation.isPending}
+                            >
+                              <CheckCircle2 className="mr-2 h-4 w-4" />
+                              Mark as Dispensed
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-teal-600 hover:text-teal-700 dark:text-teal-400"
+                        onClick={() => handleView(rx)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
 
                   {rx.disease && (
@@ -177,6 +390,12 @@ export default function PharmacistPrescriptionsPage() {
                       )}
                     </div>
                   )}
+
+                  {rx.packedByName && rx.packedAt && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Packed by {rx.packedByName} at {format(new Date(rx.packedAt), 'h:mm a')}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             </motion.div>
@@ -194,16 +413,27 @@ export default function PharmacistPrescriptionsPage() {
             <div className="space-y-5 pt-2">
               {/* Patient info */}
               <div className="rounded-lg border border-border p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    {isHospitalMode && selectedRx.doctorName && (
+                      <Badge
+                        variant="outline"
+                        className="mb-2 border-teal-300 bg-teal-50 text-teal-700 text-xs dark:border-teal-700 dark:bg-teal-950/40 dark:text-teal-400"
+                      >
+                        {selectedRx.doctorName}{selectedRx.departmentName ? ` · ${selectedRx.departmentName}` : ''}
+                      </Badge>
+                    )}
                     <h3 className="font-semibold text-lg">{selectedRx.patientName}</h3>
                     <p className="text-sm text-muted-foreground">
                       {format(new Date(selectedRx.createdAt), 'MMMM d, yyyy · h:mm a')}
                     </p>
                   </div>
-                  {selectedRx.patientAge && (
-                    <Badge variant="outline">Age: {selectedRx.patientAge}</Badge>
-                  )}
+                  <div className="flex flex-col items-end gap-1">
+                    {selectedRx.patientAge && (
+                      <Badge variant="outline">Age: {selectedRx.patientAge}</Badge>
+                    )}
+                    {isHospitalMode && getFulfillmentBadge(selectedRx.fulfillmentStatus)}
+                  </div>
                 </div>
 
                 {selectedRx.disease && (
@@ -244,6 +474,17 @@ export default function PharmacistPrescriptionsPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Packed info in dialog */}
+                {selectedRx.packedByName && selectedRx.packedAt && (
+                  <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                    <Package className="h-3.5 w-3.5" />
+                    <span>
+                      Packed by <span className="font-medium text-foreground">{selectedRx.packedByName}</span>{' '}
+                      at {format(new Date(selectedRx.packedAt), 'MMMM d, yyyy · h:mm a')}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Description */}
@@ -312,6 +553,33 @@ export default function PharmacistPrescriptionsPage() {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Fulfillment actions in dialog (hospital mode) */}
+              {isHospitalMode && selectedRx.fulfillmentStatus !== 'Dispensed' && (
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border">
+                  <span className="text-sm font-medium text-muted-foreground">Actions:</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-teal-600 border-teal-300 hover:bg-teal-50 dark:text-teal-400 dark:border-teal-700"
+                    onClick={() => fulfillMutation.mutate({ id: selectedRx.id, status: 'Packed' })}
+                    disabled={fulfillMutation.isPending}
+                  >
+                    <Package className="mr-1.5 h-3.5 w-3.5" />
+                    Mark as Packed
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-emerald-600 border-emerald-300 hover:bg-emerald-50 dark:text-emerald-400 dark:border-emerald-700"
+                    onClick={() => fulfillMutation.mutate({ id: selectedRx.id, status: 'Dispensed' })}
+                    disabled={fulfillMutation.isPending}
+                  >
+                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                    Mark as Dispensed
+                  </Button>
                 </div>
               )}
             </div>

@@ -4,8 +4,9 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -40,9 +41,18 @@ interface HospitalAppointment {
   disease: string
   bookingType: string
   createdAt: string
+  tokenNumber: string | null
+  tokenOrder: number | null
+  departmentId: string | null
+  departmentName: string | null
 }
 
 interface DoctorOption {
+  id: string
+  name: string
+}
+
+interface DepartmentOption {
   id: string
   name: string
 }
@@ -77,22 +87,25 @@ const tabs = [
 export default function HospitalAppointmentsPage() {
   const [statusFilter, setStatusFilter] = useState('all')
   const [doctorFilter, setDoctorFilter] = useState('all')
+  const [departmentFilter, setDepartmentFilter] = useState('all')
   const [search, setSearch] = useState('')
 
   const { data, isLoading } = useQuery<{
     appointments: HospitalAppointment[]
     doctors: DoctorOption[]
+    departments: DepartmentOption[]
     statusCounts: Record<string, number>
   }>({
-    queryKey: ['hospital-appointments', statusFilter, doctorFilter, search],
+    queryKey: ['hospital-appointments', statusFilter, doctorFilter, departmentFilter, search],
     queryFn: () =>
       fetch(
-        `/api/dashboard/hospital/appointments?status=${statusFilter}&doctorId=${doctorFilter}&search=${encodeURIComponent(search)}`
+        `/api/dashboard/hospital/appointments?status=${statusFilter}&doctorId=${doctorFilter}&departmentId=${departmentFilter}&search=${encodeURIComponent(search)}`
       ).then((r) => r.json()),
   })
 
   const appointments = data?.appointments ?? []
   const doctors = data?.doctors ?? []
+  const departments = data?.departments ?? []
   const statusCounts = data?.statusCounts ?? {}
 
   return (
@@ -142,6 +155,19 @@ export default function HospitalAppointmentsPage() {
             className="pl-9"
           />
         </div>
+        <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+          <SelectTrigger className="w-full sm:w-48">
+            <SelectValue placeholder="All Departments" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Departments</SelectItem>
+            {departments.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={doctorFilter} onValueChange={setDoctorFilter}>
           <SelectTrigger className="w-full sm:w-56">
             <SelectValue placeholder="All Doctors" />
@@ -160,126 +186,153 @@ export default function HospitalAppointmentsPage() {
       {/* Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Patient</TableHead>
-                <TableHead>Doctor</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Fee</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                Array.from({ length: 8 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="h-7 w-7 animate-pulse rounded-full bg-muted" />
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Patient</TableHead>
+                  <TableHead>Doctor</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Token</TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Fee</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  Array.from({ length: 8 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div className="h-7 w-7 animate-pulse rounded-full bg-muted" />
+                          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="h-4 w-24 animate-pulse rounded bg-muted" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="h-4 w-20 animate-pulse rounded bg-muted" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="ml-auto h-4 w-14 animate-pulse rounded bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="h-5 w-16 animate-pulse rounded-full bg-muted" />
+                      </TableCell>
+                      <TableCell>
+                        <div className="ml-auto h-4 w-14 animate-pulse rounded bg-muted" />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : appointments.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-12 text-center">
+                      <CalendarDays className="mx-auto mb-2 h-10 w-10 text-muted-foreground/50" />
+                      <p className="text-sm text-muted-foreground">
+                        {search || statusFilter !== 'all' || doctorFilter !== 'all' || departmentFilter !== 'all'
+                          ? 'No appointments match your filters'
+                          : 'No appointments yet'}
+                      </p>
                     </TableCell>
                   </TableRow>
-                ))
-              ) : appointments.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="py-12 text-center">
-                    <CalendarDays className="mx-auto mb-2 h-10 w-10 text-muted-foreground/50" />
-                    <p className="text-sm text-muted-foreground">
-                      {search || statusFilter !== 'all' || doctorFilter !== 'all'
-                        ? 'No appointments match your filters'
-                        : 'No appointments yet'}
-                    </p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                appointments.map((appt, i) => {
-                  const StatusIcon = statusIcons[appt.status] || Clock
-                  return (
-                    <motion.tr
-                      key={appt.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: i * 0.03 }}
-                      className="group border-b border-border transition-colors hover:bg-muted/50"
-                    >
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-7 w-7">
-                            <AvatarImage src={appt.patientImg || ''} />
-                            <AvatarFallback className="text-xs">
-                              {appt.patientName.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <p className="text-sm font-medium">{appt.patientName}</p>
-                            {appt.disease && (
-                              <p className="text-xs text-muted-foreground">{appt.disease}</p>
-                            )}
+                ) : (
+                  appointments.map((appt, i) => {
+                    const StatusIcon = statusIcons[appt.status] || Clock
+                    return (
+                      <motion.tr
+                        key={appt.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03 }}
+                        className="group border-b border-border transition-colors hover:bg-muted/50"
+                      >
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-7 w-7">
+                              <AvatarImage src={appt.patientImg || ''} />
+                              <AvatarFallback className="text-xs">
+                                {appt.patientName.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div>
+                              <p className="text-sm font-medium">{appt.patientName}</p>
+                              {appt.disease && (
+                                <p className="text-xs text-muted-foreground">{appt.disease}</p>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-7 w-7">
-                            <AvatarImage src={appt.doctorImg || ''} />
-                            <AvatarFallback className="text-xs">
-                              {appt.doctorName.charAt(0)}
-                            </AvatarFallback>
-                          </Avatar>
-                          {appt.doctorName}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        <div className="flex flex-col">
-                          <span className="text-sm">
-                            {format(new Date(appt.date), 'MMM d, yyyy')}
-                          </span>
-                          <span className="text-xs">
-                            {format(new Date(appt.date), 'h:mm a')}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="text-xs text-muted-foreground">{appt.bookingType}</span>
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
-                            statusColors[appt.status] || 'bg-gray-100 text-gray-700'
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-7 w-7">
+                              <AvatarImage src={appt.doctorImg || ''} />
+                              <AvatarFallback className="text-xs">
+                                {appt.doctorName.charAt(0)}
+                              </AvatarFallback>
+                            </Avatar>
+                            {appt.doctorName}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          <div className="flex flex-col">
+                            <span className="text-sm">
+                              {format(new Date(appt.date), 'MMM d, yyyy')}
+                            </span>
+                            <span className="text-xs">
+                              {format(new Date(appt.date), 'h:mm a')}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {appt.tokenNumber ? (
+                            <Badge
+                              variant="outline"
+                              className="border-violet-300 bg-violet-50 text-violet-700 text-[10px] px-1.5 py-0 font-semibold whitespace-nowrap dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-300"
+                            >
+                              {appt.tokenNumber}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
                           )}
-                        >
-                          <StatusIcon className="h-3 w-3" />
-                          {appt.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        ₹{appt.charge.toLocaleString('en-IN')}
-                      </TableCell>
-                    </motion.tr>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground">
+                            {appt.departmentName || '—'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-xs text-muted-foreground">{appt.bookingType}</span>
+                        </TableCell>
+                        <TableCell>
+                          <span
+                            className={cn(
+                              'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium',
+                              statusColors[appt.status] || 'bg-gray-100 text-gray-700'
+                            )}
+                          >
+                            <StatusIcon className="h-3 w-3" />
+                            {appt.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          ₹{appt.charge.toLocaleString('en-IN')}
+                        </TableCell>
+                      </motion.tr>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

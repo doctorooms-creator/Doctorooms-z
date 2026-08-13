@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { resolveAvatarUrl } from '@/lib/avatar-url'
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,6 +18,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const statusFilter = searchParams.get('status') || 'all'
     const doctorFilter = searchParams.get('doctorId') || 'all'
+    const departmentFilter = searchParams.get('departmentId') || 'all'
     const search = searchParams.get('search') || ''
 
     const where: Record<string, unknown> = {
@@ -28,6 +30,9 @@ export async function GET(request: NextRequest) {
     if (doctorFilter !== 'all') {
       where.doctorId = doctorFilter
     }
+    if (departmentFilter !== 'all') {
+      where.departmentId = departmentFilter
+    }
     if (search) {
       where.OR = [
         { patientName: { contains: search } },
@@ -35,7 +40,7 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    const [appointments, doctors] = await Promise.all([
+    const [appointments, doctors, departments] = await Promise.all([
       db.booking.findMany({
         where,
         orderBy: { createdAt: 'desc' },
@@ -44,12 +49,20 @@ export async function GET(request: NextRequest) {
             include: { user: { select: { name: true, profileImg: true } } },
           },
           user: { select: { name: true, profileImg: true } },
+          department: {
+            select: { id: true, name: true },
+          },
         },
       }),
       db.doctor.findMany({
         where: { hospitalId: hospital.id },
         select: { id: true, user: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
+      }),
+      db.department.findMany({
+        where: { hospitalId: hospital.id, status: 'Active' },
+        select: { id: true, name: true },
+        orderBy: { sortOrder: 'asc' },
       }),
     ])
 
@@ -67,9 +80,9 @@ export async function GET(request: NextRequest) {
         id: b.id,
         appointmentNo: b.appointmentNo,
         patientName: b.patientName || b.user?.name || 'Walk-in',
-        patientImg: b.user?.profileImg,
+        patientImg: resolveAvatarUrl(b.user?.profileImg),
         doctorName: b.doctor?.user?.name || 'Unknown',
-        doctorImg: b.doctor?.user?.profileImg,
+        doctorImg: resolveAvatarUrl(b.doctor?.user?.profileImg),
         doctorId: b.doctorId,
         date: b.bookingDate,
         status: b.status,
@@ -77,11 +90,16 @@ export async function GET(request: NextRequest) {
         disease: b.disease,
         bookingType: b.bookingType,
         createdAt: b.createdAt,
+        tokenNumber: b.tokenNumber || null,
+        tokenOrder: b.tokenOrder || null,
+        departmentId: b.departmentId || null,
+        departmentName: b.department?.name || null,
       })),
       doctors: doctors.map((d) => ({
         id: d.id,
         name: d.user.name,
       })),
+      departments,
       statusCounts: statusCountMap,
     })
   } catch (error) {

@@ -8,25 +8,41 @@ export async function GET(request: NextRequest) {
 
     const receptionist = await db.receptionist.findUnique({
       where: { userId: user.id },
+      select: { doctorId: true, hospitalId: true },
     })
 
     if (!receptionist) {
       return NextResponse.json({ error: 'Receptionist not found' }, { status: 404 })
     }
 
+    const isHospitalMode = !!receptionist.hospitalId && !receptionist.doctorId
+
+    // Resolve doctor IDs for hospital mode
+    let doctorIds: string[] = []
+    if (isHospitalMode) {
+      const dhLinks = await db.doctorHospital.findMany({
+        where: { hospitalId: receptionist.hospitalId, status: 'Active' },
+        select: { doctorId: true },
+      })
+      doctorIds = dhLinks.map(d => d.doctorId)
+    }
+
     const { searchParams } = new URL(request.url)
     const search = searchParams.get('search') || ''
 
+    // Build booking filter based on mode
+    const bookingFilter = isHospitalMode
+      ? { doctorId: { in: doctorIds }, hospitalId: receptionist.hospitalId }
+      : { doctorId: receptionist.doctorId! }
+
     const where: Record<string, unknown> = {
       role: 'patient',
-      bookings: {
-        some: { doctorId: receptionist.doctorId },
-      },
+      bookings: { some: bookingFilter },
     }
     if (search) {
       where.AND = [
         { role: 'patient' },
-        { bookings: { some: { doctorId: receptionist.doctorId } } },
+        { bookings: { some: bookingFilter } },
         {
           OR: [
             { name: { contains: search } },
@@ -54,18 +70,18 @@ export async function GET(request: NextRequest) {
         _count: {
           select: {
             bookings: {
-              where: { doctorId: receptionist.doctorId },
+              where: bookingFilter,
             },
           },
         },
       },
     })
 
-    // Get latest booking date per patient for this doctor
+    // Get latest booking date per patient
     const latestBookings = await db.booking.groupBy({
       by: ['userId'],
       where: {
-        doctorId: receptionist.doctorId,
+        ...bookingFilter,
         userId: { not: null },
       },
       _max: { bookingDate: true },

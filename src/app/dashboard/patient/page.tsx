@@ -1,6 +1,7 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import { useQuery, useQueries } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { StatCard } from '@/components/dashboard/stat-card'
@@ -17,6 +18,7 @@ import {
   Upload,
   ArrowRight,
   Clock,
+  Loader2,
 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -35,6 +37,9 @@ interface PatientStats {
     disease: string
     status: string
     appointmentNo: string
+    tokenNumber?: string
+    hospitalId?: string
+    departmentId?: string
   }[]
   recentActivity: {
     id: string
@@ -43,6 +48,13 @@ interface PatientStats {
     date: string
     status: string
   }[]
+}
+
+interface QueueInfo {
+  myPosition: number
+  totalAhead: number
+  estimatedWaitMinutes: number
+  currentlyServingToken: string | null
 }
 
 const statusColors: Record<string, string> = {
@@ -66,6 +78,37 @@ export default function PatientDashboardPage() {
     queryKey: ['patient-stats'],
     queryFn: () => fetch('/api/dashboard/patient/stats').then((r) => r.json()),
   })
+
+  // Identify approved appointments that need queue fetching
+  const queueableBookings = useMemo(() => {
+    return (stats?.upcomingList ?? []).filter(
+      (appt) => appt.status === 'Approve' && (appt.tokenNumber || appt.hospitalId)
+    )
+  }, [stats?.upcomingList])
+
+  // Parallel queue fetches for approved appointments
+  const queueResults = useQueries({
+    queries: queueableBookings.map((appt) => ({
+      queryKey: ['patient-queue', appt.id],
+      queryFn: () =>
+        fetch(`/api/patient/bookings/queue?bookingId=${appt.id}`).then((r) => r.json()),
+      enabled: !!appt.id,
+      refetchInterval: 30_000,
+      staleTime: 15_000,
+    })),
+  })
+
+  // Build a map of bookingId -> queueInfo
+  const queueMap = useMemo(() => {
+    const map = new Map<string, QueueInfo | null>()
+    queueableBookings.forEach((appt, idx) => {
+      const result = queueResults[idx]
+      if (result?.data?.queueInfo) {
+        map.set(appt.id, result.data.queueInfo)
+      }
+    })
+    return map
+  }, [queueableBookings, queueResults])
 
   if (isLoading) {
     return <PatientDashboardSkeleton />
@@ -135,46 +178,73 @@ export default function PatientDashboardPage() {
               </div>
             ) : (
               <div className="divide-y divide-border">
-                {stats?.upcomingList?.map((appt, i) => (
-                  <motion.div
-                    key={appt.id}
-                    initial={{ opacity: 0, x: -10 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.06 }}
-                  >
-                    <Link
-                      href={`/dashboard/patient/appointments/${appt.id}`}
-                      className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/50"
+                {stats?.upcomingList?.map((appt, i) => {
+                  const queueInfo = queueMap.get(appt.id)
+                  return (
+                    <motion.div
+                      key={appt.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.06 }}
                     >
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={appt.doctorImg} />
-                        <AvatarFallback className="bg-teal-100 text-sm font-semibold text-teal-700 dark:bg-teal-900 dark:text-teal-300">
-                          {appt.doctorName.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{appt.doctorName}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {appt.doctorSpecialization} {appt.disease ? `• ${appt.disease}` : ''}
-                        </p>
-                      </div>
-                      <div className="hidden sm:flex flex-col items-end gap-1">
-                        <p className="text-xs font-medium">
-                          {format(new Date(appt.date), 'MMM d, yyyy')}
-                        </p>
-                        <span
-                          className={cn(
-                            'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
-                            statusColors[appt.status] || 'bg-gray-100 text-gray-700'
+                      <Link
+                        href={`/dashboard/patient/appointments/${appt.id}`}
+                        className="flex items-center gap-4 px-5 py-4 transition-colors hover:bg-muted/50"
+                      >
+                        <Avatar className="h-10 w-10">
+                          <AvatarImage src={appt.doctorImg} />
+                          <AvatarFallback className="bg-teal-100 text-sm font-semibold text-teal-700 dark:bg-teal-900 dark:text-teal-300">
+                            {appt.doctorName.charAt(0)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-sm font-medium truncate">{appt.doctorName}</p>
+                            {appt.status === 'Approve' && appt.tokenNumber && (
+                              <Badge
+                                variant="outline"
+                                className="border-violet-300 bg-violet-50 text-violet-700 text-[10px] px-1.5 py-0 font-semibold dark:border-violet-700 dark:bg-violet-950/50 dark:text-violet-300"
+                              >
+                                {appt.tokenNumber}
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {appt.doctorSpecialization} {appt.disease ? `• ${appt.disease}` : ''}
+                          </p>
+                          {appt.status === 'Approve' && queueInfo && (
+                            <p className="mt-1 text-xs font-medium text-teal-600 dark:text-teal-400">
+                              Queue #{queueInfo.myPosition}
+                              <span className="ml-1.5 text-muted-foreground font-normal">
+                                {queueInfo.totalAhead} ahead · ~{queueInfo.estimatedWaitMinutes} min
+                              </span>
+                            </p>
                           )}
-                        >
-                          {appt.status}
-                        </span>
-                      </div>
-                      <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                    </Link>
-                  </motion.div>
-                ))}
+                          {appt.status === 'Approve' && !queueInfo && appt.hospitalId && queueableBookings.some((q) => q.id === appt.id) && (
+                            <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              Loading queue…
+                            </div>
+                          )}
+                        </div>
+                        <div className="hidden sm:flex flex-col items-end gap-1">
+                          <p className="text-xs font-medium">
+                            {format(new Date(appt.date), 'MMM d, yyyy')}
+                          </p>
+                          <span
+                            className={cn(
+                              'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
+                              statusColors[appt.status] || 'bg-gray-100 text-gray-700'
+                            )}
+                          >
+                            {appt.status}
+                          </span>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      </Link>
+                    </motion.div>
+                  )
+                })}
               </div>
             )}
           </CardContent>

@@ -26,6 +26,12 @@ export interface PrintData {
     phoneNo: string
     mobileNo: string
   }
+  hospital: {
+    hospitalName: string
+    departmentName: string
+    departmentFloor: string
+    departmentOpdRoom: string
+  } | null
   settings: {
     logo: string
     header: string
@@ -116,7 +122,7 @@ const sectionTitle: React.CSSProperties = {
 // ─── Component ───────────────────────────────────────────
 
 export function PrescriptionPrintView({ data, onClose, onPrint }: PrescriptionPrintViewProps) {
-  const { patient, doctor, settings, complaints, vitals, labels, medicines, tables, suggestions, nextVisit, createdAt } = data
+  const { patient, doctor, hospital, settings, complaints, vitals, labels, medicines, tables, suggestions, nextVisit, createdAt } = data
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -181,6 +187,17 @@ export function PrescriptionPrintView({ data, onClose, onPrint }: PrescriptionPr
                       alt="Doctor Header"
                       style={{ maxHeight: '120px', maxWidth: '100%', objectFit: 'contain' }}
                     />
+                    {/* Hospital context line below full header image */}
+                    {hospital && hospital.hospitalName && (
+                      <div style={{ marginTop: '6px' }}>
+                        <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: COLORS.text }}>{hospital.hospitalName}</p>
+                        {(hospital.departmentName || hospital.departmentFloor || hospital.departmentOpdRoom) && (
+                          <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: COLORS.gray500, fontWeight: 500 }}>
+                            {[hospital.departmentName, hospital.departmentFloor && `Floor ${hospital.departmentFloor}`, hospital.departmentOpdRoom].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   /* Standard header: logo + doctor info text */
@@ -196,6 +213,19 @@ export function PrescriptionPrintView({ data, onClose, onPrint }: PrescriptionPr
                         </div>
                       )}
                       <div>
+                        {/* Hospital context — shown above doctor name when available */}
+                        {hospital && hospital.hospitalName && (
+                          <div style={{ marginBottom: '6px' }}>
+                            <h2 style={{ margin: '0 0 3px 0', fontSize: '18px', fontWeight: 800, color: COLORS.text, letterSpacing: '0.2px' }}>
+                              {hospital.hospitalName}
+                            </h2>
+                            {(hospital.departmentName || hospital.departmentFloor || hospital.departmentOpdRoom) && (
+                              <p style={{ margin: 0, fontSize: '12px', color: COLORS.gray500, fontWeight: 500 }}>
+                                {[hospital.departmentName, hospital.departmentFloor && `Floor ${hospital.departmentFloor}`, hospital.departmentOpdRoom].filter(Boolean).join(' · ')}
+                              </p>
+                            )}
+                          </div>
+                        )}
                         <h1 style={{ margin: '0 0 2px 0', fontSize: '20px', fontWeight: 700, color: COLORS.teal, letterSpacing: '0.3px' }}>
                           Dr. {doctor.name || 'Unknown'}
                         </h1>

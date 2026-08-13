@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useCallback, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format, addDays, isBefore, startOfDay } from 'date-fns'
@@ -91,8 +91,13 @@ const fadeIn = {
 export default function PatientBookDoctorPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const doctorId = params.doctorId as string
+
+  // Hospital/Department context from query params (e.g. from public hospital pages)
+  const hospitalId = searchParams.get('hospitalId') || ''
+  const departmentId = searchParams.get('departmentId') || ''
 
   // State
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
@@ -279,6 +284,8 @@ export default function PatientBookDoctorPage() {
       description: description.trim(),
       state: bookingState.trim(),
       city: bookingCity.trim(),
+      ...(hospitalId ? { hospitalId } : {}),
+      ...(departmentId ? { departmentId } : {}),
     })
   }
 

@@ -109,6 +109,9 @@ export async function GET(req: NextRequest) {
         disease: b.disease,
         status: b.status,
         appointmentNo: b.appointmentNo,
+        tokenNumber: b.tokenNumber || undefined,
+        hospitalId: b.hospitalId || undefined,
+        departmentId: b.departmentId || undefined,
       })),
       recentActivity: recentBookings.map((b) => ({
         id: b.id,

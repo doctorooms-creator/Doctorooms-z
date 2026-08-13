@@ -46,6 +46,8 @@ export async function GET(
             disease: true,
             timeSlot: true,
             bookingDate: true,
+            hospitalId: true,
+            departmentId: true,
           },
         },
         doctor: {
@@ -118,6 +120,30 @@ export async function GET(
       hospitalAddress: doc?.hospitalAddress || '',
       phoneNo: doc?.phoneNo || doc?.user?.phoneNo || '',
       mobileNo: doc?.user?.mobileNo || '',
+    }
+
+    // Fetch hospital/department info if the booking is hospital-based
+    let hospitalContext: { hospitalName: string; departmentName: string; departmentFloor: string; departmentOpdRoom: string } | null = null
+    if (prescription.booking?.hospitalId) {
+      const hospital = await db.hospital.findUnique({
+        where: { id: prescription.booking.hospitalId },
+        select: { id: true, hospitalName: true },
+      })
+      let department = null
+      if (prescription.booking.departmentId) {
+        department = await db.department.findUnique({
+          where: { id: prescription.booking.departmentId },
+          select: { id: true, name: true, floorNo: true, opdRoom: true },
+        })
+      }
+      if (hospital) {
+        hospitalContext = {
+          hospitalName: hospital.hospitalName,
+          departmentName: department?.name || '',
+          departmentFloor: department?.floorNo || '',
+          departmentOpdRoom: department?.opdRoom || '',
+        }
+      }
     }
 
     // Load CoMaster records for complaints separately (no direct relation in schema)
@@ -231,6 +257,7 @@ export async function GET(
     return NextResponse.json({
       patient,
       doctor,
+      hospital: hospitalContext,
       settings: printSettings,
       complaints,
       vitals,

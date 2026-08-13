@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { doctorId, bookingDate, timeSlot, bookingMode, disease, description, gender, age, bloodGroup, weight, relationWithMe, state, city } = body
+    const { doctorId, bookingDate, timeSlot, bookingMode, disease, description, gender, age, bloodGroup, weight, relationWithMe, state, city, hospitalId, departmentId } = body
 
     if (!doctorId || !bookingDate || !bookingMode || !disease || !gender) {
       return NextResponse.json(
@@ -36,6 +36,21 @@ export async function POST(req: NextRequest) {
 
     if (!doctor) {
       return NextResponse.json({ error: 'Doctor not found' }, { status: 404 })
+    }
+
+    // Validate hospital context if provided
+    if (hospitalId) {
+      const dhLink = await db.doctorHospital.findFirst({
+        where: {
+          doctorId,
+          hospitalId,
+          ...(departmentId ? { departmentId } : {}),
+          status: 'Active',
+        },
+      })
+      if (!dhLink) {
+        return NextResponse.json({ error: 'Doctor is not available at this hospital/department' }, { status: 400 })
+      }
     }
 
     const dateObj = new Date(bookingDate)
@@ -126,6 +141,8 @@ export async function POST(req: NextRequest) {
         status: 'Pending',
         appointmentCharge: doctor.fees || 0,
         patientName: user.name,
+        ...(hospitalId ? { hospitalId } : {}),
+        ...(departmentId ? { departmentId } : {}),
       },
     })
 
@@ -150,19 +167,38 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // Notify receptionist if exists
-    const receptionist = await db.receptionist.findFirst({
-      where: { doctorId: booking.doctorId },
-    })
-    if (receptionist) {
-      await db.notification.create({
-        data: {
-          userId: receptionist.userId,
-          title: 'New Appointment Booked',
-          message: `${user.name} has booked an appointment with your doctor for ${booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'a future date'}.`,
-          status: 'UNREAD',
-        },
+    // Notify receptionist(s) — hospital or clinic mode
+    const bookingDateStr = booking.bookingDate ? new Date(booking.bookingDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'a future date'
+    if (hospitalId) {
+      // Hospital mode: notify ALL hospital receptionists
+      const hospitalReceptionists = await db.receptionist.findMany({
+        where: { hospitalId },
       })
+      for (const rec of hospitalReceptionists) {
+        await db.notification.create({
+          data: {
+            userId: rec.userId,
+            title: 'New Appointment Booked',
+            message: `${user.name} has booked an appointment for ${bookingDateStr}.`,
+            status: 'UNREAD',
+          },
+        })
+      }
+    } else {
+      // Clinic mode: notify the clinic receptionist
+      const receptionist = await db.receptionist.findFirst({
+        where: { doctorId: booking.doctorId },
+      })
+      if (receptionist) {
+        await db.notification.create({
+          data: {
+            userId: receptionist.userId,
+            title: 'New Appointment Booked',
+            message: `${user.name} has booked an appointment with your doctor for ${bookingDateStr}.`,
+            status: 'UNREAD',
+          },
+        })
+      }
     }
 
     return NextResponse.json({ booking }, { status: 201 })

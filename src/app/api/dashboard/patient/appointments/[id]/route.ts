@@ -145,6 +145,7 @@ export async function GET(
         bp: p.bp,
         temperature: p.temperature,
         description: p.description,
+        fulfillmentStatus: p.fulfillmentStatus,
         medicines: p.medicines.map((med) => ({
           id: med.id,
           medicine: med.medicine,
@@ -169,6 +170,10 @@ export async function GET(
         createdAt: p.createdAt,
       })),
       statusTimeline,
+      tokenNumber: booking.tokenNumber || null,
+      tokenOrder: booking.tokenOrder || null,
+      hospitalId: booking.hospitalId || null,
+      departmentId: booking.departmentId || null,
     })
   } catch (error) {
     console.error('Appointment detail error:', error)

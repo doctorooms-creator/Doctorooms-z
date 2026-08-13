@@ -27,13 +27,22 @@ export async function PATCH(
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
 
-    // Doctor scoping: receptionist can only reject THEIR doctor's bookings
-    if (user.role === 'receptionist') {
-      const receptionist = await db.receptionist.findUnique({
-        where: { userId: user.id },
-        select: { doctorId: true },
-      })
-      if (!receptionist || booking.doctorId !== receptionist.doctorId) {
+    // Scoping: verify booking belongs to this receptionist's doctor or hospital
+    const receptionist = await db.receptionist.findUnique({
+      where: { userId: user.id },
+      select: { doctorId: true, hospitalId: true },
+    })
+    if (!receptionist) {
+      return NextResponse.json({ error: 'Receptionist not found' }, { status: 404 })
+    }
+    if (receptionist.hospitalId && !receptionist.doctorId) {
+      // Hospital mode: verify booking belongs to this hospital
+      if (booking.hospitalId !== receptionist.hospitalId) {
+        return NextResponse.json({ error: 'Unauthorized — not your hospital\'s booking' }, { status: 403 })
+      }
+    } else {
+      // Clinic mode: verify booking belongs to the receptionist's doctor
+      if (booking.doctorId !== receptionist.doctorId) {
         return NextResponse.json({ error: 'Unauthorized — not your doctor\'s booking' }, { status: 403 })
       }
     }

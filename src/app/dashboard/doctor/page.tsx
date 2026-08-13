@@ -575,6 +575,9 @@ function OPDQueueSection({ queueData }: { queueData: QueueResponse }) {
                       </Badge>
                     )}
                   </div>
+                  {item.receptionistName && (
+                    <p className="text-xs text-muted-foreground mt-0.5">via R. {item.receptionistName}</p>
+                  )}
                 </div>
 
                 <Badge
