@@ -1,0 +1,854 @@
+     1→'use client'
+     2→
+     3→import { useState, useMemo, useCallback } from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+     7→import { Button } from '@/components/ui/button'
+     8→import { Badge } from '@/components/ui/badge'
+     9→import { Input } from '@/components/ui/input'
+    10→import { Label } from '@/components/ui/label'
+    11→import { Switch } from '@/components/ui/switch'
+    12→import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+    13→import {
+    14→  Dialog,
+    15→  DialogContent,
+    16→  DialogHeader,
+    17→  DialogTitle,
+    18→  DialogFooter,
+    19→  DialogDescription,
+    20→} from '@/components/ui/dialog'
+    21→import {
+    22→  AlertDialog,
+    23→  AlertDialogAction,
+    24→  AlertDialogCancel,
+    25→  AlertDialogContent,
+    26→  AlertDialogDescription,
+    27→  AlertDialogFooter,
+    28→  AlertDialogHeader,
+    29→  AlertDialogTitle,
+    30→} from '@/components/ui/alert-dialog'
+    31→import {
+    32→  Select,
+    33→  SelectContent,
+    34→  SelectItem,
+    35→  SelectTrigger,
+    36→  SelectValue,
+    37→} from '@/components/ui/select'
+    38→import {
+    39→  DropdownMenu,
+    40→  DropdownMenuContent,
+    41→  DropdownMenuItem,
+    42→  DropdownMenuTrigger,
+    43→} from '@/components/ui/dropdown-menu'
+    44→import { Skeleton } from '@/components/ui/skeleton'
+    45→import {
+    46→  Plus,
+    47→  MoreHorizontal,
+    48→  Pencil,
+    49→  Trash2,
+    50→  Search,
+    51→  Star,
+    52→  Clock,
+    53→  ArrowUpDown,
+    54→  Filter,
+    55→  UserPlus,
+    56→} from 'lucide-react'
+    57→import { toast } from 'sonner'
+    58→import { cn } from '@/lib/utils'
+    59→
+    60→// --- Types ---
+    61→interface DoctorLink {
+    62→  id: string
+    63→  doctorId: string
+    64→  departmentId: string
+    65→  designation: string
+    66→  fees: number
+    67→  opdTimings: string
+    68→  isAvailable: boolean
+    69→  status: string
+    70→  createdAt: string
+    71→  doctor: {
+    72→    id: string
+    73→    name: string
+    74→    email: string
+    75→    profileImg: string | null
+    76→    specialization: string
+    77→    userStatus: string
+    78→    avgRating: number
+    79→    totalRatings: number
+    80→  }
+    81→  department: {
+    82→    id: string
+    83→    name: string
+    84→    icon: string
+    85→  }
+    86→}
+    87→
+    88→interface Department {
+    89→  id: string
+    90→  name: string
+    91→  doctorCount: number
+    92→}
+    93→
+    94→interface DoctorSearchResult {
+    95→  id: string          // Doctor.id
+    96→  userId: string      // User.id
+    97→  name: string
+    98→  profileImg: string | null
+    99→  email: string
+   100→  specialization: string
+   101→}
+   102→
+   103→// --- Animation variants ---
+   104→const containerVariants = {
+   105→  hidden: { opacity: 0 },
+   106→  show: {
+   107→    opacity: 1,
+   108→    transition: { staggerChildren: 0.04 },
+   109→  },
+   110→}
+   111→
+   112→const itemVariants = {
+   113→  hidden: { opacity: 0, y: 12 },
+   114→  show: { opacity: 1, y: 0 },
+   115→}
+   116→
+   117→const DESIGNATION_COLORS: Record<string, string> = {
+   118→  HOD: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-400',
+   119→  Director: 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400',
+   120→  Professor: 'bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-400',
+   121→  Senior: 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-400',
+   122→  Consultant: 'bg-teal-100 text-teal-700 dark:bg-teal-900/50 dark:text-teal-400',
+   123→  Junior: 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-400',
+   124→  Resident: 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-400',
+   125→}
+   126→
+   127→function getDesignationColor(designation: string): string {
+   128→  if (!designation) return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+   129→  for (const [key, color] of Object.entries(DESIGNATION_COLORS)) {
+   130→    if (designation.toLowerCase().includes(key.toLowerCase())) return color
+   131→  }
+   132→  return 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+   133→}
+   134→
+   135→// --- Main Component ---
+   136→export default function DepartmentDoctorsPage() {
+   137→  const queryClient = useQueryClient()
+   138→
+   139→  // State
+   140→  const [addDialogOpen, setAddDialogOpen] = useState(false)
+   141→  const [editDialogOpen, setEditDialogOpen] = useState(false)
+   142→  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+   143→  const [selectedLink, setSelectedLink] = useState<DoctorLink | null>(null)
+   144→  const [filterDept, setFilterDept] = useState<string>('all')
+   145→  const [sortBy, setSortBy] = useState<string>('department')
+   146→  const [searchDoctor, setSearchDoctor] = useState('')
+   147→  const [searchDebounce, setSearchDebounce] = useState('')
+   148→
+   149→  // Add form state
+   150→  const [addForm, setAddForm] = useState({
+   151→    doctorId: '',
+   152→    departmentId: '',
+   153→    designation: '',
+   154→    fees: '',
+   155→    opdTimings: '',
+   156→  })
+   157→  const [selectedDoctor, setSelectedDoctor] = useState<DoctorSearchResult | null>(null)
+   158→
+   159→  // Edit form state
+   160→  const [editForm, setEditForm] = useState({
+   161→    designation: '',
+   162→    fees: '',
+   163→    opdTimings: '',
+   164→    isAvailable: true,
+   165→  })
+   166→
+   167→  // Debounce doctor search
+   168→  useMemo(() => {
+   169→    const timer = setTimeout(() => setSearchDebounce(searchDoctor), 350)
+   170→    return () => clearTimeout(timer)
+   171→  }, [searchDoctor])
+   172→
+   173→  // --- Queries ---
+   174→  const { data: linksData, isLoading: linksLoading } = useQuery<{ doctorLinks: DoctorLink[] }>({
+   175→    queryKey: ['hospital-doctor-links', filterDept],
+   176→    queryFn: () => {
+   177→      const params = new URLSearchParams()
+   178→      if (filterDept !== 'all') params.set('departmentId', filterDept)
+   179→      return fetch(`/api/dashboard/hospital/doctor-links?${params}`).then((r) => r.json())
+   180→    },
+   181→  })
+   182→
+   183→  const { data: deptsData } = useQuery<{ departments: Department[] }>({
+   184→    queryKey: ['hospital-departments'],
+   185→    queryFn: () => fetch('/api/dashboard/hospital/departments').then((r) => r.json()),
+   186→  })
+   187→
+   188→  const { data: searchResults, isFetching: searchFetching } = useQuery<{
+   189→    doctors: DoctorSearchResult[]
+   190→  }>({
+   191→    queryKey: ['hospital-doctor-search', searchDebounce],
+   192→    queryFn: () =>
+   193→      fetch(`/api/dashboard/hospital/search-doctors?search=${encodeURIComponent(searchDebounce)}`).then((r) => r.json()),
+   194→    enabled: searchDebounce.length >= 2,
+   195→  })
+   196→
+   197→  const doctorLinks = linksData?.doctorLinks || []
+   198→  const departments = deptsData?.departments || []
+   199→
+   200→  // --- Sorted & Filtered ---
+   201→  const filteredLinks = useMemo(() => {
+   202→    let sorted = [...doctorLinks]
+   203→    if (sortBy === 'department') {
+   204→      sorted.sort((a, b) => a.department.name.localeCompare(b.department.name))
+   205→    } else if (sortBy === 'fees-asc') {
+   206→      sorted.sort((a, b) => a.fees - b.fees)
+   207→    } else if (sortBy === 'fees-desc') {
+   208→      sorted.sort((a, b) => b.fees - a.fees)
+   209→    } else if (sortBy === 'name') {
+   210→      sorted.sort((a, b) => a.doctor.name.localeCompare(b.doctor.name))
+   211→    }
+   212→    return sorted
+   213→  }, [doctorLinks, sortBy])
+   214→
+   215→  // --- Mutations ---
+   216→  const createMutation = useMutation({
+   217→    mutationFn: (payload: { doctorId: string; departmentId: string; designation: string; fees: number; opdTimings: string }) =>
+   218→      fetch('/api/dashboard/hospital/doctor-links', {
+   219→        method: 'POST',
+   220→        headers: { 'Content-Type': 'application/json' },
+   221→        body: JSON.stringify(payload),
+   222→      }).then((r) => r.json()),
+   223→    onSuccess: () => {
+   224→      queryClient.invalidateQueries({ queryKey: ['hospital-doctor-links'] })
+   225→      queryClient.invalidateQueries({ queryKey: ['hospital-departments'] })
+   226→      toast.success('Doctor linked to department successfully')
+   227→      closeAddDialog()
+   228→    },
+   229→    onError: (err: { error?: string }) => {
+   230→ toast.error(err.error || 'Failed to link doctor')
+   231→    },
+   232→  })
+   233→
+   234→  const updateMutation = useMutation({
+   235→    mutationFn: ({ id, payload }: { id: string; payload: { designation: string; fees: number; opdTimings: string; isAvailable: boolean } }) =>
+   236→      fetch(`/api/dashboard/hospital/doctor-links/${id}`, {
+   237→        method: 'PUT',
+   238→        headers: { 'Content-Type': 'application/json' },
+   239→        body: JSON.stringify(payload),
+   240→      }).then((r) => r.json()),
+   241→    onSuccess: () => {
+   242→      queryClient.invalidateQueries({ queryKey: ['hospital-doctor-links'] })
+   243→      toast.success('Doctor link updated successfully')
+   244→      closeEditDialog()
+   245→    },
+   246→    onError: () => {
+   247→      toast.error('Failed to update doctor link')
+   248→    },
+   249→  })
+   250→
+   251→  const deleteMutation = useMutation({
+   252→    mutationFn: (id: string) =>
+   253→      fetch(`/api/dashboard/hospital/doctor-links/${id}`, { method: 'DELETE' }).then((r) => r.json()),
+   254→    onSuccess: () => {
+   255→      queryClient.invalidateQueries({ queryKey: ['hospital-doctor-links'] })
+   256→      queryClient.invalidateQueries({ queryKey: ['hospital-departments'] })
+   257→      toast.success('Doctor unlinked successfully')
+   258→      setDeleteDialogOpen(false)
+   259→      setSelectedLink(null)
+   260→    },
+   261→    onError: () => {
+   262→      toast.error('Failed to unlink doctor')
+   263→    },
+   264→  })
+   265→
+   266→  const toggleAvailableMutation = useMutation({
+   267→    mutationFn: ({ id, isAvailable }: { id: string; isAvailable: boolean }) =>
+   268→      fetch(`/api/dashboard/hospital/doctor-links/${id}`, {
+   269→        method: 'PUT',
+   270→        headers: { 'Content-Type': 'application/json' },
+   271→        body: JSON.stringify({ isAvailable }),
+   272→      }).then((r) => r.json()),
+   273→    onSuccess: () => {
+   274→      queryClient.invalidateQueries({ queryKey: ['hospital-doctor-links'] })
+   275→      toast.success('Availability updated')
+   276→    },
+   277→  })
+   278→
+   279→  // --- Handlers ---
+   280→  const closeAddDialog = useCallback(() => {
+   281→    setAddDialogOpen(false)
+   282→    setAddForm({ doctorId: '', departmentId: '', designation: '', fees: '', opdTimings: '' })
+   283→    setSelectedDoctor(null)
+   284→    setSearchDoctor('')
+   285→    setSearchDebounce('')
+   286→  }, [])
+   287→
+   288→  const closeEditDialog = useCallback(() => {
+   289→    setEditDialogOpen(false)
+   290→    setSelectedLink(null)
+   291→  }, [])
+   292→
+   293→  function openAddDialog() {
+   294→    setAddDialogOpen(true)
+   295→  }
+   296→
+   297→  function openEditDialog(link: DoctorLink) {
+   298→    setSelectedLink(link)
+   299→    setEditForm({
+   300→      designation: link.designation,
+   301→      fees: String(link.fees),
+   302→      opdTimings: link.opdTimings,
+   303→      isAvailable: link.isAvailable,
+   304→    })
+   305→    setEditDialogOpen(true)
+   306→  }
+   307→
+   308→  function handleAddSubmit(e: React.FormEvent) {
+   309→    e.preventDefault()
+   310→    if (!addForm.doctorId || !addForm.departmentId) {
+   311→      toast.error('Please select a doctor and department')
+   312→      return
+   313→    }
+   314→    createMutation.mutate({
+   315→      doctorId: addForm.doctorId,
+   316→      departmentId: addForm.departmentId,
+   317→      designation: addForm.designation,
+   318→      fees: Number(addForm.fees) || 0,
+   319→      opdTimings: addForm.opdTimings,
+   320→    })
+   321→  }
+   322→
+   323→  function handleEditSubmit(e: React.FormEvent) {
+   324→    e.preventDefault()
+   325→    if (!selectedLink) return
+   326→    updateMutation.mutate({
+   327→      id: selectedLink.id,
+   328→      payload: {
+   329→        designation: editForm.designation,
+   330→        fees: Number(editForm.fees) || 0,
+   331→        opdTimings: editForm.opdTimings,
+   332→        isAvailable: editForm.isAvailable,
+   333→      },
+   334→    })
+   335→  }
+   336→
+   337→  function selectSearchDoctor(doc: DoctorSearchResult) {
+   338→    // Need to get the Doctor.id (not User.id). The doctors API returns User records.
+   339→    // The DoctorHospital.doctorId references Doctor.id, not User.id.
+   340→    // We need to find the doctor record by userId. Let's use the user id to look up doctor.
+   341→    setSelectedDoctor(doc)
+   342→    setAddForm((f) => ({ ...f, doctorId: doc.id }))
+   343→    setSearchDoctor(doc.name)
+   344→    setSearchDebounce('')
+   345→  }
+   346→
+   347→  const isAdding = createMutation.isPending
+   348→  const isUpdating = updateMutation.isPending
+   349→
+   350→  // --- Loading ---
+   351→  if (linksLoading) {
+   352→    return <DepartmentDoctorsSkeleton />
+   353→  }
+   354→
+   355→  return (
+   356→    <div className="space-y-6">
+   357→      {/* Header */}
+   358→      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+   359→        <div>
+   360→          <h1 className="text-2xl font-bold tracking-tight">Manage Doctors</h1>
+   361→          <p className="text-sm text-muted-foreground">
+   362→            Link doctors to departments and manage their OPD settings
+   363→          </p>
+   364→        </div>
+   365→        <Button onClick={openAddDialog} className="shrink-0 bg-teal-600 hover:bg-teal-700">
+   366→          <UserPlus className="mr-2 h-4 w-4" />
+   367→          Add Doctor
+   368→        </Button>
+   369→      </div>
+   370→
+   371→      {/* Filters & Sort */}
+   372→      {doctorLinks.length > 0 && (
+   373→        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   374→          <div className="flex items-center gap-2">
+   375→            <Filter className="h-4 w-4 text-muted-foreground" />
+   376→            <Select value={filterDept} onValueChange={setFilterDept}>
+   377→              <SelectTrigger className="w-[180px]">
+   378→                <SelectValue placeholder="All Departments" />
+   379→              </SelectTrigger>
+   380→              <SelectContent>
+   381→                <SelectItem value="all">All Departments</SelectItem>
+   382→                {departments.map((d) => (
+   383→                  <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+   384→                ))}
+   385→              </SelectContent>
+   386→            </Select>
+   387→          </div>
+   388→          <div className="flex items-center gap-2">
+   389→            <ArrowUpDown className="h-4 w-4 text-muted-foreground" />
+   390→            <Select value={sortBy} onValueChange={setSortBy}>
+   391→              <SelectTrigger className="w-[160px]">
+   392→                <SelectValue placeholder="Sort by" />
+   393→              </SelectTrigger>
+   394→              <SelectContent>
+   395→                <SelectItem value="department">Department</SelectItem>
+   396→                <SelectItem value="name">Doctor Name</SelectItem>
+   397→                <SelectItem value="fees-asc">Fees: Low → High</SelectItem>
+   398→                <SelectItem value="fees-desc">Fees: High → Low</SelectItem>
+   399→              </SelectContent>
+   400→            </Select>
+   401→          </div>
+   402→        </div>
+   403→      )}
+   404→
+   405→      {/* Empty State */}
+   406→      {doctorLinks.length === 0 && !linksLoading && (
+   407→        <motion.div
+   408→          initial={{ opacity: 0, y: 20 }}
+   409→          animate={{ opacity: 1, y: 0 }}
+   410→          className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16"
+   411→        >
+   412→          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-50 dark:bg-teal-900/30">
+   413→            <UserPlus className="h-8 w-8 text-teal-500" />
+   414→          </div>
+   415→          <h3 className="mb-1 text-lg font-semibold">No doctors linked yet</h3>
+   416→          <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
+   417→            Add doctors to your departments to start managing OPD schedules and consultations.
+   418→          </p>
+   419→          <Button onClick={openAddDialog} className="bg-teal-600 hover:bg-teal-700">
+   420→            <UserPlus className="mr-2 h-4 w-4" />
+   421→            Add Doctor
+   422→          </Button>
+   423→        </motion.div>
+   424→      )}
+   425→
+   426→      {/* Doctor Links List */}
+   427→      {filteredLinks.length > 0 && (
+   428→        <motion.div
+   429→          className="grid gap-3"
+   430→          variants={containerVariants}
+   431→          initial="hidden"
+   432→          animate="show"
+   433→        >
+   434→          {filteredLinks.map((link) => (
+   435→            <motion.div key={link.id} variants={itemVariants}>
+   436→              <Card className="transition-all duration-200 hover:shadow-md">
+   437→                <CardContent className="p-4">
+   438→                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   439→                    {/* Left: Doctor info */}
+   440→                    <div className="flex items-center gap-3 min-w-0">
+   441→                      <Avatar className="h-11 w-11 shrink-0">
+   442→                        <AvatarImage src={link.doctor.profileImg || ''} />
+   443→                        <AvatarFallback className="bg-teal-100 text-sm font-semibold text-teal-700 dark:bg-teal-900 dark:text-teal-300">
+   444→                          {link.doctor.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+   445→                        </AvatarFallback>
+   446→                      </Avatar>
+   447→                      <div className="min-w-0 flex-1">
+   448→                        <div className="flex flex-wrap items-center gap-2">
+   449→                          <p className="truncate text-sm font-semibold">{link.doctor.name}</p>
+   450→                          {link.designation && (
+   451→                            <span
+   452→                              className={cn(
+   453→                                'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium',
+   454→                                getDesignationColor(link.designation)
+   455→                              )}
+   456→                            >
+   457→                              {link.designation}
+   458→                            </span>
+   459→                          )}
+   460→                        </div>
+   461→                        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+   462→                          <Badge variant="outline" className="gap-1 text-[10px] px-1.5 py-0">
+   463→                            {link.department.name}
+   464→                          </Badge>
+   465→                          {link.doctor.specialization && (
+   466→                            <span>{link.doctor.specialization}</span>
+   467→                          )}
+   468→                        </div>
+   469→                      </div>
+   470→                    </div>
+   471→
+   472→                    {/* Right: Fees, timings, actions */}
+   473→                    <div className="flex items-center gap-4 sm:gap-6">
+   474→                      <div className="flex flex-col items-end gap-1 text-right">
+   475→                        <p className="text-sm font-semibold text-teal-700 dark:text-teal-400">
+   476→                          ₹{link.fees.toLocaleString('en-IN')}
+   477→                        </p>
+   478→                        {link.opdTimings && (
+   479→                          <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+   480→                            <Clock className="h-3 w-3" />
+   481→                            {link.opdTimings}
+   482→                          </span>
+   483→                        )}
+   484→                        {link.doctor.avgRating > 0 && (
+   485→                          <span className="flex items-center gap-0.5 text-[11px] text-amber-500">
+   486→                            <Star className="h-3 w-3 fill-amber-400" />
+   487→                            {link.doctor.avgRating} ({link.doctor.totalRatings})
+   488→                          </span>
+   489→                        )}
+   490→                      </div>
+   491→
+   492→                      {/* Availability toggle */}
+   493→                      <div className="flex flex-col items-center gap-1">
+   494→                        <Switch
+   495→                          checked={link.isAvailable}
+   496→                          onCheckedChange={(checked) =>
+   497→                            toggleAvailableMutation.mutate({ id: link.id, isAvailable: checked })
+   498→                          }
+   499→                          className="data-[state=checked]:bg-teal-500"
+   500→                        />
+   501→                        <span className="text-[10px] text-muted-foreground">
+   502→                          {link.isAvailable ? 'Available' : 'Unavailable'}
+   503→                        </span>
+   504→                      </div>
+   505→
+   506→                      {/* Actions */}
+   507→                      <DropdownMenu>
+   508→                        <DropdownMenuTrigger asChild>
+   509→                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+   510→                            <MoreHorizontal className="h-4 w-4" />
+   511→                          </Button>
+   512→                        </DropdownMenuTrigger>
+   513→                        <DropdownMenuContent align="end">
+   514→                          <DropdownMenuItem onClick={() => openEditDialog(link)}>
+   515→                            <Pencil className="mr-2 h-4 w-4" />
+   516→                            Edit
+   517→                          </DropdownMenuItem>
+   518→                          <DropdownMenuItem
+   519→                            onClick={() => {
+   520→                              setSelectedLink(link)
+   521→                              setDeleteDialogOpen(true)
+   522→                            }}
+   523→                            className="text-red-600 focus:text-red-600"
+   524→                          >
+   525→                            <Trash2 className="mr-2 h-4 w-4" />
+   526→                            Unlink Doctor
+   527→                          </DropdownMenuItem>
+   528→                        </DropdownMenuContent>
+   529→                      </DropdownMenu>
+   530→                    </div>
+   531→                  </div>
+   532→                </CardContent>
+   533→              </Card>
+   534→            </motion.div>
+   535→          ))}
+   536→        </motion.div>
+   537→      )}
+   538→
+   539→      {/* Add Doctor Dialog */}
+   540→      <Dialog open={addDialogOpen} onOpenChange={(open) => { if (!open) closeAddDialog() }}>
+   541→        <DialogContent className="sm:max-w-lg">
+   542→          <DialogHeader>
+   543→            <DialogTitle>Add Doctor to Department</DialogTitle>
+   544→            <DialogDescription>
+   545→              Search for a doctor and assign them to a department.
+   546→            </DialogDescription>
+   547→          </DialogHeader>
+   548→          <form onSubmit={handleAddSubmit} className="space-y-4">
+   549→            {/* Doctor search */}
+   550→            <div className="space-y-2">
+   551→              <Label htmlFor="search-doctor">Doctor *</Label>
+   552→              <div className="relative">
+   553→                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   554→                <Input
+   555→                  id="search-doctor"
+   556→                  className="pl-9"
+   557→                  placeholder="Search doctor by name..."
+   558→                  value={searchDoctor}
+   559→                  onChange={(e) => {
+   560→                    setSearchDoctor(e.target.value)
+   561→                    if (selectedDoctor) {
+   562→                      setSelectedDoctor(null)
+   563→                      setAddForm((f) => ({ ...f, doctorId: '' }))
+   564→                    }
+   565→                  }}
+   566→                />
+   567→              </div>
+   568→              {/* Search results dropdown */}
+   569→              <AnimatePresence>
+   570→                {searchDebounce.length >= 2 && searchResults && !selectedDoctor && (
+   571→                  <motion.div
+   572→                    initial={{ opacity: 0, y: -4 }}
+   573→                    animate={{ opacity: 1, y: 0 }}
+   574→                    exit={{ opacity: 0, y: -4 }}
+   575→                    className="max-h-48 overflow-y-auto rounded-md border border-border bg-popover shadow-md"
+   576→                  >
+   577→                    {searchFetching && (
+   578→                      <div className="p-3 text-center text-sm text-muted-foreground">Searching...</div>
+   579→                    )}
+   580→                    {!searchFetching && searchResults.doctors.length === 0 && (
+   581→                      <div className="p-3 text-center text-sm text-muted-foreground">No doctors found</div>
+   582→                    )}
+   583→                    {searchResults?.doctors.map((doc) => (
+   584→                      <button
+   585→                        key={doc.id}
+   586→                        type="button"
+   587→                        className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+   588→                        onClick={() => selectSearchDoctor(doc)}
+   589→                      >
+   590→                        <Avatar className="h-7 w-7">
+   591→                          <AvatarImage src={doc.profileImg || ''} />
+   592→                          <AvatarFallback className="text-[10px] bg-teal-100 dark:bg-teal-900">
+   593→                            {doc.name.charAt(0)}
+   594→                          </AvatarFallback>
+   595→                        </Avatar>
+   596→                        <div className="min-w-0">
+   597→                          <p className="truncate font-medium">{doc.name}</p>
+   598→                          <span className="truncate text-xs text-muted-foreground">{doc.specialization}</span>
+   599→                        </div>
+   600→                      </button>
+   601→                    ))}
+   602→                  </motion.div>
+   603→                )}
+   604→              </AnimatePresence>
+   605→              {selectedDoctor && (
+   606→                <div className="flex items-center gap-2 rounded-md border border-teal-200 bg-teal-50 px-3 py-2 dark:border-teal-800 dark:bg-teal-900/30">
+   607→                  <Avatar className="h-7 w-7">
+   608→                    <AvatarImage src={selectedDoctor.profileImg || ''} />
+   609→                    <AvatarFallback className="text-[10px] bg-teal-100 dark:bg-teal-900">
+   610→                      {selectedDoctor.name.charAt(0)}
+   611→                    </AvatarFallback>
+   612→                  </Avatar>
+   613→                  <span className="flex-1 text-sm font-medium">{selectedDoctor.name}</span>
+   614→                  <Button
+   615→                    type="button"
+   616→                    variant="ghost"
+   617→                    size="sm"
+   618→                    className="h-6 w-6 p-0"
+   619→                    onClick={() => {
+   620→                      setSelectedDoctor(null)
+   621→                      setSearchDoctor('')
+   622→                      setAddForm((f) => ({ ...f, doctorId: '' }))
+   623→                    }}
+   624→                  >
+   625→                    ×
+   626→                  </Button>
+   627→                </div>
+   628→              )}
+   629→            </div>
+   630→
+   631→            {/* Department select */}
+   632→            <div className="space-y-2">
+   633→              <Label>Department *</Label>
+   634→              <Select
+   635→                value={addForm.departmentId}
+   636→                onValueChange={(v) => setAddForm((f) => ({ ...f, departmentId: v }))}
+   637→              >
+   638→                <SelectTrigger className="w-full">
+   639→                  <SelectValue placeholder="Select department" />
+   640→                </SelectTrigger>
+   641→                <SelectContent>
+   642→                  {departments.map((d) => (
+   643→                    <SelectItem key={d.id} value={d.id}>
+   644→                      {d.name} ({d.doctorCount} doctors)
+   645→                    </SelectItem>
+   646→                  ))}
+   647→                </SelectContent>
+   648→              </Select>
+   649→            </div>
+   650→
+   651→            {/* Designation */}
+   652→            <div className="space-y-2">
+   653→              <Label htmlFor="add-designation">Designation</Label>
+   654→              <Input
+   655→                id="add-designation"
+   656→                placeholder="e.g. Senior Consultant, HOD"
+   657→                value={addForm.designation}
+   658→                onChange={(e) => setAddForm((f) => ({ ...f, designation: e.target.value }))}
+   659→              />
+   660→            </div>
+   661→
+   662→            {/* Fees */}
+   663→            <div className="space-y-2">
+   664→              <Label htmlFor="add-fees">Consultation Fees (₹)</Label>
+   665→              <Input
+   666→                id="add-fees"
+   667→                type="number"
+   668→                min="0"
+   669→                placeholder="e.g. 500"
+   670→                value={addForm.fees}
+   671→                onChange={(e) => setAddForm((f) => ({ ...f, fees: e.target.value }))}
+   672→              />
+   673→            </div>
+   674→
+   675→            {/* OPD Timings */}
+   676→            <div className="space-y-2">
+   677→              <Label htmlFor="add-opd">OPD Timings</Label>
+   678→              <Input
+   679→                id="add-opd"
+   680→                placeholder="e.g. Mon/Wed/Fri 10:00-1:00"
+   681→                value={addForm.opdTimings}
+   682→                onChange={(e) => setAddForm((f) => ({ ...f, opdTimings: e.target.value }))}
+   683→              />
+   684→            </div>
+   685→
+   686→            <DialogFooter className="pt-2">
+   687→              <Button type="button" variant="outline" onClick={closeAddDialog} disabled={isAdding}>
+   688→                Cancel
+   689→              </Button>
+   690→              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={isAdding}>
+   691→                {isAdding ? (
+   692→                  <span className="flex items-center gap-2">
+   693→                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+   694→                    Linking...
+   695→                  </span>
+   696→                ) : (
+   697→                  'Link Doctor'
+   698→                )}
+   699→              </Button>
+   700→            </DialogFooter>
+   701→          </form>
+   702→        </DialogContent>
+   703→      </Dialog>
+   704→
+   705→      {/* Edit Dialog */}
+   706→      <Dialog open={editDialogOpen} onOpenChange={(open) => { if (!open) closeEditDialog() }}>
+   707→        <DialogContent className="sm:max-w-lg">
+   708→          <DialogHeader>
+   709→            <DialogTitle>Edit Doctor Link</DialogTitle>
+   710→            <DialogDescription>
+   711→              Update consultation details for {selectedLink?.doctor.name}.
+   712→            </DialogDescription>
+   713→          </DialogHeader>
+   714→          <form onSubmit={handleEditSubmit} className="space-y-4">
+   715→            <div className="flex items-center gap-3 rounded-md border border-border bg-muted/50 p-3">
+   716→              <Avatar className="h-10 w-10">
+   717→                <AvatarImage src={selectedLink?.doctor.profileImg || ''} />
+   718→                <AvatarFallback className="bg-teal-100 text-sm font-semibold text-teal-700 dark:bg-teal-900 dark:text-teal-300">
+   719→                  {selectedLink?.doctor.name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()}
+   720→                </AvatarFallback>
+   721→              </Avatar>
+   722→              <div>
+   723→                <p className="text-sm font-semibold">{selectedLink?.doctor.name}</p>
+   724→                <p className="text-xs text-muted-foreground">{selectedLink?.department.name}</p>
+   725→              </div>
+   726→            </div>
+   727→
+   728→            <div className="space-y-2">
+   729→              <Label htmlFor="edit-designation">Designation</Label>
+   730→              <Input
+   731→                id="edit-designation"
+   732→                placeholder="e.g. Senior Consultant, HOD"
+   733→                value={editForm.designation}
+   734→                onChange={(e) => setEditForm((f) => ({ ...f, designation: e.target.value }))}
+   735→              />
+   736→            </div>
+   737→
+   738→            <div className="space-y-2">
+   739→              <Label htmlFor="edit-fees">Consultation Fees (₹)</Label>
+   740→              <Input
+   741→                id="edit-fees"
+   742→                type="number"
+   743→                min="0"
+   744→                placeholder="e.g. 500"
+   745→                value={editForm.fees}
+   746→                onChange={(e) => setEditForm((f) => ({ ...f, fees: e.target.value }))}
+   747→              />
+   748→            </div>
+   749→
+   750→            <div className="space-y-2">
+   751→              <Label htmlFor="edit-opd">OPD Timings</Label>
+   752→              <Input
+   753→                id="edit-opd"
+   754→                placeholder="e.g. Mon/Wed/Fri 10:00-1:00"
+   755→                value={editForm.opdTimings}
+   756→                onChange={(e) => setEditForm((f) => ({ ...f, opdTimings: e.target.value }))}
+   757→              />
+   758→            </div>
+   759→
+   760→            <div className="flex items-center justify-between rounded-md border border-border p-3">
+   761→              <div>
+   762→                <Label>Available for Consultation</Label>
+   763→                <p className="text-xs text-muted-foreground">Patients can book appointments</p>
+   764→              </div>
+   765→              <Switch
+   766→                checked={editForm.isAvailable}
+   767→                onCheckedChange={(checked) => setEditForm((f) => ({ ...f, isAvailable: checked }))}
+   768→                className="data-[state=checked]:bg-teal-500"
+   769→              />
+   770→            </div>
+   771→
+   772→            <DialogFooter className="pt-2">
+   773→              <Button type="button" variant="outline" onClick={closeEditDialog} disabled={isUpdating}>
+   774→                Cancel
+   775→              </Button>
+   776→              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={isUpdating}>
+   777→                {isUpdating ? (
+   778→                  <span className="flex items-center gap-2">
+   779→                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+   780→                    Saving...
+   781→                  </span>
+   782→                ) : (
+   783→                  'Save Changes'
+   784→                )}
+   785→              </Button>
+   786→            </DialogFooter>
+   787→          </form>
+   788→        </DialogContent>
+   789→      </Dialog>
+   790→
+   791→      {/* Delete/Unlink Confirmation */}
+   792→      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+   793→        <AlertDialogContent>
+   794→          <AlertDialogHeader>
+   795→            <AlertDialogTitle>Unlink Doctor</AlertDialogTitle>
+   796→            <AlertDialogDescription>
+   797→              Are you sure you want to unlink {selectedLink?.doctor.name} from {selectedLink?.department.name}? The doctor will no longer appear in this department.
+   798→            </AlertDialogDescription>
+   799→          </AlertDialogHeader>
+   800→          <AlertDialogFooter>
+   801→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   802→            <AlertDialogAction
+   803→              onClick={() => selectedLink && deleteMutation.mutate(selectedLink.id)}
+   804→              disabled={deleteMutation.isPending}
+   805→              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+   806→            >
+   807→              {deleteMutation.isPending ? 'Unlinking...' : 'Unlink'}
+   808→            </AlertDialogAction>
+   809→          </AlertDialogFooter>
+   810→        </AlertDialogContent>
+   811→      </AlertDialog>
+   812→    </div>
+   813→  )
+   814→}
+   815→
+   816→// --- Skeleton ---
+   817→function DepartmentDoctorsSkeleton() {
+   818→  return (
+   819→    <div className="space-y-6">
+   820→      <div className="flex items-center justify-between">
+   821→        <div className="space-y-1">
+   822→          <Skeleton className="h-8 w-48" />
+   823→          <Skeleton className="h-4 w-72" />
+   824→        </div>
+   825→        <Skeleton className="h-10 w-36" />
+   826→      </div>
+   827→      <div className="flex gap-3">
+   828→        <Skeleton className="h-9 w-[180px]" />
+   829→        <Skeleton className="h-9 w-[160px]" />
+   830→      </div>
+   831→      <div className="grid gap-3">
+   832→        {Array.from({ length: 5 }).map((_, i) => (
+   833→          <div key={i} className="rounded-xl border border-border bg-card p-4">
+   834→            <div className="flex items-center justify-between">
+   835→              <div className="flex items-center gap-3">
+   836→                <Skeleton className="h-11 w-11 rounded-full" />
+   837→                <div className="space-y-2">
+   838→                  <Skeleton className="h-4 w-36" />
+   839→                  <Skeleton className="h-3 w-24" />
+   840→                </div>
+   841→              </div>
+   842→              <div className="flex items-center gap-4">
+   843→                <Skeleton className="h-4 w-16" />
+   844→                <Skeleton className="h-5 w-10" />
+   845→                <Skeleton className="h-8 w-8" />
+   846→              </div>
+   847→            </div>
+   848→          </div>
+   849→        ))}
+   850→      </div>
+   851→    </div>
+   852→  )
+   853→}
+   854→
