@@ -360,3 +360,288 @@ Stage Summary:
 - Notification UI enhanced with color-coded icons and badges
 - Hospital admin can now manage Queue Display Board from sidebar
 - Full PLAN-V2 (Phases A, B, C) is now COMPLETE
+
+---
+Task ID: 2-a
+Agent: admin-wards-beds
+Task: Build Admin Wards + Beds CRUD pages and APIs
+
+Work Log:
+- Created `/src/app/api/dashboard/admin/wards/route.ts` — GET (list wards with hospital name, bed counts, nurse count; supports ?hospitalId=xxx filter) + POST (create ward with validation)
+- Created `/src/app/api/dashboard/admin/wards/[id]/route.ts` — GET (single ward with beds list + admission info) + PUT (update ward fields) + DELETE (only if no active admissions)
+- Created `/src/app/api/dashboard/admin/wards/[id]/beds/route.ts` — GET (list beds for ward with admission details) + POST (add bed with duplicate bedNumber check)
+- Created `/src/app/api/dashboard/admin/wards/beds/[bedId]/route.ts` — PUT (update bed status/dailyRate/bedType with duplicate check) + DELETE (only if Available status)
+- Created `/src/app/dashboard/admin/wards/page.tsx` — server component wrapper
+- Created `/src/app/dashboard/admin/wards/client.tsx` — full client component with:
+  - Hospital selector dropdown (fetches from existing hospitals API)
+  - 4 stat cards (Total Wards, Total Beds, Available/Occupied, Nurses Assigned)
+  - Ward cards grid with: name, ward type badge (color-coded), floor, bed counts (available/occupied/total), nurses count, nurse ratio, status badge
+  - Ward detail dialog with: hospital name, floor, status badge, bed stats bar, beds table
+  - Beds table: bedNumber, type, daily rate, status badge (Available=green, Occupied=red, Reserved=amber, Maintenance=slate), patient name for occupied beds
+  - "Add Ward" dialog with form (hospital, name, nameHi, wardType, floor, totalBeds, nurseRatio)
+  - "Add Bed" button inside ward detail with dialog (bedNumber, bedType, dailyRate)
+  - Edit/Delete actions on wards (dropdown menu) and beds (icon buttons)
+  - Delete confirmation AlertDialog for wards and beds
+  - Ward type badges: ICU=red, General=slate, Private=emerald, SemiPrivate=amber, PostOp=violet, Emergency=rose, Maternity=pink
+  - Responsive design with grid layout, overflow-x-auto on tables
+  - Loading skeletons, empty states, framer-motion animations
+  - All API calls use @tanstack/react-query for caching and invalidation
+  - Uses sonner toast for success/error notifications
+  - All 4 API routes use requireRole(req, 'admin') for auth
+
+Stage Summary:
+- 6 files created: 4 API routes + 1 server page + 1 client component
+- Full CRUD for wards and beds with proper validation and constraints
+- Ward deletion blocked when active admissions exist
+- Bed deletion blocked unless Available status
+- Duplicate bed number prevention per ward
+- Lint passes clean, dev server running without errors
+
+---
+Task ID: 2-b
+Agent: admin-nurses
+Task: Build Admin Staff Nurses CRUD page and API
+
+Work Log:
+- Created `/src/app/api/dashboard/admin/nurses/route.ts` — GET (list all nurses with user info, hospital name, ward name, patient assignment count; supports ?hospitalId=xxx and ?wardId=xxx filters) + POST (create nurse — validates hospital/ward existence, checks duplicate email and employeeId, creates User (role='nurse', status='Active', gender='Female') + StaffNurse record in db.$transaction, default password 'nurse123')
+- Created `/src/app/api/dashboard/admin/nurses/[id]/route.ts` — GET (single nurse with full details including ward type/floor and patient assignment count) + PUT (update nurse profile fields + user name/gender/mobileNo/status in transaction; prevents email/password changes; validates employeeId uniqueness, ward belongs to same hospital) + DELETE (deletes StaffNurse + User in transaction; blocked if nurse has active patient assignments)
+- Created `/src/app/dashboard/admin/nurses/page.tsx` — server component wrapper
+- Created `/src/app/dashboard/admin/nurses/client.tsx` — full client component with:
+  - Hospital selector dropdown at top (fetches from existing hospitals API)
+  - Ward filter (fetches wards for selected hospital, shows 'All Wards' option)
+  - Search bar for filtering nurses by name, employee ID, qualification, designation, ward, phone
+  - 4 stat cards (Total Nurses, Active, Morning Shift, Rotating Shift) with teal/emerald/amber/slate colors
+  - Table: Employee ID (mono font), Name+Email, Qualification (badge), Designation, Ward, Shift (color-coded badge: Morning=amber, Evening=sky, Night=purple, Rotating=slate), Phone, Status (Active=emerald, Block=red, Pending=amber), Actions dropdown
+  - 'Add Nurse' button → Dialog form with: hospital select, ward select (with 'Unassigned' option), name, email, employeeId, qualification (GNM/BSc Nursing/ANM), designation (Staff Nurse/Sister/Nursing Incharge), shift (Morning/Evening/Night/Rotating), phone, address, default password note
+  - Edit dialog: same fields but hospital disabled, email disabled (cannot be changed), ward reassignable
+  - Delete dialog with AlertDialog confirmation
+  - Responsive columns (hide qualification/designation on md, ward/status on sm)
+  - framer-motion AnimatePresence for table row animations
+  - Loading skeletons, empty states
+  - All API calls use @tanstack/react-query for caching and invalidation
+  - sonner toast for success/error notifications
+  - All 2 API routes use requireRole(req, 'admin') for auth
+
+Stage Summary:
+- 4 files created: 2 API routes + 1 server page + 1 client component
+- Full CRUD for staff nurses with transaction-based atomic operations
+- User account auto-created with nurse role on staff nurse creation
+- Cascade delete (StaffNurse + User) on deletion
+- Duplicate email and employee ID prevention
+- Nurse deletion blocked when active patient assignments exist
+- Hospital-scoped ward validation on create/edit
+- Shift badges with distinct colors and icons
+- Lint passes clean, dev server running without errors
+
+---
+Task ID: 3
+Agent: receptionist-ipd-admission
+Task: Build Receptionist IPD Admission page and APIs
+
+Work Log:
+- Created `/src/app/api/dashboard/receptionist/ipd/route.ts` — GET endpoint listing all IPD admissions for receptionist's hospital with pagination (page/limit), status filter (Admitted/Discharged/DAMA/Expired/Transferred), ward filter, search by name/admissionNo. Returns stats: totalAdmitted, dischargedToday, bedsOccupied/totalBeds, todayAdmissions. Uses receptionist auth pattern (requireRole → Receptionist.hospitalId).
+- Created `/src/app/api/dashboard/receptionist/ipd/admit/route.ts` — POST endpoint creating new IPD admission (Form 1). Validates required fields, verifies bed availability and hospital ownership, generates admissionNo via generateIpdAdmissionNo(), formats admissionTime in HH:MM AM/PM, creates IpdAdmission record with status='Admitted' and updates bed to 'Occupied' in a transaction. Sets admittedBy to receptionist userId.
+- Created `/src/app/api/dashboard/receptionist/ipd/available-beds/route.ts` — GET endpoint returning available beds (status='Available'), filterable by wardId. Returns beds with ward name/type and wardGroups with available counts.
+- Created `/src/app/api/dashboard/receptionist/ipd/doctors/route.ts` — GET endpoint returning doctors for hospital via DoctorHospital junction, filterable by departmentId. Includes specialization and designation.
+- Created `/src/app/dashboard/receptionist/ipd/page.tsx` — Server component wrapper with metadata.
+- Created `/src/app/dashboard/receptionist/ipd/client.tsx` — Full client component featuring:
+  - Header with teal BedDouble icon, "IPD Admissions" title, hospital badge
+  - 4 Stats cards: Currently Admitted (amber), Discharged Today (emerald), Beds Occupied (red), Today's Admissions (teal)
+  - Filters row: Status dropdown, Ward dropdown, Search input, Refresh button
+  - Admissions table with columns: Admission No (violet badge), Patient, Age/Gender, Ward/Bed, Department, Doctor, Diagnosis, Status badge, Date, Actions
+  - Pagination with page buttons
+  - Full Admission Form Dialog (Form 1) with 5 sections:
+    1. Ward & Bed Selection (Department, Ward with available count, Bed with rate, Attending Doctor grouped by dept)
+    2. Patient Information (Name, Age, Gender, Blood Group, Marital Status, Mobile, Aadhar)
+    3. Family & Emergency Contact (Father, Mother, Husband/Wife, Contact Person, Mobile, Relation)
+    4. Address (Address, Village, Taluka, District, State, Pin Code)
+    5. Medical (MLC Case checkbox, Previous Hospitalization, Medi-claim Details, Initial Diagnosis)
+  - Cascade selectors: ward → bed, department → doctor reset
+  - Status badges: Admitted=amber, Discharged=emerald, DAMA=orange, Expired=red, Transferred=sky
+  - Framer Motion animations, loading skeletons, empty states, responsive design
+  - Uses @tanstack/react-query for data fetching and mutations, shadcn/ui components throughout
+
+Stage Summary:
+- 4 API routes created (GET list, POST admit, GET beds, GET doctors)
+- 2 page files created (server wrapper + client component)
+- Full IPD admission workflow: list → filter → search → admit patient → table refresh
+- Form 1 Admission Sheet fully implemented with all 5 sections
+- Lint passes clean, no errors in dev server
+
+---
+Task ID: 4
+Agent: nurse-dashboard
+Task: Build Nurse Dashboard, Patients, Vitals, Medicines pages and APIs
+
+Work Log:
+- Created 6 API routes for nurse dashboard functionality:
+  - GET `/api/dashboard/nurse` — Dashboard stats (patient count, pending/overdue medicines, pending samples, today's alerts, ward name, shift)
+  - GET `/api/dashboard/nurse/patients` — Assigned patients for current shift with latest vitals, abnormal alert flags, pending medicine counts
+  - GET `/api/dashboard/nurse/patients/[admissionId]` — Full patient detail (admission info, history sheet, physical exam, latest vitals, doctor orders, sample collections)
+  - GET+POST `/api/dashboard/nurse/patients/[admissionId]/vitals` — List all vitals (desc) + Record new vitals with critical alert notification to attending doctor
+  - GET `/api/dashboard/nurse/patients/[admissionId]/medicines` — Active orders with per-time-slot administration status (Given/Pending/Overdue/Missed), grouped by scheduled time
+  - POST `/api/dashboard/nurse/patients/[admissionId]/medicines/[orderId]/administer` — Mark medicine as Given/Missed/Refused/Skipped/NotAvailable with duplicate prevention
+- Created Nurse Dashboard page (`/dashboard/nurse`):
+  - Server wrapper + client component pattern
+  - Header with nurse name, ward badge, shift badge (Morning=amber, Evening=sky, Night=purple), live clock
+  - Stats row: My Patients (teal), Pending Medicines (amber), Overdue (red), Pending Samples (sky)
+  - Patient cards grid (not table) — optimized for tablet use
+  - Each card: patient name, bed number (violet badge), age/gender, department, diagnosis, admission status
+  - 2x2 vitals mini-display (Temp, Pulse, BP, SpO2) with abnormal value highlighting
+  - Last vital time with color coding: green (<1hr), amber (1-2hr), red (>2hr)
+  - Critical alert pulse dot animation on patient cards
+  - Pending medicine count badge per card
+  - Click card navigates to patient detail page
+  - 30-second auto-refresh via react-query refetchInterval
+- Created Nurse Patient Detail page (`/dashboard/nurse/patients/[admissionId]`):
+  - 4 tabs: Overview, Vitals, Medicines, History
+  - Overview: Patient info card, admission details, latest vitals display (6 metrics), active orders summary, sample collections
+  - Critical alerts banner (red for critical, amber for warnings)
+  - Vitals tab: Compact one-page vitals form (5 rows: vitals, BP/status/ventilator, I/O, infusion/RBS/remarks, submit)
+  - Vitals history table with abnormal values highlighted in red, max-h-96 with scroll
+  - Medicines tab: Orders grouped by scheduled time, each with drug name, route badge, dose, frequency, status badge
+  - Mark as Given button (emerald), dropdown for Missed/Refused/Skipped/NotAvailable
+  - Confirm dialog before administering
+  - History tab: Read-only History Sheet (chief complaints, past history, personal history, drug history) and Physical Examination (consciousness, speech, examination notes)
+- All APIs use `requireRole(req, 'nurse')` + StaffNurse profile lookup
+- Vitals POST uses `checkVitalAlerts()` from ipd-utils, creates Notification for attending doctor on critical alerts
+- Lint passes clean, no errors
+
+Stage Summary:
+- 6 API routes, 4 page files created
+- Complete nurse workflow: dashboard → patient cards → vitals entry → medicine administration → history view
+- Mobile/tablet responsive card-based layout optimized for clinical use
+- Real-time shift detection, auto-refresh, critical alert notifications
+
+---
+Task ID: 5
+Agent: doctor-ipd
+Task: Build Doctor IPD Patients page, Orders, History, Examination, Investigations APIs and pages
+
+Work Log:
+- Created 7 API routes for doctor IPD workflow:
+  - GET `/api/dashboard/doctor/ipd` — List all IPD patients where this doctor is attendingDoctor, with stats (total, admitted, discharged today, pending meds), latest vitals, active order count, pending medicine count. Supports status filter and search by name/admissionNo.
+  - GET `/api/dashboard/doctor/ipd/patients/[admissionId]` — Full patient detail with admission info, history sheet, physical exam, latest 24 vitals, active orders, today's medicine administrations (with nurse names and status), sample collections, investigation reports, doctor visit history. Includes vital alerts.
+  - GET+POST `/api/dashboard/doctor/ipd/patients/[admissionId]/orders` — List all orders (active+stopped) for patient; Create new DoctorOrder with drugName, route, dose, frequency, scheduledTime, instructions, isPrn, isStat. Verifies doctor ownership and admitted status.
+  - PUT+DELETE `/api/dashboard/doctor/ipd/patients/[admissionId]/orders/[orderId]` — Update order details or stop order (PUT with action='stop' + reason, or DELETE). Sets status='Stopped', stoppedBy, stoppedAt, stoppedReason.
+  - PUT `/api/dashboard/doctor/ipd/patients/[admissionId]/history` — Update History Sheet (Form 2): chiefComplaints, informant, pastHistory, personalHistory (JSON), habits (JSON), femaleHistory (JSON), drugHistory.
+  - PUT `/api/dashboard/doctor/ipd/patients/[admissionId]/examination` — Update Physical Examination (Form 6): consciousnessLevel, obeyingCommands, respondingToDPS, oriented, speech, examinationNotes, generalSigns (JSON).
+  - POST `/api/dashboard/doctor/ipd/patients/[admissionId]/investigations` — Order investigation: creates SampleCollection (status='Ordered'), auto-assigns nurse from active assignment or ward.
+  - POST `/api/dashboard/doctor/ipd/patients/[admissionId]/visits` — Add doctor visit note with examinationFindings, currentDiagnosis, advise, isMobileVisit.
+- Created Doctor IPD Patients list page (`/dashboard/doctor/ipd`):
+  - Server wrapper + client component pattern
+  - Header with BedDouble icon, "IPD Patients" title, total patient count badge, refresh button
+  - 4 Stats cards: Total Patients (teal), Currently Admitted (amber), Discharged Today (emerald), Pending Medicines (red)
+  - Filters row: Status dropdown (All/Admitted/Discharged/DAMA/Expired), Search input by name/admissionNo
+  - Desktop table: Admission No (violet badge), Patient Name + Age/Gender, Ward/Bed, Department, Diagnosis, Latest Vitals (BP, Pulse, SpO2 mini-line with abnormal highlighting), Active Orders count, Pending Meds count (red badge), Status badges, View action
+  - Mobile cards: Left teal border, all info in card layout, mini vitals, pending meds badge, admission date
+  - Status badges: Admitted=amber, Discharged=emerald, DAMA=orange, Expired=red
+  - 30-second auto-refresh via react-query refetchInterval
+  - Framer Motion animations, loading skeletons, empty states
+- Created Doctor IPD Patient Detail page (`/dashboard/doctor/ipd/patients/[admissionId]`):
+  - 7 tabs: Overview, Orders, Vitals, History, Examination, Investigations, Visits
+  - **Overview Tab**: Patient info card, Admission details card, Latest Vitals large display (6 metrics in grid with abnormal highlighting), Active Orders summary list, Today's Medicine Administration status (Given/Pending with nurse names)
+  - **Orders Tab** (Form 5 Order Sheet — THE CORE):
+    - All orders table: Drug Name (with STAT/PRN badges), Route (color badge), Dose, Frequency, Scheduled Time, Instructions, Status (Active=teal, Stopped=red with opacity), Stop action button
+    - "Add Order" dialog: Drug Name input, Route select (Oral/IV/IM/SC/Topical/PR/Nebulization from ipd-utils MEDICINE_ROUTES), Dose input, Frequency select (STAT/OD/BD/TDS/QID/Q4H/Q6H/Q8H/HS/SOS-PRN from FREQUENCY_OPTIONS), Scheduled Time select (6AM-12AM), Instructions input (optional), PRN switch, STAT switch
+    - Stop Order confirmation AlertDialog with mandatory reason field
+  - **Vitals Tab**: Read-only vitals table (last 24h) with sticky time column, abnormal values highlighted in red, trend arrows (↑/↓) comparing with previous reading, I/O summary (input↓ / output↑), O₂ liters, RBS
+  - **History Tab** (Form 2 — Editable): Chief Complaints (textarea), Informant (input), Past History (textarea), Personal History (checkboxes: Diabetes, Hypertension, Asthma, Thyroid), Habits (checkboxes: Alcohol, Smoking, Tobacco + Allergy text input), Female History (conditional on gender — LMP date, Gravida/Para/Living/Abortion number inputs), Drug History (textarea), Save button
+  - **Examination Tab** (Form 6 — Editable): Consciousness Level select (Conscious/Semiconscious/Unconscious), Speech select (Normal/Aphasia/Slurred), Obeying Commands / Responding to DPS / Oriented toggles, General Signs checkboxes (Pallor, Clubbing, Icterus, Cyanosis, Lymphadenopathy), Examination Notes textarea (RS, CVS, P/A, CNS), Save button
+  - **Investigations Tab**: Ordered investigations table (Test Name, Sample Type, Status badges with 5-step flow, Ordered/Collected/Sent to Lab timestamps), "Order New Investigation" dialog (Test Name, Sample Type select from SAMPLE_TYPES), Investigation Reports section with abnormal highlighting
+  - **Visits Tab**: Doctor visit cards (findings, diagnosis, advise, doctor name, mobile visit badge), "Add Visit Note" dialog (examination findings, current diagnosis, advise)
+- All APIs use `requireRole(req, 'doctor')` + Doctor profile lookup pattern
+- Uses `FREQUENCY_OPTIONS`, `MEDICINE_ROUTES`, `SAMPLE_TYPES`, `checkVitalAlerts` from `@/lib/ipd-utils`
+- Color scheme: Teal for primary/active, Amber for pending/admitted, Red for critical/stopped, Emerald for success/discharged, Violet for admission numbers
+- Responsive design with mobile card layout, desktop table layout
+- Lint passes clean, no errors in dev server
+
+Stage Summary:
+- 8 API routes created (list, detail, orders CRUD, history, examination, investigations, visits)
+- 4 page files created (2 server wrappers + 2 client components)
+- Complete doctor IPD workflow: patient list → filters → view patient → 7-tab detail interface
+- Core Order Sheet (Form 5) fully functional: add/stop orders with real-time nurse administration tracking
+- History (Form 2) and Examination (Form 6) editable forms with save
+- Investigation ordering with sample collection status tracking
+- Doctor visit documentation with clinical notes
+- Real-time vitals display with abnormal value highlighting and trend indicators
+
+---
+Task ID: N1
+Agent: Main Orchestrator
+Task: Phase N-1 Foundation — IPD Schema, Auth, Sidebar, Admin Pages, Seed Data
+
+Work Log:
+- Added 8 new Prisma models: Ward, Bed, StaffNurse, NursePatientAssignment, IpdAdmission, VitalRecord, DoctorOrder, MedicineAdministration, SampleCollection, InvestigationReport, ShiftHandover, DoctorVisit
+- Modified existing models: User (nurse relation + ipdAdmissions), Hospital (wards, nurses, ipdAdmissions, shiftHandovers), Doctor (IPD relations), Department (ipdAdmissions), Booking (ipdAdmission link)
+- Updated api-auth.ts: Added nurse dev user
+- Updated sidebar-config.ts: Added nurse sidebar, admin IPD Wards + Staff Nurses links, hospital IPD Admissions link, doctor IPD Patients link, imported BedDouble, ArrowRightLeft, Activity icons
+- Created ipd-utils.ts: generateIpdAdmissionNo(), getCurrentShift(), checkVitalAlerts(), MEDICINE_ROUTES, FREQUENCY_OPTIONS, ADMIN_STATUS, SAMPLE_TYPES, SAMPLE_STATUS_FLOW, VITAL_THRESHOLDS
+- Updated seed-multispecialty.ts: Added seedIpdData() — 10 wards, 37 beds, 19 nurses across 3 hospitals
+- Subagent 2-a: Built Admin Wards + Beds CRUD (4 API routes + 2 pages)
+- Subagent 2-b: Built Admin Nurses CRUD (2 API routes + 2 pages)
+
+Stage Summary:
+- Complete IPD database schema with 8 new models
+- Nurse role fully integrated into auth + navigation
+- Admin can manage Wards, Beds, and Staff Nurses
+- Seed data: 3 hospitals × (wards + beds + nurses)
+
+---
+Task ID: N2
+Agent: receptionist-ipd-admission
+Task: Build Receptionist IPD Admission page and APIs
+
+Work Log:
+- Created 4 API routes: IPD list, admit, available-beds, doctors
+- Built full Admission Form (Form 1) with 5 sections: Ward/Bed Selection, Patient Info, Family/Emergency, Address, Medical
+- Patient list with status badges, filters, pagination
+- Bed status auto-update (Available → Occupied on admit)
+- Admission number auto-generation (IPD-YYYY-NNNNNN)
+
+Stage Summary:
+- Receptionist can create IPD admissions with full Form 1 data
+- Cascade selectors: Hospital → Department → Doctor, Ward → Bed (available only)
+- MLC case tracking, insurance/medi-claim fields
+
+---
+Task ID: N3-a
+Agent: nurse-dashboard
+Task: Build Nurse Dashboard, Patients, Vitals Entry, Medicine Administration
+
+Work Log:
+- Created 6 API routes: stats, patients list, patient detail, vitals GET+POST, medicines GET, medicine administer
+- Built Nurse Dashboard: stats cards, patient card grid with 2×2 vitals mini-display, last vital time color coding, critical pulse dot
+- Built Patient Detail page: 4 tabs (Overview, Vitals, Medicines, History)
+- Vital signs entry form (compact, tablet-friendly)
+- Medicine administration: mark as Given/Missed/Refused/Skipped/NotAvailable
+- Auto-alert on abnormal vitals (notifies attending doctor)
+- 30-second auto-refresh
+
+Stage Summary:
+- Nurse sees assigned patients with live vitals summary
+- Can record hourly vitals with abnormal value detection
+- Can mark medicines as given/missed/refused
+- Tablet-optimized responsive design
+
+---
+Task ID: N3-b
+Agent: doctor-ipd
+Task: Build Doctor IPD Patients page, Orders, History, Examination, Investigations
+
+Work Log:
+- Created 8 API routes: IPD patient list, patient detail, orders CRUD, history update, examination update, investigations, visits
+- Built Doctor IPD Patient List: stats cards, status/search filters, mini vitals, pending med badges
+- Built Doctor IPD Patient Detail: 7 tabs (Overview, Orders, Vitals, History, Examination, Investigations, Visits)
+- Order Sheet (Form 5): Add orders with drug name, route, dose, frequency, scheduled time, PRN/STAT
+- Stop orders with reason
+- History Sheet (Form 2): editable chief complaints, past history, personal history, habits, female history, drug history
+- Physical Examination (Form 6): consciousness, speech, neurological, general signs
+- Investigation ordering with sample type
+- Doctor visit notes
+
+Stage Summary:
+- Doctor sees all their IPD patients with real-time medicine administration status
+- Full Order Sheet functionality (add/stop orders)
+- Can fill History Sheet and Physical Examination forms
+- Can order investigations and add visit notes

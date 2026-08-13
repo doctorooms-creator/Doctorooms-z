@@ -151,6 +151,15 @@ const DEV_USERS: Record<string, AuthUser> = {
     profileImg: null,
     mobileNo: '+91 9876543215',
   },
+  nurse: {
+    id: 'dev-nurse',
+    name: 'Priya Sharma',
+    email: 'priya.sharma@doctorooms.com',
+    role: 'nurse',
+    gender: 'Female',
+    profileImg: null,
+    mobileNo: '+91 9876543217',
+  },
   admin: {
     id: 'dev-admin',
     name: 'Admin User',

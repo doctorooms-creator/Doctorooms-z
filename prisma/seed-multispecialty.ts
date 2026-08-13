@@ -775,6 +775,9 @@ async function main() {
     }
   }
 
+  // ---- 6. IPD: Wards, Beds, Nurses ----
+  await seedIpdData()
+
   // ============ SUMMARY ============
   console.log('\n\n' + '='.repeat(60))
   console.log('📊 SEED COMPLETE — SUMMARY')
@@ -788,6 +791,187 @@ async function main() {
   console.log(`   Pharmacists created:    ${totalPharmacistsCreated}`)
   console.log(`   Assistants created:     ${totalAssistantsCreated}`)
   console.log('='.repeat(60))
+}
+
+// ============ IPD: WARD + BED + NURSE SEED ============
+async function seedIpdData() {
+  console.log('\n🏥 Seeding IPD: Wards, Beds, Nurses...')
+  let totalWards = 0, totalBeds = 0, totalNurses = 0
+
+  const hospitals = await db.hospital.findMany({ select: { id: true, hospitalName: true } })
+
+  const wardData: Record<string, { name: string; type: string; floor: string; beds: { num: string; type: string; rate: number }[] }[]> = {
+    // First hospital gets full wards
+    [hospitals[0]?.id || '']: [
+      { name: 'ICU', type: 'ICU', floor: 'Ground Floor', beds: [
+        { num: 'ICU-1', type: 'ICU_Ventilator', rate: 5000 },
+        { num: 'ICU-2', type: 'ICU_Ventilator', rate: 5000 },
+        { num: 'ICU-3', type: 'ICU_NonVentilator', rate: 4000 },
+        { num: 'ICU-4', type: 'ICU_NonVentilator', rate: 4000 },
+      ]},
+      { name: 'General Ward', type: 'General', floor: 'Floor 1', beds: [
+        { num: 'GW-01', type: 'General', rate: 800 },
+        { num: 'GW-02', type: 'General', rate: 800 },
+        { num: 'GW-03', type: 'General', rate: 800 },
+        { num: 'GW-04', type: 'General', rate: 800 },
+        { num: 'GW-05', type: 'General', rate: 800 },
+        { num: 'GW-06', type: 'General', rate: 800 },
+        { num: 'GW-07', type: 'General', rate: 800 },
+        { num: 'GW-08', type: 'General', rate: 800 },
+      ]},
+      { name: 'Private Ward', type: 'Private', floor: 'Floor 2', beds: [
+        { num: 'PR-201', type: 'Private', rate: 2500 },
+        { num: 'PR-202', type: 'Private', rate: 2500 },
+        { num: 'PR-203', type: 'Private', rate: 2500 },
+        { num: 'PR-204', type: 'Private', rate: 2500 },
+      ]},
+      { name: 'Semi-Private Ward', type: 'SemiPrivate', floor: 'Floor 2', beds: [
+        { num: 'SP-201', type: 'SemiPrivate', rate: 1500 },
+        { num: 'SP-202', type: 'SemiPrivate', rate: 1500 },
+        { num: 'SP-203', type: 'SemiPrivate', rate: 1500 },
+      ]},
+      { name: 'Emergency Ward', type: 'Emergency', floor: 'Ground Floor', beds: [
+        { num: 'ER-1', type: 'General', rate: 1000 },
+        { num: 'ER-2', type: 'General', rate: 1000 },
+      ]},
+    ],
+    [hospitals[1]?.id || '']: [
+      { name: 'ICU', type: 'ICU', floor: 'Ground Floor', beds: [
+        { num: 'ICU-1', type: 'ICU_Ventilator', rate: 6000 },
+        { num: 'ICU-2', type: 'ICU_NonVentilator', rate: 5000 },
+      ]},
+      { name: 'General Ward', type: 'General', floor: 'Floor 1', beds: [
+        { num: 'GW-01', type: 'General', rate: 1000 },
+        { num: 'GW-02', type: 'General', rate: 1000 },
+        { num: 'GW-03', type: 'General', rate: 1000 },
+        { num: 'GW-04', type: 'General', rate: 1000 },
+        { num: 'GW-05', type: 'General', rate: 1000 },
+        { num: 'GW-06', type: 'General', rate: 1000 },
+      ]},
+      { name: 'Private Ward', type: 'Private', floor: 'Floor 2', beds: [
+        { num: 'PR-201', type: 'Private', rate: 3000 },
+        { num: 'PR-202', type: 'Private', rate: 3000 },
+      ]},
+    ],
+    [hospitals[2]?.id || '']: [
+      { name: 'ICU', type: 'ICU', floor: 'Ground Floor', beds: [
+        { num: 'ICU-1', type: 'ICU_Ventilator', rate: 3000 },
+        { num: 'ICU-2', type: 'ICU_NonVentilator', rate: 2000 },
+        { num: 'ICU-3', type: 'ICU_NonVentilator', rate: 2000 },
+      ]},
+      { name: 'General Ward', type: 'General', floor: 'Floor 1', beds: [
+        { num: 'GW-01', type: 'General', rate: 500 },
+        { num: 'GW-02', type: 'General', rate: 500 },
+        { num: 'GW-03', type: 'General', rate: 500 },
+        { num: 'GW-04', type: 'General', rate: 500 },
+        { num: 'GW-05', type: 'General', rate: 500 },
+      ]},
+    ],
+  }
+
+  const nurseData: Record<string, { name: string; qualification: string; designation: string; shift: string; ward?: string }[]> = {
+    [hospitals[0]?.id || '']: [
+      { name: 'Priya Sharma', qualification: 'BSc Nursing', designation: 'Nursing Incharge', shift: 'Morning' },
+      { name: 'Sunita Patel', qualification: 'BSc Nursing', designation: 'Staff Nurse', shift: 'Morning', ward: 'ICU' },
+      { name: 'Anita Kumari', qualification: 'GNM', designation: 'Staff Nurse', shift: 'Morning', ward: 'ICU' },
+      { name: 'Kavita Singh', qualification: 'GNM', designation: 'Staff Nurse', shift: 'Morning', ward: 'General Ward' },
+      { name: 'Neha Gupta', qualification: 'GNM', designation: 'Staff Nurse', shift: 'Morning', ward: 'General Ward' },
+      { name: 'Meera Joshi', qualification: 'BSc Nursing', designation: 'Staff Nurse', shift: 'Evening', ward: 'ICU' },
+      { name: 'Pooja Reddy', qualification: 'GNM', designation: 'Staff Nurse', shift: 'Evening', ward: 'General Ward' },
+      { name: 'Ritu Verma', qualification: 'GNM', designation: 'Staff Nurse', shift: 'Evening', ward: 'Private Ward' },
+      { name: 'Sakshi Mishra', qualification: 'ANM', designation: 'Staff Nurse', shift: 'Night', ward: 'ICU' },
+      { name: 'Swati Yadav', qualification: 'ANM', designation: 'Staff Nurse', shift: 'Night', ward: 'General Ward' },
+    ],
+    [hospitals[1]?.id || '']: [
+      { name: 'Deepika Rao', qualification: 'BSc Nursing', designation: 'Nursing Incharge', shift: 'Morning' },
+      { name: 'Lakshmi Iyer', qualification: 'GNM', designation: 'Staff Nurse', shift: 'Morning', ward: 'ICU' },
+      { name: 'Aarti Desai', qualification: 'GNM', designation: 'Staff Nurse', shift: 'Morning', ward: 'General Ward' },
+      { name: 'Bhavna Shah', qualification: 'GNM', designation: 'Staff Nurse', shift: 'Evening' },
+      { name: 'Chhaya Jadhav', qualification: 'ANM', designation: 'Staff Nurse', shift: 'Night' },
+    ],
+    [hospitals[2]?.id || '']: [
+      { name: 'Suman Devi', qualification: 'BSc Nursing', designation: 'Nursing Incharge', shift: 'Morning' },
+      { name: 'Rekha Kumari', qualification: 'GNM', designation: 'Staff Nurse', shift: 'Morning', ward: 'ICU' },
+      { name: 'Anjali Thakur', qualification: 'GNM', designation: 'Staff Nurse', shift: 'Morning', ward: 'General Ward' },
+      { name: 'Pramila Didi', qualification: 'ANM', designation: 'Staff Nurse', shift: 'Evening' },
+    ],
+  }
+
+  // Create wards + beds + nurses for each hospital
+  for (const hospital of hospitals) {
+    const hospitalId = hospital.id
+    const wards = wardData[hospitalId] || []
+    const nurses = nurseData[hospitalId] || []
+
+    // Get existing departments (use first department for ward association)
+    const firstDept = await db.department.findFirst({ where: { hospitalId } })
+
+    for (const w of wards) {
+      const ward = await db.ward.create({
+        data: {
+          hospitalId,
+          name: w.name,
+          wardType: w.type,
+          floorNo: w.floor,
+          totalBeds: w.beds.length,
+          nurseRatio: w.type === 'ICU' ? 2 : 6,
+        },
+      })
+      totalWards++
+      console.log(`   🏠 Ward: ${w.name} (${w.type}, ${w.beds.length} beds)`)
+
+      for (const b of w.beds) {
+        await db.bed.create({
+          data: {
+            wardId: ward.id,
+            bedNumber: b.num,
+            bedType: b.type,
+            dailyRate: b.rate,
+          },
+        })
+        totalBeds++
+      }
+    }
+
+    // Create nurses
+    for (const n of nurses) {
+      let wardId: string | undefined
+      if (n.ward) {
+        const ward = await db.ward.findFirst({ where: { hospitalId, name: n.ward } })
+        if (ward) wardId = ward.id
+      }
+
+      const email = `${n.name.toLowerCase().replace(/\s+/g, '.')}@doctorooms.com`
+      const password = await hash('nurse123', 10)
+
+      const user = await db.user.create({
+        data: {
+          name: n.name,
+          email,
+          password,
+          role: 'nurse',
+          gender: 'Female',
+          status: 'Active',
+          mobileNo: '+91 98765' + String(Math.floor(Math.random() * 90000 + 10000)),
+        },
+      })
+
+      await db.staffNurse.create({
+        data: {
+          userId: user.id,
+          hospitalId,
+          wardId: wardId || null,
+          employeeId: `NUR-${String(totalNurses + 1).padStart(3, '0')}`,
+          qualification: n.qualification,
+          designation: n.designation,
+          shift: n.shift,
+        },
+      })
+      totalNurses++
+      console.log(`   🩺 Nurse: ${n.name} → ${n.ward || 'Floating'} (${n.shift})`)
+    }
+  }
+
 }
 
 main()

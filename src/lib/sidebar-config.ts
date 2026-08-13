@@ -1,6 +1,6 @@
 import {
   type LucideIcon,
-  LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus, KeyRound, IndianRupee, FlaskConical, PenLine, BarChart3, Printer, Shield, FolderOpen, Thermometer, CircleHelp, Lightbulb, Tag, Search, Table, ClipboardList, ListOrdered, Monitor,
+  LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus, KeyRound, IndianRupee, FlaskConical, PenLine, BarChart3, Printer, Shield, FolderOpen, Thermometer, CircleHelp, Lightbulb, Tag, Search, Table, ClipboardList, ListOrdered, Monitor, BedDouble, ArrowRightLeft, Activity,
 } from 'lucide-react'
 
 export interface SidebarItem {
@@ -20,6 +20,8 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Doctors', href: '/dashboard/admin/doctors', icon: Stethoscope },
     { label: 'Hospitals', href: '/dashboard/admin/hospitals', icon: Building2 },
     { label: 'Appointments', href: '/dashboard/admin/appointments', icon: CalendarDays },
+    { label: 'IPD Wards', href: '/dashboard/admin/wards', icon: BedDouble },
+    { label: 'Staff Nurses', href: '/dashboard/admin/nurses', icon: Activity },
     { label: 'Blog', href: '/dashboard/admin/blog', icon: FileText },
     { label: 'Inquiries', href: '/dashboard/admin/inquiries', icon: MessageSquare },
     { label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
@@ -51,6 +53,7 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Profile', href: '/dashboard/doctor/profile', icon: UserCircle },
     { label: 'Gallery', href: '/dashboard/doctor/gallery', icon: Images },
     { label: 'Posts', href: '/dashboard/doctor/posts', icon: PenSquare },
+    { label: 'IPD Patients', href: '/dashboard/doctor/ipd', icon: BedDouble },
     { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   patient: [
@@ -72,6 +75,7 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Doctors', href: '/dashboard/hospital/doctors', icon: Stethoscope },
     { label: 'Appointments', href: '/dashboard/hospital/appointments', icon: CalendarDays },
     { label: 'Queue Display', href: '/dashboard/hospital/queue-display', icon: Monitor },
+    { label: 'IPD Admissions', href: '/dashboard/receptionist/ipd', icon: BedDouble },
     { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   receptionist: [
@@ -101,6 +105,14 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Dashboard', href: '/dashboard/pharmacist', icon: LayoutDashboard },
     { label: 'Prescriptions', href: '/dashboard/pharmacist/prescriptions', icon: FileText },
     { label: 'Medicine List', href: '/dashboard/pharmacist/medicines', icon: Pill },
+    { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
+  ],
+  nurse: [
+    { label: 'Dashboard', href: '/dashboard/nurse', icon: LayoutDashboard },
+    { label: 'My Patients', href: '/dashboard/nurse/patients', icon: Users },
+    { label: 'Ward View', href: '/dashboard/nurse/ward-patients', icon: BedDouble },
+    { label: 'Shift Handover', href: '/dashboard/nurse/handover', icon: ArrowRightLeft },
+    { label: 'Profile', href: '/dashboard/nurse/profile', icon: UserCircle },
     { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
 }

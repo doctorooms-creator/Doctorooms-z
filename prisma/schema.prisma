@@ -13,7 +13,7 @@ model User {
   id              String   @id @default(cuid())
   name            String
   gender          String   @default("Male")
-  role            String   @default("patient") // admin, doctor, patient, hospital, receptionist, assistant, pharmacist
+  role            String   @default("patient") // admin, doctor, patient, hospital, receptionist, assistant, pharmacist, nurse
   status          String   @default("Pending") // Pending, Active, Block
   email           String   @unique
   password        String   @default("")
@@ -40,6 +40,8 @@ model User {
   receptionistProfile  Receptionist?       @relation("ReceptionistUser")
   assistantProfile    DoctorAssistant?    @relation("AssistantUser")
   pharmacistProfile   DoctorPharmacist?   @relation("PharmacistUser")
+  nurseProfile         StaffNurse?         @relation("NurseUser")
+  ipdAdmissions       IpdAdmission[]
   prescriptionAccessRequests PrescriptionAccessRequest[] @relation("PrescriptionAccessPatient")
   assistedPrescriptions Prescription[] @relation("PrescriptionAssistant")
 }
@@ -94,6 +96,11 @@ model Doctor {
   findings            FindingsMaster[]
   tableTemplates      TableTemplateMaster[]
   hospitalLinks       DoctorHospital[]
+  ipdAdmissionsAsAttending IpdAdmission[] @relation("AdmittingDoctor")
+  ipdAdmissionsAsReferring IpdAdmission[] @relation("ReferringDoctor")
+  doctorOrders        DoctorOrder[]
+  doctorVisits        DoctorVisit[]
+  sampleCollections   SampleCollection[]
 }
 
 // ============ HOSPITAL ============
@@ -128,6 +135,10 @@ model Hospital {
   doctorLinks  DoctorHospital[]
   receptionists Receptionist[]
   pharmacists  DoctorPharmacist[]
+  wards        Ward[]
+  nurses       StaffNurse[]
+  ipdAdmissions IpdAdmission[]
+  shiftHandovers ShiftHandover[]
 }
 
 // ============ DEPARTMENT ============
@@ -150,6 +161,7 @@ model Department {
   hospital    Hospital       @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
   doctorLinks DoctorHospital[]
   receptionists Receptionist[]
+  ipdAdmissions IpdAdmission[]
 }
 
 // ============ DOCTOR-HOSPITAL JUNCTION (Many-to-Many with Department) ============
@@ -213,6 +225,7 @@ model Booking {
   user             User?    @relation(fields: [userId], references: [id])
   chatMessages     BookingChat[]
   prescriptions    Prescription[]
+  ipdAdmission    IpdAdmission?  @relation("IpdFromOpd")
 }
 
 // ============ BOOKING CHAT ============
@@ -744,4 +757,391 @@ model MedicalDocument {
   updatedAt   DateTime @updatedAt
 
   patient     User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+// ============ IPD: WARD ============
+
+model Ward {
+  id            String   @id @default(cuid())
+  hospitalId    String
+  name          String   @default("")          // "ICU", "General Ward", "Private Room"
+  nameHi        String   @default("")
+  wardType      String   @default("General")   // ICU, General, Private, SemiPrivate, PostOp, Emergency, Maternity
+  floorNo       String   @default("")         // "Ground Floor", "Floor 1"
+  totalBeds     Int      @default(0)
+  nurseRatio    Int      @default(6)           // Patients per nurse in this ward
+  status        String   @default("Active")    // Active, Inactive, Maintenance
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  hospital      Hospital  @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  beds          Bed[]
+  nurses        StaffNurse[]
+  admissions    IpdAdmission[]
+  shiftHandovers ShiftHandover[]
+}
+
+// ============ IPD: BED ============
+
+model Bed {
+  id            String   @id @default(cuid())
+  wardId        String
+  bedNumber     String   @default("")         // "Bed 1", "ICU-1", "PR-201"
+  bedType       String   @default("General")   // General, SemiPrivate, Private, ICU_Ventilator, ICU_NonVentilator
+  dailyRate     Float    @default(0)           // Room rent per day
+  status        String   @default("Available") // Available, Occupied, Reserved, Maintenance
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  ward          Ward         @relation(fields: [wardId], references: [id], onDelete: Cascade)
+  admission     IpdAdmission?
+  nurseAssignments NursePatientAssignment[]
+}
+
+// ============ IPD: STAFF NURSE ============
+
+model StaffNurse {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  hospitalId    String
+  wardId        String?
+  employeeId    String   @default("")         // "NUR-001"
+  qualification String   @default("")         // GNM, BSc Nursing, ANM
+  designation   String   @default("Staff Nurse") // Staff Nurse, Sister, Nursing Incharge
+  shift         String   @default("Morning")   // Morning, Evening, Night, Rotating
+  phoneNo       String   @default("")
+  address       String   @default("")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user          User     @relation("NurseUser", fields: [userId], references: [id], onDelete: Cascade)
+  hospital      Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  ward          Ward?    @relation(fields: [wardId], references: [id], onDelete: SetNull)
+  vitalRecords  VitalRecord[]
+  medicineAdministrations MedicineAdministration[]
+  sampleCollections  SampleCollection[]
+  shiftHandoversFrom  ShiftHandover[] @relation("HandoverFrom")
+  shiftHandoversTo    ShiftHandover[] @relation("HandoverTo")
+  patientAssignments   NursePatientAssignment[]
+}
+
+// ============ IPD: NURSE-PATIENT ASSIGNMENT ============
+
+model NursePatientAssignment {
+  id            String   @id @default(cuid())
+  nurseId       String
+  admissionId   String
+  bedId         String
+  shiftDate     DateTime
+  shiftType     String   @default("Morning") // Morning, Evening, Night
+  assignedAt    DateTime @default(now())
+  assignedBy    String?
+  unassignedAt  DateTime?
+  status        String   @default("Active")  // Active, Completed, Transferred
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  nurse         StaffNurse   @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+  admission     IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  bed           Bed          @relation(fields: [bedId], references: [id])
+}
+
+// ============ IPD: ADMISSION (Core Record — all 6 forms) ============
+
+model IpdAdmission {
+  id                  String    @id @default(cuid())
+  admissionNo         String    @unique @default("")  // "IPD-2026-000001"
+  hospitalId          String
+  wardId              String
+  bedId               String   // one-to-one: each bed has at most one admission
+  departmentId        String
+  attendingDoctorId   String
+  referringDoctorId   String?
+  userId              String?                         // Patient User.id (null for walk-in)
+
+  // --- Patient Demographics (Form 1: Admission Sheet) ---
+  patientName         String    @default("")
+  patientAge          Int       @default(0)
+  patientGender       String    @default("")
+  patientDob          DateTime?
+  bloodGroup          String    @default("")
+  maritalStatus       String    @default("")
+  occupation          String    @default("")
+  education           String    @default("")
+  religion            String    @default("")
+  aadharNo            String    @default("")
+  mobileNo            String    @default("")
+  idMarks             String    @default("")
+  fatherName          String    @default("")
+  motherName          String    @default("")
+  husbandWifeName     String    @default("")
+  contactPersonName   String    @default("")
+  contactPersonMobile String    @default("")
+  contactPersonRelation String   @default("")
+  address             String    @default("")
+  village             String    @default("")
+  taluka              String    @default("")
+  district            String    @default("")
+  state               String    @default("")
+  pinCode             String    @default("")
+
+  // --- Medical Info (Form 1 continued) ---
+  mlcCase             Boolean   @default(false)
+  previousHospitalization String  @default("")
+  mediClaimDetails    String    @default("")
+  initialDiagnosis    String    @default("")
+  opdBookingId        String?
+
+  // --- History (Form 2: History Sheet — Doctor fills) ---
+  chiefComplaints     String    @default("")
+  informant           String    @default("")
+  pastHistory         String    @default("")
+  personalHistory     String    @default("{}")
+  habits              String    @default("{}")
+  femaleHistory       String    @default("{}")
+  drugHistory         String    @default("")
+
+  // --- Physical Examination (Form 6 — Doctor fills) ---
+  consciousnessLevel   String   @default("Conscious")
+  obeyingCommands      Boolean  @default(true)
+  respondingToDPS     Boolean  @default(true)
+  oriented            Boolean  @default(true)
+  speech              String   @default("Normal")
+  examinationNotes    String   @default("")
+  generalSigns        String   @default("{}")
+
+  // --- Admission Status ---
+  admissionDate       DateTime  @default(now())
+  admissionTime       String    @default("")
+  status              String    @default("Admitted")  // Admitted, Discharged, DAMA, Expired, Transferred
+  dischargeDate       DateTime?
+  dischargeTime       String    @default("")
+  dischargeType       String    @default("")        // Normal, DAMA, LAMA, Expired
+  finalDiagnosis      String    @default("")
+  dischargeSummary    String    @default("")
+
+  // --- Billing ---
+  roomRentDays        Int       @default(0)
+  totalBillAmount     Float     @default(0)
+  paymentStatus       String    @default("Pending")
+
+  // --- Audit ---
+  admittedBy          String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  // --- Relations ---
+  hospital            Hospital   @relation(fields: [hospitalId], references: [id])
+  ward                Ward       @relation(fields: [wardId], references: [id])
+  bed                 Bed        @relation(fields: [bedId], references: [id])
+  @@unique([bedId])
+  department          Department @relation(fields: [departmentId], references: [id])
+  attendingDoctor     Doctor     @relation("AdmittingDoctor", fields: [attendingDoctorId], references: [id])
+  referringDoctor     Doctor?    @relation("ReferringDoctor", fields: [referringDoctorId], references: [id])
+  patient             User?      @relation(fields: [userId], references: [id])
+  opdBooking          Booking?   @relation("IpdFromOpd", fields: [opdBookingId], references: [id])
+
+  @@unique([opdBookingId])
+
+  vitalRecords        VitalRecord[]
+  doctorOrders        DoctorOrder[]
+  medicineAdministrations MedicineAdministration[]
+  sampleCollections   SampleCollection[]
+  investigationReports InvestigationReport[]
+  nurseAssignments    NursePatientAssignment[]
+  doctorVisits        DoctorVisit[]
+}
+
+// ============ IPD: VITAL RECORD (Monitoring Chart — Form 6 — Nurse fills hourly) ============
+
+model VitalRecord {
+  id                  String   @id @default(cuid())
+  admissionId         String
+  nurseId             String
+  recordedAt          DateTime
+
+  // --- Patient Header Status ---
+  patientStatus       String   @default("Conscious")
+  ventilatorOn        Boolean  @default(false)
+  oxygenLiters        Float    @default(0)
+  infusionPump        String   @default("")
+  rbs                 Float?
+
+  // --- Vital Signs ---
+  temperature         Float    @default(0)
+  pulse               Int      @default(0)
+  spo2                Float    @default(0)
+  bpSystolic          Int      @default(0)
+  bpDiastolic         Int      @default(0)
+  respiratoryRate     Int      @default(0)
+
+  // --- Input/Output ---
+  inputMl             Float    @default(0)
+  urineMl             Float    @default(0)
+  outputMl            Float    @default(0)
+
+  // --- Notes ---
+  remarks             String   @default("")
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  nurse               StaffNurse   @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+}
+
+// ============ IPD: DOCTOR ORDER (Order Sheet — Form 5 — Doctor writes, Nurse executes) ============
+
+model DoctorOrder {
+  id                  String   @id @default(cuid())
+  admissionId         String
+  doctorId            String
+
+  drugName            String   @default("")
+  route               String   @default("")        // Oral, IV, IM, SC, Topical, PR, Nebulization
+  dose                String   @default("")
+  frequency           String   @default("")        // OD, BD, TDS, QID, STAT, SOS, HS, Q4H, Q6H, Q8H
+  scheduledTime       String   @default("")        // "08:00", "14:00"
+  startDate           DateTime @default(now())
+  endDate             DateTime?
+
+  instructions        String   @default("")
+  isPrn               Boolean  @default(false)
+  isStat              Boolean  @default(false)
+
+  status              String   @default("Active")    // Active, Stopped, Completed, Modified
+  stoppedBy           String?
+  stoppedAt           DateTime?
+  stoppedReason       String   @default("")
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  doctor              Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  administrations      MedicineAdministration[]
+}
+
+// ============ IPD: MEDICINE ADMINISTRATION (Nurse marks given/missed/refused) ============
+
+model MedicineAdministration {
+  id                  String   @id @default(cuid())
+  orderId             String
+  admissionId         String
+  nurseId             String
+
+  scheduledTime       DateTime
+  administeredTime    DateTime?
+
+  status              String   @default("Pending")  // Pending, Given, Missed, Refused, Skipped, NotAvailable
+  remarks             String   @default("")
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  order               DoctorOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  nurse               StaffNurse  @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+}
+
+// ============ IPD: SAMPLE COLLECTION (Nurse collects, sends to lab) ============
+
+model SampleCollection {
+  id                  String   @id @default(cuid())
+  admissionId         String
+  nurseId             String
+  doctorId            String
+
+  testName            String   @default("")
+  sampleType          String   @default("")        // Blood, Urine, Sputum, CSF, Swab
+
+  collectedAt         DateTime?
+  sentToLabAt         DateTime?
+
+  status              String   @default("Ordered")   // Ordered, Collected, SentToLab, Reported, Filed
+  remarks             String   @default("")
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  nurse               StaffNurse   @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+  doctor              Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+}
+
+// ============ IPD: INVESTIGATION REPORT (Lab results) ============
+
+model InvestigationReport {
+  id                  String   @id @default(cuid())
+  admissionId         String
+  sampleCollectionId  String?
+
+  testName            String   @default("")
+  reportDate          DateTime @default(now())
+  resultData          String   @default("{}")        // JSON
+  normalRange         String   @default("{}")        // JSON
+  isAbnormal          Boolean  @default(false)
+
+  reportedBy          String?
+  reviewedBy          String?
+  reviewedAt          DateTime?
+  remarks             String   @default("")
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+}
+
+// ============ IPD: SHIFT HANDOVER (End-of-shift communication) ============
+
+model ShiftHandover {
+  id                  String   @id @default(cuid())
+  hospitalId          String
+  wardId              String
+  shiftDate           DateTime
+  shiftType           String                        // Morning, Evening, Night
+
+  fromNurseId         String
+  toNurseId           String
+
+  patientSummaries    String   @default("[]")        // JSON array
+  wardNotes           String   @default("")
+  pendingTasks        String   @default("[]")        // JSON array
+
+  acknowledgedAt      DateTime?
+  acknowledgedBy      String?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  hospital            Hospital    @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  ward                Ward        @relation(fields: [wardId], references: [id], onDelete: Cascade)
+  fromNurse           StaffNurse  @relation("HandoverFrom", fields: [fromNurseId], references: [id])
+  toNurse             StaffNurse  @relation("HandoverTo", fields: [toNurseId], references: [id])
+}
+
+// ============ IPD: DOCTOR VISIT (Daily round documentation) ============
+
+model DoctorVisit {
+  id                  String   @id @default(cuid())
+  admissionId         String
+  doctorId            String
+  visitDate           DateTime @default(now())
+  visitTime           String   @default("")
+
+  examinationFindings  String   @default("")
+  currentDiagnosis    String   @default("")
+
+  newOrders           String   @default("[]")        // JSON
+  stoppedOrders       String   @default("[]")        // JSON
+  advise              String   @default("")
+
+  isMobileVisit       Boolean  @default(false)
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  doctor              Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 }
