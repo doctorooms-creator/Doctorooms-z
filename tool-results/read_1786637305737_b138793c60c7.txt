@@ -1,0 +1,1128 @@
+     1→     1→# 🩺 STAFF NURSE ROLE — Comprehensive Architecture Plan
+     2→     2→# IPD Hospital Management System
+     3→     3→# Doctor's Perspective — Real Hospital Workflow
+     4→     4→
+     5→     5→---
+     6→     6→
+     7→     7→## 📌 WHY NURSE IS THE MOST CRITICAL ROLE
+     8→     8→
+     9→     9→Bhai, doctor ki nazar se samjho:
+    10→    10→
+    11→    11→- **Doctor** hospital mein 10-15 minute aata hai round pe — patient dekhta hai, notes likhta hai, order deta hai, chala jaata hai
+    12→    12→- **Nurse** 24/7 rehti hai — **WOHI HAI JO ACTUALLY ILLAJ KARTI HAI**
+    13→    13→- Doctor ne likha "Inj. Enoxaparin 60mg SC BD" — par **inject kaun dega?** → Nurse
+    14→    14→- Doctor ne likha "Monitor BP hourly" — par **BP kaun measure karega?** → Nurse
+    15→    15→- Patient raat 3 baje chillane laga — **kaun pehle pohochega?** → Nurse
+    16→    16→- Patient ka urine output kam ho gaya — **kaun notice karega?** → Nurse (monitoring chart dekh ke)
+    17→    17→
+    18→    18→**Nurse is the eyes and hands of the doctor 24/7.** Ye role bilkul alag level ka hai.
+    19→    19→
+    20→    20→---
+    21→    21→
+    22→    22→## 🏗️ NURSE ROLE IN HOSPITAL STRUCTURE
+    23→    23→
+    24→    24→```
+    25→    25→Hospital
+    26→    26→  ├── Ward 1: General Ward (10 beds)
+    27→    27→  │     ├── Nurse A (Morning 7AM-2PM) → Patients: Bed 1,2,3,4,5
+    28→    28→  │     ├── Nurse B (Morning 7AM-2PM) → Patients: Bed 6,7,8,9,10
+    29→    29→  │     ├── Nurse C (Evening 2PM-9PM)  → Patients: Bed 1,2,3,4,5
+    30→    30→  │     └── Nurse D (Evening 2PM-9PM)  → Patients: Bed 6,7,8,9,10
+    31→    31→  │
+    32→    32→  ├── Ward 2: Private Ward (6 beds)
+    33→    33→  │     ├── Nurse E (Morning) → Patients: Bed 1,2,3
+    34→    34→  │     └── Nurse F (Morning) → Patients: Bed 4,5,6
+    35→    35→  │
+    36→    36→  ├── Ward 3: ICU (4 beds)
+    37→    37→  │     ├── Nurse G (Morning) → Patient: Bed 1 ONLY (ICU = 1:1 or 1:2 ratio)
+    38→    38→  │     ├── Nurse H (Morning) → Patient: Bed 2,3
+    39→    39→  │     └── Nurse I (Morning) → Patient: Bed 4
+    40→    40→  │
+    41→    41→  └── Nursing Incharge (Head Nurse — manages all wards, assigns nurses)
+    42→    42→```
+    43→    43→
+    44→    44→### Key Concepts:
+    45→    45→1. **Nurse-to-Patient Ratio:** ICU mein 1 nurse per 1-2 patient. General ward mein 1 nurse per 5-8 patients
+    46→    46→2. **Shift System:** 3 shifts — Morning (7AM-2PM), Evening (2PM-9PM), Night (9PM-7AM)
+    47→    47→3. **Shift Handover:** Jab nurse ki shift khatam hoti hai, usko next shift nurse ko POORA update dena padta hai
+    48→    48→4. **Ward-based Assignment:** Nurse ek specific ward mein assigned hoti hai, us ward ke hi patients sambhalti hai
+    49→    49→5. **Nursing Incharge:** Head nurse jo sab nurses manage karti hai, bed allocation karti hai
+    50→    50→
+    51→    51→---
+    52→    52→
+    53→    53→## 📋 NURSE'S COMPLETE WORKFLOW (Doctor's Explanation)
+    54→    54→
+    55→    55→### Scenario: Raju (Heart Attack) admitted in ICU Bed 3
+    56→    56→
+    57→    57→```
+    58→    58→SHIFT START (7:00 AM) — Nurse Priya logs in
+    59→    59→  ↓
+    60→    60→① VIEW SHIFT HANDOVER (from Night Shift Nurse)
+    61→    61→   "Bed 3 Raju — BP was 100/60 at 6AM, I gave 500ml NS bolus, 
+    62→    62→    Urine output improved from 50ml to 150ml/hr. Doctor aware. 
+    63→    63→    Next Enoxaparin due at 8AM."
+    64→    64→  ↓
+    65→    65→② VIEW MY PATIENTS LIST
+    66→    66→   Bed 1: Suresh (Post-Op Appendectomy) — Stable
+    67→    67→   Bed 2: Meena (Pneumonia) — On Oxygen 4L
+    68→    68→   Bed 3: Raju (Heart Attack) — CRITICAL ⚠️
+    69→    69→  ↓
+    70→    70→③ CHECK PENDING MEDICINES (8:00 AM)
+    71→    71→   Raju ke liye due:
+    72→    72→   ✅ Tab. Metformin 500mg — Oral — Given at 8:05 AM
+    73→    73→   ✅ Inj. Enoxaparin 60mg — SC — Given at 8:10 AM
+    74→    74→   ✅ Tab. Aspirin 75mg — Oral — Given at 8:05 AM
+    75→    75→   ❌ Inj. Pantoprazole 40mg — IV — Pharmacy se medicine nahi aayi → Notified
+    76→    76→  ↓
+    77→    77→④ RECORD VITALS (8:00 AM — Every Hour)
+    78→    78→   Raju:
+    79→    79→   Temp: 98.4°F | Pulse: 82 | SpO2: 97% | BP: 112/74 | RR: 18
+    80→    80→   Input: 250ml (IV NS) | Urine: 120ml | Remarks: "Pain reduced, comfortable"
+    81→    81→  ↓
+    82→    82→⑤ SAMPLE COLLECTION (9:00 AM)
+    83→    83→   Doctor ne order kiya: CBC, KFT, LFT, RBS
+    84→    84→   Nurse Priya sample collect karti hai → Lab bhejti hai
+    85→    85→   ✅ Blood sample collected at 9:15 AM, sent to lab
+    86→    86→  ↓
+    87→    87→⑥ RECORD VITALS (9:00 AM)
+    88→    88→   Temp: 98.6°F | Pulse: 80 | SpO2: 98% | BP: 118/76 | RR: 18
+    89→    89→   Input: 200ml (Oral water) | Urine: 100ml | Remarks: "Stable"
+    90→    90→  ↓
+    91→    91→⑦ DOCTOR ROUNDS (10:00 AM)
+    92→    92→   Dr. Patel aate hain:
+    93→    93→   Nurse Priya presents: "Sir, Raju — BP stable 112-118/74-76, 
+    94→    94→   pain significantly reduced, urine output adequate 100-120ml/hr.
+    95→    95→   Blood sample sent at 9:15, reports pending."
+    96→    96→   Dr. Patel: "Good. Continue same. Stop ECG monitoring if stable by evening. 
+    97→    97→   Add Tab. Atorvastatin 40mg HS."
+    98→    98→   Nurse Priya updates order sheet with new medicine
+    99→    99→  ↓
+   100→   100→⑧ HOURLY VITALS CONTINUE (10AM, 11AM, 12PM, 1PM...)
+   101→   101→   Every hour: Temp, Pulse, BP, SpO2, RR, Input, Urine, Remarks
+   102→   102→  ↓
+   103→   103→⑨ PENDING MEDICINES (2:00 PM)
+   104→   104→   Inj. Enoxaparin 60mg — SC — Given at 2:00 PM
+   105→   105→   Tab. Metformin 500mg — Oral — Given at 2:05 PM
+   106→   106→  ↓
+   107→   107→⑩ SHIFT HANDOVER (2:00 PM — Before leaving)
+   108→   108→   Nurse Priya writes:
+   109→   109→   "Bed 3 Raju — Stable since morning. BP range 110-120/72-78.
+   110→   110→   Pain free. Urine output adequate. Reports: CBC normal, 
+   111→   111→   KFT pending, LFT pending. New order: Atorvastatin 40mg HS (not yet given, 
+   112→   112→   due tonight). Doctor satisfied with progress."
+   113→   113→   ↓
+   114→   114→   Nurse Sunita (Evening shift) reads this and takes over
+   115→   115→```
+   116→   116→
+   117→   117→---
+   118→   118→
+   119→   119→## 🗄️ DATABASE SCHEMA CHANGES
+   120→   120→
+   121→   121→### New Models Required:
+   122→   122→
+   123→   123→```prisma
+   124→   124→// ============ WARD (ICU, General, Private, Semi-Private, etc.) ============
+   125→   125→
+   126→   126→model Ward {
+   127→   127→  id          String   @id @default(cuid())
+   128→   128→  hospitalId  String
+   129→   129→  name        String   @default("")         // "ICU", "General Ward", "Private Room", "Semi-Private", "Post-Op"
+   130→   130→  nameHi      String   @default("")         // Hindi name
+   131→   131→  wardType    String   @default("General")   // ICU, General, Private, SemiPrivate, PostOp, Emergency, Maternity
+   132→   132→  floorNo     String   @default("")         // "Ground Floor", "Floor 1", "Floor 2"
+   133→   133→  totalBeds   Int      @default(0)           // Total bed capacity
+   134→   134→  occupiedBeds Int     @default(0)           // Currently occupied (denormalized for speed, updated via trigger/logic)
+   135→   135→  nurseRatio  Int      @default(6)           // Patients per nurse in this ward (ICU=2, General=6, Private=4)
+   136→   136→  status      String   @default("Active")    // Active, Inactive, Maintenance
+   137→   137→  createdAt   DateTime @default(now())
+   138→   138→  updatedAt   DateTime @updatedAt
+   139→   139→
+   140→   140→  hospital    Hospital  @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   141→   141→  beds        Bed[]
+   142→   142→  nurses      StaffNurse[]
+   143→   143→  admissions  IpdAdmission[]
+   144→   144→}
+   145→   145→
+   146→   146→// ============ BED ============
+   147→   147→
+   148→   148→model Bed {
+   149→   149→  id          String   @id @default(cuid())
+   150→   150→  wardId      String
+   151→   151→  bedNumber   String   @default("")         // "Bed 1", "Bed 2", "ICU-1", "PR-201"
+   152→   152→  bedType     String   @default("General")   // General, SemiPrivate, Private, ICU_Ventilator, ICU_NonVentilator, Suite
+   153→   153→  dailyRate   Float    @default(0)           // Room rent per day
+   154→   154→  status      String   @default("Available") // Available, Occupied, Reserved, Maintenance, Blocked
+   155→   155→  createdAt   DateTime @default(now())
+   156→   156→  updatedAt   DateTime @updatedAt
+   157→   157→
+   158→   158→  ward        Ward         @relation(fields: [wardId], references: [id], onDelete: Cascade)
+   159→   159→  admission   IpdAdmission?
+   160→   160→}
+   161→   161→
+   162→   162→// ============ STAFF NURSE (New Role) ============
+   163→   163→
+   164→   164→model StaffNurse {
+   165→   165→  id            String   @id @default(cuid())
+   166→   166→  userId        String   @unique              // nurse user id (User.role = "nurse")
+   167→   167→  hospitalId    String                        // hospital id — required
+   168→   168→  wardId        String?                       // assigned ward (null = floating/roaming nurse)
+   169→   169→  employeeId    String   @default("")         // Hospital employee ID e.g. "NUR-001"
+   170→   170→  qualification String   @default("")         // GNM, BSc Nursing, ANM
+   171→   171→  designation   String   @default("Staff Nurse") // Staff Nurse, Sister, Nursing Incharge, Head Nurse
+   172→   172→  shift         String   @default("Morning")   // Morning (7AM-2PM), Evening (2PM-9PM), Night (9PM-7AM), Rotating
+   173→   173→  phoneNo       String   @default("")
+   174→   174→  address       String   @default("")
+   175→   175→  createdAt     DateTime @default(now())
+   176→   176→  updatedAt     DateTime @updatedAt
+   177→   177→
+   178→   178→  user          User     @relation("NurseUser", fields: [userId], references: [id], onDelete: Cascade)
+   179→   179→  hospital      Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   180→   180→  ward          Ward?    @relation(fields: [wardId], references: [id], onDelete: SetNull)
+   181→   181→  vitalRecords  VitalRecord[]
+   182→   182→  medicineAdministrations MedicineAdministration[]
+   183→   183→  sampleCollections  SampleCollection[]
+   184→   184→  shiftHandoversFrom  ShiftHandover[] @relation("HandoverFrom")
+   185→   185→  shiftHandoversTo    ShiftHandover[] @relation("HandoverTo")
+   186→   186→  patientAssignments   NursePatientAssignment[]
+   187→   187→}
+   188→   188→
+   189→   189→// ============ NURSE-PATIENT ASSIGNMENT ============
+   190→   190→// Ye track karta hai ki kaunsi nurse kaunse patient ko sambhal rahi hai
+   191→   191→// Har shift change pe naya assignment banta hai
+   192→   192→
+   193→   193→model NursePatientAssignment {
+   194→   194→  id            String   @id @default(cuid())
+   195→   195→  nurseId       String                       // StaffNurse.id
+   196→   196→  admissionId   String                       // IpdAdmission.id
+   197→   197→  bedId         String                       // Bed.id — kis bed pe patient hai
+   198→   198→  shiftDate     DateTime                      // Kis din ka shift hai
+   199→   199→  shiftType     String   @default("Morning") // Morning, Evening, Night
+   200→   200→  assignedAt    DateTime @default(now())      // Kab assign kiya
+   201→   201→  assignedBy    String?                       // Nursing Incharge ya system ne assign kiya (User.id)
+   202→   202→  unassignedAt  DateTime?                     // Jab assignment khatam hua (shift end ya discharge)
+   203→   203→  status        String   @default("Active")  // Active, Completed, Transferred
+   204→   204→  createdAt     DateTime @default(now())
+   205→   205→  updatedAt     DateTime @updatedAt
+   206→   206→
+   207→   207→  nurse         StaffNurse   @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+   208→   208→  admission     IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+   209→   209→  bed           Bed          @relation(fields: [bedId], references: [id])
+   210→   210→}
+   211→   211→
+   212→   212→// ============ IPD ADMISSION (The Core — Separate from OPD Booking) ============
+   213→   213→// OPD Booking = OPD visit (patient aata hai, dekh ke jaata hai)
+   214→   214→// IPD Admission = Patient ko bed pe admit karna (rehta hai hospital mein)
+   215→   215→
+   216→   216→model IpdAdmission {
+   217→   217→  id                  String    @id @default(cuid())
+   218→   218→  admissionNo         String    @unique @default("")  // e.g. "IPD-2026-001847" — hospital unique
+   219→   219→  hospitalId          String                              // Hospital.id
+   220→   220→  wardId              String                              // Ward.id
+   221→   221→  bedId               String                              // Bed.id
+   222→   222→  departmentId        String                              // Department.id
+   223→   223→  attendingDoctorId   String                              // Doctor.id — primary doctor
+   224→   224→  referringDoctorId   String?                             // Doctor.id — kisne refer/admit kiya
+   225→   225→  userId              String?                             // Patient User.id (null for walk-in IPD)
+   226→   226→  
+   227→   227→  // --- Patient Demographics (Admission Sheet - Form 1) ---
+   228→   228→  patientName         String    @default("")
+   229→   229→  patientAge          Int       @default(0)
+   230→   230→  patientGender       String    @default("")
+   231→   231→  patientDob          DateTime?
+   232→   232→  bloodGroup          String    @default("")
+   233→   233→  maritalStatus       String    @default("")
+   234→   234→  occupation          String    @default("")
+   235→   235→  education           String    @default("")
+   236→   236→  religion            String    @default("")
+   237→   237→  aadharNo            String    @default("")
+   238→   238→  mobileNo            String    @default("")
+   239→   239→  idMarks             String    @default("")        // Birth marks, scars
+   240→   240→  fatherName          String    @default("")
+   241→   241→  motherName          String    @default("")
+   242→   242→  husbandWifeName     String    @default("")
+   243→   243→  contactPersonName   String    @default("")
+   244→   244→  contactPersonMobile String    @default("")
+   245→   245→  contactPersonRelation String   @default("")
+   246→   246→  address             String    @default("")
+   247→   247→  village             String    @default("")
+   248→   248→  taluka              String    @default("")
+   249→   249→  district            String    @default("")
+   250→   250→  state               String    @default("")
+   251→   251→  pinCode             String    @default("")
+   252→   252→  
+   253→   253→  // --- Medical Info (Admission Sheet continued) ---
+   254→   254→  mlcCase             Boolean   @default(false)       // Medico-Legal Case
+   255→   255→  previousHospitalization String  @default("")     // Previous hospitalization details
+   256→   256→  mediClaimDetails    String    @default("")        // Insurance/policy details
+   257→   257→  initialDiagnosis    String    @default("")        // Admission time diagnosis
+   258→   258→  opdBookingId        String?                        // If admitted from OPD (Booking.id link)
+   259→   259→  
+   260→   260→  // --- History Sheet Data (Form 2 — Doctor fills) ---
+   261→   261→  chiefComplaints     String    @default("")        // Doctor ne kya likha
+   262→   262→  informant           String    @default("")        // Patient self / Relative
+   263→   263→  pastHistory         String    @default("")        // Previous illnesses, surgeries
+   264→   264→  personalHistory     String    @default("{}")        // JSON: {diabetes:false, hypertension:false, asthma:false, thyroid:false}
+   265→   265→  habits              String    @default("{}")        // JSON: {alcohol:false, smoking:false, tobacco:false, allergy:""}
+   266→   266→  femaleHistory       String    @default("{}")        // JSON: {lmp:"", gravida:0, para:0, living:0, abortion:0}
+   267→   267→  drugHistory         String    @default("")        // Current medications
+   268→   268→  
+   269→   269→  // --- Physical Examination (Form 6 — Doctor fills) ---
+   270→   270→  consciousnessLevel   String   @default("Conscious") // Conscious, Semiconscious, Unconscious
+   271→   271→  obeyingCommands      Boolean  @default(true)
+   272→   272→  respondingToDPS     Boolean  @default(true)
+   273→   273→  oriented            Boolean  @default(true)
+   274→   274→  speech              String   @default("Normal")    // Normal, Aphasia, Slurred
+   275→   275→  examinationNotes    String   @default("")        // RS, CVS, P/A, CNS findings
+   276→   276→  generalSigns        String   @default("{}")        // JSON: {pallor:false, clubbing:false, icterus:false, cyanosis:false, lymphnodes:false}
+   277→   277→  
+   278→   278→  // --- Admission Status ---
+   279→   279→  admissionDate       DateTime  @default(now())
+   280→   280→  admissionTime       String    @default("")        // "08:30 AM"
+   281→   281→  status              String    @default("Admitted")  // Admitted, Discharged, DAMA, Expired, Transferred
+   282→   282→  dischargeDate       DateTime?
+   283→   283→  dischargeTime       String    @default("")
+   284→   284→  dischargeType       String    @default("")        // Normal, DAMA (Against Medical Advice), LAMA, Expired
+   285→   285→  finalDiagnosis      String    @default("")        // Updated at discharge
+   286→   286→  dischargeSummary    String    @default("")        // Doctor's discharge notes
+   287→   287→  
+   288→   288→  // --- Billing ---
+   289→   289→  roomRentDays        Int       @default(0)
+   290→   290→  totalBillAmount     Float     @default(0)
+   291→   291→  paymentStatus       String    @default("Pending")  // Pending, Partial, Paid, Insurance
+   292→   292→  
+   293→   293→  // --- Audit ---
+   294→   294→  admittedBy          String?                        // Receptionist User.id who processed admission
+   295→   295→  createdAt           DateTime  @default(now())
+   296→   296→  updatedAt           DateTime  @updatedAt
+   297→   297→
+   298→   298→  // --- Relations ---
+   299→   299→  hospital            Hospital   @relation(fields: [hospitalId], references: [id])
+   300→   300→  ward                Ward       @relation(fields: [wardId], references: [id])
+   301→   301→  bed                 Bed        @relation(fields: [bedId], references: [id])
+   302→   302→  department          Department @relation(fields: [departmentId], references: [id])
+   303→   303→  attendingDoctor     Doctor     @relation("AdmittingDoctor", fields: [attendingDoctorId], references: [id])
+   304→   304→  referringDoctor     Doctor?    @relation("ReferringDoctor", fields: [referringDoctorId], references: [id])
+   305→   305→  patient             User?      @relation(fields: [userId], references: [id])
+   306→   306→  opdBooking          Booking?   @relation("IpdFromOpd", fields: [opdBookingId], references: [id])
+   307→   307→  
+   308→   308→  vitalRecords        VitalRecord[]
+   309→   309→  doctorOrders        DoctorOrder[]
+   310→   310→  medicineAdministrations MedicineAdministration[]
+   311→   311→  sampleCollections   SampleCollection[]
+   312→   312→  investigationReports InvestigationReport[]
+   313→   313→  nurseAssignments    NursePatientAssignment[]
+   314→   314→  doctorVisits        DoctorVisit[]
+   315→   315→}
+   316→   316→
+   317→   317→// ============ VITAL RECORD (Monitoring Chart — Form 6 — Nurse fills hourly) ============
+   318→   318→
+   319→   319→model VitalRecord {
+   320→   320→  id                  String   @id @default(cuid())
+   321→   321→  admissionId         String   // IpdAdmission.id
+   322→   322→  nurseId             String   // StaffNurse.id — kis nurse ne measure kiya
+   323→   323→  recordedAt          DateTime // Kab measure kiya (important: exact time)
+   324→   324→  
+   325→   325→  // --- Patient Header Status ---
+   326→   326→  patientStatus       String   @default("Conscious") // Conscious, Semiconscious, Unconscious
+   327→   327→  ventilatorOn        Boolean  @default(false)
+   328→   328→  oxygenLiters        Float    @default(0)          // O2 flow rate
+   329→   329→  infusionPump        String   @default("")        // Kaun si dawai drip pe chal rahi hai
+   330→   330→  rbs                 Float?                          // Random Blood Sugar (checked intermittently)
+   331→   331→  
+   332→   332→  // --- Vital Signs ---
+   333→   333→  temperature         Float    @default(0)          // °F
+   334→   334→  pulse               Int      @default(0)          // per minute
+   335→   335→  spo2                Float    @default(0)          // %
+   336→   336→  bpSystolic          Int      @default(0)          // mmHg (upper)
+   337→   337→  bpDiastolic         Int      @default(0)          // mmHg (lower)
+   338→   338→  respiratoryRate     Int      @default(0)          // breaths per minute
+   339→   339→  
+   340→   340→  // --- Input/Output ---
+   341→   341→  inputMl             Float    @default(0)          // Total input this hour (IV + Oral + Blood)
+   342→   342→  urineMl             Float    @default(0)          // Urine output
+   343→   343→  outputMl            Float    @default(0)          // Other output (vomit, drain, etc.)
+   344→   344→  
+   345→   345→  // --- Notes ---
+   346→   346→  remarks             String   @default("")        // "Pain reduced", "Vomiting once", "Doctor notified"
+   347→   347→  
+   348→   348→  createdAt           DateTime @default(now())
+   349→   349→  updatedAt           DateTime @updatedAt
+   350→   350→
+   351→   351→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+   352→   352→  nurse               StaffNurse   @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+   353→   353→}
+   354→   354→
+   355→   355→// ============ DOCTOR ORDER (Order Sheet — Form 5 — Doctor writes, Nurse executes) ============
+   356→   356→// Ye doctor ka treatment order hai
+   357→   357→// Har order item = ek dawai ka ek time slot
+   358→   358→
+   359→   359→model DoctorOrder {
+   360→   360→  id                  String   @id @default(cuid())
+   361→   361→  admissionId         String   // IpdAdmission.id
+   362→   362→  doctorId            String   // Doctor.id
+   363→   363→  
+   364→   364→  drugName            String   @default("")        // "Paracetamol 500mg", "Normal Saline 0.9%"
+   365→   365→  route               String   @default("")        // Oral, IV, IM, SC, Topical, PR, Nebulization
+   366→   366→  dose                String   @default("")        // "1 tab", "500ml", "100mg"
+   367→   367→  frequency           String   @default("")        // OD, BD, TDS, QID, STAT, SOS, HS, Q4H, Q6H, Q8H
+   368→   368→  scheduledTime       String   @default("")        // "08:00", "14:00", "20:00" ya "STAT"
+   369→   369→  startDate           DateTime @default(now())
+   370→   370→  endDate             DateTime?                      // NULL = until doctor stops it
+   371→   371→  
+   372→   372→  instructions        String   @default("")        // "After food", "Empty stomach", "Slow IV push", "Dilute in 100ml NS"
+   373→   373→  isPrn               Boolean  @default(false)       // PRN = as needed (SOS)
+   374→   374→  isStat              Boolean  @default(false)       // STAT = immediately
+   375→   375→  
+   376→   376→  status              String   @default("Active")    // Active, Stopped, Completed, Modified
+   377→   377→  stoppedBy           String?                        // Doctor User.id who stopped it
+   378→   378→  stoppedAt           DateTime?
+   379→   379→  stoppedReason       String   @default("")
+   380→   380→  
+   381→   381→  createdAt           DateTime @default(now())
+   382→   382→  updatedAt           DateTime @updatedAt
+   383→   383→
+   384→   384→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+   385→   385→  doctor              Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   386→   386→  administrations      MedicineAdministration[]
+   387→   387→}
+   388→   388→
+   389→   389→// ============ MEDICINE ADMINISTRATION (Nurse marks ki dawai di ya nahi) ============
+   390→   390→// Ye nurse ka record hai — "Maine 8:05 AM ko Paracetamol diya"
+   391→   391→
+   392→   392→model MedicineAdministration {
+   393→   393→  id                  String   @id @default(cuid())
+   394→   394→  orderId             String   // DoctorOrder.id
+   395→   395→  admissionId         String   // IpdAdmission.id
+   396→   396→  nurseId             String   // StaffNurse.id
+   397→   397→  
+   398→   398→  scheduledTime       DateTime                        // Doctor ne kis time diya tha
+   399→   399→  administeredTime    DateTime?                       // Nurse ne kab actually diya
+   400→   400→  
+   401→   401→  status              String   @default("Pending")  // Pending, Given, Missed, Refused, Skipped, NotAvailable
+   402→   402→  
+   403→   403→  // Refused/Skipped ka reason
+   404→   404→  remarks             String   @default("")        // "Patient refused", "Medicine not in stock", "Patient sleeping - will give later"
+   405→   405→  
+   406→   406→  createdAt           DateTime @default(now())
+   407→   407→  updatedAt           DateTime @updatedAt
+   408→   408→
+   409→   409→  order               DoctorOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+   410→   410→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+   411→   411→  nurse               StaffNurse  @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+   412→   412→}
+   413→   413→
+   414→   414→// ============ SAMPLE COLLECTION (Nurse collects, sends to lab) ============
+   415→   415→
+   416→   416→model SampleCollection {
+   417→   417→  id                  String   @id @default(cuid())
+   418→   418→  admissionId         String   // IpdAdmission.id
+   419→   419→  nurseId             String   // StaffNurse.id
+   420→   420→  doctorId            String   // Doctor.id — kis doctor ne order kiya
+   421→   421→  
+   422→   422→  testName            String   @default("")        // "CBC", "KFT", "LFT", "Blood Sugar", "Urine Routine"
+   423→   423→  sampleType          String   @default("")        // Blood, Urine, Sputum, CSF, Swab, Other
+   424→   424→  
+   425→   425→  collectedAt         DateTime?                       // Kab collect kiya
+   426→   426→  sentToLabAt         DateTime?                       // Kab lab bheja
+   427→   427→  
+   428→   428→  status              String   @default("Ordered")   // Ordered → Collected → SentToLab → Reported → Filed
+   429→   429→  
+   430→   430→  remarks             String   @default("")        // "Difficult venous access", "Patient uncooperative"
+   431→   431→  
+   432→   432→  createdAt           DateTime @default(now())
+   433→   433→  updatedAt           DateTime @updatedAt
+   434→   434→
+   435→   435→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+   436→   436→  nurse               StaffNurse   @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+   437→   437→  doctor              Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   438→   438→}
+   439→   439→
+   440→   440→// ============ INVESTIGATION REPORT (Lab results — Lab fills, Doctor reviews) ============
+   441→   441→
+   442→   442→model InvestigationReport {
+   443→   443→  id                  String   @id @default(cuid())
+   444→   444→  admissionId         String   // IpdAdmission.id
+   445→   445→  sampleCollectionId  String?  // SampleCollection.id (link if collected by nurse)
+   446→   446→  
+   447→   447→  testName            String   @default("")        // "CBC", "KFT", "X-Ray Chest PA View"
+   448→   448→  reportDate          DateTime @default(now())
+   449→   449→  resultData          String   @default("{}")        // JSON: {"Hb": "12.5", "TC": "8500", "DC": "N70 L25 E3 M2", ...}
+   450→   450→  normalRange         String   @default("{}")        // JSON: {"Hb": "12-16", "TC": "4000-11000", ...}
+   451→   451→  isAbnormal          Boolean  @default(false)      // Auto-flagged if values outside normal range
+   452→   452→  
+   453→   453→  reportedBy          String?                        // Lab technician User.id
+   454→   454→  reviewedBy          String?                        // Doctor User.id who reviewed
+   455→   455→  reviewedAt          DateTime?
+   456→   456→  remarks             String   @default("")        // Lab/Doctor remarks
+   457→   457→  
+   458→   458→  createdAt           DateTime @default(now())
+   459→   459→  updatedAt           DateTime @updatedAt
+   460→   460→
+   461→   461→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+   462→   462→}
+   463→   463→
+   464→   464→// ============ SHIFT HANDOVER (End-of-shift → Next shift communication) ============
+   465→   465→
+   466→   466→model ShiftHandover {
+   467→   467→  id                  String   @id @default(cuid())
+   468→   468→  hospitalId          String
+   469→   469→  wardId              String
+   470→   470→  shiftDate           DateTime                        // Date of the shift
+   471→   471→  shiftType           String                        // Morning, Evening, Night
+   472→   472→  
+   473→   473→  fromNurseId         String                        // Nurse jaa rahi hai (giving handover)
+   474→   474→  toNurseId           String                        // Nurse aa rahi hai (receiving handover)
+   475→   475→  
+   476→   476→  // --- Summary for each patient ---
+   477→   477→  patientSummaries    String   @default("[]")        // JSON array: [
+   478→   478→                                                     //   {
+   479→   479→                                                     //     "admissionId": "xxx",
+   480→   480→                                                     //     "bedNumber": "Bed 3",
+   481→   481→                                                     //     "patientName": "Raju",
+   482→   482→                                                     //     "summary": "BP stable, pain free, reports pending",
+   483→   483→                                                     //     "pendingTasks": ["Atorvastatin 40mg HS due tonight"],
+   484→   484→                                                     //     "alerts": ["KFT report expected by 4PM"]
+   485→   485→                                                     //   },
+   486→   486→                                                     //   ...
+   487→   487→                                                     // ]
+   488→   488→  
+   489→   489→  // --- Ward-level notes ---
+   490→   490→  wardNotes           String   @default("")        // "Bed 5 expected discharge today", "ICU bed 4 under maintenance"
+   491→   491→  pendingTasks        String   @default("[]")        // JSON: ["Bed 2 O2 cylinder needs refill", "Pharmacy pending 2 medicines"]
+   492→   492→  
+   493→   493→  acknowledgedAt      DateTime?                       // Receiving nurse ne kab read kiya
+   494→   494→  acknowledgedBy      String?                        // Receiving nurse User.id
+   495→   495→  
+   496→   496→  createdAt           DateTime @default(now())
+   497→   497→  updatedAt           DateTime @updatedAt
+   498→   498→
+   499→   499→  hospital            Hospital    @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   500→   500→  ward                Ward        @relation(fields: [wardId], references: [id], onDelete: Cascade)
+   501→   501→  fromNurse           StaffNurse  @relation("HandoverFrom", fields: [fromNurseId], references: [id])
+   502→   502→  toNurse             StaffNurse  @relation("HandoverTo", fields: [toNurseId], references: [id])
+   503→   503→}
+   504→   504→
+   505→   505→// ============ DOCTOR VISIT (Doctor daily round record) ============
+   506→   506→
+   507→   507→model DoctorVisit {
+   508→   508→  id                  String   @id @default(cuid())
+   509→   509→  admissionId         String   // IpdAdmission.id
+   510→   510→  doctorId            String   // Doctor.id
+   511→   511→  visitDate           DateTime @default(now())
+   512→   512→  visitTime           String   @default("")        // "10:30 AM"
+   513→   513→  
+   514→   514→  // --- What doctor found ---
+   515→   515→  examinationFindings  String   @default("")       // "Patient comfortable, chest clear, abdomen soft"
+   516→   516→  currentDiagnosis    String   @default("")        // Updated diagnosis
+   517→   517→  
+   518→   518→  // --- What doctor ordered ---
+   519→   519→  newOrders           String   @default("[]")        // JSON: [{"type":"medicine","detail":"Add Atorvastatin 40mg HS"},{"type":"investigation","detail":"Repeat KFT tomorrow"}]
+   520→   520→  stoppedOrders       String   @default("[]")        // JSON: [{"orderId":"xxx","reason":"No longer needed"}]
+   521→   521→  advise              String   @default("")        // "Continue monitoring, plan discharge tomorrow if stable"
+   522→   522→  
+   523→   523→  // --- Mobile/Phone visit ---
+   524→   524→  isMobileVisit       Boolean  @default(false)       // Doctor ne phone pe advise kiya
+   525→   525→  
+   526→   526→  createdAt           DateTime @default(now())
+   527→   527→  updatedAt           DateTime @updatedAt
+   528→   528→
+   529→   529→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+   530→   530→  doctor              Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   531→   531→}
+   532→   532→```
+   533→   533→
+   534→   534→### Existing Models — Changes Required:
+   535→   535→
+   536→   536→```prisma
+   537→   537→// User model — add nurse relation
+   538→   538→model User {
+   539→   539→  // ... existing fields ...
+   540→   540→  nurseProfile  StaffNurse?  @relation("NurseUser")
+   541→   541→}
+   542→   542→
+   543→   543→// Hospital model — add nurse + ward relations
+   544→   544→model Hospital {
+   545→   545→  // ... existing fields ...
+   546→   546→  wards         Ward[]
+   547→   547→  nurses        StaffNurse[]
+   548→   548→  ipdAdmissions IpdAdmission[]
+   549→   549→}
+   550→   550→
+   551→   551→// Doctor model — add IPD relations
+   552→   552→model Doctor {
+   553→   553→  // ... existing fields ...
+   554→   554→  ipdAdmissionsAsAttending IpdAdmission[] @relation("AdmittingDoctor")
+   555→   555→  ipdAdmissionsAsReferring IpdAdmission[] @relation("ReferringDoctor")
+   556→   556→  doctorOrders  DoctorOrder[]
+   557→   557→  doctorVisits  DoctorVisit[]
+   558→   558→}
+   559→   559→
+   560→   560→// Department model — add IPD relation
+   561→   561→model Department {
+   562→   562→  // ... existing fields ...
+   563→   563→  ipdAdmissions IpdAdmission[]
+   564→   564→}
+   565→   565→
+   566→   566→// Booking model — add IPD link
+   567→   567→model Booking {
+   568→   568→  // ... existing fields ...
+   569→   569→  ipdAdmission  IpdAdmission?  @relation("IpdFromOpd")
+   570→   570→}
+   571→   571→```
+   572→   572→
+   573→   573→---
+   574→   574→
+   575→   575→## 📱 NURSE DASHBOARD PAGES (Frontend)
+   576→   576→
+   577→   577→### Page Map:
+   578→   578→
+   579→   579→```
+   580→   580→/dashboard/nurse
+   581→   581→  ├── /                        → Nurse Dashboard (my patients summary, alerts, pending tasks)
+   582→   582→  ├── /patients                 → My Assigned Patients List (with bed numbers, status)
+   583→   583→  ├── /patients/[admissionId]   → Single Patient View (admission details + tabs)
+   584→   584→  │     ├── vitals              → Vital Signs Entry (Monitoring Chart - Form 6)
+   585→   585→  │     ├── medicines            → Medicine Administration (Order Sheet execution)
+   586→   586→  │     ├── investigations       → Sample Collection & Reports
+   587→   587→  │     ├── history              → History Sheet view (read-only, doctor fills)
+   588→   588→  │     └── notes                → Nursing Notes (custom notes by nurse)
+   589→   589→  ├── /handover                 → Shift Handover (give/take)
+   590→   590→  ├── /handover/history         → Past Handover History
+   591→   591→  ├── /ward-patients            → All Ward Patients (view only, not assigned to me)
+   592→   592→  ├── /profile                  → My Profile
+   593→   593→  └── /change-password          → Change Password
+   594→   594→```
+   595→   595→
+   596→   596→### Sidebar Config for Nurse:
+   597→   597→
+   598→   598→```typescript
+   599→   599→nurse: [
+   600→   600→  { label: 'Dashboard', href: '/dashboard/nurse', icon: LayoutDashboard },
+   601→   601→  { label: 'My Patients', href: '/dashboard/nurse/patients', icon: Users },
+   602→   602→  { label: 'Ward View', href: '/dashboard/nurse/ward-patients', icon: BedDouble },
+   603→   603→  { label: 'Shift Handover', href: '/dashboard/nurse/handover', icon: ArrowRightLeft },
+   604→   604→  { label: 'Profile', href: '/dashboard/nurse/profile', icon: UserCircle },
+   605→   605→  { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
+   606→   606→],
+   607→   607→```
+   608→   608→
+   609→   609→---
+   610→   610→
+   611→   611→## 🔌 NURSE API ROUTES (Backend)
+   612→   612→
+   613→   613→### API Map:
+   614→   614→
+   615→   615→```
+   616→   616→/api/dashboard/nurse/
+   617→   617→  ├── GET  /stats                      → Dashboard stats (my patients count, pending medicines, alerts)
+   618→   618→  ├── GET  /patients                   → My assigned patients (current shift)
+   619→   619→  ├── GET  /patients/[admissionId]     → Single patient full detail
+   620→   620→  ├── GET  /patients/[admissionId]/vitals      → Vital history (monitoring chart)
+   621→   621→  ├── POST /patients/[admissionId]/vitals      → Record new vital signs
+   622→   622→  ├── GET  /patients/[admissionId]/medicines   → Doctor's orders + administration status
+   623→   623→  ├── POST /patients/[admissionId]/medicines/administer → Mark medicine as given/missed/refused
+   624→   624→  ├── GET  /patients/[admissionId]/investigations → Investigation orders + collection status
+   625→   625→  ├── POST /patients/[admissionId]/investigations/collect → Mark sample as collected/sent
+   626→   626→  ├── GET  /patients/[admissionId]/history      → Patient history (read-only)
+   627→   627→  ├── POST /handover/give              → Create shift handover (giving)
+   628→   628→  ├── GET  /handover/receive           → Get incoming handover for my shift
+   629→   629→  ├── POST /handover/[id]/acknowledge  → Acknowledge received handover
+   630→   630→  ├── GET  /handover/history           → Past handovers
+   631→   631→  ├── GET  /ward-patients              → All patients in my ward (view only)
+   632→   632→  └── GET  /alerts                     → Abnormal vitals, missed medicines, pending tasks
+   633→   633→```
+   634→   634→
+   635→   635→---
+   636→   636→
+   637→   637→## 🔄 NURSE'S INTERACTION WITH OTHER ROLES
+   638→   638→
+   639→   639→### Nurse ↔ Doctor:
+   640→   640→
+   641→   641→| Scenario | Flow |
+   642→   642→|----------|------|
+   643→   643→| **Doctor writes order** | Doctor → DoctorOrder table → Nurse sees pending medicines → Nurse administers → MedicineAdministration table |
+   644→   644→| **Nurse reports abnormal vitals** | Nurse records vital → System auto-checks thresholds → Alert sent to Doctor → Doctor reviews → May write new order |
+   645→   645→| **Doctor comes for round** | Doctor sees VitalRecord + MedicineAdministration history → Doctor writes DoctorVisit notes → May add/stop DoctorOrders |
+   646→   646→| **Doctor orders investigation** | Doctor → DoctorOrder (type=investigation) OR separate investigation order → Nurse sees → Nurse collects sample → SampleCollection table |
+   647→   647→
+   648→   648→### Nurse ↔ Pharmacist:
+   649→   649→
+   650→   650→| Scenario | Flow |
+   651→   651→|----------|------|
+   652→   652→| **Medicine not available** | Nurse tries to administer → Marks "NotAvailable" → Pharmacist sees alert → Pharmacy arranges medicine → Nurse notified |
+   653→   653→| **New medicine needed** | Doctor writes new order → Pharmacist sees order → Prepares/dispenses to ward → Nurse receives → Administers |
+   654→   654→
+   655→   655→### Nurse ↔ Receptionist:
+   656→   656→
+   657→   657→| Scenario | Flow |
+   658→   658→|----------|------|
+   659→   659→| **New patient admitted** | Receptionist creates IpdAdmission → Bed allocated → Nurse assigned → Nurse sees new patient in "My Patients" |
+   660→   660→| **Patient discharge** | Doctor says discharge → Nurse does final vitals, removes IV lines → Receptionist processes billing → Bed freed |
+   661→   661→
+   662→   662→### Nurse ↔ Lab:
+   663→   663→
+   664→   664→| Scenario | Flow |
+   665→   665→|----------|------|
+   666→   666→| **Sample collection** | Doctor orders investigation → Nurse collects sample → Sends to lab → Lab enters results → InvestigationReport → Doctor reviews |
+   667→   667→
+   668→   668→### Nurse ↔ Nursing Incharge (Head Nurse):
+   669→   669→
+   670→   670→| Scenario | Flow |
+   671→   671→|----------|------|
+   672→   672→| **Shift assignment** | Nursing Incharge assigns nurses to patients for each shift → NursePatientAssignment |
+   673→   673→| **Re-assignment** | If nurse sick/emergency → Incharge re-assigns patients to another nurse |
+   674→   674→| **Ward management** | Incharge manages bed availability, nurse schedules, leave management |
+   675→   675→
+   676→   676→---
+   677→   677→
+   678→   678→## 🚨 SMART ALERTS — Nurse's Early Warning System
+   679→   679→
+   680→   680→Ye system automatically detect karega abnormal situations aur nurse + doctor ko alert karega:
+   681→   681→
+   682→   682→### Vital Sign Alerts (Auto-generated from VitalRecord):
+   683→   683→
+   684→   684→| Parameter | Danger Threshold | Alert Level | Action |
+   685→   685→|-----------|-----------------|-------------|--------|
+   686→   686→| **SpO2 < 90%** | Oxygen critical | 🔴 CRITICAL | Immediate doctor notification |
+   687→   687→| **BP Systolic < 90 or > 180** | Shock / Hypertensive crisis | 🔴 CRITICAL | Immediate doctor notification |
+   688→   688→| **BP Diastolic > 120** | Hypertensive emergency | 🔴 CRITICAL | Immediate doctor notification |
+   689→   689→| **Pulse < 50 or > 130** | Bradycardia / Tachycardia | 🟠 HIGH | Alert nurse + doctor |
+   690→   690→| **Temperature > 103°F** | High fever / Sepsis | 🟠 HIGH | Alert nurse + doctor |
+   691→   691→| **Respiratory Rate < 10 or > 30** | Respiratory distress | 🟠 HIGH | Alert nurse + doctor |
+   692→   692→| **Urine output < 30ml/hr** (3 consecutive hours) | Kidney concern | 🟡 MEDIUM | Alert nurse |
+   693→   693→
+   694→   694→### Medicine Alerts:
+   695→   695→
+   696→   696→| Situation | Alert |
+   697→   697→|-----------|-------|
+   698→   698→| Medicine due for > 30 minutes | ⏰ Overdue medicine |
+   699→   699→| Medicine due for > 1 hour | 🔴 Critical overdue |
+   700→   700→| Medicine marked "NotAvailable" | 💊 Pharmacy alert |
+   701→   701→| PRN (SOS) medicine given 3 times in 6 hours | ⚠️ Frequency alert |
+   702→   702→
+   703→   703→### Investigation Alerts:
+   704→   704→
+   705→   705→| Situation | Alert |
+   706→   706→|-----------|-------|
+   707→   707→| Sample collected > 4 hours ago, no report | 📋 Lab follow-up needed |
+   708→   708→| Report is abnormal | 🔴 Doctor review needed |
+   709→   709→
+   710→   710→---
+   711→   711→
+   712→   712→## 📊 NURSE DASHBOARD — What Nurse Sees When She Logs In
+   713→   713→
+   714→   714→```
+   715→   715→┌─────────────────────────────────────────────────────────────────┐
+   716→   716→│  🩺  Nurse Dashboard — Priya Sharma (Morning Shift)             │
+   717→   717→│  Ward: ICU  |  Patients: 3  |  Time: 10:30 AM                   │
+   718→   718→├─────────────────────────────────────────────────────────────────┤
+   719→   719→│                                                                  │
+   720→   720→│  ┌─── ALERTS (3) ──────────────────────────────────────────┐    │
+   721→   721→│  │ 🔴 Bed 3 Raju — SpO2 dropped to 88% at 10:00 AM        │    │
+   722→   722→│  │ ⏰ Bed 2 Meena — Enoxaparin 60mg overdue by 45 min      │    │
+   723→   723→│  │ 📋 Bed 1 Suresh — KFT report ready, doctor review needed │   │
+   724→   724→│  └─────────────────────────────────────────────────────────┘    │
+   725→   725→│                                                                  │
+   726→   726→│  ┌─── MY PATIENTS (3) ──────────────────────────────────────┐   │
+   727→   727→│  │ Bed | Patient    | Diagnosis        | Status   | Next Task│   │
+   728→   728→│  │  1  | Suresh     | Post-Op Appendix  | Stable   | Meds 11AM│  │
+   729→   729→│  │  2  | Meena      | Pneumonia         | On O2    | ⚠️ Meds! │  │
+   730→   730→│  │  3  | Raju       | Heart Attack      | ⚠️ Critical| Vitals due│  │
+   731→   731→│  └─────────────────────────────────────────────────────────┘    │
+   732→   732→│                                                                  │
+   733→   733→│  ┌─── QUICK ACTIONS ────────────────────────────────────────┐   │
+   734→   734→│  │ [📝 Record Vitals]  [💊 Give Medicine]  [🧪 Collect Sample]│   │
+   735→   735→│  │ [🔄 Shift Handover]  [📋 View All Ward Patients]         │   │
+   736→   736→│  └─────────────────────────────────────────────────────────┘    │
+   737→   737→│                                                                  │
+   738→   738→│  ┌─── PENDING MEDICINES (Next 2 Hours) ────────────────────┐   │
+   739→   739→│  │ Time   | Patient | Medicine               | Route | Status│  │
+   740→   740→│  │ 10:30  | Raju    | Inj. Enoxaparin 60mg   | SC    | ⏰ Due │  │
+   741→   741→│  │ 11:00  | Meena   | Tab. Azithromycin 500mg| Oral  | Pending│  │
+   742→   742→│  │ 11:00  | Suresh  | Tab. Amoxicillin 500mg | Oral  | Pending│  │
+   743→   743→│  │ 12:00  | Raju    | Tab. Metformin 500mg   | Oral  | Pending│  │
+   744→   744→│  │ 12:00  | Meena   | Tab. Paracetamol 500mg | Oral  | Pending│  │
+   745→   745→│  └─────────────────────────────────────────────────────────┘    │
+   746→   746→│                                                                  │
+   747→   747→│  ┌─── INPUT/OUTPUT SUMMARY (Today) ────────────────────────┐   │
+   748→   748→│  │ Patient | Total Input | Total Urine | Balance | Status  │   │
+   749→   749→│  │ Raju    | 1,250 ml    | 980 ml      | +270 ml  | ✅ OK   │   │
+   750→   750→│  │ Meena   | 800 ml      | 600 ml      | +200 ml  | ✅ OK   │   │
+   751→   751→│  │ Suresh  | 1,500 ml    | 1,200 ml    | +300 ml  | ✅ OK   │   │
+   752→   752→│  └─────────────────────────────────────────────────────────┘    │
+   753→   753→│                                                                  │
+   754→   754→└─────────────────────────────────────────────────────────────────┘
+   755→   755→```
+   756→   756→
+   757→   757→---
+   758→   758→
+   759→   759→## 🔄 COMPLETE DATA FLOW DIAGRAM
+   760→   760→
+   761→   761→```
+   762→   762→┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+   763→   763→│ RECEPTIONIST │     │    DOCTOR    │     │    NURSE     │
+   764→   764→│ (Admission)  │     │ (Orders)     │     │ (Execution)  │
+   765→   765→└──────┬───────┘     └──────┬───────┘     └──────┬───────┘
+   766→   766→       │                    │                    │
+   767→   767→       │ 1. Create          │                    │
+   768→   768→       │ IpdAdmission       │                    │
+   769→   769→       │ (Form 1)           │                    │
+   770→   770→       ▼                    │                    │
+   771→   771→  ┌─────────────────────────────────────────────────────┐
+   772→   772→  │              IPD ADMISSION (Central Table)           │
+   773→   773→  │  - Patient details, bed, doctor, status              │
+   774→   774→  └───────┬──────────┬──────────┬──────────┬────────────┘
+   775→   775→          │          │          │          │
+   776→   776→          │ 2. Fill  │ 4. Write │ 6. Record│ 7. Collect
+   777→   777→          │ History  │ Orders   │ Vitals   │ Samples
+   778→   778→          │ (Form 2) │ (Form 5) │ (Form 6) │ (Form 4)
+   779→   779→          ▼          ▼          ▼          ▼
+   780→   780→  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+   781→   781→  │ History  │ │ Doctor   │ │  Vital   │ │  Sample  │
+   782→   782→  │ (in      │ │  Order   │ │  Record  │ │Collection│
+   783→   783→  │ Admission│ │          │ │          │ │          │
+   784→   784→  │ table)   │ │          │ │          │ │          │
+   785→   785→  └──────────┘ └────┬─────┘ └──────────┘ └────┬─────┘
+   786→   786→                    │                         │
+   787→   787→                    │ 5. Nurse executes       │ 8. Lab reports
+   788→   788→                    │    order                 │
+   789→   789→                    ▼                         ▼
+   790→   790→               ┌──────────┐           ┌──────────────┐
+   791→   791→               │ Medicine │           │ Investigation│
+   792→   792→               │ Admin    │           │   Report     │
+   793→   793→               │ Record   │           │ (Lab fills)  │
+   794→   794→               └──────────┘           └──────┬───────┘
+   795→   795→                                            │
+   796→   796→                    3. Doctor reviews        │
+   797→   797→                    examination &            │
+   798→   798→                    investigation           │
+   799→   799→                    (Form 3,6)               │
+   800→   800→                         │                   │
+   801→   801→                         └───────────────────┘
+   802→   802→                              │
+   803→   803→                              ▼
+   804→   804→                    9. Doctor writes visit notes
+   805→   805→                       (DoctorVisit table)
+   806→   806→                              │
+   807→   807→                              ▼
+   808→   808→                    10. May add new orders
+   809→   809→                        or stop old ones
+   810→   810→                              │
+   811→   811→                    ┌─────────┴──────────┐
+   812→   812→                    ▼                    ▼
+   813→   813→              New Orders          Stop Orders
+   814→   814→              (back to step 4)    (mark as Stopped)
+   815→   815→
+   816→   816→
+   817→   817→  ┌─── SHIFT HANDOVER FLOW ────────────────────────────────────┐
+   818→   818→  │                                                            │
+   819→   819→  │  Nurse A (Morning) ──writes──▶ ShiftHandover ──reads──▶ Nurse B (Evening) │
+   820→   820→  │                                                            │
+   821→   821→  │  Contains: patient summaries, pending tasks, alerts,      │
+   822→   822→  │  ward notes, pending investigations, medicine status       │
+   823→   823→  └────────────────────────────────────────────────────────────┘
+   824→   824→```
+   825→   825→
+   826→   826→---
+   827→   827→
+   828→   828→## 👤 AUTH & ROLE CHANGES
+   829→   829→
+   830→   830→### 1. User.role new value: `nurse`
+   831→   831→
+   832→   832→Current roles in system: `admin, doctor, patient, hospital, receptionist, assistant, pharmacist`
+   833→   833→
+   834→   834→Add: **`nurse`** — sab jagah jahan role check hota hai, nurse bhi handle hoga.
+   835→   835→
+   836→   836→### 2. api-auth.ts — DEV_USERS mein add karo:
+   837→   837→
+   838→   838→```typescript
+   839→   839→nurse: {
+   840→   840→  id: 'dev-nurse',
+   841→   841→  name: 'Priya Sharma',
+   842→   842→  email: 'priya.sharma@doctorooms.com',
+   843→   843→  role: 'nurse',
+   844→   844→  gender: 'Female',
+   845→   845→  profileImg: null,
+   846→   846→  mobileNo: '+91 9876543217',
+   847→   847→},
+   848→   848→```
+   849→   849→
+   850→   850→### 3. sidebar-config.ts — nurse entries add karo (shown above)
+   851→   851→
+   852→   852→### 4. Admin creates nurse — like receptionist/pharmacist
+   853→   853→
+   854→   854→Admin dashboard mein "Manage Staff" section mein:
+   855→   855→- Create Doctor ✓ (exists)
+   856→   856→- Create Receptionist ✓ (exists)
+   857→   857→- Create Pharmacist ✓ (exists)
+   858→   858→- **Create Staff Nurse** ← NEW
+   859→   859→- **Manage Wards** ← NEW
+   860→   860→- **Manage Beds** ← NEW
+   861→   861→- **Nurse-Patient Assignment** ← NEW (by Nursing Incharge)
+   862→   862→
+   863→   863→---
+   864→   864→
+   865→   865→## 🏗️ BUILD PHASES (Recommended Order)
+   866→   866→
+   867→   867→### Phase N-1: Foundation (Schema + Auth + Admin CRUD)
+   868→   868→- Add `nurse` role to User, api-auth, sidebar
+   869→   869→- Create Ward, Bed, StaffNurse models
+   870→   870→- Create NursePatientAssignment model
+   871→   871→- Admin pages: Create Wards, Create Beds, Create Nurses, Assign Nurses to Wards
+   872→   872→- Seed data: 3 wards, 15 beds, 3 nurses
+   873→   873→
+   874→   874→### Phase N-2: IPD Admission (Receptionist + Doctor)
+   875→   875→- Create IpdAdmission model
+   876→   876→- Receptionist: Admission form page (Form 1 — Admission Sheet)
+   877→   877→- Doctor: History Sheet page (Form 2)
+   878→   878→- Doctor: Physical Examination page (Form 6)
+   879→   879→- IPD No. generation: `IPD-{YEAR}-{SEQ}` (e.g., IPD-2026-000001)
+   880→   880→- Bed status auto-update (Available → Occupied on admit, Occupied → Available on discharge)
+   881→   881→
+   882→   882→### Phase N-3: Doctor Orders + Nurse Execution (THE CORE)
+   883→   883→- Create DoctorOrder model
+   884→   884→- Create MedicineAdministration model
+   885→   885→- Doctor: Order Sheet page (Form 5) — write orders
+   886→   886→- Nurse: My Patients page — see assigned patients
+   887→   887→- Nurse: Medicine Administration page — see orders, mark as given/missed/refused
+   888→   888→- Nurse: Pending medicines widget on dashboard
+   889→   889→
+   890→   890→### Phase N-4: Vital Monitoring (THE BIGGEST TASK)
+   891→   891→- Create VitalRecord model
+   892→   892→- Nurse: Vital Signs Entry page (Form 6 — Monitoring Chart)
+   893→   893→- Nurse: Record hourly vitals
+   894→   894→- Auto-calculate Input/Output totals
+   895→   895→- **Smart Alerts**: Auto-detect abnormal vitals, create alerts
+   896→   896→- Doctor: View monitoring chart during rounds
+   897→   897→- Trend charts (BP over 24 hours, etc.)
+   898→   898→
+   899→   899→### Phase N-5: Investigation & Lab
+   900→   900→- Create SampleCollection, InvestigationReport models
+   901→   901→- Doctor: Order investigation
+   902→   902→- Nurse: Sample collection workflow
+   903→   903→- Lab: Enter results (or simplified version)
+   904→   904→- Doctor: Review reports
+   905→   905→- Abnormal value auto-flagging
+   906→   906→
+   907→   907→### Phase N-6: Shift Handover
+   908→   908→- Create ShiftHandover model
+   909→   909→- Nurse: Give Handover page (end of shift)
+   910→   910→- Nurse: Receive Handover page (start of shift)
+   911→   911→- Auto-populate patient summaries from today's vitals + medicine status
+   912→   912→- Handover acknowledgment
+   913→   913→- Handover history
+   914→   914→
+   915→   915→### Phase N-7: Doctor Visits & Discharge
+   916→   916→- Create DoctorVisit model
+   917→   917→- Doctor: Visit notes page (daily round documentation)
+   918→   918→- Doctor: Discharge workflow
+   919→   919→  - Write discharge summary
+   920→   920→  - Mark final diagnosis
+   921→   921→  - Stop all active orders
+   922→   922→  - Bed freed
+   923→   923→  - Bill generated
+   924→   924→- Nurse: Post-discharge bed preparation
+   925→   925→
+   926→   926→### Phase N-8: Advanced Features
+   927→   927→- Nurse: Ward View (all ward patients, not just mine)
+   928→   928→- Input/Output trend analysis
+   929→   929→- Vital sign trend charts (BP, Pulse, Temp over time)
+   930→   930→- Printable Monitoring Chart (Form 6 print)
+   931→   931→- Printable Admission Sheet (Form 1 print)
+   932→   932→- Patient transfer between wards/beds
+   933→   933→- DAMA (Discharge Against Medical Advice) workflow
+   934→   934→- Death documentation
+   935→   935→- Mobile responsive for nurse's tablet/phone use
+   936→   936→
+   937→   937→---
+   938→   938→
+   939→   939→## 🔑 KEY ARCHITECTURAL DECISIONS
+   940→   940→
+   941→   941→### Decision 1: IPD Admission = Separate from OPD Booking
+   942→   942→
+   943→   943→```
+   944→   944→OPD Booking (existing Booking model)
+   945→   945→  → Patient comes, sees doctor, goes home
+   946→   946→  → Token system, queue, prescription
+   947→   947→
+   948→   948→IPD Admission (new IpdAdmission model)
+   949→   949→  → Patient stays in hospital on a bed
+   950→   950→  → No tokens, no queue
+   951→   951→  → Continuous monitoring, orders, vitals
+   952→   952→  → Separate billing, separate flow
+   953→   953→```
+   954→   954→
+   955→   955→**Why separate?** Because IPD is fundamentally different from OPD:
+   956→   956→- OPD = transactional (one visit, done)
+   957→   957→- IPD = continuous (days/weeks of care)
+   958→   958→- OPD has one doctor visit → IPD has daily doctor visits + 24/7 nurse care
+   959→   959→- OPD prescription = one time → IPD orders = continuous, can be added/stopped/modified
+   960→   960→- OPD has no vitals → IPD has hourly vitals
+   961→   961→
+   962→   962→**Link:** A patient CAN be admitted from OPD. If doctor says "admit karo" during OPD visit, then:
+   963→   963→- OPD Booking exists (the visit)
+   964→   964→- IpdAdmission created with `opdBookingId` linking to that Booking
+   965→   965→- This link helps: patient demographics auto-fill from OPD data
+   966→   966→
+   967→   967→### Decision 2: Nurse-Patient Assignment is Shift-Based
+   968→   968→
+   969→   969→```
+   970→   970→Shift 1 (Morning 7AM-2PM):
+   971→   971→  Nurse Priya → [Bed 1, Bed 2, Bed 3]
+   972→   972→  Nurse Sunita → [Bed 4, Bed 5, Bed 6]
+   973→   973→
+   974→   974→Shift 2 (Evening 2PM-9PM):
+   975→   975→  Nurse Anita → [Bed 1, Bed 2, Bed 3]  ← Different nurse!
+   976→   976→  Nurse Priya → [Bed 4, Bed 5, Bed 6]  ← Can swap
+   977→   977→```
+   978→   978→
+   979→   979→**Why shift-based?** Because in real hospitals, different nurses work different shifts. Patient ko SAME NURSE 24/7 nahi milti. Har shift change pe naya nurse aati hai, handover hota hai.
+   980→   980→
+   981→   981→**Assignment logic:**
+   982→   982→- Nursing Incharge (or Admin) assigns nurses to shifts
+   983→   983→- At shift start, system shows "My Patients for this shift"
+   984→   984→- At shift end, nurse MUST complete handover before leaving
+   985→   985→
+   986→   986→### Decision 3: Doctor Orders are NOT one-time prescriptions
+   987→   987→
+   988→   988→```
+   989→   989→OPD Prescription (existing PMedicine model):
+   990→   990→  → Tab. Paracetamol 500mg: Morning 1, Evening 1, Days 5
+   991→   991→  → Fixed duration, one-time prescription
+   992→   992→
+   993→   993→IPD Doctor Order (new DoctorOrder model):
+   994→   994→  → Inj. Enoxaparin 60mg SC BD
+   995→   995→  → Start: Today | End: NULL (runs until doctor stops it)
+   996→   996→  → Every instance = one MedicineAdministration record
+   997→   997→  → Doctor can STOP the order anytime
+   998→   998→  → Nurse marks each instance as Given/Missed/Refused
+   999→   999→```
+  1000→  1000→
+  1001→  1001→**Why?** IPD mein dawaiyaan continuously chalti hain. Doctor ne likh diya, nurse Roz Roz de rahi hai, jab tak doctor na bole "band karo". Ye OPD prescription se fundamentally alag hai.
+  1002→  1002→
+  1003→  1003→### Decision 4: Vitals are Time-Series Data
+  1004→  1004→
+  1005→  1005→```
+  1006→  1006→VitalRecord is NOT a snapshot — it's a TIME SERIES:
+  1007→  1007→  8:00 AM → Temp 98.4, Pulse 82, BP 112/74
+  1008→  1008→  9:00 AM → Temp 98.6, Pulse 80, BP 118/76
+  1009→  1009→  10:00 AM → Temp 98.4, Pulse 78, BP 120/78
+  1010→  1010→  ...every hour...
+  1011→  1011→```
+  1012→  1012→
+  1013→  1013→**Why?** Because trends matter more than single readings:
+  1014→  1014→- BP 120/80 once = normal
+  1015→  1015→- BP 120/80 → 115/75 → 108/70 → 95/60 over 4 hours = **SHOCK** (trend is falling!)
+  1016→  1016→- Doctor needs to see the TREND, not just the latest value
+  1017→  1017→
+  1018→  1018→---
+  1019→  1019→
+  1020→  1020→## 📋 COMPLETE FILE/FOLDER STRUCTURE (New Files Only)
+  1021→  1021→
+  1022→  1022→```
+  1023→  1023→src/
+  1024→  1024→├── app/
+  1025→  1025→│   ├── dashboard/
+  1026→  1026→│   │   ├── nurse/
+  1027→  1027→│   │   │   ├── page.tsx                              → Nurse Dashboard
+  1028→  1028→│   │   │   ├── patients/
+  1029→  1029→│   │   │   │   ├── page.tsx                          → My Patients List
+  1030→  1030→│   │   │   │   └── [admissionId]/
+  1031→  1031→│   │   │   │       ├── page.tsx                      → Patient Detail (tabbed view)
+  1032→  1032→│   │   │   │       ├── vitals/page.tsx               → Vital Signs Entry
+  1033→  1033→│   │   │   │       ├── medicines/page.tsx            → Medicine Administration
+  1034→  1034→│   │   │   │       ├── investigations/page.tsx       → Sample Collection
+  1035→  1035→│   │   │   │       ├── history/page.tsx              → History View (read-only)
+  1036→  1036→│   │   │   │       └── notes/page.tsx                → Nursing Notes
+  1037→  1037→│   │   │   ├── handover/
+  1038→  1038→│   │   │   │   ├── page.tsx                          → Give/Receive Handover
+  1039→  1039→│   │   │   │   └── history/page.tsx                  → Past Handovers
+  1040→  1040→│   │   │   ├── ward-patients/page.tsx                → All Ward Patients
+  1041→  1041→│   │   │   └── profile/page.tsx                      → Nurse Profile
+  1042→  1042→│   │   ├── receptionist/
+  1043→  1043→│   │   │   └── ipd/
+  1044→  1044→│   │   │       ├── admit/page.tsx                    → IPD Admission Form (Form 1)
+  1045→  1045→│   │   │       ├── patients/page.tsx                 → All IPD Patients
+  1046→  1046→│   │   │       └── [admissionId]/page.tsx             → Patient Detail
+  1047→  1047→│   │   ├── doctor/
+  1048→  1048→│   │   │   └── ipd/
+  1049→  1049→│   │   │       ├── patients/page.tsx                 → My IPD Patients
+  1050→  1050→│   │   │       └── patients/[admissionId]/
+  1051→  1051→│   │   │           ├── page.tsx                      → Patient Overview
+  1052→  1052→│   │   │           ├── history/page.tsx              → History Sheet (Form 2)
+  1053→  1053→│   │   │           ├── examination/page.tsx          → Physical Exam (Form 6)
+  1054→  1054→│   │   │           ├── orders/page.tsx               → Order Sheet (Form 5)
+  1055→  1055→│   │   │           ├── investigations/page.tsx       → Order Investigations
+  1056→  1056→│   │   │           ├── vitals/page.tsx               → View Monitoring Chart
+  1057→  1057→│   │   │           ├── visits/page.tsx               → Doctor Visit Notes
+  1058→  1058→│   │   │           └── discharge/page.tsx            → Discharge Summary
+  1059→  1059→│   │   └── admin/
+  1060→  1060→│   │       ├── wards/page.tsx                       → Manage Wards
+  1061→  1061→│   │       ├── wards/[wardId]/beds/page.tsx          → Manage Beds in Ward
+  1062→  1062→│   │       └── nurses/page.tsx                       → Manage Staff Nurses
+  1063→  1063→│   └── api/
+  1064→  1064→│       └── dashboard/
+  1065→  1065→│           ├── nurse/                                  → All nurse APIs
+  1066→  1066→│           │   ├── stats/route.ts
+  1067→  1067→│           │   ├── patients/route.ts
+  1068→  1068→│           │   ├── patients/[admissionId]/route.ts
+  1069→  1069→│           │   ├── patients/[admissionId]/vitals/route.ts
+  1070→  1070→│           │   ├── patients/[admissionId]/medicines/route.ts
+  1071→  1071→│           │   ├── patients/[admissionId]/medicines/administer/route.ts
+  1072→  1072→│           │   ├── patients/[admissionId]/investigations/route.ts
+  1073→  1073→│           │   ├── handover/route.ts
+  1074→  1074→│           │   ├── handover/[id]/acknowledge/route.ts
+  1075→  1075→│           │   ├── alerts/route.ts
+  1076→  1076→│           │   └── ward-patients/route.ts
+  1077→  1077→│           ├── receptionist/
+  1078→  1078→│           │   └── ipd/                                → IPD admission APIs
+  1079→  1079→│           │       ├── admit/route.ts
+  1080→  1080→│           │       ├── patients/route.ts
+  1081→  1081→│           │       └── patients/[admissionId]/route.ts
+  1082→  1082→│           ├── doctor/
+  1083→  1083→│           │   └── ipd/                                → Doctor IPD APIs
+  1084→  1084→│           │       ├── patients/route.ts
+  1085→  1085→│           │       ├── patients/[admissionId]/route.ts
+  1086→  1086→│           │       ├── patients/[admissionId]/history/route.ts
+  1087→  1087→│           │       ├── patients/[admissionId]/examination/route.ts
+  1088→  1088→│           │       ├── patients/[admissionId]/orders/route.ts
+  1089→  1089→│           │       ├── patients/[admissionId]/investigations/route.ts
+  1090→  1090→│           │       ├── patients/[admissionId]/vitals/route.ts
+  1091→  1091→│           │       ├── patients/[admissionId]/visits/route.ts
+  1092→  1092→│           │       └── patients/[admissionId]/discharge/route.ts
+  1093→  1093→│           └── admin/
+  1094→  1094→│               ├── wards/route.ts
+  1095→  1095→│               ├── wards/[wardId]/beds/route.ts
+  1096→  1096→│               └── nurses/route.ts
+  1097→  1097→└── lib/
+  1098→  1098→    ├── ipd-utils.ts                               → IPD number generation, bed status helpers
+  1099→  1099→    ├── vital-alerts.ts                            → Vital threshold checking, alert generation
+  1100→  1100→    └── shift-utils.ts                             → Shift timing, assignment logic
+  1101→  1101→```
+  1102→  1102→
+  1103→  1103→---
+  1104→  1104→
+  1105→  1105→## 🎯 SUMMARY — WHAT THIS PLAN COVERS
+  1106→  1106→
+  1107→  1107→| # | Entity | Purpose | Created By | Used By |
+  1108→  1108→|---|--------|---------|------------|---------|
+  1109→  1109→| 1 | **Ward** | ICU, General, Private | Admin | Nurse, Doctor, Receptionist |
+  1110→  1110→| 2 | **Bed** | Physical bed in ward | Admin | Nurse, Receptionist |
+  1111→  1111→| 3 | **StaffNurse** | Nurse profile + assignment | Admin | Nurse, Admin |
+  1112→  1112→| 4 | **NursePatientAssignment** | Which nurse handles which patient | Admin/Nursing Incharge | Nurse |
+  1113→  1113→| 5 | **IpdAdmission** | Core IPD record (all 6 forms data) | Receptionist | Everyone |
+  1114→  1114→| 6 | **VitalRecord** | Hourly monitoring (Form 6) | Nurse | Nurse, Doctor |
+  1115→  1115→| 7 | **DoctorOrder** | Treatment orders (Form 5) | Doctor | Nurse, Doctor |
+  1116→  1116→| 8 | **MedicineAdministration** | Medicine given record | Nurse | Nurse, Doctor |
+  1117→  1117→| 9 | **SampleCollection** | Lab sample tracking | Nurse | Nurse, Lab, Doctor |
+  1118→  1118→| 10 | **InvestigationReport** | Lab results | Lab | Doctor |
+  1119→  1119→| 11 | **ShiftHandover** | Shift change communication | Nurse | Nurse |
+  1120→  1120→| 12 | **DoctorVisit** | Daily round documentation | Doctor | Doctor, Nurse |
+  1121→  1121→
+  1122→  1122→**Total: 8 new database models + 4 existing models modified**
+  1123→  1123→**Total: ~40 new pages + ~25 new API routes**
+  1124→  1124→
+  1125→  1125→---
+  1126→  1126→
+  1127→  1127→*Plan created by acting as Hospital Doctor — based on real IPD workflow*
+  1128→  1128→*Ready for review before development begins*
