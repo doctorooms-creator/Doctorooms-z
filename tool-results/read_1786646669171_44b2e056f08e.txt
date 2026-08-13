@@ -1,0 +1,1334 @@
+     1→'use client'
+     2→
+     3→import { useState, useMemo, useCallback } from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→import {
+     7→  BedDouble,
+     8→  UserPlus,
+     9→  Search,
+    10→  Filter,
+    11→  RefreshCw,
+    12→  Building2,
+    13→  Activity,
+    14→  AlertTriangle,
+    15→  Bed,
+    16→  Stethoscope,
+    17→  ChevronLeft,
+    18→  ChevronRight,
+    19→  Eye,
+    20→  Loader2,
+    21→  X,
+    22→  Hospital,
+    23→  Phone,
+    24→  MapPin,
+    25→  FileText,
+    26→  ShieldCheck,
+    27→  CalendarDays,
+    28→  Users,
+    29→  HeartPulse,
+    30→  ClipboardList,
+    31→} from 'lucide-react'
+    32→import { toast } from 'sonner'
+    33→
+    34→import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+    35→import { Badge } from '@/components/ui/badge'
+    36→import { Button } from '@/components/ui/button'
+    37→import { Input } from '@/components/ui/input'
+    38→import { Label } from '@/components/ui/label'
+    39→import { Checkbox } from '@/components/ui/checkbox'
+    40→import { Textarea } from '@/components/ui/textarea'
+    41→import { Skeleton } from '@/components/ui/skeleton'
+    42→import {
+    43→  Dialog,
+    44→  DialogContent,
+    45→  DialogHeader,
+    46→  DialogTitle,
+    47→  DialogDescription,
+    48→} from '@/components/ui/dialog'
+    49→import {
+    50→  Select,
+    51→  SelectContent,
+    52→  SelectItem,
+    53→  SelectTrigger,
+    54→  SelectValue,
+    55→} from '@/components/ui/select'
+    56→import {
+    57→  Table,
+    58→  TableBody,
+    59→  TableCell,
+    60→  TableHead,
+    61→  TableHeader,
+    62→  TableRow,
+    63→} from '@/components/ui/table'
+    64→import { ScrollArea } from '@/components/ui/scroll-area'
+    65→import { Separator } from '@/components/ui/separator'
+    66→
+    67→// ============ Types ============
+    68→
+    69→interface Admission {
+    70→  id: string
+    71→  admissionNo: string
+    72→  patientName: string
+    73→  age: number
+    74→  gender: string
+    75→  wardName: string
+    76→  wardType: string
+    77→  bedNumber: string
+    78→  bedType: string
+    79→  departmentName: string
+    80→  departmentShortCode: string
+    81→  attendingDoctorName: string
+    82→  status: string
+    83→  admissionDate: string
+    84→  admissionTime: string
+    85→  initialDiagnosis: string
+    86→}
+    87→
+    88→interface Stats {
+    89→  totalAdmitted: number
+    90→  dischargedToday: number
+    91→  bedsOccupied: number
+    92→  totalBeds: number
+    93→  todayAdmissions: number
+    94→}
+    95→
+    96→interface AvailableBed {
+    97→  id: string
+    98→  bedNumber: string
+    99→  bedType: string
+   100→  dailyRate: number
+   101→  wardId: string
+   102→  wardName: string
+   103→  wardType: string
+   104→  floorNo: string
+   105→}
+   106→
+   107→interface WardGroup {
+   108→  wardId: string
+   109→  wardName: string
+   110→  wardType: string
+   111→  floorNo: string
+   112→  availableCount: number
+   113→  beds: { id: string; bedNumber: string; bedType: string; dailyRate: number }[]
+   114→}
+   115→
+   116→interface Doctor {
+   117→  doctorId: string
+   118→  name: string
+   119→  profileImg: string | null
+   120→  specialization: string
+   121→  designation: string
+   122→  departmentId: string
+   123→  departmentName: string
+   124→  departmentShortCode: string
+   125→}
+   126→
+   127→interface Ward {
+   128→  id: string
+   129→  name: string
+   130→  wardType: string
+   131→}
+   132→
+   133→interface Department {
+   134→  id: string
+   135→  name: string
+   136→  shortCode: string
+   137→}
+   138→
+   139→// ============ Status badge helper ============
+   140→
+   141→function statusBadge(status: string) {
+   142→  switch (status) {
+   143→    case 'Admitted':
+   144→      return 'bg-amber-100 text-amber-800 border-amber-200 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800'
+   145→    case 'Discharged':
+   146→      return 'bg-emerald-100 text-emerald-800 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800'
+   147→    case 'DAMA':
+   148→      return 'bg-orange-100 text-orange-800 border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800'
+   149→    case 'Expired':
+   150→      return 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+   151→    case 'Transferred':
+   152→      return 'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-900/30 dark:text-sky-300 dark:border-sky-800'
+   153→    default:
+   154→      return 'bg-gray-100 text-gray-800 border-gray-200'
+   155→  }
+   156→}
+   157→
+   158→function formatDate(isoString: string) {
+   159→  const d = new Date(isoString)
+   160→  return d.toLocaleDateString('en-IN', {
+   161→    day: '2-digit',
+   162→    month: 'short',
+   163→    year: 'numeric',
+   164→  })
+   165→}
+   166→
+   167→// ============ Animation variants ============
+   168→
+   169→const containerVariants = {
+   170→  hidden: { opacity: 0 },
+   171→  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
+   172→}
+   173→
+   174→const itemVariants = {
+   175→  hidden: { opacity: 0, y: 16 },
+   176→  visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } },
+   177→}
+   178→
+   179→// ============ Main Component ============
+   180→
+   181→export default function IpdAdmissionClient() {
+   182→  const queryClient = useQueryClient()
+   183→  const [page, setPage] = useState(1)
+   184→  const [statusFilter, setStatusFilter] = useState('all')
+   185→  const [wardFilter, setWardFilter] = useState('all')
+   186→  const [search, setSearch] = useState('')
+   187→  const [searchInput, setSearchInput] = useState('')
+   188→  const [showAdmitDialog, setShowAdmitDialog] = useState(false)
+   189→
+   190→  // ── Form state ──
+   191→  const [form, setForm] = useState({
+   192→    // Section 1: Ward & Bed
+   193→    departmentId: '',
+   194→    wardId: '',
+   195→    bedId: '',
+   196→    attendingDoctorId: '',
+   197→    // Section 2: Patient Info
+   198→    patientName: '',
+   199→    patientAge: '',
+   200→    patientGender: 'Male',
+   201→    bloodGroup: '',
+   202→    maritalStatus: '',
+   203→    mobileNo: '',
+   204→    aadharNo: '',
+   205→    // Section 3: Family & Emergency
+   206→    fatherName: '',
+   207→    motherName: '',
+   208→    husbandWifeName: '',
+   209→    contactPersonName: '',
+   210→    contactPersonMobile: '',
+   211→    contactPersonRelation: '',
+   212→    // Section 4: Address
+   213→    address: '',
+   214→    village: '',
+   215→    taluka: '',
+   216→    district: '',
+   217→    state: '',
+   218→    pinCode: '',
+   219→    // Section 5: Medical
+   220→    mlcCase: false,
+   221→    previousHospitalization: '',
+   222→    mediClaimDetails: '',
+   223→    initialDiagnosis: '',
+   224→  })
+   225→
+   226→  const updateForm = useCallback((field: string, value: string | boolean) => {
+   227→    setForm((prev) => {
+   228→      const next = { ...prev, [field]: value }
+   229→      // Cascade: when ward changes, reset bed
+   230→      if (field === 'wardId') {
+   231→        next.bedId = ''
+   232→      }
+   233→      // Cascade: when department changes, reset doctor
+   234→      if (field === 'departmentId') {
+   235→        next.attendingDoctorId = ''
+   236→      }
+   237→      return next
+   238→    })
+   239→  }, [])
+   240→
+   241→  // ── Queries ──
+   242→
+   243→  const admissionsQuery = useQuery({
+   244→    queryKey: ['ipd-admissions', page, statusFilter, wardFilter, search],
+   245→    queryFn: async () => {
+   246→      const params = new URLSearchParams({
+   247→        page: String(page),
+   248→        limit: '20',
+   249→      })
+   250→      if (statusFilter !== 'all') params.set('status', statusFilter)
+   251→      if (wardFilter !== 'all') params.set('wardId', wardFilter)
+   252→      if (search) params.set('search', search)
+   253→      const res = await fetch(`/api/dashboard/receptionist/ipd?${params}`)
+   254→      if (!res.ok) throw new Error('Failed to load admissions')
+   255→      return res.json()
+   256→    },
+   257→    staleTime: 30 * 1000,
+   258→  })
+   259→
+   260→  const availableBedsQuery = useQuery({
+   261→    queryKey: ['ipd-available-beds', form.wardId],
+   262→    queryFn: async () => {
+   263→      const params = new URLSearchParams()
+   264→      if (form.wardId) params.set('wardId', form.wardId)
+   265→      const res = await fetch(`/api/dashboard/receptionist/ipd/available-beds?${params}`)
+   266→      if (!res.ok) throw new Error('Failed to load beds')
+   267→      return res.json() as Promise<{ beds: AvailableBed[]; wardGroups: WardGroup[] }>
+   268→    },
+   269→    enabled: showAdmitDialog,
+   270→    staleTime: 10 * 1000,
+   271→  })
+   272→
+   273→  const doctorsQuery = useQuery({
+   274→    queryKey: ['ipd-doctors', form.departmentId],
+   275→    queryFn: async () => {
+   276→      const params = new URLSearchParams()
+   277→      if (form.departmentId) params.set('departmentId', form.departmentId)
+   278→      const res = await fetch(`/api/dashboard/receptionist/ipd/doctors?${params}`)
+   279→      if (!res.ok) throw new Error('Failed to load doctors')
+   280→      return res.json() as Promise<{ doctors: Doctor[] }>
+   281→    },
+   282→    enabled: showAdmitDialog,
+   283→    staleTime: 10 * 1000,
+   284→  })
+   285→
+   286→  // ── Derived data ──
+   287→
+   288→  const admissions: Admission[] = admissionsQuery.data?.admissions || []
+   289→  const stats: Stats | undefined = admissionsQuery.data?.stats
+   290→  const pagination = admissionsQuery.data?.pagination
+   291→  const beds: AvailableBed[] = availableBedsQuery.data?.beds || []
+   292→  const wardGroups: WardGroup[] = availableBedsQuery.data?.wardGroups || []
+   293→  const doctors: Doctor[] = doctorsQuery.data?.doctors || []
+   294→
+   295→  // Get unique wards from admissions for filter
+   296→  const uniqueWards = useMemo(() => {
+   297→    const wardMap = new Map<string, { id: string; name: string }>()
+   298→    admissionsQuery.data?.admissions?.forEach((a: Admission) => {
+   299→      if (!wardMap.has(a.wardName)) {
+   300→        wardMap.set(a.wardName, { id: '', name: a.wardName })
+   301→      }
+   302→    })
+   303→    // Also get wards from bed data
+   304→    wardGroups.forEach((wg) => {
+   305→      if (!wardMap.has(wg.wardName)) {
+   306→        wardMap.set(wg.wardName, { id: wg.wardId, name: wg.wardName })
+   307→      }
+   308→    })
+   309→    return Array.from(wardMap.values())
+   310→  }, [admissionsQuery.data, wardGroups])
+   311→
+   312→  // Get unique departments from doctors
+   313→  const uniqueDepartments = useMemo(() => {
+   314→    const deptMap = new Map<string, { id: string; name: string; shortCode: string }>()
+   315→    doctors.forEach((d) => {
+   316→      if (!deptMap.has(d.departmentId)) {
+   317→        deptMap.set(d.departmentId, {
+   318→          id: d.departmentId,
+   319→          name: d.departmentName,
+   320→          shortCode: d.departmentShortCode,
+   321→        })
+   322→      }
+   323→    })
+   324→    return Array.from(deptMap.values())
+   325→  }, [doctors])
+   326→
+   327→  // Filtered beds for selected ward
+   328→  const filteredBeds = useMemo(() => {
+   329→    if (!form.wardId) return beds
+   330→    return beds.filter((b) => b.wardId === form.wardId)
+   331→  }, [beds, form.wardId])
+   332→
+   333→  // ── Admit mutation ──
+   334→
+   335→  const admitMutation = useMutation({
+   336→    mutationFn: async (formData: typeof form) => {
+   337→      const res = await fetch('/api/dashboard/receptionist/ipd/admit', {
+   338→        method: 'POST',
+   339→        headers: { 'Content-Type': 'application/json' },
+   340→        body: JSON.stringify({
+   341→          ...formData,
+   342→          patientAge: parseInt(formData.patientAge, 10) || 0,
+   343→        }),
+   344→      })
+   345→      if (!res.ok) {
+   346→        const data = await res.json()
+   347→        throw new Error(data.error || 'Failed to admit patient')
+   348→      }
+   349→      return res.json()
+   350→    },
+   351→    onSuccess: (data) => {
+   352→      toast.success(`Patient Admitted Successfully!`, {
+   353→        description: `Admission No: ${data.admission.admissionNo}`,
+   354→      })
+   355→      setShowAdmitDialog(false)
+   356→      // Reset form
+   357→      setForm({
+   358→        departmentId: '',
+   359→        wardId: '',
+   360→        bedId: '',
+   361→        attendingDoctorId: '',
+   362→        patientName: '',
+   363→        patientAge: '',
+   364→        patientGender: 'Male',
+   365→        bloodGroup: '',
+   366→        maritalStatus: '',
+   367→        mobileNo: '',
+   368→        aadharNo: '',
+   369→        fatherName: '',
+   370→        motherName: '',
+   371→        husbandWifeName: '',
+   372→        contactPersonName: '',
+   373→        contactPersonMobile: '',
+   374→        contactPersonRelation: '',
+   375→        address: '',
+   376→        village: '',
+   377→        taluka: '',
+   378→        district: '',
+   379→        state: '',
+   380→        pinCode: '',
+   381→        mlcCase: false,
+   382→        previousHospitalization: '',
+   383→        mediClaimDetails: '',
+   384→        initialDiagnosis: '',
+   385→      })
+   386→      queryClient.invalidateQueries({ queryKey: ['ipd-admissions'] })
+   387→      queryClient.invalidateQueries({ queryKey: ['ipd-available-beds'] })
+   388→    },
+   389→    onError: (error: Error) => {
+   390→      toast.error('Admission Failed', {
+   391→        description: error.message,
+   392→      })
+   393→    },
+   394→  })
+   395→
+   396→  const handleAdmit = useCallback(() => {
+   397→    if (!form.wardId || !form.bedId || !form.departmentId || !form.attendingDoctorId) {
+   398→      toast.error('Missing Required Fields', {
+   399→        description: 'Please select ward, bed, department, and attending doctor.',
+   400→      })
+   401→      return
+   402→    }
+   403→    if (!form.patientName.trim()) {
+   404→      toast.error('Missing Patient Name', {
+   405→        description: 'Patient name is required.',
+   406→      })
+   407→      return
+   408→    }
+   409→    if (!form.patientAge || parseInt(form.patientAge, 10) <= 0) {
+   410→      toast.error('Invalid Age', {
+   411→        description: 'Please enter a valid patient age.',
+   412→      })
+   413→      return
+   414→    }
+   415→    admitMutation.mutate(form)
+   416→  }, [form, admitMutation])
+   417→
+   418→  const handleSearch = useCallback(() => {
+   419→    setSearch(searchInput)
+   420→    setPage(1)
+   421→  }, [searchInput])
+   422→
+   423→  // ── Render ──
+   424→
+   425→  return (
+   426→    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-teal-50/30 dark:from-slate-950 dark:via-slate-900 dark:to-teal-950/10">
+   427→      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+   428→        {/* ── Header ── */}
+   429→        <motion.div
+   430→          initial={{ opacity: 0, y: -10 }}
+   431→          animate={{ opacity: 1, y: 0 }}
+   432→          transition={{ duration: 0.5 }}
+   433→          className="mb-6"
+   434→        >
+   435→          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+   436→            <div className="flex items-center gap-3">
+   437→              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-teal-600 text-white shadow-lg shadow-teal-600/20">
+   438→                <BedDouble className="size-6" />
+   439→              </div>
+   440→              <div>
+   441→                <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
+   442→                  IPD Admissions
+   443→                </h1>
+   444→                <div className="flex items-center gap-2 mt-0.5">
+   445→                  <Badge className="bg-teal-100 text-teal-800 border-teal-200 dark:bg-teal-900/30 dark:text-teal-300 dark:border-teal-800 text-xs">
+   446→                    <Hospital className="size-3 mr-1" />
+   447→                    Your Hospital
+   448→                  </Badge>
+   449→                </div>
+   450→              </div>
+   451→            </div>
+   452→
+   453→            <Button
+   454→              onClick={() => setShowAdmitDialog(true)}
+   455→              className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-600/20 gap-2"
+   456→            >
+   457→              <UserPlus className="size-4" />
+   458→              Admit Patient
+   459→            </Button>
+   460→          </div>
+   461→        </motion.div>
+   462→
+   463→        {/* ── Stats Cards ── */}
+   464→        <motion.div
+   465→          variants={containerVariants}
+   466→          initial="hidden"
+   467→          animate="visible"
+   468→          className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
+   469→        >
+   470→          <motion.div variants={itemVariants}>
+   471→            <Card className="overflow-hidden">
+   472→              <CardContent className="p-4">
+   473→                <div className="flex items-center gap-3">
+   474→                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
+   475→                    <BedDouble className="size-5 text-amber-600 dark:text-amber-400" />
+   476→                  </div>
+   477→                  <div>
+   478→                    <p className="text-xs text-muted-foreground font-medium">Currently Admitted</p>
+   479→                    <p className="text-xl font-bold text-amber-700 dark:text-amber-300">
+   480→                      {admissionsQuery.isLoading ? <Skeleton className="h-7 w-12" /> : stats?.totalAdmitted ?? 0}
+   481→                    </p>
+   482→                  </div>
+   483→                </div>
+   484→              </CardContent>
+   485→            </Card>
+   486→          </motion.div>
+   487→
+   488→          <motion.div variants={itemVariants}>
+   489→            <Card className="overflow-hidden">
+   490→              <CardContent className="p-4">
+   491→                <div className="flex items-center gap-3">
+   492→                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/30">
+   493→                    <Activity className="size-5 text-emerald-600 dark:text-emerald-400" />
+   494→                  </div>
+   495→                  <div>
+   496→                    <p className="text-xs text-muted-foreground font-medium">Discharged Today</p>
+   497→                    <p className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
+   498→                      {admissionsQuery.isLoading ? <Skeleton className="h-7 w-12" /> : stats?.dischargedToday ?? 0}
+   499→                    </p>
+   500→                  </div>
+   501→                </div>
+   502→              </CardContent>
+   503→            </Card>
+   504→          </motion.div>
+   505→
+   506→          <motion.div variants={itemVariants}>
+   507→            <Card className="overflow-hidden">
+   508→              <CardContent className="p-4">
+   509→                <div className="flex items-center gap-3">
+   510→                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
+   511→                    <Bed className="size-5 text-red-600 dark:text-red-400" />
+   512→                  </div>
+   513→                  <div>
+   514→                    <p className="text-xs text-muted-foreground font-medium">Beds Occupied</p>
+   515→                    <p className="text-xl font-bold text-red-700 dark:text-red-300">
+   516→                      {admissionsQuery.isLoading ? (
+   517→                        <Skeleton className="h-7 w-16" />
+   518→                      ) : (
+   519→                        <span>
+   520→                          {stats?.bedsOccupied ?? 0}
+   521→                          <span className="text-sm font-normal text-muted-foreground"> / {stats?.totalBeds ?? 0}</span>
+   522→                        </span>
+   523→                      )}
+   524→                    </p>
+   525→                  </div>
+   526→                </div>
+   527→              </CardContent>
+   528→            </Card>
+   529→          </motion.div>
+   530→
+   531→          <motion.div variants={itemVariants}>
+   532→            <Card className="overflow-hidden">
+   533→              <CardContent className="p-4">
+   534→                <div className="flex items-center gap-3">
+   535→                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/30">
+   536→                    <CalendarDays className="size-5 text-teal-600 dark:text-teal-400" />
+   537→                  </div>
+   538→                  <div>
+   539→                    <p className="text-xs text-muted-foreground font-medium">Today's Admissions</p>
+   540→                    <p className="text-xl font-bold text-teal-700 dark:text-teal-300">
+   541→                      {admissionsQuery.isLoading ? <Skeleton className="h-7 w-12" /> : stats?.todayAdmissions ?? 0}
+   542→                    </p>
+   543→                  </div>
+   544→                </div>
+   545→              </CardContent>
+   546→            </Card>
+   547→          </motion.div>
+   548→        </motion.div>
+   549→
+   550→        {/* ── Filters Row ── */}
+   551→        <motion.div
+   552→          initial={{ opacity: 0, y: 8 }}
+   553→          animate={{ opacity: 1, y: 0 }}
+   554→          transition={{ delay: 0.2 }}
+   555→          className="mb-6"
+   556→        >
+   557→          <Card>
+   558→            <CardContent className="p-3 sm:p-4">
+   559→              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+   560→                {/* Status filter */}
+   561→                <div className="flex items-center gap-2">
+   562→                  <Filter className="size-4 text-muted-foreground flex-shrink-0" />
+   563→                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1) }}>
+   564→                    <SelectTrigger className="w-full sm:w-[160px] h-9">
+   565→                      <SelectValue placeholder="All Status" />
+   566→                    </SelectTrigger>
+   567→                    <SelectContent>
+   568→                      <SelectItem value="all">All Status</SelectItem>
+   569→                      <SelectItem value="Admitted">Admitted</SelectItem>
+   570→                      <SelectItem value="Discharged">Discharged</SelectItem>
+   571→                      <SelectItem value="DAMA">DAMA</SelectItem>
+   572→                      <SelectItem value="Expired">Expired</SelectItem>
+   573→                      <SelectItem value="Transferred">Transferred</SelectItem>
+   574→                    </SelectContent>
+   575→                  </Select>
+   576→                </div>
+   577→
+   578→                {/* Ward filter */}
+   579→                <Select value={wardFilter} onValueChange={(v) => { setWardFilter(v); setPage(1) }}>
+   580→                  <SelectTrigger className="w-full sm:w-[160px] h-9">
+   581→                    <SelectValue placeholder="All Wards" />
+   582→                  </SelectTrigger>
+   583→                  <SelectContent>
+   584→                    <SelectItem value="all">All Wards</SelectItem>
+   585→                    {uniqueWards.map((w) => (
+   586→                      <SelectItem key={w.id || w.name} value={w.id || w.name}>
+   587→                        {w.name}
+   588→                      </SelectItem>
+   589→                    ))}
+   590→                  </SelectContent>
+   591→                </Select>
+   592→
+   593→                {/* Search */}
+   594→                <div className="flex items-center gap-2 flex-1">
+   595→                  <div className="relative flex-1">
+   596→                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+   597→                    <Input
+   598→                      placeholder="Search by name or admission no..."
+   599→                      className="pl-9 h-9"
+   600→                      value={searchInput}
+   601→                      onChange={(e) => setSearchInput(e.target.value)}
+   602→                      onKeyDown={(e) => { if (e.key === 'Enter') handleSearch() }}
+   603→                    />
+   604→                  </div>
+   605→                  <Button size="sm" variant="outline" className="h-9 px-3" onClick={handleSearch}>
+   606→                    <Search className="size-4" />
+   607→                  </Button>
+   608→                </div>
+   609→
+   610→                {/* Refresh */}
+   611→                <Button
+   612→                  variant="outline"
+   613→                  size="icon"
+   614→                  className="h-9 w-9 flex-shrink-0"
+   615→                  onClick={() => {
+   616→                    admissionsQuery.refetch()
+   617→                  }}
+   618→                >
+   619→                  <RefreshCw className={`size-4 ${admissionsQuery.isFetching ? 'animate-spin' : ''}`} />
+   620→                </Button>
+   621→              </div>
+   622→            </CardContent>
+   623→          </Card>
+   624→        </motion.div>
+   625→
+   626→        {/* ── Admissions Table ── */}
+   627→        <motion.div
+   628→          initial={{ opacity: 0, y: 12 }}
+   629→          animate={{ opacity: 1, y: 0 }}
+   630→          transition={{ delay: 0.3 }}
+   631→        >
+   632→          <Card>
+   633→            <CardContent className="p-0">
+   634→              {/* Loading */}
+   635→              {admissionsQuery.isLoading && (
+   636→                <div className="p-6 space-y-4">
+   637→                  {Array.from({ length: 5 }).map((_, i) => (
+   638→                    <div key={i} className="flex items-center gap-4">
+   639→                      <Skeleton className="h-6 w-28" />
+   640→                      <Skeleton className="h-6 w-36" />
+   641→                      <Skeleton className="h-6 w-16" />
+   642→                      <Skeleton className="h-6 w-24" />
+   643→                      <Skeleton className="h-6 w-28" />
+   644→                      <Skeleton className="h-6 w-20" />
+   645→                    </div>
+   646→                  ))}
+   647→                </div>
+   648→              )}
+   649→
+   650→              {/* Empty state */}
+   651→              {!admissionsQuery.isLoading && admissions.length === 0 && (
+   652→                <div className="flex flex-col items-center justify-center py-16 text-center">
+   653→                  <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4">
+   654→                    <BedDouble className="size-8 text-muted-foreground" />
+   655→                  </div>
+   656→                  <h3 className="text-lg font-semibold">No IPD Admissions Found</h3>
+   657→                  <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+   658→                    {search || statusFilter !== 'all' || wardFilter !== 'all'
+   659→                      ? 'Try adjusting your filters or search query.'
+   660→                      : 'No patients have been admitted yet. Click "Admit Patient" to start.'}
+   661→                  </p>
+   662→                  {!search && statusFilter === 'all' && wardFilter === 'all' && (
+   663→                    <Button
+   664→                      onClick={() => setShowAdmitDialog(true)}
+   665→                      className="mt-4 bg-teal-600 hover:bg-teal-700 text-white gap-2"
+   666→                    >
+   667→                      <UserPlus className="size-4" />
+   668→                      Admit Patient
+   669→                    </Button>
+   670→                  )}
+   671→                </div>
+   672→              )}
+   673→
+   674→              {/* Table */}
+   675→              {!admissionsQuery.isLoading && admissions.length > 0 && (
+   676→                <>
+   677→                  <div className="overflow-x-auto">
+   678→                    <Table>
+   679→                      <TableHeader>
+   680→                        <TableRow className="bg-muted/50">
+   681→                          <TableHead className="w-[130px]">Admission No</TableHead>
+   682→                          <TableHead>Patient</TableHead>
+   683→                          <TableHead className="w-[80px]">Age/Gender</TableHead>
+   684→                          <TableHead className="w-[120px]">Ward / Bed</TableHead>
+   685→                          <TableHead className="w-[100px]">Department</TableHead>
+   686→                          <TableHead className="w-[130px]">Doctor</TableHead>
+   687→                          <TableHead className="w-[140px] hidden lg:table-cell">Diagnosis</TableHead>
+   688→                          <TableHead className="w-[100px]">Status</TableHead>
+   689→                          <TableHead className="w-[90px]">Date</TableHead>
+   690→                          <TableHead className="w-[50px]"></TableHead>
+   691→                        </TableRow>
+   692→                      </TableHeader>
+   693→                      <TableBody>
+   694→                        <AnimatePresence>
+   695→                          {admissions.map((a, index) => (
+   696→                            <motion.tr
+   697→                              key={a.id}
+   698→                              initial={{ opacity: 0, y: 8 }}
+   699→                              animate={{ opacity: 1, y: 0 }}
+   700→                              transition={{ delay: index * 0.03 }}
+   701→                              className="group border-b transition-colors hover:bg-muted/30"
+   702→                            >
+   703→                              <TableCell>
+   704→                                <Badge className="bg-violet-100 text-violet-800 border-violet-200 dark:bg-violet-900/30 dark:text-violet-300 dark:border-violet-800 font-mono text-xs">
+   705→                                  {a.admissionNo}
+   706→                                </Badge>
+   707→                              </TableCell>
+   708→                              <TableCell>
+   709→                                <p className="text-sm font-medium">{a.patientName}</p>
+   710→                                {a.mobileNo && (
+   711→                                  <p className="text-xs text-muted-foreground mt-0.5">Mobile: {a.mobileNo}</p>
+   712→                                )}
+   713→                              </TableCell>
+   714→                              <TableCell>
+   715→                                <span className="text-sm text-muted-foreground">
+   716→                                  {a.age}Y / {a.gender?.charAt(0) || '-'}
+   717→                                </span>
+   718→                              </TableCell>
+   719→                              <TableCell>
+   720→                                <div className="flex items-center gap-1.5">
+   721→                                  <Bed className="size-3.5 text-muted-foreground flex-shrink-0" />
+   722→                                  <div>
+   723→                                    <p className="text-sm font-medium">{a.wardName}</p>
+   724→                                    <p className="text-xs text-muted-foreground">{a.bedNumber}</p>
+   725→                                  </div>
+   726→                                </div>
+   727→                              </TableCell>
+   728→                              <TableCell>
+   729→                                <span className="text-sm">{a.departmentName}</span>
+   730→                              </TableCell>
+   731→                              <TableCell>
+   732→                                <p className="text-sm truncate max-w-[120px]">{a.attendingDoctorName}</p>
+   733→                              </TableCell>
+   734→                              <TableCell className="hidden lg:table-cell">
+   735→                                <p className="text-sm text-muted-foreground truncate max-w-[140px]">
+   736→                                  {a.initialDiagnosis || '-'}
+   737→                                </p>
+   738→                              </TableCell>
+   739→                              <TableCell>
+   740→                                <Badge variant="outline" className={`text-xs ${statusBadge(a.status)}`}>
+   741→                                  {a.status}
+   742→                                </Badge>
+   743→                              </TableCell>
+   744→                              <TableCell>
+   745→                                <span className="text-xs text-muted-foreground whitespace-nowrap">
+   746→                                  {formatDate(a.admissionDate)}
+   747→                                </span>
+   748→                              </TableCell>
+   749→                              <TableCell>
+   750→                                <Button variant="ghost" size="icon" className="h-8 w-8">
+   751→                                  <Eye className="size-4" />
+   752→                                </Button>
+   753→                              </TableCell>
+   754→                            </motion.tr>
+   755→                          ))}
+   756→                        </AnimatePresence>
+   757→                      </TableBody>
+   758→                    </Table>
+   759→                  </div>
+   760→
+   761→                  {/* Pagination */}
+   762→                  {pagination && pagination.totalPages > 1 && (
+   763→                    <div className="flex items-center justify-between px-4 py-3 border-t">
+   764→                      <p className="text-sm text-muted-foreground">
+   765→                        Showing {((pagination.page - 1) * pagination.limit) + 1}–{Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+   766→                      </p>
+   767→                      <div className="flex items-center gap-2">
+   768→                        <Button
+   769→                          variant="outline"
+   770→                          size="sm"
+   771→                          disabled={pagination.page <= 1}
+   772→                          onClick={() => setPage((p) => p - 1)}
+   773→                          className="h-8 px-2"
+   774→                        >
+   775→                          <ChevronLeft className="size-4" />
+   776→                        </Button>
+   777→                        {Array.from({ length: Math.min(pagination.totalPages, 5) }, (_, i) => {
+   778→                          const pageNum = Math.max(1, Math.min(pagination.page - 2, pagination.totalPages - 4)) + i
+   779→                          if (pageNum > pagination.totalPages) return null
+   780→                          return (
+   781→                            <Button
+   782→                              key={pageNum}
+   783→                              variant={pageNum === pagination.page ? 'default' : 'outline'}
+   784→                              size="sm"
+   785→                              onClick={() => setPage(pageNum)}
+   786→                              className="h-8 w-8 p-0"
+   787→                            >
+   788→                              {pageNum}
+   789→                            </Button>
+   790→                          )
+   791→                        })}
+   792→                        <Button
+   793→                          variant="outline"
+   794→                          size="sm"
+   795→                          disabled={pagination.page >= pagination.totalPages}
+   796→                          onClick={() => setPage((p) => p + 1)}
+   797→                          className="h-8 px-2"
+   798→                        >
+   799→                          <ChevronRight className="size-4" />
+   800→                        </Button>
+   801→                      </div>
+   802→                    </div>
+   803→                  )}
+   804→                </>
+   805→              )}
+   806→            </CardContent>
+   807→          </Card>
+   808→        </motion.div>
+   809→      </div>
+   810→
+   811→      {/* ── Admission Form Dialog ── */}
+   812→      <Dialog open={showAdmitDialog} onOpenChange={setShowAdmitDialog}>
+   813→        <DialogContent className="max-w-4xl max-h-[90vh] p-0">
+   814→          <DialogHeader className="px-6 pt-6 pb-0">
+   815→            <DialogTitle className="text-xl flex items-center gap-2">
+   816→              <ClipboardList className="size-5 text-teal-600" />
+   817→              IPD Admission — Form 1: Admission Sheet
+   818→            </DialogTitle>
+   819→            <DialogDescription>
+   820→              Fill all required sections to admit a patient to IPD.
+   821→            </DialogDescription>
+   822→          </DialogHeader>
+   823→
+   824→          <ScrollArea className="max-h-[calc(90vh-120px)] px-6 pb-6">
+   825→            <div className="space-y-6 pt-4">
+   826→              {/* ── Section 1: Ward & Bed Selection ── */}
+   827→              <section>
+   828→                <div className="flex items-center gap-2 mb-4">
+   829→                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 text-xs font-bold">
+   830→                    1
+   831→                  </div>
+   832→                  <h3 className="text-base font-semibold flex items-center gap-2">
+   833→                    <Building2 className="size-4 text-teal-600" />
+   834→                    Ward & Bed Selection
+   835→                  </h3>
+   836→                </div>
+   837→
+   838→                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+   839→                  {/* Department */}
+   840→                  <div className="space-y-1.5">
+   841→                    <Label className="text-sm font-medium">
+   842→                      Department <span className="text-red-500">*</span>
+   843→                    </Label>
+   844→                    <Select
+   845→                      value={form.departmentId}
+   846→                      onValueChange={(v) => updateForm('departmentId', v)}
+   847→                    >
+   848→                      <SelectTrigger>
+   849→                        <SelectValue placeholder="Select Department" />
+   850→                      </SelectTrigger>
+   851→                      <SelectContent>
+   852→                        {uniqueDepartments.map((d) => (
+   853→                          <SelectItem key={d.id} value={d.id}>
+   854→                            {d.name} ({d.shortCode})
+   855→                          </SelectItem>
+   856→                        ))}
+   857→                        {uniqueDepartments.length === 0 && (
+   858→                          <SelectItem value="_loading" disabled>
+   859→                            {doctorsQuery.isLoading ? 'Loading...' : 'No departments found'}
+   860→                          </SelectItem>
+   861→                        )}
+   862→                      </SelectContent>
+   863→                    </Select>
+   864→                  </div>
+   865→
+   866→                  {/* Ward */}
+   867→                  <div className="space-y-1.5">
+   868→                    <Label className="text-sm font-medium">
+   869→                      Ward <span className="text-red-500">*</span>
+   870→                    </Label>
+   871→                    <Select
+   872→                      value={form.wardId}
+   873→                      onValueChange={(v) => updateForm('wardId', v)}
+   874→                    >
+   875→                      <SelectTrigger>
+   876→                        <SelectValue placeholder="Select Ward" />
+   877→                      </SelectTrigger>
+   878→                      <SelectContent>
+   879→                        {wardGroups.map((wg) => (
+   880→                          <SelectItem key={wg.wardId} value={wg.wardId}>
+   881→                            {wg.wardName} ({wg.wardType}) — {wg.availableCount} available
+   882→                          </SelectItem>
+   883→                        ))}
+   884→                        {wardGroups.length === 0 && (
+   885→                          <SelectItem value="_loading" disabled>
+   886→                            {availableBedsQuery.isLoading ? 'Loading...' : 'No wards found'}
+   887→                          </SelectItem>
+   888→                        )}
+   889→                      </SelectContent>
+   890→                    </Select>
+   891→                  </div>
+   892→
+   893→                  {/* Bed */}
+   894→                  <div className="space-y-1.5">
+   895→                    <Label className="text-sm font-medium">
+   896→                      Bed <span className="text-red-500">*</span>
+   897→                    </Label>
+   898→                    <Select
+   899→                      value={form.bedId}
+   900→                      onValueChange={(v) => updateForm('bedId', v)}
+   901→                      disabled={!form.wardId || filteredBeds.length === 0}
+   902→                    >
+   903→                      <SelectTrigger>
+   904→                        <SelectValue placeholder={form.wardId ? (filteredBeds.length === 0 ? 'No available beds' : 'Select Bed') : 'Select ward first'} />
+   905→                      </SelectTrigger>
+   906→                      <SelectContent>
+   907→                        {filteredBeds.map((b) => (
+   908→                          <SelectItem key={b.id} value={b.id}>
+   909→                            {b.bedNumber} ({b.bedType}) — ₹{b.dailyRate}/day
+   910→                          </SelectItem>
+   911→                        ))}
+   912→                      </SelectContent>
+   913→                    </Select>
+   914→                  </div>
+   915→
+   916→                  {/* Attending Doctor */}
+   917→                  <div className="space-y-1.5">
+   918→                    <Label className="text-sm font-medium">
+   919→                      Attending Doctor <span className="text-red-500">*</span>
+   920→                    </Label>
+   921→                    <Select
+   922→                      value={form.attendingDoctorId}
+   923→                      onValueChange={(v) => updateForm('attendingDoctorId', v)}
+   924→                    >
+   925→                      <SelectTrigger>
+   926→                        <SelectValue placeholder="Select Doctor" />
+   927→                      </SelectTrigger>
+   928→                      <SelectContent>
+   929→                        {/* Group by department */}
+   930→                        {(() => {
+   931→                          const grouped: Record<string, Doctor[]> = {}
+   932→                          doctors.forEach((d) => {
+   933→                            if (!grouped[d.departmentName]) grouped[d.departmentName] = []
+   934→                            grouped[d.departmentName].push(d)
+   935→                          })
+   936→                          return Object.entries(grouped).map(([deptName, docs]) => (
+   937→                            <div key={deptName}>
+   938→                              <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+   939→                                {deptName}
+   940→                              </div>
+   941→                              {docs.map((d) => (
+   942→                                <SelectItem key={d.doctorId} value={d.doctorId}>
+   943→                                  {d.name} {d.specialization ? `(${d.specialization})` : ''} {d.designation ? `— ${d.designation}` : ''}
+   944→                                </SelectItem>
+   945→                              ))}
+   946→                            </div>
+   947→                          ))
+   948→                        })()}
+   949→                        {doctors.length === 0 && (
+   950→                          <SelectItem value="_loading" disabled>
+   951→                            {doctorsQuery.isLoading ? 'Loading...' : 'No doctors found'}
+   952→                          </SelectItem>
+   953→                        )}
+   954→                      </SelectContent>
+   955→                    </Select>
+   956→                  </div>
+   957→                </div>
+   958→              </section>
+   959→
+   960→              <Separator />
+   961→
+   962→              {/* ── Section 2: Patient Information ── */}
+   963→              <section>
+   964→                <div className="flex items-center gap-2 mb-4">
+   965→                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-xs font-bold">
+   966→                    2
+   967→                  </div>
+   968→                  <h3 className="text-base font-semibold flex items-center gap-2">
+   969→                    <HeartPulse className="size-4 text-amber-600" />
+   970→                    Patient Information
+   971→                  </h3>
+   972→                </div>
+   973→
+   974→                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+   975→                  <div className="space-y-1.5">
+   976→                    <Label className="text-sm font-medium">
+   977→                      Patient Name <span className="text-red-500">*</span>
+   978→                    </Label>
+   979→                    <Input
+   980→                      placeholder="Full name"
+   981→                      value={form.patientName}
+   982→                      onChange={(e) => updateForm('patientName', e.target.value)}
+   983→                    />
+   984→                  </div>
+   985→
+   986→                  <div className="space-y-1.5">
+   987→                    <Label className="text-sm font-medium">
+   988→                      Age <span className="text-red-500">*</span>
+   989→                    </Label>
+   990→                    <Input
+   991→                      type="number"
+   992→                      placeholder="Age in years"
+   993→                      value={form.patientAge}
+   994→                      onChange={(e) => updateForm('patientAge', e.target.value)}
+   995→                    />
+   996→                  </div>
+   997→
+   998→                  <div className="space-y-1.5">
+   999→                    <Label className="text-sm font-medium">
+  1000→                      Gender <span className="text-red-500">*</span>
+  1001→                    </Label>
+  1002→                    <Select
+  1003→                      value={form.patientGender}
+  1004→                      onValueChange={(v) => updateForm('patientGender', v)}
+  1005→                    >
+  1006→                      <SelectTrigger>
+  1007→                        <SelectValue />
+  1008→                      </SelectTrigger>
+  1009→                      <SelectContent>
+  1010→                        <SelectItem value="Male">Male</SelectItem>
+  1011→                        <SelectItem value="Female">Female</SelectItem>
+  1012→                        <SelectItem value="Other">Other</SelectItem>
+  1013→                      </SelectContent>
+  1014→                    </Select>
+  1015→                  </div>
+  1016→
+  1017→                  <div className="space-y-1.5">
+  1018→                    <Label className="text-sm font-medium">Blood Group</Label>
+  1019→                    <Select
+  1020→                      value={form.bloodGroup}
+  1021→                      onValueChange={(v) => updateForm('bloodGroup', v)}
+  1022→                    >
+  1023→                      <SelectTrigger>
+  1024→                        <SelectValue placeholder="Select" />
+  1025→                      </SelectTrigger>
+  1026→                      <SelectContent>
+  1027→                        {['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'].map((bg) => (
+  1028→                          <SelectItem key={bg} value={bg}>{bg}</SelectItem>
+  1029→                        ))}
+  1030→                      </SelectContent>
+  1031→                    </Select>
+  1032→                  </div>
+  1033→
+  1034→                  <div className="space-y-1.5">
+  1035→                    <Label className="text-sm font-medium">Marital Status</Label>
+  1036→                    <Select
+  1037→                      value={form.maritalStatus}
+  1038→                      onValueChange={(v) => updateForm('maritalStatus', v)}
+  1039→                    >
+  1040→                      <SelectTrigger>
+  1041→                        <SelectValue placeholder="Select" />
+  1042→                      </SelectTrigger>
+  1043→                      <SelectContent>
+  1044→                        <SelectItem value="Single">Single</SelectItem>
+  1045→                        <SelectItem value="Married">Married</SelectItem>
+  1046→                        <SelectItem value="Divorced">Divorced</SelectItem>
+  1047→                        <SelectItem value="Widowed">Widowed</SelectItem>
+  1048→                      </SelectContent>
+  1049→                    </Select>
+  1050→                  </div>
+  1051→
+  1052→                  <div className="space-y-1.5">
+  1053→                    <Label className="text-sm font-medium">Mobile No</Label>
+  1054→                    <Input
+  1055→                      placeholder="Mobile number"
+  1056→                      value={form.mobileNo}
+  1057→                      onChange={(e) => updateForm('mobileNo', e.target.value)}
+  1058→                    />
+  1059→                  </div>
+  1060→
+  1061→                  <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+  1062→                    <Label className="text-sm font-medium">Aadhar No</Label>
+  1063→                    <Input
+  1064→                      placeholder="Aadhar card number"
+  1065→                      value={form.aadharNo}
+  1066→                      onChange={(e) => updateForm('aadharNo', e.target.value)}
+  1067→                    />
+  1068→                  </div>
+  1069→                </div>
+  1070→              </section>
+  1071→
+  1072→              <Separator />
+  1073→
+  1074→              {/* ── Section 3: Family & Emergency Contact ── */}
+  1075→              <section>
+  1076→                <div className="flex items-center gap-2 mb-4">
+  1077→                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-rose-100 dark:bg-rose-900/40 text-rose-700 dark:text-rose-300 text-xs font-bold">
+  1078→                    3
+  1079→                  </div>
+  1080→                  <h3 className="text-base font-semibold flex items-center gap-2">
+  1081→                    <Users className="size-4 text-rose-600" />
+  1082→                    Family & Emergency Contact
+  1083→                  </h3>
+  1084→                </div>
+  1085→
+  1086→                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  1087→                  <div className="space-y-1.5">
+  1088→                    <Label className="text-sm font-medium">Father&apos;s Name</Label>
+  1089→                    <Input
+  1090→                      placeholder="Father's name"
+  1091→                      value={form.fatherName}
+  1092→                      onChange={(e) => updateForm('fatherName', e.target.value)}
+  1093→                    />
+  1094→                  </div>
+  1095→
+  1096→                  <div className="space-y-1.5">
+  1097→                    <Label className="text-sm font-medium">Mother&apos;s Name</Label>
+  1098→                    <Input
+  1099→                      placeholder="Mother's name"
+  1100→                      value={form.motherName}
+  1101→                      onChange={(e) => updateForm('motherName', e.target.value)}
+  1102→                    />
+  1103→                  </div>
+  1104→
+  1105→                  <div className="space-y-1.5">
+  1106→                    <Label className="text-sm font-medium">Husband/Wife Name</Label>
+  1107→                    <Input
+  1108→                      placeholder="Husband/Wife name"
+  1109→                      value={form.husbandWifeName}
+  1110→                      onChange={(e) => updateForm('husbandWifeName', e.target.value)}
+  1111→                    />
+  1112→                  </div>
+  1113→
+  1114→                  <div className="space-y-1.5">
+  1115→                    <Label className="text-sm font-medium">Contact Person Name</Label>
+  1116→                    <Input
+  1117→                      placeholder="Emergency contact name"
+  1118→                      value={form.contactPersonName}
+  1119→                      onChange={(e) => updateForm('contactPersonName', e.target.value)}
+  1120→                    />
+  1121→                  </div>
+  1122→
+  1123→                  <div className="space-y-1.5">
+  1124→                    <Label className="text-sm font-medium">Contact Person Mobile</Label>
+  1125→                    <Input
+  1126→                      placeholder="Emergency contact mobile"
+  1127→                      value={form.contactPersonMobile}
+  1128→                      onChange={(e) => updateForm('contactPersonMobile', e.target.value)}
+  1129→                    />
+  1130→                  </div>
+  1131→
+  1132→                  <div className="space-y-1.5">
+  1133→                    <Label className="text-sm font-medium">Relation</Label>
+  1134→                    <Input
+  1135→                      placeholder="Relation to patient"
+  1136→                      value={form.contactPersonRelation}
+  1137→                      onChange={(e) => updateForm('contactPersonRelation', e.target.value)}
+  1138→                    />
+  1139→                  </div>
+  1140→                </div>
+  1141→              </section>
+  1142→
+  1143→              <Separator />
+  1144→
+  1145→              {/* ── Section 4: Address ── */}
+  1146→              <section>
+  1147→                <div className="flex items-center gap-2 mb-4">
+  1148→                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-sky-100 dark:bg-sky-900/40 text-sky-700 dark:text-sky-300 text-xs font-bold">
+  1149→                    4
+  1150→                  </div>
+  1151→                  <h3 className="text-base font-semibold flex items-center gap-2">
+  1152→                    <MapPin className="size-4 text-sky-600" />
+  1153→                    Address
+  1154→                  </h3>
+  1155→                </div>
+  1156→
+  1157→                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  1158→                  <div className="space-y-1.5 sm:col-span-2 lg:col-span-3">
+  1159→                    <Label className="text-sm font-medium">Address</Label>
+  1160→                    <Textarea
+  1161→                      placeholder="Full address"
+  1162→                      value={form.address}
+  1163→                      onChange={(e) => updateForm('address', e.target.value)}
+  1164→                      rows={2}
+  1165→                    />
+  1166→                  </div>
+  1167→
+  1168→                  <div className="space-y-1.5">
+  1169→                    <Label className="text-sm font-medium">Village</Label>
+  1170→                    <Input
+  1171→                      placeholder="Village"
+  1172→                      value={form.village}
+  1173→                      onChange={(e) => updateForm('village', e.target.value)}
+  1174→                    />
+  1175→                  </div>
+  1176→
+  1177→                  <div className="space-y-1.5">
+  1178→                    <Label className="text-sm font-medium">Taluka</Label>
+  1179→                    <Input
+  1180→                      placeholder="Taluka"
+  1181→                      value={form.taluka}
+  1182→                      onChange={(e) => updateForm('taluka', e.target.value)}
+  1183→                    />
+  1184→                  </div>
+  1185→
+  1186→                  <div className="space-y-1.5">
+  1187→                    <Label className="text-sm font-medium">District</Label>
+  1188→                    <Input
+  1189→                      placeholder="District"
+  1190→                      value={form.district}
+  1191→                      onChange={(e) => updateForm('district', e.target.value)}
+  1192→                    />
+  1193→                  </div>
+  1194→
+  1195→                  <div className="space-y-1.5">
+  1196→                    <Label className="text-sm font-medium">State</Label>
+  1197→                    <Input
+  1198→                      placeholder="State"
+  1199→                      value={form.state}
+  1200→                      onChange={(e) => updateForm('state', e.target.value)}
+  1201→                    />
+  1202→                  </div>
+  1203→
+  1204→                  <div className="space-y-1.5">
+  1205→                    <Label className="text-sm font-medium">Pin Code</Label>
+  1206→                    <Input
+  1207→                      placeholder="Pin code"
+  1208→                      value={form.pinCode}
+  1209→                      onChange={(e) => updateForm('pinCode', e.target.value)}
+  1210→                    />
+  1211→                  </div>
+  1212→                </div>
+  1213→              </section>
+  1214→
+  1215→              <Separator />
+  1216→
+  1217→              {/* ── Section 5: Medical Information ── */}
+  1218→              <section>
+  1219→                <div className="flex items-center gap-2 mb-4">
+  1220→                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 text-xs font-bold">
+  1221→                    5
+  1222→                  </div>
+  1223→                  <h3 className="text-base font-semibold flex items-center gap-2">
+  1224→                    <FileText className="size-4 text-violet-600" />
+  1225→                    Medical Information
+  1226→                  </h3>
+  1227→                </div>
+  1228→
+  1229→                <div className="space-y-4">
+  1230→                  {/* MLC Case checkbox */}
+  1231→                  <div className="flex items-center gap-3">
+  1232→                    <Checkbox
+  1233→                      id="mlcCase"
+  1234→                      checked={form.mlcCase}
+  1235→                      onCheckedChange={(checked) => updateForm('mlcCase', !!checked)}
+  1236→                    />
+  1237→                    <div>
+  1238→                      <Label htmlFor="mlcCase" className="text-sm font-medium flex items-center gap-2 cursor-pointer">
+  1239→                        <ShieldCheck className="size-4 text-red-500" />
+  1240→                        MLC Case (Medico-Legal Case)
+  1241→                      </Label>
+  1242→                      <p className="text-xs text-muted-foreground mt-0.5">
+  1243→                        Mark if this admission is related to a medico-legal case
+  1244→                      </p>
+  1245→                    </div>
+  1246→                  </div>
+  1247→
+  1248→                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  1249→                    <div className="space-y-1.5">
+  1250→                      <Label className="text-sm font-medium">Previous Hospitalization</Label>
+  1251→                      <Textarea
+  1252→                        placeholder="Details of previous hospitalizations (if any)"
+  1253→                        value={form.previousHospitalization}
+  1254→                        onChange={(e) => updateForm('previousHospitalization', e.target.value)}
+  1255→                        rows={2}
+  1256→                      />
+  1257→                    </div>
+  1258→
+  1259→                    <div className="space-y-1.5">
+  1260→                      <Label className="text-sm font-medium">Medi-claim Details</Label>
+  1261→                      <Textarea
+  1262→                        placeholder="Insurance / Medi-claim details"
+  1263→                        value={form.mediClaimDetails}
+  1264→                        onChange={(e) => updateForm('mediClaimDetails', e.target.value)}
+  1265→                        rows={2}
+  1266→                      />
+  1267→                    </div>
+  1268→                  </div>
+  1269→
+  1270→                  <div className="space-y-1.5">
+  1271→                    <Label className="text-sm font-medium">Initial Diagnosis</Label>
+  1272→                    <Textarea
+  1273→                      placeholder="Provisional / initial diagnosis"
+  1274→                      value={form.initialDiagnosis}
+  1275→                      onChange={(e) => updateForm('initialDiagnosis', e.target.value)}
+  1276→                      rows={2}
+  1277→                    />
+  1278→                  </div>
+  1279→                </div>
+  1280→              </section>
+  1281→
+  1282→              {/* ── Submit ── */}
+  1283→              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3 pt-2">
+  1284→                <Button
+  1285→                  variant="outline"
+  1286→                  onClick={() => setShowAdmitDialog(false)}
+  1287→                  className="gap-2"
+  1288→                >
+  1289→                  <X className="size-4" />
+  1290→                  Cancel
+  1291→                </Button>
+  1292→                <Button
+  1293→                  onClick={handleAdmit}
+  1294→                  disabled={admitMutation.isPending}
+  1295→                  className="bg-teal-600 hover:bg-teal-700 text-white shadow-lg shadow-teal-600/20 gap-2 min-w-[160px]"
+  1296→                >
+  1297→                  {admitMutation.isPending ? (
+  1298→                    <>
+  1299→                      <Loader2 className="size-4 animate-spin" />
+  1300→                      Admitting...
+  1301→                    </>
+  1302→                  ) : (
+  1303→                    <>
+  1304→                      <ShieldCheck className="size-4" />
+  1305→                      Admit Patient
+  1306→                    </>
+  1307→                  )}
+  1308→                </Button>
+  1309→              </div>
+  1310→            </div>
+  1311→          </ScrollArea>
+  1312→        </DialogContent>
+  1313→      </Dialog>
+  1314→
+  1315→      {/* Custom scrollbar styles */}
+  1316→      <style jsx global>{`
+  1317→        .custom-scrollbar::-webkit-scrollbar {
+  1318→          width: 4px;
+  1319→        }
+  1320→        .custom-scrollbar::-webkit-scrollbar-track {
+  1321→          background: transparent;
+  1322→        }
+  1323→        .custom-scrollbar::-webkit-scrollbar-thumb {
+  1324→          background: hsl(var(--border));
+  1325→          border-radius: 4px;
+  1326→        }
+  1327→        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  1328→          background: hsl(var(--muted-foreground));
+  1329→        }
+  1330→      `}</style>
+  1331→    </div>
+  1332→  )
+  1333→}
+  1334→

@@ -160,6 +160,15 @@ const DEV_USERS: Record<string, AuthUser> = {
     profileImg: null,
     mobileNo: '+91 9876543217',
   },
+  lab_technician: {
+    id: 'dev-lab-tech',
+    name: 'Amit Lab Tech',
+    email: 'lab@doctorooms.com',
+    role: 'lab_technician',
+    gender: 'Male',
+    profileImg: null,
+    mobileNo: '+91 9876543218',
+  },
   admin: {
     id: 'dev-admin',
     name: 'Admin User',

@@ -910,3 +910,193 @@ Stage Summary:
 - Files created: 2 API routes (investigations + sample status), 1 discharge API, 1 vital-charts component
 - Files modified: nurse patient detail client.tsx (added investigations tab + vital charts), doctor IPD patient detail client.tsx (added discharge)
 - Remaining N-8 items: Print forms, patient transfer, DAMA enhanced workflow
+
+---
+Task ID: 1b-api
+Agent: API Agent
+Task: Charge Master Billing — 4 API Routes (Charge Categories + Charge Items)
+
+Work Log:
+- Created `/src/app/api/charge-categories/route.ts` — POST (create category) + GET (list categories with _count.chargeItems)
+- Created `/src/app/api/charge-categories/[id]/route.ts` — PUT (update category) + DELETE (soft delete → status='Inactive')
+- Created `/src/app/api/charge-items/route.ts` — POST (create item with category validation) + GET (list items with category.name, filter by categoryId/status/search)
+- Created `/src/app/api/charge-items/[id]/route.ts` — PUT (update item, validates categoryId ownership) + DELETE (soft delete → status='Inactive')
+- All routes use `requireRole` auth pattern (hospital or admin), resolve hospitalId from user's hospital profile
+- All routes follow existing project patterns: NextRequest/NextResponse, Prisma via `@/lib/db`, auth via `@/lib/api-auth`
+- GET endpoints support query filters (?status=Active, ?categoryId=xxx, ?search=term)
+- Ownership verification on all PUT/DELETE (item must belong to authenticated hospital)
+
+Stage Summary:
+- 4 API route files created for Charge Master billing feature
+- Full CRUD (minus hard delete) for ChargeCategory and ChargeItem models
+- Auth: hospital + admin roles supported, hospitalId always resolved from session
+- No files modified, no dependencies added
+- Files created:
+  1. `/src/app/api/charge-categories/route.ts`
+  2. `/src/app/api/charge-categories/[id]/route.ts`
+  3. `/src/app/api/charge-items/route.ts`
+  4. `/src/app/api/charge-items/[id]/route.ts`
+
+---
+Task ID: 1b-ui
+Agent: Main Orchestrator
+Task: Charge Master UI — Hospital & Receptionist Dashboard Pages
+
+Work Log:
+- Created hospital Charge Master dashboard page + client component at `/src/app/dashboard/hospital/charge-master/`
+- Created receptionist Charge Master dashboard page + client component at `/src/app/dashboard/receptionist/charge-master/`
+- Receptionist client re-exports the hospital client component (shared UI)
+
+Charge Master Client Component (`client.tsx`) Features:
+- Two-tab layout using shadcn Tabs: **Categories** | **Charge Items**
+- **Categories Tab**: Responsive card grid showing name, description, tax %, item count, status badge. Add/Edit dialogs with name, description, taxable toggle (animated tax % field). Delete via AlertDialog (soft deactivate).
+- **Charge Items Tab**: Scrollable table showing name, shortCode (monospace), category badge, unitType, rate (₹ formatted), status. Filters: category dropdown + search input. Add/Edit dialogs with category select, name, shortCode, unitType select (8 options), rate, taxable toggle. Delete via AlertDialog.
+- TanStack Query: `useQuery` for GET /api/charge-categories and GET /api/charge-items (with filter params). `useMutation` for all POST/PUT/DELETE operations with cache invalidation.
+- Loading skeletons for both tabs (card skeleton for categories, table skeleton for items)
+- Empty states with contextual messaging (filters active vs. no data)
+- Framer Motion animations: staggered card entry, dialog field animations, fade-in for table
+- shadcn/ui components: Tabs, Card, Dialog, AlertDialog, Table, Select, Switch, Badge, Skeleton, Input, Label, Button
+- Lucide icons: Plus, Pencil, Trash2, Search, Tags, Receipt, Loader2
+- Color scheme: teal primary (matching existing hospital dashboard), emerald for Active badges, no indigo/blue
+- Responsive: mobile-first grid (1→2→3→4 columns), stacked filters on mobile
+
+Files created:
+  1. `/src/app/dashboard/hospital/charge-master/page.tsx` — Server wrapper
+  2. `/src/app/dashboard/hospital/charge-master/client.tsx` — Full client component (~580 lines)
+  3. `/src/app/dashboard/receptionist/charge-master/page.tsx` — Server wrapper
+  4. `/src/app/dashboard/receptionist/charge-master/client.tsx` — Re-export of hospital client
+
+---
+Task ID: 1cde-api
+Agent: Billing API Builder
+Task: Create all billing API route files for Phases 1C, 1D, 1E, and 1G
+
+Work Log:
+- Read worklog.md for project context and prior phase history
+- Read prisma/schema.prisma to understand IpdBill, BillLineItem, BillPayment, PatientAdvance, OpdBill, IpdAdmission, Bed, Ward, Booking, Hospital models
+- Read src/lib/api-auth.ts to understand auth patterns (requireRole, requireAuth, RECEPTION_ROLES)
+- Read existing charge-items/route.ts for reference on hospital auth resolution pattern
+- Created 10 API route files across 4 phases:
+
+**Phase 1C: IPD Bill Creation (4 files)**
+1. `/src/app/api/ipd-bills/route.ts` — GET (list with pagination, status/search/date filters, returns patientName/admissionNo/billNo/totalAmount/netPayable/status); POST (generate draft bill from admissionId, calc roomRent=bed.dailyRate×daysAdmitted, auto billNo IPD-BILL-YYYY-NNNNNN, service/lab/medicine/ot/other=0)
+2. `/src/app/api/ipd-bills/generate/route.ts` — POST (same generate logic, separate route for clarity)
+3. `/src/app/api/ipd-bills/[id]/route.ts` — GET (bill detail with lineItems, payments, advances, admission.patientName/admissionNo/ward.name/bed.bedNumber); PUT (update draft only: add/remove BillLineItems, recalc subtotal/tax/total/netPayable)
+4. `/src/app/api/ipd-bills/[id]/finalize/route.ts` — POST (set status=Final, finalizedAt=now, recalc totals from lineItems, netPayable=totalAmount-advanceAdjusted, update admission.paymentStatus)
+
+**Phase 1D: Advance Deposit (2 files)**
+5. `/src/app/api/patient-advances/route.ts` — GET (list by admissionId with receiptNo/amount/paymentMethod/date); POST (record advance, auto receiptNo ADV-YYYY-NNNNNN, increment admission.advanceAmount, update bill.advanceAdjusted if bill exists)
+6. `/src/app/api/patient-advances/summary/route.ts` — GET (aggregate: totalAdvance, lastAdvanceDate, lastAdvanceAmount, advanceCount)
+
+**Phase 1E: Payment Collection (2 files)**
+7. `/src/app/api/bill-payments/route.ts` — GET (list with date/method filters, returns receiptNo/billNo/patientName/amount/method/date); POST (record payment, auto receiptNo REC-YYYY-NNNNNN, update bill status to Paid/PartiallyPaid, update admission.paymentStatus)
+8. `/src/app/api/bill-payments/daily-summary/route.ts` — GET (today's totals: totalCash/totalUPI/totalCard/totalNetBanking/totalCheque/grandTotal/count)
+
+**Phase 1G: OPD Billing (2 files)**
+9. `/src/app/api/opd-bills/route.ts` — GET (list with date/doctorId/method filters, returns receiptNo/patientName/doctorName/amount/method/date); POST (create OPD bill, validate booking.status='Visited', auto receiptNo OPD-BILL-YYYY-NNNNNN, calc subtotal from consultationFee+lab+medicine+other)
+10. `/src/app/api/opd-bills/[id]/route.ts` — GET (bill detail with booking, patient, doctor, hospital info)
+
+All files follow:
+- Next.js 16 dynamic route params: `params: Promise<{ id: string }>` + `await params`
+- Import pattern: `requireRole`/`requireAuth` from `@/lib/api-auth`, `db` from `@/lib/db`, `NextRequest`/`NextResponse` from `next/server`
+- Hospital auth resolution: hospital/admin/receptionist roles → hospitalId via Hospital.userId or Receptionist.hospitalId
+- Auto-generated numbers: PREFIX-YYYY-NNNNNN format with findFirst+desc+increment pattern
+- No lint or dev run executed
+
+---
+Task ID: 1cde-ui
+Agent: Main
+Task: Create ALL billing UI pages for Hospital dashboard
+
+Work Log:
+- Created billing dashboard API at `/src/app/api/billing/dashboard/route.ts`:
+  - GET endpoint returning: todayCollection (IPD payments + OPD bills today), monthCollection, pendingBills count, pendingAmount, recentPayments (last 10)
+  - Auth: hospital/admin/receptionist via resolveHospitalId pattern
+
+- Created discharge API at `/src/app/api/ipd-admissions/[id]/discharge/route.ts`:
+  - POST endpoint with auth: hospital/admin/receptionist
+  - Body: { dischargeType (Normal/DAMA/LAMA), dischargeTime }
+  - Logic: auto-generates bill if not exists, finalizes if Draft, sets admission status (Discharged/DAMA/LAMA), frees bed (Available), completes all nurse assignments
+  - Uses Prisma $transaction for atomic operations
+
+- Updated sidebar config (`/src/lib/sidebar-config.ts`):
+  - Added `LogOut` icon import from lucide-react
+  - Added Discharge entry to hospital billing children: `{ label: 'Discharge', href: '/dashboard/hospital/billing/discharge', icon: LogOut }`
+  - Added Discharge entry to receptionist billing children (same href)
+
+## Pages Created (7 billing pages = 14 files):
+
+### 1. Billing Dashboard (`/dashboard/hospital/billing`)
+- `page.tsx` — Server wrapper
+- `client.tsx` — Full dashboard with:
+  - 4 stat cards: Today's Collection (teal), Monthly Collection (emerald), Pending Bills (amber), Pending Amount (rose)
+  - Quick Action buttons: Generate IPD Bill, Record Payment, Record Advance (Link to sub-pages)
+  - Recent Payments table (last 10 from API)
+  - Uses useQuery for `/api/billing/dashboard`, framer-motion animations
+
+### 2. IPD Bills (`/dashboard/hospital/billing/ipd`)
+- `page.tsx` — Server wrapper
+- `client.tsx` — IPD bills list with:
+  - Status filter tabs: All | Draft | Final | Paid | PartiallyPaid
+  - Search bar, refresh button, pagination
+  - Table: Bill No, Patient, Admission No, Total, Advance Adj., Net Payable, Status (colored badges), Actions (View/Finalize)
+  - Generate Bill dialog: select admitted patient (fetches /api/ipd-admissions?status=Admitted), POST /api/ipd-bills
+  - Finalize action calls POST /api/ipd-bills/[id]/finalize
+  - Color-coded status badges: Draft=slate, Final=amber, Paid=emerald, PartiallyPaid=teal
+
+### 3. Bill Detail (`/dashboard/hospital/billing/ipd/[id]`)
+- `page.tsx` — Server wrapper with params
+- `client.tsx` — Full bill detail with:
+  - Header: Bill No, Status badge, back button
+  - Patient info cards: Patient, Admission No, Ward/Bed, Doctor
+  - Line Items table: Item, Category, Qty, Rate, Amount, Tax, Total, Remove button (if Draft)
+  - Add Item dialog: charge item search/select from /api/charge-items, quantity input
+  - Bill Summary card: Room Rent, Subtotal, Tax, Discount, Total, Advance Adjusted, Net Payable
+  - Payment History table with advance deposits section
+  - Finalize button (if Draft) with confirmation dialog
+
+### 4. Advance Deposits (`/dashboard/hospital/billing/advances`)
+- `page.tsx` — Server wrapper
+- `client.tsx` — Advance deposits management:
+  - Lists all admissions (searchable by name/admission no)
+  - Add Advance dialog: admission select, amount, payment method (Cash/UPI/Card/NetBanking/Cheque), reference, notes
+  - POST /api/patient-advances
+  - Color-coded payment method badges
+
+### 5. Payments (`/dashboard/hospital/billing/payments`)
+- `page.tsx` — Server wrapper
+- `client.tsx` — Payment collection page:
+  - 4 summary cards: Cash (emerald), UPI (violet), Card (amber), Total Today (teal) from /api/bill-payments/daily-summary
+  - Filters: Date range (from/to), payment method dropdown, search
+  - Payments table: Receipt No, Bill No, Patient, Amount, Method, Date
+  - Record Payment dialog: select bill (Final/PartiallyPaid), amount, method, reference
+  - POST /api/bill-payments
+
+### 6. OPD Bills (`/dashboard/hospital/billing/opd`)
+- `page.tsx` — Server wrapper
+- `client.tsx` — OPD billing page:
+  - Filters: Date range, payment method
+  - Table: Receipt No, Date, Patient, Doctor, Consultation Fee, Lab, Medicine, Total, Method
+  - Create Bill dialog: select visited booking, enter consultation/lab/medicine/other charges, payment method, reference
+  - POST /api/opd-bills
+
+### 7. Discharge (`/dashboard/hospital/billing/discharge`)
+- `page.tsx` — Server wrapper
+- `client.tsx` — Discharge management:
+  - Table of admitted patients with Discharge button
+  - Search by name, admission no, doctor
+  - Discharge dialog: patient summary card, discharge type selector (Normal/DAMA/LAMA), warning alerts for DAMA/LAMA, bill summary (advance, room rent days), discharge time
+  - POST /api/ipd-admissions/[id]/discharge
+  - Color-coded confirm button: Normal=emerald, DAMA=amber, LAMA=orange
+
+## Technical Details:
+- All pages use: 'use client', TanStack Query (useQuery, useMutation, useQueryClient), sonner toast, shadcn/ui components, lucide-react icons, Tailwind CSS 4
+- No indigo/blue colors — uses teal (primary), emerald (success), amber (warning), rose (danger), violet (accent)
+- Responsive design with overflow-x-auto on tables, mobile-friendly card layouts
+- Sticky footer compatible (no fixed positioning)
+- Loading skeletons for all data-dependent sections
+- Empty states with icons and contextual messaging
+- Pagination on all list pages
+- framer-motion animations (AnimatePresence on table rows, staggered card entry)
+- All 14 page files + 2 API routes + 1 sidebar config edit = 17 file operations total
+- No lint or dev run executed

@@ -1,6 +1,6 @@
 import {
   type LucideIcon,
-  LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus, KeyRound, IndianRupee, FlaskConical, PenLine, BarChart3, Printer, Shield, FolderOpen, Thermometer, CircleHelp, Lightbulb, Tag, Search, Table, ClipboardList, ListOrdered, Monitor, BedDouble, ArrowRightLeft, Activity,
+  LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus, KeyRound, IndianRupee, FlaskConical, PenLine, BarChart3, Printer, Shield, FolderOpen, Thermometer, CircleHelp, Lightbulb, Tag, Search, Table, ClipboardList, ListOrdered, Monitor, BedDouble, ArrowRightLeft, Activity, Tags, Wallet, CreditCard, Cross, Package, ShoppingCart, AlertTriangle, TrendingUp, Receipt, LogOut,
 } from 'lucide-react'
 
 export interface SidebarItem {
@@ -22,6 +22,15 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Appointments', href: '/dashboard/admin/appointments', icon: CalendarDays },
     { label: 'IPD Wards', href: '/dashboard/admin/wards', icon: BedDouble },
     { label: 'Staff Nurses', href: '/dashboard/admin/nurses', icon: Activity },
+    {
+      label: 'Billing',
+      href: '/dashboard/admin/billing',
+      icon: IndianRupee,
+      children: [
+        { label: 'All IPD Bills', href: '/dashboard/admin/billing/ipd', icon: FileText },
+        { label: 'All OPD Bills', href: '/dashboard/admin/billing/opd', icon: Receipt },
+      ],
+    },
     { label: 'Blog', href: '/dashboard/admin/blog', icon: FileText },
     { label: 'Inquiries', href: '/dashboard/admin/inquiries', icon: MessageSquare },
     { label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
@@ -35,6 +44,8 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Schedule', href: '/dashboard/doctor/schedule', icon: Clock },
     { label: 'Patients', href: '/dashboard/doctor/patients', icon: Users },
     { label: 'Medicine Master', href: '/dashboard/doctor/medicines', icon: FlaskConical },
+    { label: 'Lab Results', href: '/dashboard/doctor/lab-results', icon: FlaskConical },
+    { label: 'OT Surgeries', href: '/dashboard/doctor/ot-surgeries', icon: Cross },
     {
       label: 'Rx Settings',
       href: '/dashboard/doctor/prescription-settings',
@@ -76,6 +87,55 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Appointments', href: '/dashboard/hospital/appointments', icon: CalendarDays },
     { label: 'Queue Display', href: '/dashboard/hospital/queue-display', icon: Monitor },
     { label: 'IPD Admissions', href: '/dashboard/receptionist/ipd', icon: BedDouble },
+    { label: 'Charge Master', href: '/dashboard/hospital/charge-master', icon: Tags },
+    {
+      label: 'Billing',
+      href: '/dashboard/hospital/billing',
+      icon: IndianRupee,
+      children: [
+        { label: 'IPD Bills', href: '/dashboard/hospital/billing/ipd', icon: FileText },
+        { label: 'OPD Bills', href: '/dashboard/hospital/billing/opd', icon: Receipt },
+        { label: 'Payments', href: '/dashboard/hospital/billing/payments', icon: CreditCard },
+        { label: 'Advance Deposits', href: '/dashboard/hospital/billing/advances', icon: Wallet },
+        { label: 'Discharge', href: '/dashboard/hospital/billing/discharge', icon: LogOut },
+      ],
+    },
+    {
+      label: 'Lab',
+      href: '/dashboard/hospital/lab',
+      icon: FlaskConical,
+      children: [
+        { label: 'Test Master', href: '/dashboard/hospital/lab/test-master', icon: ListOrdered },
+        { label: 'Lab Reports', href: '/dashboard/hospital/lab/reports', icon: FileText },
+      ],
+    },
+    {
+      label: 'Inventory',
+      href: '/dashboard/hospital/inventory',
+      icon: Package,
+      children: [
+        { label: 'Item Master', href: '/dashboard/hospital/inventory/items', icon: ListOrdered },
+        { label: 'Stock Movements', href: '/dashboard/hospital/inventory/stock', icon: ArrowRightLeft },
+        { label: 'Purchase Orders', href: '/dashboard/hospital/inventory/purchase-orders', icon: ShoppingCart },
+        { label: 'Low Stock Alerts', href: '/dashboard/hospital/inventory/low-stock', icon: AlertTriangle },
+      ],
+    },
+    {
+      label: 'Reports',
+      href: '/dashboard/hospital/reports',
+      icon: BarChart3,
+      children: [
+        { label: 'Revenue', href: '/dashboard/hospital/reports/revenue', icon: IndianRupee },
+        { label: 'IPD Analytics', href: '/dashboard/hospital/reports/ipd', icon: BedDouble },
+        { label: 'OPD Analytics', href: '/dashboard/hospital/reports/opd', icon: CalendarDays },
+        { label: 'Financial', href: '/dashboard/hospital/reports/financial', icon: TrendingUp },
+        { label: 'Inventory', href: '/dashboard/hospital/reports/inventory', icon: Package },
+        { label: 'Lab', href: '/dashboard/hospital/reports/lab', icon: FlaskConical },
+      ],
+    },
+    { label: 'Operation Theater', href: '/dashboard/hospital/ot', icon: Cross },
+    { label: 'Bed Transfer', href: '/dashboard/hospital/bed-transfer', icon: ArrowRightLeft },
+    { label: 'Discharge Summaries', href: '/dashboard/hospital/discharge-summaries', icon: FileText },
     { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   receptionist: [
@@ -88,6 +148,22 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Schedule', href: '/dashboard/receptionist/schedule', icon: Clock },
     { label: 'Medicines', href: '/dashboard/receptionist/medicines', icon: Pill },
     { label: 'Patients', href: '/dashboard/receptionist/patients', icon: Users },
+    { label: 'IPD Admissions', href: '/dashboard/receptionist/ipd', icon: BedDouble },
+    { label: 'Charge Master', href: '/dashboard/receptionist/charge-master', icon: Tags },
+    {
+      label: 'Billing',
+      href: '/dashboard/receptionist/billing',
+      icon: IndianRupee,
+      children: [
+        { label: 'IPD Bills', href: '/dashboard/receptionist/billing/ipd', icon: FileText },
+        { label: 'OPD Bills', href: '/dashboard/receptionist/billing/opd', icon: Receipt },
+        { label: 'Payments', href: '/dashboard/receptionist/billing/payments', icon: CreditCard },
+        { label: 'Advance Deposits', href: '/dashboard/receptionist/billing/advances', icon: Wallet },
+        { label: 'Discharge', href: '/dashboard/hospital/billing/discharge', icon: LogOut },
+      ],
+    },
+    { label: 'Bed Transfer', href: '/dashboard/receptionist/bed-transfer', icon: ArrowRightLeft },
+    { label: 'Family Access', href: '/dashboard/receptionist/family-access', icon: Users },
     { label: 'Reports', href: '/dashboard/receptionist/reports', icon: BarChart3 },
     { label: 'My Blog', href: '/dashboard/receptionist/blog', icon: PenLine },
     { label: 'Profile', href: '/dashboard/receptionist/profile', icon: UserCircle },
@@ -113,6 +189,14 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Ward View', href: '/dashboard/nurse/ward-patients', icon: BedDouble },
     { label: 'Shift Handover', href: '/dashboard/nurse/handover', icon: ArrowRightLeft },
     { label: 'Profile', href: '/dashboard/nurse/profile', icon: UserCircle },
+    { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
+  ],
+  lab_technician: [
+    { label: 'Dashboard', href: '/dashboard/lab-technician', icon: LayoutDashboard },
+    { label: 'Worklist', href: '/dashboard/lab-technician/worklist', icon: ClipboardList },
+    { label: 'Result Entry', href: '/dashboard/lab-technician/result-entry', icon: PenLine },
+    { label: 'Reports', href: '/dashboard/lab-technician/reports', icon: FileText },
+    { label: 'Profile', href: '/dashboard/lab-technician/profile', icon: UserCircle },
     { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
 }
