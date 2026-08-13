@@ -1,0 +1,967 @@
+     1→'use client'
+     2→
+     3→import { useState } from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→import { toast } from 'sonner'
+     7→import { Badge } from '@/components/ui/badge'
+     8→import { Button } from '@/components/ui/button'
+     9→import { Card, CardContent } from '@/components/ui/card'
+    10→import { Input } from '@/components/ui/input'
+    11→import { Label } from '@/components/ui/label'
+    12→import {
+    13→  Table,
+    14→  TableBody,
+    15→  TableCell,
+    16→  TableHead,
+    17→  TableHeader,
+    18→  TableRow,
+    19→} from '@/components/ui/table'
+    20→import {
+    21→  Dialog,
+    22→  DialogContent,
+    23→  DialogHeader,
+    24→  DialogTitle,
+    25→  DialogFooter,
+    26→} from '@/components/ui/dialog'
+    27→import {
+    28→  AlertDialog,
+    29→  AlertDialogAction,
+    30→  AlertDialogCancel,
+    31→  AlertDialogContent,
+    32→  AlertDialogDescription,
+    33→  AlertDialogFooter,
+    34→  AlertDialogHeader,
+    35→  AlertDialogTitle,
+    36→} from '@/components/ui/alert-dialog'
+    37→import {
+    38→  Select,
+    39→  SelectContent,
+    40→  SelectItem,
+    41→  SelectTrigger,
+    42→  SelectValue,
+    43→} from '@/components/ui/select'
+    44→import { Skeleton } from '@/components/ui/skeleton'
+    45→import {
+    46→  Plus,
+    47→  BedDouble,
+    48→  Building2,
+    49→  Users,
+    50→  MoreHorizontal,
+    51→  Pencil,
+    52→  Trash2,
+    53→  Eye,
+    54→  Loader2,
+    55→  Bed,
+    56→  DollarSign,
+    57→  Activity,
+    58→  ShieldCheck,
+    59→  AlertTriangle,
+    60→} from 'lucide-react'
+    61→import {
+    62→  DropdownMenu,
+    63→  DropdownMenuContent,
+    64→  DropdownMenuItem,
+    65→  DropdownMenuTrigger,
+    66→} from '@/components/ui/dropdown-menu'
+    67→
+    68→// ─── Types ──────────────────────────────────────────────────────────────
+    69→
+    70→interface WardItem {
+    71→  id: string
+    72→  hospitalId: string
+    73→  hospitalName: string
+    74→  name: string
+    75→  nameHi: string
+    76→  wardType: string
+    77→  floorNo: string
+    78→  totalBeds: number
+    79→  nurseRatio: number
+    80→  status: string
+    81→  bedCounts: {
+    82→    total: number
+    83→    occupied: number
+    84→    available: number
+    85→    reserved: number
+    86→    maintenance: number
+    87→  }
+    88→  nurseCount: number
+    89→  activeAdmissionCount: number
+    90→  createdAt: string
+    91→  updatedAt: string
+    92→}
+    93→
+    94→interface WardDetail extends Omit<WardItem, 'bedCounts'> {
+    95→  bedCounts: {
+    96→    total: number
+    97→    occupied: number
+    98→    available: number
+    99→  }
+   100→  beds: BedItem[]
+   101→}
+   102→
+   103→interface BedItem {
+   104→  id: string
+   105→  wardId: string
+   106→  bedNumber: string
+   107→  bedType: string
+   108→  dailyRate: number
+   109→  status: string
+   110→  admission: {
+   111→    id: string
+   112→    patientName: string
+   113→    admissionNo: string
+   114→    status: string
+   115→  } | null
+   116→  createdAt: string
+   117→  updatedAt: string
+   118→}
+   119→
+   120→interface HospitalOption {
+   121→  id: string
+   122→  hospitalName: string
+   123→  city: string
+   124→}
+   125→
+   126→const WARD_TYPES = ['ICU', 'General', 'Private', 'SemiPrivate', 'PostOp', 'Emergency', 'Maternity'] as const
+   127→const BED_TYPES = ['General', 'SemiPrivate', 'Private', 'ICU_Ventilator', 'ICU_NonVentilator'] as const
+   128→const BED_STATUSES = ['Available', 'Occupied', 'Reserved', 'Maintenance'] as const
+   129→const WARD_STATUSES = ['Active', 'Inactive', 'Maintenance'] as const
+   130→
+   131→// ─── Helpers ────────────────────────────────────────────────────────────
+   132→
+   133→const WARD_TYPE_COLORS: Record<string, string> = {
+   134→  ICU: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
+   135→  General: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
+   136→  Private: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
+   137→  SemiPrivate: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+   138→  PostOp: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-400',
+   139→  Emergency: 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-400',
+   140→  Maternity: 'bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-400',
+   141→}
+   142→
+   143→const BED_STATUS_COLORS: Record<string, string> = {
+   144→  Available: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
+   145→  Occupied: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400',
+   146→  Reserved: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+   147→  Maintenance: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+   148→}
+   149→
+   150→const WARD_STATUS_COLORS: Record<string, string> = {
+   151→  Active: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-400',
+   152→  Inactive: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+   153→  Maintenance: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400',
+   154→}
+   155→
+   156→function formatBedType(t: string) {
+   157→  return t.replace(/_/g, ' ')
+   158→}
+   159→
+   160→// ─── Component ──────────────────────────────────────────────────────────
+   161→
+   162→export default function WardsClient() {
+   163→  const queryClient = useQueryClient()
+   164→  const [selectedHospital, setSelectedHospital] = useState<string>('all')
+   165→
+   166→  // Dialogs
+   167→  const [viewWard, setViewWard] = useState<WardDetail | null>(null)
+   168→  const [wardDialog, setWardDialog] = useState<{ open: boolean; edit: WardItem | null }>({ open: false, edit: null })
+   169→  const [deleteWard, setDeleteWard] = useState<WardItem | null>(null)
+   170→  const [bedDialog, setBedDialog] = useState<{ open: boolean; edit: BedItem | null; wardId: string }>({ open: false, edit: null, wardId: '' })
+   171→  const [deleteBed, setDeleteBed] = useState<BedItem | null>(null)
+   172→
+   173→  // Ward form
+   174→  const [wardForm, setWardForm] = useState({ hospitalId: '', name: '', nameHi: '', wardType: 'General', floorNo: '', totalBeds: '0', nurseRatio: '6' })
+   175→  // Bed form
+   176→  const [bedForm, setBedForm] = useState({ bedNumber: '', bedType: 'General', dailyRate: '' })
+   177→
+   178→  // ─── Queries ──────────────────────────────────────────────────────
+   179→
+   180→  const { data: hospitalsData } = useQuery<{ hospitals: HospitalOption[] }>({
+   181→    queryKey: ['admin-hospitals-list'],
+   182→    queryFn: () => fetch('/api/dashboard/admin/hospitals').then((r) => r.json()),
+   183→    staleTime: 5 * 60 * 1000,
+   184→  })
+   185→
+   186→  const hospitals = hospitalsData?.hospitals || []
+   187→
+   188→  const { data: wardsData, isLoading } = useQuery<{ wards: WardItem[]; total: number }>({
+   189→    queryKey: ['admin-wards', selectedHospital],
+   190→    queryFn: () => {
+   191→      const params = selectedHospital !== 'all' ? `?hospitalId=${selectedHospital}` : ''
+   192→      return fetch(`/api/dashboard/admin/wards${params}`).then((r) => r.json())
+   193→    },
+   194→  })
+   195→
+   196→  const wards = wardsData?.wards || []
+   197→
+   198→  const { data: wardDetail, isLoading: isDetailLoading } = useQuery<{ ward: WardDetail }>({
+   199→    queryKey: ['admin-ward-detail', viewWard?.id],
+   200→    queryFn: () => fetch(`/api/dashboard/admin/wards/${viewWard!.id}`).then((r) => r.json()),
+   201→    enabled: !!viewWard?.id,
+   202→  })
+   203→
+   204→  // When detail loads, update viewWard with full data
+   205→  const detailWard = wardDetail?.ward || viewWard
+   206→
+   207→  // ─── Mutations ────────────────────────────────────────────────────
+   208→
+   209→  const createWard = useMutation({
+   210→    mutationFn: (data: typeof wardForm) =>
+   211→      fetch('/api/dashboard/admin/wards', {
+   212→        method: 'POST',
+   213→        headers: { 'Content-Type': 'application/json' },
+   214→        body: JSON.stringify({
+   215→          hospitalId: data.hospitalId,
+   216→          name: data.name,
+   217→          nameHi: data.nameHi,
+   218→          wardType: data.wardType,
+   219→          floorNo: data.floorNo,
+   220→          totalBeds: parseInt(data.totalBeds) || 0,
+   221→          nurseRatio: parseInt(data.nurseRatio) || 6,
+   222→        }),
+   223→      }).then((r) => r.json()),
+   224→    onSuccess: () => {
+   225→      queryClient.invalidateQueries({ queryKey: ['admin-wards'] })
+   226→      setWardDialog({ open: false, edit: null })
+   227→      toast.success('Ward created successfully')
+   228→    },
+   229→    onError: (err) => toast.error(err.message || 'Failed to create ward'),
+   230→  })
+   231→
+   232→  const updateWard = useMutation({
+   233→    mutationFn: ({ id, data }: { id: string; data: Partial<typeof wardForm> }) =>
+   234→      fetch(`/api/dashboard/admin/wards/${id}`, {
+   235→        method: 'PUT',
+   236→        headers: { 'Content-Type': 'application/json' },
+   237→        body: JSON.stringify({
+   238→          ...(data.name !== undefined && { name: data.name }),
+   239→          ...(data.nameHi !== undefined && { nameHi: data.nameHi }),
+   240→          ...(data.wardType !== undefined && { wardType: data.wardType }),
+   241→          ...(data.floorNo !== undefined && { floorNo: data.floorNo }),
+   242→          ...(data.totalBeds !== undefined && { totalBeds: parseInt(data.totalBeds) || 0 }),
+   243→          ...(data.nurseRatio !== undefined && { nurseRatio: parseInt(data.nurseRatio) || 6 }),
+   244→        }),
+   245→      }).then((r) => r.json()),
+   246→    onSuccess: () => {
+   247→      queryClient.invalidateQueries({ queryKey: ['admin-wards'] })
+   248→      queryClient.invalidateQueries({ queryKey: ['admin-ward-detail'] })
+   249→      setWardDialog({ open: false, edit: null })
+   250→      toast.success('Ward updated successfully')
+   251→    },
+   252→    onError: (err) => toast.error(err.message || 'Failed to update ward'),
+   253→  })
+   254→
+   255→  const deleteWardMut = useMutation({
+   256→    mutationFn: (id: string) =>
+   257→      fetch(`/api/dashboard/admin/wards/${id}`, { method: 'DELETE' }).then((r) => r.json()),
+   258→    onSuccess: () => {
+   259→      queryClient.invalidateQueries({ queryKey: ['admin-wards'] })
+   260→      setDeleteWard(null)
+   261→      setViewWard(null)
+   262→      toast.success('Ward deleted successfully')
+   263→    },
+   264→    onError: (err) => toast.error(err.error || 'Failed to delete ward'),
+   265→  })
+   266→
+   267→  const createBed = useMutation({
+   268→    mutationFn: ({ wardId, data }: { wardId: string; data: typeof bedForm }) =>
+   269→      fetch(`/api/dashboard/admin/wards/${wardId}/beds`, {
+   270→        method: 'POST',
+   271→        headers: { 'Content-Type': 'application/json' },
+   272→        body: JSON.stringify({
+   273→          bedNumber: data.bedNumber,
+   274→          bedType: data.bedType,
+   275→          dailyRate: parseFloat(data.dailyRate) || 0,
+   276→        }),
+   277→      }).then((r) => r.json()),
+   278→    onSuccess: () => {
+   279→      queryClient.invalidateQueries({ queryKey: ['admin-ward-detail'] })
+   280→      queryClient.invalidateQueries({ queryKey: ['admin-wards'] })
+   281→      setBedDialog({ open: false, edit: null, wardId: '' })
+   282→      toast.success('Bed added successfully')
+   283→    },
+   284→    onError: (err) => toast.error(err.error || 'Failed to add bed'),
+   285→  })
+   286→
+   287→  const updateBed = useMutation({
+   288→    mutationFn: ({ id, data }: { id: string; data: Partial<typeof bedForm> & { status?: string } }) =>
+   289→      fetch(`/api/dashboard/admin/wards/beds/${id}`, {
+   290→        method: 'PUT',
+   291→        headers: { 'Content-Type': 'application/json' },
+   292→        body: JSON.stringify(data),
+   293→      }).then((r) => r.json()),
+   294→    onSuccess: () => {
+   295→      queryClient.invalidateQueries({ queryKey: ['admin-ward-detail'] })
+   296→      queryClient.invalidateQueries({ queryKey: ['admin-wards'] })
+   297→      setBedDialog({ open: false, edit: null, wardId: '' })
+   298→      toast.success('Bed updated successfully')
+   299→    },
+   300→    onError: (err) => toast.error(err.error || 'Failed to update bed'),
+   301→  })
+   302→
+   303→  const deleteBedMut = useMutation({
+   304→    mutationFn: (id: string) =>
+   305→      fetch(`/api/dashboard/admin/wards/beds/${id}`, { method: 'DELETE' }).then((r) => r.json()),
+   306→    onSuccess: () => {
+   307→      queryClient.invalidateQueries({ queryKey: ['admin-ward-detail'] })
+   308→      queryClient.invalidateQueries({ queryKey: ['admin-wards'] })
+   309→      setDeleteBed(null)
+   310→      toast.success('Bed deleted successfully')
+   311→    },
+   312→    onError: (err) => toast.error(err.error || 'Failed to delete bed'),
+   313→  })
+   314→
+   315→  // ─── Handlers ─────────────────────────────────────────────────────
+   316→
+   317→  const openCreateWard = () => {
+   318→    setWardForm({
+   319→      hospitalId: selectedHospital !== 'all' ? selectedHospital : (hospitals[0]?.id || ''),
+   320→      name: '',
+   321→      nameHi: '',
+   322→      wardType: 'General',
+   323→      floorNo: '',
+   324→      totalBeds: '0',
+   325→      nurseRatio: '6',
+   326→    })
+   327→    setWardDialog({ open: true, edit: null })
+   328→  }
+   329→
+   330→  const openEditWard = (w: WardItem) => {
+   331→    setWardForm({
+   332→      hospitalId: w.hospitalId,
+   333→      name: w.name,
+   334→      nameHi: w.nameHi,
+   335→      wardType: w.wardType,
+   336→      floorNo: w.floorNo,
+   337→      totalBeds: String(w.totalBeds),
+   338→      nurseRatio: String(w.nurseRatio),
+   339→    })
+   340→    setWardDialog({ open: true, edit: w })
+   341→  }
+   342→
+   343→  const openAddBed = (wardId: string) => {
+   344→    setBedForm({ bedNumber: '', bedType: 'General', dailyRate: '' })
+   345→    setBedDialog({ open: true, edit: null, wardId })
+   346→  }
+   347→
+   348→  const openEditBed = (b: BedItem) => {
+   349→    setBedForm({ bedNumber: b.bedNumber, bedType: b.bedType, dailyRate: String(b.dailyRate) })
+   350→    setBedDialog({ open: true, edit: b, wardId: b.wardId })
+   351→  }
+   352→
+   353→  const handleWardSubmit = () => {
+   354→    if (!wardForm.name.trim() || !wardForm.hospitalId) {
+   355→      toast.error('Hospital and ward name are required')
+   356→      return
+   357→    }
+   358→    if (wardDialog.edit) {
+   359→      updateWard.mutate({ id: wardDialog.edit.id, data: wardForm })
+   360→    } else {
+   361→      createWard.mutate(wardForm)
+   362→    }
+   363→  }
+   364→
+   365→  const handleBedSubmit = () => {
+   366→    if (!bedForm.bedNumber.trim()) {
+   367→      toast.error('Bed number is required')
+   368→      return
+   369→    }
+   370→    if (bedDialog.edit) {
+   371→      updateBed.mutate({ id: bedDialog.edit.id, data: bedForm })
+   372→    } else {
+   373→      createBed.mutate({ wardId: bedDialog.wardId, data: bedForm })
+   374→    }
+   375→  }
+   376→
+   377→  // ─── Computed stats ───────────────────────────────────────────────
+   378→
+   379→  const totalBeds = wards.reduce((s, w) => s + (w.bedCounts?.total || 0), 0)
+   380→  const totalOccupied = wards.reduce((s, w) => s + (w.bedCounts?.occupied || 0), 0)
+   381→  const totalAvailable = wards.reduce((s, w) => s + (w.bedCounts?.available || 0), 0)
+   382→  const totalNurses = wards.reduce((s, w) => s + w.nurseCount, 0)
+   383→
+   384→  return (
+   385→    <div className="space-y-6">
+   386→      {/* Header with hospital selector */}
+   387→      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+   388→        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+   389→          <div className="flex items-center gap-2">
+   390→            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/50">
+   391→              <BedDouble className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   392→            </div>
+   393→            <h1 className="text-lg font-semibold">Wards Management</h1>
+   394→          </div>
+   395→          <Select value={selectedHospital} onValueChange={setSelectedHospital}>
+   396→            <SelectTrigger className="w-full sm:w-56">
+   397→              <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+   398→              <SelectValue placeholder="All Hospitals" />
+   399→            </SelectTrigger>
+   400→            <SelectContent>
+   401→              <SelectItem value="all">All Hospitals</SelectItem>
+   402→              {hospitals.map((h) => (
+   403→                <SelectItem key={h.id} value={h.id}>
+   404→                  {h.hospitalName}
+   405→                </SelectItem>
+   406→              ))}
+   407→            </SelectContent>
+   408→          </Select>
+   409→        </div>
+   410→        <Button onClick={openCreateWard} className="gap-2 bg-teal-600 hover:bg-teal-700">
+   411→          <Plus className="h-4 w-4" />
+   412→          Add Ward
+   413→        </Button>
+   414→      </div>
+   415→
+   416→      {/* Stat cards */}
+   417→      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+   418→        <Card>
+   419→          <CardContent className="p-4">
+   420→            <div className="flex items-center gap-3">
+   421→              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/50">
+   422→                <BedDouble className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+   423→              </div>
+   424→              <div>
+   425→                <p className="text-2xl font-bold">{wards.length}</p>
+   426→                <p className="text-xs text-muted-foreground">Total Wards</p>
+   427→              </div>
+   428→            </div>
+   429→          </CardContent>
+   430→        </Card>
+   431→        <Card>
+   432→          <CardContent className="p-4">
+   433→            <div className="flex items-center gap-3">
+   434→              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/50">
+   435→                <Bed className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+   436→              </div>
+   437→              <div>
+   438→                <p className="text-2xl font-bold">{totalBeds}</p>
+   439→                <p className="text-xs text-muted-foreground">Total Beds</p>
+   440→              </div>
+   441→            </div>
+   442→          </CardContent>
+   443→        </Card>
+   444→        <Card>
+   445→          <CardContent className="p-4">
+   446→            <div className="flex items-center gap-3">
+   447→              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/50">
+   448→                <Activity className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+   449→              </div>
+   450→              <div>
+   451→                <p className="text-2xl font-bold">
+   452→                  <span className="text-emerald-600">{totalAvailable}</span>
+   453→                  <span className="text-muted-foreground text-sm"> / {totalOccupied} occ.</span>
+   454→                </p>
+   455→                <p className="text-xs text-muted-foreground">Available / Occupied</p>
+   456→              </div>
+   457→            </div>
+   458→          </CardContent>
+   459→        </Card>
+   460→        <Card>
+   461→          <CardContent className="p-4">
+   462→            <div className="flex items-center gap-3">
+   463→              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/50">
+   464→                <Users className="h-5 w-5 text-violet-600 dark:text-violet-400" />
+   465→              </div>
+   466→              <div>
+   467→                <p className="text-2xl font-bold">{totalNurses}</p>
+   468→                <p className="text-xs text-muted-foreground">Nurses Assigned</p>
+   469→              </div>
+   470→            </div>
+   471→          </CardContent>
+   472→        </Card>
+   473→      </div>
+   474→
+   475→      {/* Wards grid */}
+   476→      {isLoading ? (
+   477→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+   478→          {Array.from({ length: 6 }).map((_, i) => (
+   479→            <Card key={i}>
+   480→              <CardContent className="p-4">
+   481→                <div className="space-y-3">
+   482→                  <div className="h-5 w-28 animate-pulse rounded bg-muted" />
+   483→                  <div className="h-4 w-20 animate-pulse rounded bg-muted" />
+   484→                  <div className="flex gap-2">
+   485→                    <div className="h-6 w-16 animate-pulse rounded-full bg-muted" />
+   486→                    <div className="h-6 w-16 animate-pulse rounded bg-muted" />
+   487→                  </div>
+   488→                </div>
+   489→              </CardContent>
+   490→            </Card>
+   491→          ))}
+   492→        </div>
+   493→      ) : wards.length === 0 ? (
+   494→        <Card>
+   495→          <CardContent className="flex flex-col items-center justify-center py-16">
+   496→            <BedDouble className="mb-3 h-12 w-12 text-muted-foreground/30" />
+   497→            <p className="text-sm font-medium text-muted-foreground">No wards found</p>
+   498→            <p className="mt-1 text-xs text-muted-foreground/70">Create a ward to get started</p>
+   499→          </CardContent>
+   500→        </Card>
+   501→      ) : (
+   502→        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+   503→          <AnimatePresence>
+   504→            {wards.map((ward, i) => (
+   505→              <motion.div
+   506→                key={ward.id}
+   507→                initial={{ opacity: 0, y: 10 }}
+   508→                animate={{ opacity: 1, y: 0 }}
+   509→                exit={{ opacity: 0 }}
+   510→                transition={{ delay: i * 0.04 }}
+   511→              >
+   512→                <Card
+   513→                  className="group cursor-pointer transition-all hover:shadow-md hover:border-teal-200 dark:hover:border-teal-800"
+   514→                  onClick={() => {
+   515→                    setViewWard(ward)
+   516→                  }}
+   517→                >
+   518→                  <CardContent className="p-4">
+   519→                    <div className="flex items-start justify-between gap-2">
+   520→                      <div className="min-w-0 flex-1">
+   521→                        <div className="flex items-center gap-2">
+   522→                          <h3 className="truncate text-sm font-semibold">{ward.name}</h3>
+   523→                          <Badge variant="outline" className={WARD_STATUS_COLORS[ward.status] || ''}>
+   524→                            {ward.status}
+   525→                          </Badge>
+   526→                        </div>
+   527→                        <p className="mt-0.5 truncate text-xs text-muted-foreground">{ward.hospitalName}</p>
+   528→                      </div>
+   529→                      <DropdownMenu>
+   530→                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+   531→                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+   532→                            <MoreHorizontal className="h-4 w-4" />
+   533→                          </Button>
+   534→                        </DropdownMenuTrigger>
+   535→                        <DropdownMenuContent align="end">
+   536→                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openEditWard(ward) }}>
+   537→                            <Pencil className="mr-2 h-4 w-4" /> Edit
+   538→                          </DropdownMenuItem>
+   539→                          <DropdownMenuItem
+   540→                            className="text-red-600"
+   541→                            onClick={(e) => { e.stopPropagation(); setDeleteWard(ward) }}
+   542→                          >
+   543→                            <Trash2 className="mr-2 h-4 w-4" /> Delete
+   544→                          </DropdownMenuItem>
+   545→                        </DropdownMenuContent>
+   546→                      </DropdownMenu>
+   547→                    </div>
+   548→
+   549→                    <div className="mt-3 flex flex-wrap items-center gap-2">
+   550→                      <Badge className={WARD_TYPE_COLORS[ward.wardType] || ''}>{ward.wardType}</Badge>
+   551→                      {ward.floorNo && (
+   552→                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+   553→                          <Building2 className="h-3 w-3" /> {ward.floorNo}
+   554→                        </span>
+   555→                      )}
+   556→                    </div>
+   557→
+   558→                    <div className="mt-3 grid grid-cols-3 gap-2 rounded-lg border border-border/60 p-2.5">
+   559→                      <div className="text-center">
+   560→                        <p className="text-lg font-bold text-emerald-600">{ward.bedCounts?.available || 0}</p>
+   561→                        <p className="text-[10px] text-muted-foreground">Available</p>
+   562→                      </div>
+   563→                      <div className="text-center">
+   564→                        <p className="text-lg font-bold text-red-600">{ward.bedCounts?.occupied || 0}</p>
+   565→                        <p className="text-[10px] text-muted-foreground">Occupied</p>
+   566→                      </div>
+   567→                      <div className="text-center">
+   568→                        <p className="text-lg font-bold">{ward.bedCounts?.total || 0}</p>
+   569→                        <p className="text-[10px] text-muted-foreground">Total Beds</p>
+   570→                      </div>
+   571→                    </div>
+   572→
+   573→                    <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+   574→                      <span className="flex items-center gap-1">
+   575→                        <Users className="h-3 w-3" /> {ward.nurseCount} nurses
+   576→                      </span>
+   577→                      <span>1:{ward.nurseRatio} ratio</span>
+   578→                    </div>
+   579→                  </CardContent>
+   580→                </Card>
+   581→              </motion.div>
+   582→            ))}
+   583→          </AnimatePresence>
+   584→        </div>
+   585→      )}
+   586→
+   587→      {/* ─── Ward Detail Dialog ─────────────────────────────────────── */}
+   588→      <Dialog open={!!viewWard} onOpenChange={(open) => { if (!open) setViewWard(null) }}>
+   589→        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+   590→          <DialogHeader>
+   591→            <DialogTitle className="flex items-center gap-2">
+   592→              <BedDouble className="h-5 w-5 text-teal-600" />
+   593→              {detailWard?.name || 'Ward Details'}
+   594→              {detailWard?.wardType && (
+   595→                <Badge className={WARD_TYPE_COLORS[detailWard.wardType] || ''}>{detailWard.wardType}</Badge>
+   596→              )}
+   597→            </DialogTitle>
+   598→          </DialogHeader>
+   599→
+   600→          {isDetailLoading ? (
+   601→            <div className="space-y-4 py-4">
+   602→              <div className="h-5 w-48 animate-pulse rounded bg-muted" />
+   603→              <div className="h-40 animate-pulse rounded bg-muted" />
+   604→            </div>
+   605→          ) : detailWard ? (
+   606→            <div className="space-y-5">
+   607→              {/* Ward info row */}
+   608→              <div className="flex flex-wrap gap-3 text-sm">
+   609→                <span className="flex items-center gap-1.5 text-muted-foreground">
+   610→                  <Building2 className="h-4 w-4" /> {detailWard.hospitalName}
+   611→                </span>
+   612→                {detailWard.floorNo && (
+   613→                  <span className="text-muted-foreground">Floor: {detailWard.floorNo}</span>
+   614→                )}
+   615→                <Badge variant="outline" className={WARD_STATUS_COLORS[detailWard.status] || ''}>
+   616→                  {detailWard.status}
+   617→                </Badge>
+   618→                <span className="flex items-center gap-1.5 text-muted-foreground">
+   619→                  <Users className="h-4 w-4" /> {detailWard.nurseCount} nurses
+   620→                </span>
+   621→              </div>
+   622→
+   623→              {/* Bed stats bar */}
+   624→              <div className="flex flex-wrap items-center gap-3 rounded-lg bg-muted/50 p-3">
+   625→                <span className="text-sm font-medium">Beds:</span>
+   626→                <span className="flex items-center gap-1 text-sm">
+   627→                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500" />
+   628→                  {detailWard.bedCounts?.available || 0} Available
+   629→                </span>
+   630→                <span className="flex items-center gap-1 text-sm">
+   631→                  <span className="inline-block h-2.5 w-2.5 rounded-full bg-red-500" />
+   632→                  {detailWard.bedCounts?.occupied || 0} Occupied
+   633→                </span>
+   634→                <span className="text-sm text-muted-foreground">
+   635→                  / {detailWard.bedCounts?.total || 0} Total
+   636→                </span>
+   637→                <Button
+   638→                  size="sm"
+   639→                  variant="outline"
+   640→                  className="ml-auto gap-1.5 border-teal-300 text-teal-700 hover:bg-teal-50 dark:border-teal-700 dark:text-teal-400"
+   641→                  onClick={() => openAddBed(detailWard.id)}
+   642→                >
+   643→                  <Plus className="h-3.5 w-3.5" /> Add Bed
+   644→                </Button>
+   645→              </div>
+   646→
+   647→              {/* Beds table */}
+   648→              <div className="overflow-x-auto rounded-lg border border-border">
+   649→                <Table>
+   650→                  <TableHeader>
+   651→                    <TableRow>
+   652→                      <TableHead className="w-32">Bed #</TableHead>
+   653→                      <TableHead>Type</TableHead>
+   654→                      <TableHead className="hidden sm:table-cell">Daily Rate</TableHead>
+   655→                      <TableHead>Status</TableHead>
+   656→                      <TableHead className="hidden md:table-cell">Patient</TableHead>
+   657→                      <TableHead className="w-20">Actions</TableHead>
+   658→                    </TableRow>
+   659→                  </TableHeader>
+   660→                  <TableBody>
+   661→                    {detailWard.beds?.length === 0 && (
+   662→                      <TableRow>
+   663→                        <TableCell colSpan={6} className="py-10 text-center">
+   664→                          <Bed className="mx-auto mb-2 h-8 w-8 text-muted-foreground/30" />
+   665→                          <p className="text-sm text-muted-foreground">No beds configured</p>
+   666→                          <Button
+   667→                            size="sm"
+   668→                            variant="outline"
+   669→                            className="mt-3 gap-1.5"
+   670→                            onClick={() => openAddBed(detailWard.id)}
+   671→                          >
+   672→                            <Plus className="h-3.5 w-3.5" /> Add First Bed
+   673→                          </Button>
+   674→                        </TableCell>
+   675→                      </TableRow>
+   676→                    )}
+   677→                    {detailWard.beds?.map((bed) => (
+   678→                      <TableRow key={bed.id}>
+   679→                        <TableCell className="font-medium">{bed.bedNumber}</TableCell>
+   680→                        <TableCell>
+   681→                          <span className="text-sm text-muted-foreground">{formatBedType(bed.bedType)}</span>
+   682→                        </TableCell>
+   683→                        <TableCell className="hidden sm:table-cell">
+   684→                          <span className="flex items-center gap-1 text-sm">
+   685→                            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+   686→                            {bed.dailyRate > 0 ? bed.dailyRate.toLocaleString() : '—'}
+   687→                          </span>
+   688→                        </TableCell>
+   689→                        <TableCell>
+   690→                          <Badge className={BED_STATUS_COLORS[bed.status] || ''}>{bed.status}</Badge>
+   691→                        </TableCell>
+   692→                        <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
+   693→                          {bed.admission ? (
+   694→                            <span className="flex items-center gap-1.5">
+   695→                              <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+   696→                              {bed.admission.patientName}
+   697→                            </span>
+   698→                          ) : '—'}
+   699→                        </TableCell>
+   700→                        <TableCell>
+   701→                          <div className="flex items-center gap-1">
+   702→                            <Button
+   703→                              variant="ghost"
+   704→                              size="icon"
+   705→                              className="h-7 w-7"
+   706→                              onClick={() => openEditBed(bed)}
+   707→                            >
+   708→                              <Pencil className="h-3.5 w-3.5" />
+   709→                            </Button>
+   710→                            {bed.status === 'Available' && (
+   711→                              <Button
+   712→                                variant="ghost"
+   713→                                size="icon"
+   714→                                className="h-7 w-7 text-red-500 hover:text-red-700"
+   715→                                onClick={() => setDeleteBed(bed)}
+   716→                              >
+   717→                                <Trash2 className="h-3.5 w-3.5" />
+   718→                              </Button>
+   719→                            )}
+   720→                          </div>
+   721→                        </TableCell>
+   722→                      </TableRow>
+   723→                    ))}
+   724→                  </TableBody>
+   725→                </Table>
+   726→              </div>
+   727→            </div>
+   728→          ) : null}
+   729→        </DialogContent>
+   730→      </Dialog>
+   731→
+   732→      {/* ─── Create/Edit Ward Dialog ────────────────────────────────── */}
+   733→      <Dialog open={wardDialog.open} onOpenChange={(open) => { if (!open) setWardDialog({ open: false, edit: null }) }}>
+   734→        <DialogContent className="sm:max-w-md">
+   735→          <DialogHeader>
+   736→            <DialogTitle>{wardDialog.edit ? 'Edit Ward' : 'Create New Ward'}</DialogTitle>
+   737→          </DialogHeader>
+   738→          <div className="space-y-4 py-2">
+   739→            <div className="space-y-2">
+   740→              <Label>Hospital</Label>
+   741→              <Select
+   742→                value={wardForm.hospitalId}
+   743→                onValueChange={(v) => setWardForm((f) => ({ ...f, hospitalId: v }))}
+   744→                disabled={!!wardDialog.edit}
+   745→              >
+   746→                <SelectTrigger>
+   747→                  <SelectValue placeholder="Select hospital" />
+   748→                </SelectTrigger>
+   749→                <SelectContent>
+   750→                  {hospitals.map((h) => (
+   751→                    <SelectItem key={h.id} value={h.id}>{h.hospitalName}</SelectItem>
+   752→                  ))}
+   753→                </SelectContent>
+   754→              </Select>
+   755→            </div>
+   756→            <div className="space-y-2">
+   757→              <Label>Ward Name *</Label>
+   758→              <Input
+   759→                placeholder="e.g. ICU Ward, General Ward"
+   760→                value={wardForm.name}
+   761→                onChange={(e) => setWardForm((f) => ({ ...f, name: e.target.value }))}
+   762→              />
+   763→            </div>
+   764→            <div className="space-y-2">
+   765→              <Label>Ward Name (Hindi)</Label>
+   766→              <Input
+   767→                placeholder="हिंदी में नाम"
+   768→                value={wardForm.nameHi}
+   769→                onChange={(e) => setWardForm((f) => ({ ...f, nameHi: e.target.value }))}
+   770→              />
+   771→            </div>
+   772→            <div className="grid grid-cols-2 gap-3">
+   773→              <div className="space-y-2">
+   774→                <Label>Ward Type</Label>
+   775→                <Select
+   776→                  value={wardForm.wardType}
+   777→                  onValueChange={(v) => setWardForm((f) => ({ ...f, wardType: v }))}
+   778→                >
+   779→                  <SelectTrigger>
+   780→                    <SelectValue />
+   781→                  </SelectTrigger>
+   782→                  <SelectContent>
+   783→                    {WARD_TYPES.map((t) => (
+   784→                      <SelectItem key={t} value={t}>{t}</SelectItem>
+   785→                    ))}
+   786→                  </SelectContent>
+   787→                </Select>
+   788→              </div>
+   789→              <div className="space-y-2">
+   790→                <Label>Floor</Label>
+   791→                <Input
+   792→                  placeholder="e.g. Floor 1"
+   793→                  value={wardForm.floorNo}
+   794→                  onChange={(e) => setWardForm((f) => ({ ...f, floorNo: e.target.value }))}
+   795→                />
+   796→              </div>
+   797→            </div>
+   798→            <div className="grid grid-cols-2 gap-3">
+   799→              <div className="space-y-2">
+   800→                <Label>Total Beds</Label>
+   801→                <Input
+   802→                  type="number"
+   803→                  min="0"
+   804→                  value={wardForm.totalBeds}
+   805→                  onChange={(e) => setWardForm((f) => ({ ...f, totalBeds: e.target.value }))}
+   806→                />
+   807→              </div>
+   808→              <div className="space-y-2">
+   809→                <Label>Nurse Ratio (1:N)</Label>
+   810→                <Input
+   811→                  type="number"
+   812→                  min="1"
+   813→                  value={wardForm.nurseRatio}
+   814→                  onChange={(e) => setWardForm((f) => ({ ...f, nurseRatio: e.target.value }))}
+   815→                />
+   816→              </div>
+   817→            </div>
+   818→          </div>
+   819→          <DialogFooter>
+   820→            <Button variant="outline" onClick={() => setWardDialog({ open: false, edit: null })}>Cancel</Button>
+   821→            <Button
+   822→              className="bg-teal-600 hover:bg-teal-700"
+   823→              onClick={handleWardSubmit}
+   824→              disabled={createWard.isPending || updateWard.isPending}
+   825→            >
+   826→              {(createWard.isPending || updateWard.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+   827→              {wardDialog.edit ? 'Update Ward' : 'Create Ward'}
+   828→            </Button>
+   829→          </DialogFooter>
+   830→        </DialogContent>
+   831→      </Dialog>
+   832→
+   833→      {/* ─── Add/Edit Bed Dialog ────────────────────────────────────── */}
+   834→      <Dialog open={bedDialog.open} onOpenChange={(open) => { if (!open) setBedDialog({ open: false, edit: null, wardId: '' }) }}>
+   835→        <DialogContent className="sm:max-w-md">
+   836→          <DialogHeader>
+   837→            <DialogTitle>{bedDialog.edit ? 'Edit Bed' : 'Add New Bed'}</DialogTitle>
+   838→          </DialogHeader>
+   839→          <div className="space-y-4 py-2">
+   840→            <div className="space-y-2">
+   841→              <Label>Bed Number *</Label>
+   842→              <Input
+   843→                placeholder="e.g. Bed 1, ICU-01, PR-201"
+   844→                value={bedForm.bedNumber}
+   845→                onChange={(e) => setBedForm((f) => ({ ...f, bedNumber: e.target.value }))}
+   846→              />
+   847→            </div>
+   848→            <div className="grid grid-cols-2 gap-3">
+   849→              <div className="space-y-2">
+   850→                <Label>Bed Type</Label>
+   851→                <Select
+   852→                  value={bedForm.bedType}
+   853→                  onValueChange={(v) => setBedForm((f) => ({ ...f, bedType: v }))}
+   854→                >
+   855→                  <SelectTrigger>
+   856→                    <SelectValue />
+   857→                  </SelectTrigger>
+   858→                  <SelectContent>
+   859→                    {BED_TYPES.map((t) => (
+   860→                      <SelectItem key={t} value={t}>{formatBedType(t)}</SelectItem>
+   861→                    ))}
+   862→                  </SelectContent>
+   863→                </Select>
+   864→              </div>
+   865→              <div className="space-y-2">
+   866→                <Label>Daily Rate (₹)</Label>
+   867→                <Input
+   868→                  type="number"
+   869→                  min="0"
+   870→                  step="0.01"
+   871→                  placeholder="0.00"
+   872→                  value={bedForm.dailyRate}
+   873→                  onChange={(e) => setBedForm((f) => ({ ...f, dailyRate: e.target.value }))}
+   874→                />
+   875→              </div>
+   876→            </div>
+   877→            {bedDialog.edit && (
+   878→              <div className="space-y-2">
+   879→                <Label>Status</Label>
+   880→                <Select
+   881→                  value={bedDialog.edit.status}
+   882→                  onValueChange={(v) => {
+   883→                    updateBed.mutate({ id: bedDialog.edit!.id, data: { status: v } })
+   884→                  }}
+   885→                >
+   886→                  <SelectTrigger>
+   887→                    <SelectValue />
+   888→                  </SelectTrigger>
+   889→                  <SelectContent>
+   890→                    {BED_STATUSES.map((s) => (
+   891→                      <SelectItem key={s} value={s}>{s}</SelectItem>
+   892→                    ))}
+   893→                  </SelectContent>
+   894→                </Select>
+   895→              </div>
+   896→            )}
+   897→          </div>
+   898→          <DialogFooter>
+   899→            <Button variant="outline" onClick={() => setBedDialog({ open: false, edit: null, wardId: '' })}>Cancel</Button>
+   900→            <Button
+   901→              className="bg-teal-600 hover:bg-teal-700"
+   902→              onClick={handleBedSubmit}
+   903→              disabled={createBed.isPending || updateBed.isPending}
+   904→            >
+   905→              {(createBed.isPending || updateBed.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+   906→              {bedDialog.edit ? 'Update Bed' : 'Add Bed'}
+   907→            </Button>
+   908→          </DialogFooter>
+   909→        </DialogContent>
+   910→      </Dialog>
+   911→
+   912→      {/* ─── Delete Ward Alert ──────────────────────────────────────── */}
+   913→      <AlertDialog open={!!deleteWard} onOpenChange={(open) => { if (!open) setDeleteWard(null) }}>
+   914→        <AlertDialogContent>
+   915→          <AlertDialogHeader>
+   916→            <AlertDialogTitle className="flex items-center gap-2">
+   917→              <AlertTriangle className="h-5 w-5 text-red-500" />
+   918→              Delete Ward
+   919→            </AlertDialogTitle>
+   920→            <AlertDialogDescription>
+   921→              Are you sure you want to delete <strong>{deleteWard?.name}</strong>? This will also delete all beds in this ward.
+   922→              This action cannot be undone.
+   923→            </AlertDialogDescription>
+   924→          </AlertDialogHeader>
+   925→          <AlertDialogFooter>
+   926→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   927→            <AlertDialogAction
+   928→              className="bg-red-600 hover:bg-red-700"
+   929→              onClick={() => deleteWard.id && deleteWardMut.mutate(deleteWard.id)}
+   930→              disabled={deleteWardMut.isPending}
+   931→            >
+   932→              {deleteWardMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+   933→              Delete Ward
+   934→            </AlertDialogAction>
+   935→          </AlertDialogFooter>
+   936→        </AlertDialogContent>
+   937→      </AlertDialog>
+   938→
+   939→      {/* ─── Delete Bed Alert ───────────────────────────────────────── */}
+   940→      <AlertDialog open={!!deleteBed} onOpenChange={(open) => { if (!open) setDeleteBed(null) }}>
+   941→        <AlertDialogContent>
+   942→          <AlertDialogHeader>
+   943→            <AlertDialogTitle className="flex items-center gap-2">
+   944→              <AlertTriangle className="h-5 w-5 text-red-500" />
+   945→              Delete Bed
+   946→            </AlertDialogTitle>
+   947→            <AlertDialogDescription>
+   948→              Are you sure you want to delete bed <strong>{deleteBed?.bedNumber}</strong>? This action cannot be undone.
+   949→            </AlertDialogDescription>
+   950→          </AlertDialogHeader>
+   951→          <AlertDialogFooter>
+   952→            <AlertDialogCancel>Cancel</AlertDialogCancel>
+   953→            <AlertDialogAction
+   954→              className="bg-red-600 hover:bg-red-700"
+   955→              onClick={() => deleteBed?.id && deleteBedMut.mutate(deleteBed.id)}
+   956→              disabled={deleteBedMut.isPending}
+   957→            >
+   958→              {deleteBedMut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+   959→              Delete Bed
+   960→            </AlertDialogAction>
+   961→          </AlertDialogFooter>
+   962→        </AlertDialogContent>
+   963→      </AlertDialog>
+   964→    </div>
+   965→  )
+   966→}
+   967→

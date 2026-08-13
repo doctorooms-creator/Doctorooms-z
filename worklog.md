@@ -645,3 +645,92 @@ Stage Summary:
 - Full Order Sheet functionality (add/stop orders)
 - Can fill History Sheet and Physical Examination forms
 - Can order investigations and add visit notes
+
+---
+Task ID: 3
+Agent: nurse-ward-view
+Task: Build Nurse Ward View — Visual Bed Map with Patient Occupancy Status
+
+Work Log:
+- Created `/src/app/api/dashboard/nurse/ward-patients/route.ts` — GET endpoint returning ward bed map data. Uses requireRole(req, 'nurse') auth. If nurse has no ward assigned, returns all hospital wards with bed counts (total/occupied/available). If nurse has a ward, returns ward details + all beds with: occupied beds include admission (patient name, age, gender, diagnosis), attending doctor name, department name, latest vital record, vital alerts via checkVitalAlerts().
+- Created `/src/app/dashboard/nurse/ward-patients/page.tsx` — Server component wrapper with metadata.
+- Created `/src/app/dashboard/nurse/ward-patients/client.tsx` — Full visual bed map client component with:
+  - Header: ward name, ward type badge (color-coded: ICU=red, General=teal, Private=violet, etc.), floor info, hospital name, live auto-refresh indicator
+  - 4 Stats cards: Total Beds (teal), Occupied (violet), Available (emerald), Critical Alerts (red with border highlight when >0)
+  - Occupancy bar with gradient (emerald→teal→red) and percentage label
+  - Legend bar: color-coded dots for Available/Occupied/Critical/Maintenance
+  - Visual bed card grid: 2 cols mobile, 3 cols tablet, 4 cols desktop
+  - Bed card states:
+    - Available: green border, Available badge, green CheckCircle2 center icon with Ready text
+    - Occupied: teal border, patient info (name, age/gender, department badge, doctor name, diagnosis), latest vitals mini display (Temp, Pulse, BP, SpO2 with icons), vital time ago with color coding (<1hr green, 1-2hr amber, >2hr red)
+    - Occupied + Critical: red border, red pulsing dot animation (ping + solid), red Occupied badge, critical alert banner with AlertTriangle icon showing alert message
+    - Maintenance: amber dashed border, Under Maintenance badge, Wrench center icon
+    - Reserved: slate border, Reserved badge, Lock center icon
+  - Click occupied bed card navigates to /dashboard/nurse/patients/[admissionId]
+  - Framer Motion: card scale/fade-in animations, hover lift effect on occupied cards, staggered ward card animations in no-ward view
+  - Auto-refresh every 30 seconds via react-query refetchInterval
+  - No-ward state: centered message with Building2 icon, plus hospital wards overview grid showing each ward with type badge, floor, bed counts, and occupancy mini bar
+  - All lucide icons used: BedDouble, User, AlertTriangle, Activity, Thermometer, Heart, Wind, Droplets, Clock, Building2, CheckCircle2, Wrench, Lock
+  - Loading skeletons for header, stats, and bed cards
+  - Error state with AlertTriangle
+  - Dark mode support throughout
+  - Teal color scheme for ward/nurse theme
+
+Stage Summary:
+- 3 files created: 1 API route + 1 server page + 1 client component
+- Complete visual bed map with real-time occupancy status and vital sign monitoring
+- Critical patient identification with pulsing red indicators and alert messages
+- Responsive grid layout optimized for clinical use on tablets and mobile
+- Lint passes clean, dev server running without errors
+
+---
+Task ID: 4
+Agent: nurse-handover
+Task: Build Nurse Shift Handover feature — API + Client Page
+
+Work Log:
+- Created `/src/app/api/dashboard/nurse/handover/route.ts` — 3-method API route:
+  - **GET**: Returns incoming handovers (toNurseId = me, current shift, today), outgoing handovers (fromNurseId = me, today), my active patient assignments (with latest vitals, pending medicine count, pending sample count), and next shift nurses (same ward, next shift cycle Morning→Evening→Night→Morning)
+  - **POST**: Creates ShiftHandover record with patientSummaries (JSON), wardNotes, pendingTasks (JSON) as JSON strings in DB. Validates target nurse exists. On success, marks all nurse's current shift assignments as Completed (unassignedAt = now, status = 'Completed') in a single updateMany
+  - **PATCH**: Acknowledges a handover — verifies handover belongs to this nurse (toNurseId), not already acknowledged, sets acknowledgedAt + acknowledgedBy
+  - All methods use requireRole(req, 'nurse') auth + StaffNurse profile lookup
+- Created `/src/app/dashboard/nurse/handover/page.tsx` — Server component wrapper with metadata
+- Created `/src/app/dashboard/nurse/handover/client.tsx` — Comprehensive shift handover client with 3 tabs:
+  - **Incoming Handover Tab**: Shows cards from previous shift nurses. Each card has from→to nurse names, shift badge (Morning=amber, Evening=sky, Night=purple), ward name, timestamp. Expandable details with patient summaries, ward notes, pending tasks. Priority badges: High=red, Medium=amber, Low=teal with matching background/border/icon. Unacknowledged count badge in tab trigger with pulse animation. "Acknowledge" button with loading spinner. Acknowledged cards shown with reduced opacity and green badge. Empty state with Inbox icon.
+  - **Write Handover Tab**: Pre-populates with nurse's active patients. Each patient card shows: name, age/gender, bed number (violet badge), pending medicine count (amber badge), pending sample count (sky badge), diagnosis, 2x2 vital mini-display (Temp, Pulse, BP, SpO2). Textarea for shift summary per patient. Ward Notes textarea section. Pending Tasks dynamic list with add/remove, task name input + priority Select dropdown (High/Medium/Low with color dots). "Hand Over To" Select dropdown populated with next shift nurses from same ward (shows name, employee ID, shift badge). Teal submit button with spinner. On submit: clears form, switches to incoming tab.
+  - **Sent Tab** (conditional — only shown if outgoing handovers exist): Shows handovers the nurse has sent. Each card shows You→recipient, shift badge, ward, timestamp, received/pending status. Expandable details same as incoming.
+  - 30-second auto-refresh via react-query refetchInterval
+  - Framer Motion animations: staggered card entry, expand/collapse, task add/remove
+  - Teal color scheme, dark mode support, responsive design
+  - Loading skeletons, error state with retry, empty states for all scenarios
+  - All shadcn/ui components: Tabs, Card, Badge, Button, Textarea, Select, Skeleton, Label
+  - Lucide icons: ArrowRightLeft, CheckCircle2, Clock, AlertTriangle, User, BedDouble, ClipboardList, Plus, Trash2, Send, ChevronDown, ChevronUp, FileText, Inbox, Pill, TestTube2
+
+Stage Summary:
+- 3 files created: 1 API route (GET/POST/PATCH) + 1 server page + 1 client component
+- Complete nurse shift handover workflow: receive incoming → acknowledge → write outgoing → submit
+- Patient summaries, ward notes, and priority-based pending tasks
+- Automatic nurse assignment completion on handover submission
+- Next shift nurse detection with ward-based filtering
+- Lint passes clean, dev server running without errors
+
+---
+Task ID: 5
+Agent: Main Orchestrator
+Task: IPD Phase N-1 Completion — Nurse Profile, My Patients List Page
+
+Work Log:
+- Assessed current project state: Found Phase N-1 was ~80% complete (schema, auth, sidebar, admin CRUD, nurse dashboard, patient detail, doctor IPD, receptionist IPD all existed)
+- Identified 4 missing nurse pages from sidebar: My Patients list, Ward View, Shift Handover, Profile
+- Built Nurse Profile API (GET/PUT) at `/api/dashboard/nurse/profile/route.ts`
+- Built Nurse Profile page at `/dashboard/nurse/profile/page.tsx` + `client.tsx` with teal gradient header, editable phone/address, shift badges
+- Built Nurse My Patients list page at `/dashboard/nurse/patients/page.tsx` + `list-client.tsx` with responsive table (desktop) and card view (mobile), search, vital indicators
+- Verified all 6 nurse pages return 200: dashboard, patients, ward-patients, handover, profile, patient detail
+- Lint passes clean with zero errors
+
+Stage Summary:
+- 4 files created manually: 1 API route + 3 page/client files
+- 6 files created by subagents (ward view + handover = 6 total)
+- All nurse sidebar pages now functional: Dashboard, My Patients, Ward View, Shift Handover, Profile
+- Nurse system Phase N-1 is now complete
+- Next: Phase N-2 (IPD Admission flow) is already built by receptionist/doctor teams

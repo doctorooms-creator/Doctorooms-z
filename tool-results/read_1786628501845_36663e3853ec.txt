@@ -1,0 +1,961 @@
+     1→'use client'
+     2→
+     3→import { useEffect, useRef, useState, useCallback } from 'react'
+     4→import { useRouter } from 'next/navigation'
+     5→import { motion, useInView } from 'framer-motion'
+     6→import { useQuery } from '@tanstack/react-query'
+     7→import Link from 'next/link'
+     8→import {
+     9→  Search,
+    10→  ArrowRight,
+    11→  Stethoscope,
+    12→  Building2,
+    13→  Users,
+    14→  CalendarCheck,
+    15→  Video,
+    16→  ShieldCheck,
+    17→  Lock,
+    18→  HeartPulse,
+    19→  Pill,
+    20→  Syringe,
+    21→  Brain,
+    22→  Eye,
+    23→  Bone,
+    24→  Smile,
+    25→  Activity,
+    26→  Star,
+    27→  IndianRupee,
+    28→  Quote,
+    29→  MapPin,
+    30→} from 'lucide-react'
+    31→import { Button } from '@/components/ui/button'
+    32→import { Input } from '@/components/ui/input'
+    33→import { Badge } from '@/components/ui/badge'
+    34→import { Card, CardContent } from '@/components/ui/card'
+    35→import { Skeleton } from '@/components/ui/skeleton'
+    36→import { PublicLayout } from '@/components/layout/public-layout'
+    37→import { BackToTop } from '@/components/layout/back-to-top'
+    38→import { APP_NAME, SPECIALIZATIONS } from '@/lib/constants'
+    39→
+    40→// ── Helpers ──────────────────────────────────────────────────────────────────
+    41→
+    42→function getInitials(name: string): string {
+    43→  return name
+    44→    .split(' ')
+    45→    .map((n) => n[0])
+    46→    .join('')
+    47→    .toUpperCase()
+    48→    .slice(0, 2)
+    49→}
+    50→
+    51→function formatCurrency(amount: number): string {
+    52→  return new Intl.NumberFormat('en-IN', {
+    53→    style: 'currency',
+    54→    currency: 'INR',
+    55→    minimumFractionDigits: 0,
+    56→  }).format(amount)
+    57→}
+    58→
+    59→// ── Framer-motion wrappers ──────────────────────────────────────────────────
+    60→
+    61→function FadeUpSection({
+    62→  children,
+    63→  className,
+    64→  delay = 0,
+    65→}: {
+    66→  children: React.ReactNode
+    67→  className?: string
+    68→  delay?: number
+    69→}) {
+    70→  const ref = useRef<HTMLDivElement>(null)
+    71→  const inView = useInView(ref, { once: true, margin: '-60px' })
+    72→  return (
+    73→    <motion.div
+    74→      ref={ref}
+    75→      initial={{ opacity: 0, y: 30 }}
+    76→      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
+    77→      transition={{ duration: 0.6, delay, ease: 'easeOut' }}
+    78→      className={className}
+    79→    >
+    80→      {children}
+    81→    </motion.div>
+    82→  )
+    83→}
+    84→
+    85→function FadeUpItem({
+    86→  children,
+    87→  className,
+    88→  index = 0,
+    89→}: {
+    90→  children: React.ReactNode
+    91→  className?: string
+    92→  index?: number
+    93→}) {
+    94→  const ref = useRef<HTMLDivElement>(null)
+    95→  const inView = useInView(ref, { once: true, margin: '-40px' })
+    96→  return (
+    97→    <motion.div
+    98→      ref={ref}
+    99→      initial={{ opacity: 0, y: 24 }}
+   100→      animate={inView ? { opacity: 1, y: 0 } : { opacity: 0, y: 24 }}
+   101→      transition={{ duration: 0.5, delay: index * 0.1, ease: 'easeOut' }}
+   102→      className={className}
+   103→    >
+   104→      {children}
+   105→    </motion.div>
+   106→  )
+   107→}
+   108→
+   109→// ── Count-up hook ────────────────────────────────────────────────────────────
+   110→
+   111→function useCountUp(target: number, inView: boolean) {
+   112→  const [value, setValue] = useState(0)
+   113→  const rafRef = useRef<number | null>(null)
+   114→
+   115→  const animate = useCallback(() => {
+   116→    const duration = 1800
+   117→    const start = performance.now()
+   118→    const from = 0
+   119→    const to = target
+   120→
+   121→    const step = (now: number) => {
+   122→      const elapsed = now - start
+   123→      const progress = Math.min(elapsed / duration, 1)
+   124→      const eased = 1 - Math.pow(1 - progress, 3)
+   125→      setValue(Math.floor(from + (to - from) * eased))
+   126→      if (progress < 1) {
+   127→        rafRef.current = requestAnimationFrame(step)
+   128→      }
+   129→    }
+   130→    rafRef.current = requestAnimationFrame(step)
+   131→  }, [target])
+   132→
+   133→  useEffect(() => {
+   134→    if (inView) animate()
+   135→    return () => {
+   136→      if (rafRef.current) cancelAnimationFrame(rafRef.current)
+   137→    }
+   138→  }, [inView, animate])
+   139→
+   140→  return value
+   141→}
+   142→
+   143→// ── Data types ───────────────────────────────────────────────────────────────
+   144→
+   145→interface Stats {
+   146→  doctorCount: number
+   147→  hospitalCount: number
+   148→  patientCount: number
+   149→  bookingCount: number
+   150→}
+   151→
+   152→interface DoctorProfile {
+   153→  specialization: string
+   154→  city: string | null
+   155→  state: string | null
+   156→  fees: number
+   157→  experience: string | number | null
+   158→  isEmergency: boolean
+   159→}
+   160→
+   161→interface Doctor {
+   162→  id: string
+   163→  name: string
+   164→  profileImg: string | null
+   165→  doctor?: DoctorProfile | null
+   166→  _avgRating?: { star: number } | null
+   167→  _ratingCount?: { star: number } | null
+   168→}
+   169→
+   170→interface HospitalCard {
+   171→  id: string
+   172→  name: string
+   173→  profileImg: string
+   174→  hospital: {
+   175→    hospitalName: string
+   176→    address: string
+   177→    city: string
+   178→    state: string
+   179→    contactNo: string
+   180→    hospitalType: string
+   181→    accreditation: string
+   182→    facilities: string
+   183→    establishedYear: number
+   184→    bedCount: number
+   185→  } | null
+   186→  _count?: {
+   187→    departments: number
+   188→    doctorLinks: number
+   189→  }
+   190→}
+   191→
+   192→// ── Hardcoded fallbacks ──────────────────────────────────────────────────────
+   193→
+   194→const fallbackStats: Stats = {
+   195→  doctorCount: 15,
+   196→  hospitalCount: 8,
+   197→  patientCount: 2400,
+   198→  bookingCount: 5800,
+   199→}
+   200→
+   201→const fallbackDoctors: Doctor[] = [
+   202→  {
+   203→    id: '1',
+   204→    name: 'Dr. Priya Sharma',
+   205→    profileImg: null,
+   206→    doctor: {
+   207→      specialization: 'Cardiologist',
+   208→      city: 'Mumbai',
+   209→      state: null,
+   210→      fees: 800,
+   211→      experience: 12,
+   212→      isEmergency: true,
+   213→    },
+   214→  },
+   215→  {
+   216→    id: '2',
+   217→    name: 'Dr. Rajesh Kumar',
+   218→    profileImg: null,
+   219→    doctor: {
+   220→      specialization: 'Dermatologist',
+   221→      city: 'Delhi',
+   222→      state: null,
+   223→      fees: 600,
+   224→      experience: 8,
+   225→      isEmergency: false,
+   226→    },
+   227→  },
+   228→  {
+   229→    id: '3',
+   230→    name: 'Dr. Anita Desai',
+   231→    profileImg: null,
+   232→    doctor: {
+   233→      specialization: 'Pediatrician',
+   234→      city: 'Bangalore',
+   235→      state: null,
+   236→      fees: 500,
+   237→      experience: 15,
+   238→      isEmergency: false,
+   239→    },
+   240→  },
+   241→]
+   242→
+   243→// ── Specialization display data ──────────────────────────────────────────────
+   244→
+   245→const specDisplay: {
+   246→  name: string
+   247→  icon: React.ElementType
+   248→  bg: string
+   249→  iconColor: string
+   250→}[] = [
+   251→  { name: 'Cardiology', icon: HeartPulse, bg: 'bg-rose-50 dark:bg-rose-950/40', iconColor: 'text-rose-500' },
+   252→  { name: 'Dermatology', icon: Activity, bg: 'bg-amber-50 dark:bg-amber-950/40', iconColor: 'text-amber-500' },
+   253→  { name: 'Pediatrics', icon: Smile, bg: 'bg-sky-50 dark:bg-sky-950/40', iconColor: 'text-sky-500' },
+   254→  { name: 'Neurology', icon: Brain, bg: 'bg-violet-50 dark:bg-violet-950/40', iconColor: 'text-violet-500' },
+   255→  { name: 'Ophthalmology', icon: Eye, bg: 'bg-emerald-50 dark:bg-emerald-950/40', iconColor: 'text-emerald-500' },
+   256→  { name: 'Orthopedics', icon: Bone, bg: 'bg-orange-50 dark:bg-orange-950/40', iconColor: 'text-orange-500' },
+   257→  { name: 'Dental', icon: Smile, bg: 'bg-teal-50 dark:bg-teal-950/40', iconColor: 'text-teal-500' },
+   258→  { name: 'General Physician', icon: Stethoscope, bg: 'bg-cyan-50 dark:bg-cyan-950/40', iconColor: 'text-cyan-500' },
+   259→]
+   260→
+   261→// ── Testimonials ─────────────────────────────────────────────────────────────
+   262→
+   263→const testimonials = [
+   264→  {
+   265→    text: 'Doctorooms made it incredibly easy to find a specialist near me. The booking process was seamless and I got an appointment the very next day!',
+   266→    name: 'Ritu Mehta',
+   267→    role: 'Patient',
+   268→    location: 'Mumbai',
+   269→  },
+   270→  {
+   271→    text: 'As a doctor, I appreciate how Doctorooms helps me connect with patients who truly need my expertise. The platform is intuitive and professional.',
+   272→    name: 'Dr. Vikram Singh',
+   273→    role: 'Cardiologist',
+   274→    location: 'Delhi',
+   275→  },
+   276→  {
+   277→    text: 'I was able to book a video consultation for my father who lives in a different city. The entire experience was smooth and the doctor was excellent.',
+   278→    name: 'Ananya Patel',
+   279→    role: 'Patient',
+   280→    location: 'Bangalore',
+   281→  },
+   282→]
+   283→
+   284→// ── Floating icons for hero ──────────────────────────────────────────────────
+   285→
+   286→const floatingIcons = [
+   287→  { Icon: Stethoscope, className: 'top-[12%] left-[8%] text-teal-300/50 dark:text-teal-600/30', size: 28, delay: 0 },
+   288→  { Icon: Pill, className: 'top-[20%] right-[12%] text-emerald-300/40 dark:text-emerald-600/30', size: 22, delay: 0.5 },
+   289→  { Icon: HeartPulse, className: 'bottom-[25%] left-[15%] text-rose-300/40 dark:text-rose-600/30', size: 26, delay: 1 },
+   290→  { Icon: Syringe, className: 'bottom-[15%] right-[10%] text-sky-300/40 dark:text-sky-600/30', size: 20, delay: 1.5 },
+   291→  { Icon: Activity, className: 'top-[55%] left-[5%] text-amber-300/30 dark:text-amber-600/20', size: 18, delay: 0.8 },
+   292→]
+   293→
+   294→// ── Star Rating Component ────────────────────────────────────────────────────
+   295→
+   296→function StarRating({ rating = 4.8 }: { rating?: number }) {
+   297→  const fullStars = Math.floor(rating)
+   298→  const hasHalf = rating - fullStars >= 0.5
+   299→  return (
+   300→    <div className="flex items-center gap-0.5">
+   301→      {Array.from({ length: 5 }).map((_, i) => (
+   302→        <Star
+   303→          key={i}
+   304→          className={`h-4 w-4 ${i < fullStars || (i === fullStars && hasHalf) ? 'fill-amber-400 text-amber-400' : 'text-gray-200 dark:text-gray-700'}`}
+   305→        />
+   306→      ))}
+   307→      <span className="ml-1 text-sm font-medium text-muted-foreground">{rating}</span>
+   308→    </div>
+   309→  )
+   310→}
+   311→
+   312→// ═══════════════════════════════════════════════════════════════════════════════
+   313→// MAIN PAGE
+   314→// ═══════════════════════════════════════════════════════════════════════════════
+   315→
+   316→export default function HomePage() {
+   317→  const router = useRouter()
+   318→  const [searchQuery, setSearchQuery] = useState('')
+   319→
+   320→  const handleSearch = (e: React.FormEvent) => {
+   321→    e.preventDefault()
+   322→    if (searchQuery.trim()) {
+   323→      router.push(`/doctors?search=${encodeURIComponent(searchQuery.trim())}`)
+   324→    } else {
+   325→      router.push('/doctors')
+   326→    }
+   327→  }
+   328→
+   329→  // ── Queries ──────────────────────────────────────────────────────────────
+   330→
+   331→  const { data: statsData } = useQuery<Stats>({
+   332→    queryKey: ['public-stats'],
+   333→    queryFn: () => fetch('/api/public/stats').then((r) => r.json()),
+   334→    staleTime: 60_000,
+   335→    retry: 1,
+   336→  })
+   337→
+   338→  const { data: doctorsData } = useQuery<{ doctors: Doctor[] }>({
+   339→    queryKey: ['featured-doctors'],
+   340→    queryFn: () => fetch('/api/doctors?limit=3').then((r) => r.json()),
+   341→    staleTime: 60_000,
+   342→    retry: 1,
+   343→  })
+   344→
+   345→  const { data: hospitalsData } = useQuery<{ hospitals: HospitalCard[] }>({
+   346→    queryKey: ['featured-hospitals'],
+   347→    queryFn: () => fetch('/api/hospitals?limit=3').then((r) => r.json()),
+   348→    staleTime: 60_000,
+   349→    retry: 1,
+   350→  })
+   351→
+   352→  const stats = statsData ?? fallbackStats
+   353→  const doctors = doctorsData?.doctors?.length ? doctorsData.doctors : fallbackDoctors
+   354→  const hospitals = hospitalsData?.hospitals?.length ? hospitalsData.hospitals : []
+   355→
+   356→  return (
+   357→    <PublicLayout>
+   358→      <BackToTop />
+   359→
+   360→      {/* ── 1. HERO SECTION ──────────────────────────────────────────────── */}
+   361→      <section className="relative overflow-hidden bg-gradient-to-br from-teal-50 via-white to-teal-50/60 dark:from-teal-950/20 dark:via-background dark:to-teal-950/10">
+   362→        {/* Floating icons */}
+   363→        {floatingIcons.map(({ Icon, className, size, delay }, i) => (
+   364→          <motion.div
+   365→            key={i}
+   366→            className={`absolute hidden lg:block ${className}`}
+   367→            animate={{ y: [0, -12, 0] }}
+   368→            transition={{ duration: 3 + delay, repeat: Infinity, ease: 'easeInOut', delay }}
+   369→          >
+   370→            <Icon size={size} />
+   371→          </motion.div>
+   372→        ))}
+   373→
+   374→        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-28">
+   375→          <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
+   376→            {/* Left column */}
+   377→            <motion.div
+   378→              initial={{ opacity: 0, x: -30 }}
+   379→              animate={{ opacity: 1, x: 0 }}
+   380→              transition={{ duration: 0.7, ease: 'easeOut' }}
+   381→              className="space-y-6"
+   382→            >
+   383→              <Badge variant="secondary" className="rounded-full bg-teal-100 px-4 py-1.5 text-sm font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+   384→                Trusted by 50,000+ patients
+   385→              </Badge>
+   386→
+   387→              <h1 className="text-4xl font-bold leading-tight tracking-tight text-gray-900 dark:text-white sm:text-5xl lg:text-6xl">
+   388→                Your Health,{' '}
+   389→                <span className="bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent dark:from-teal-400 dark:to-emerald-400">
+   390→                  Our Priority
+   391→                </span>
+   392→              </h1>
+   393→
+   394→              <p className="max-w-lg text-lg text-gray-600 dark:text-gray-400">
+   395→                Find and book appointments with top-rated doctors near you.{' '}
+   396→                {APP_NAME} connects patients with verified healthcare professionals for in-person and video consultations.
+   397→              </p>
+   398→
+   399→              {/* Search bar */}
+   400→              <form onSubmit={handleSearch} className="flex max-w-md items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-sm dark:border-gray-700 dark:bg-gray-900">
+   401→                <Search className="h-5 w-5 shrink-0 text-gray-400" />
+   402→                <Input
+   403→                  placeholder="Search doctors, specializations..."
+   404→                  value={searchQuery}
+   405→                  onChange={(e) => setSearchQuery(e.target.value)}
+   406→                  className="h-9 flex-1 border-0 bg-transparent shadow-none focus-visible:ring-0"
+   407→                />
+   408→                <Button
+   409→                  type="submit"
+   410→                  size="sm"
+   411→                  className="shrink-0 bg-gradient-to-r from-teal-600 to-emerald-500 text-white hover:from-teal-700 hover:to-emerald-600"
+   412→                >
+   413→                  <Search className="h-4 w-4" />
+   414→                  <span className="hidden sm:inline">Search</span>
+   415→                </Button>
+   416→              </form>
+   417→
+   418→              {/* CTA buttons */}
+   419→              <div className="flex flex-wrap gap-3 pt-2">
+   420→                <Button
+   421→                  size="lg"
+   422→                  className="bg-gradient-to-r from-teal-600 to-emerald-500 px-6 text-white shadow-md hover:from-teal-700 hover:to-emerald-600"
+   423→                  asChild
+   424→                >
+   425→                  <Link href="/hospitals">
+   426→                    Browse Hospitals
+   427→                    <ArrowRight className="ml-1 h-4 w-4" />
+   428→                  </Link>
+   429→                </Button>
+   430→                <Button
+   431→                  size="lg"
+   432→                  variant="outline"
+   433→                  className="border-teal-600 text-teal-600 hover:bg-teal-50 dark:border-teal-400 dark:text-teal-400 dark:hover:bg-teal-950/30"
+   434→                  asChild
+   435→                >
+   436→                  <Link href="/doctors">Find a Doctor</Link>
+   437→                </Button>
+   438→              </div>
+   439→            </motion.div>
+   440→
+   441→            {/* Right column — abstract illustration */}
+   442→            <motion.div
+   443→              initial={{ opacity: 0, x: 30 }}
+   444→              animate={{ opacity: 1, x: 0 }}
+   445→              transition={{ duration: 0.7, delay: 0.2, ease: 'easeOut' }}
+   446→              className="relative hidden lg:flex items-center justify-center"
+   447→            >
+   448→              <div className="relative h-96 w-96">
+   449→                {/* Gradient circles */}
+   450→                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-teal-200/60 to-emerald-200/40 dark:from-teal-800/20 dark:to-emerald-800/10" />
+   451→                <div className="absolute inset-8 rounded-full bg-gradient-to-tr from-teal-100/80 to-white dark:from-teal-900/30 dark:to-gray-900/50" />
+   452→                <div className="absolute inset-16 rounded-full bg-gradient-to-bl from-white to-teal-50 dark:from-gray-800 dark:to-teal-900/20" />
+   453→                {/* Center stethoscope icon */}
+   454→                <div className="absolute inset-0 flex items-center justify-center">
+   455→                  <motion.div
+   456→                    animate={{ scale: [1, 1.05, 1] }}
+   457→                    transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+   458→                  >
+   459→                    <Stethoscope className="h-28 w-28 text-teal-500 dark:text-teal-400" />
+   460→                  </motion.div>
+   461→                </div>
+   462→                {/* Orbiting pulse ring */}
+   463→                <motion.div
+   464→                  className="absolute inset-0 rounded-full border-2 border-teal-300/40 dark:border-teal-600/20"
+   465→                  animate={{ scale: [1, 1.15, 1], opacity: [0.5, 0, 0.5] }}
+   466→                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+   467→                />
+   468→                <motion.div
+   469→                  className="absolute inset-4 rounded-full border border-emerald-300/30 dark:border-emerald-600/15"
+   470→                  animate={{ scale: [1, 1.2, 1], opacity: [0.4, 0, 0.4] }}
+   471→                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+   472→                />
+   473→              </div>
+   474→            </motion.div>
+   475→          </div>
+   476→        </div>
+   477→      </section>
+   478→
+   479→      {/* ── 2. STATS SECTION ─────────────────────────────────────────────── */}
+   480→      <section className="bg-white py-16 dark:bg-gray-950 sm:py-20">
+   481→        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   482→          <StatsGrid stats={stats} />
+   483→        </div>
+   484→      </section>
+   485→
+   486→      {/* ── 3. HOW IT WORKS SECTION ──────────────────────────────────────── */}
+   487→      <section className="bg-gray-50 py-16 dark:bg-gray-900/50 sm:py-20 lg:py-24">
+   488→        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   489→          <FadeUpSection className="text-center">
+   490→            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
+   491→              How It Works
+   492→            </h2>
+   493→            <p className="mx-auto mt-3 max-w-2xl text-lg text-gray-500 dark:text-gray-400">
+   494→              Book your appointment in three simple steps
+   495→            </p>
+   496→          </FadeUpSection>
+   497→
+   498→          <div className="relative mt-14 grid gap-8 md:grid-cols-3">
+   499→            {/* Dashed connector line (desktop only) */}
+   500→            <div className="absolute top-12 left-[calc(16.67%+24px)] right-[calc(16.67%+24px)] hidden border-t-2 border-dashed border-teal-300 dark:border-teal-700 md:block" />
+   501→
+   502→            {[
+   503→              {
+   504→                icon: Building2,
+   505→                step: 1,
+   506→                title: 'Choose Hospital',
+   507→                desc: 'Browse multi-specialty hospitals, explore departments like Cardiology, Orthopedics, and more.',
+   508→              },
+   509→              {
+   510→                icon: CalendarCheck,
+   511→                step: 2,
+   512→                title: 'Select Doctor',
+   513→                desc: 'View doctors in your chosen department, check their fees, availability, and OPD timings.',
+   514→              },
+   515→              {
+   516→                icon: Video,
+   517→                step: 3,
+   518→                title: 'Book & Consult',
+   519→                desc: 'Book a convenient time slot and get your consultation — in-person or via video call.',
+   520→              },
+   521→            ].map((item, i) => (
+   522→              <FadeUpItem key={item.step} index={i} className="flex flex-col items-center text-center">
+   523→                <div className="relative z-10 mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 text-white shadow-lg">
+   524→                  <item.icon className="h-6 w-6" />
+   525→                </div>
+   526→                <span className="mb-2 text-sm font-semibold text-teal-600 dark:text-teal-400">Step {item.step}</span>
+   527→                <h3 className="mb-2 text-xl font-semibold text-gray-900 dark:text-white">{item.title}</h3>
+   528→                <p className="max-w-xs text-gray-500 dark:text-gray-400">{item.desc}</p>
+   529→              </FadeUpItem>
+   530→            ))}
+   531→          </div>
+   532→        </div>
+   533→      </section>
+   534→
+   535→      {/* ── 4. FEATURED HOSPITALS SECTION ────────────────────────────── */}
+   536→      <section className="bg-white py-16 dark:bg-gray-950 sm:py-20 lg:py-24">
+   537→        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   538→          <FadeUpSection className="text-center">
+   539→            <Badge variant="secondary" className="mb-3 rounded-full bg-teal-100 px-3 py-1 text-xs font-medium text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+   540→              Multi-Specialty Hospitals
+   541→            </Badge>
+   542→            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
+   543→              Top Hospitals Near You
+   544→            </h2>
+   545→            <p className="mx-auto mt-3 max-w-2xl text-lg text-gray-500 dark:text-gray-400">
+   546→              Explore departments and book appointments at leading multi-specialty hospitals
+   547→            </p>
+   548→          </FadeUpSection>
+   549→
+   550→          {hospitals.length > 0 ? (
+   551→            <div className="mt-12 grid gap-6 md:grid-cols-3">
+   552→              {hospitals.slice(0, 3).map((h, i) => {
+   553→                const facilities: string[] = h.hospital?.facilities ? JSON.parse(h.hospital.facilities) : []
+   554→                return (
+   555→                  <FadeUpItem key={h.id} index={i}>
+   556→                    <Link href={`/hospitals/${h.id}`} className="block">
+   557→                      <Card className="group h-full cursor-pointer overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+   558→                        {/* Gradient top bar */}
+   559→                        <div className={`h-2 bg-gradient-to-r ${i === 0 ? 'from-teal-500 to-emerald-500' : i === 1 ? 'from-amber-500 to-orange-500' : 'from-rose-500 to-pink-500'}`} />
+   560→                        <CardContent className="p-6">
+   561→                          {/* Hospital icon + name */}
+   562→                          <div className="flex items-start gap-3 mb-4">
+   563→                            <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${i === 0 ? 'bg-teal-50 dark:bg-teal-900/30' : i === 1 ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-rose-50 dark:bg-rose-900/30'}`}>
+   564→                              <Building2 className={`h-6 w-6 ${i === 0 ? 'text-teal-600 dark:text-teal-400' : i === 1 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'}`} />
+   565→                            </div>
+   566→                            <div className="min-w-0">
+   567→                              <h3 className="font-semibold text-gray-900 dark:text-white truncate">{h.hospital?.hospitalName || h.name}</h3>
+   568→                              {h.hospital?.city && (
+   569→                                <p className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+   570→                                  <MapPin className="h-3.5 w-3.5" />
+   571→                                  {h.hospital.city}{h.hospital.state ? `, ${h.hospital.state}` : ''}
+   572→                                </p>
+   573→                              )}
+   574→                            </div>
+   575→                          </div>
+   576→
+   577→                          {/* Quick stats */}
+   578→                          <div className="flex gap-3 mb-4">
+   579→                            <div className="flex-1 rounded-lg bg-gray-50 p-2.5 text-center dark:bg-gray-900">
+   580→                              <p className="text-lg font-bold text-gray-900 dark:text-white">{h._count?.departments ?? 0}</p>
+   581→                              <p className="text-[11px] text-muted-foreground">Departments</p>
+   582→                            </div>
+   583→                            <div className="flex-1 rounded-lg bg-gray-50 p-2.5 text-center dark:bg-gray-900">
+   584→                              <p className="text-lg font-bold text-gray-900 dark:text-white">{h._count?.doctorLinks ?? 0}</p>
+   585→                              <p className="text-[11px] text-muted-foreground">Doctors</p>
+   586→                            </div>
+   587→                            {h.hospital?.bedCount ? (
+   588→                              <div className="flex-1 rounded-lg bg-gray-50 p-2.5 text-center dark:bg-gray-900">
+   589→                                <p className="text-lg font-bold text-gray-900 dark:text-white">{h.hospital.bedCount}</p>
+   590→                                <p className="text-[11px] text-muted-foreground">Beds</p>
+   591→                              </div>
+   592→                            ) : null}
+   593→                          </div>
+   594→
+   595→                          {/* Badges */}
+   596→                          <div className="flex flex-wrap gap-1.5 mb-4">
+   597→                            {h.hospital?.hospitalType && (
+   598→                              <Badge variant="secondary" className="text-[10px] bg-teal-50 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300">
+   599→                                {h.hospital.hospitalType}
+   600→                              </Badge>
+   601→                            )}
+   602→                            {h.hospital?.accreditation && (
+   603→                              <Badge variant="secondary" className="text-[10px] bg-amber-50 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+   604→                                {h.hospital.accreditation}
+   605→                              </Badge>
+   606→                            )}
+   607→                          </div>
+   608→
+   609→                          {/* Facilities */}
+   610→                          {facilities.length > 0 && (
+   611→                            <div className="flex flex-wrap gap-1 mb-4">
+   612→                              {facilities.slice(0, 4).map((f: string) => (
+   613→                                <span key={f} className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+   614→                                  {f}
+   615→                                </span>
+   616→                              ))}
+   617→                              {facilities.length > 4 && (
+   618→                                <span className="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+   619→                                  +{facilities.length - 4} more
+   620→                                </span>
+   621→                              )}
+   622→                            </div>
+   623→                          )}
+   624→
+   625→                          {/* View button */}
+   626→                          <div className="flex items-center justify-between pt-3 border-t border-border/50">
+   627→                            <span className="text-sm font-medium text-teal-600 dark:text-teal-400 group-hover:underline">
+   628→                              View Departments
+   629→                            </span>
+   630→                            <ArrowRight className="h-4 w-4 text-teal-600 dark:text-teal-400 transition-transform group-hover:translate-x-1" />
+   631→                          </div>
+   632→                        </CardContent>
+   633→                      </Card>
+   634→                    </Link>
+   635→                  </FadeUpItem>
+   636→                )
+   637→              })}
+   638→            </div>
+   639→          ) : (
+   640→            <div className="mt-8 grid gap-4 md:grid-cols-3">
+   641→              {Array.from({ length: 3 }).map((_, i) => (
+   642→                <Card key={i} className="overflow-hidden">
+   643→                  <div className="h-2 bg-muted animate-pulse" />
+   644→                  <CardContent className="p-6 space-y-4">
+   645→                    <Skeleton className="h-5 w-3/4" />
+   646→                    <Skeleton className="h-4 w-1/2" />
+   647→                    <div className="flex gap-3">
+   648→                      <Skeleton className="h-14 flex-1 rounded-lg" />
+   649→                      <Skeleton className="h-14 flex-1 rounded-lg" />
+   650→                    </div>
+   651→                  </CardContent>
+   652→                </Card>
+   653→              ))}
+   654→            </div>
+   655→          )}
+   656→
+   657→          <FadeUpSection className="mt-10 text-center">
+   658→            <Link
+   659→              href="/hospitals"
+   660→              className="inline-flex items-center gap-2 text-lg font-semibold text-teal-600 transition-colors hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
+   661→            >
+   662→              View All Hospitals
+   663→              <ArrowRight className="h-5 w-5" />
+   664→            </Link>
+   665→          </FadeUpSection>
+   666→        </div>
+   667→      </section>
+   668→
+   669→      {/* ── 5. FEATURED DOCTORS SECTION ───────────────────────────────────── */}
+   670→      <section className="bg-gray-50 py-16 dark:bg-gray-900/50 sm:py-20 lg:py-24">
+   671→        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   672→          <FadeUpSection className="text-center">
+   673→            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
+   674→              Top Rated Doctors
+   675→            </h2>
+   676→            <p className="mx-auto mt-3 max-w-2xl text-lg text-gray-500 dark:text-gray-400">
+   677→              Meet our highly qualified and experienced healthcare professionals
+   678→            </p>
+   679→          </FadeUpSection>
+   680→
+   681→          <div className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+   682→            {doctors.slice(0, 3).map((doc, i) => (
+   683→              <FadeUpItem key={doc.id} index={i}>
+   684→                <Link href={`/doctors/${doc.id}`} className="block">
+   685→                <Card className="group cursor-pointer transition-all duration-300 hover:-translate-y-1 hover:shadow-lg">
+   686→                  <CardContent className="flex flex-col items-center p-6">
+   687→                    {/* Avatar */}
+   688→                    <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-emerald-100 text-xl font-bold text-teal-700 ring-4 ring-teal-200/60 dark:from-teal-900/40 dark:to-emerald-900/40 dark:text-teal-300 dark:ring-teal-800/40">
+   689→                      {doc.profileImg ? (
+   690→                        <img
+   691→                          src={doc.profileImg}
+   692→                          alt={doc.name}
+   693→                          className="h-full w-full rounded-full object-cover"
+   694→                        />
+   695→                      ) : (
+   696→                        getInitials(doc.name)
+   697→                      )}
+   698→                    </div>
+   699→
+   700→                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{doc.name}</h3>
+   701→                    <p className="mt-0.5 text-sm font-medium text-teal-600 dark:text-teal-400">
+   702→                      {doc.doctor?.specialization ?? 'General Physician'}
+   703→                    </p>
+   704→                    <div className="mt-2 flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400">
+   705→                      <MapPin className="h-3.5 w-3.5" />
+   706→                      <span>{doc.doctor?.city ?? 'India'}</span>
+   707→                      {doc.doctor?.experience && (
+   708→                        <span className="ml-2">• {doc.doctor?.experience} yrs exp</span>
+   709→                      )}
+   710→                    </div>
+   711→
+   712→                    <div className="mt-3">
+   713→                      <StarRating rating={doc._avgRating?.star ?? (4.5 + (i % 3) * 0.15)} />
+   714→                    </div>
+   715→
+   716→                    <div className="mt-3 flex items-center gap-1 text-lg font-bold text-gray-900 dark:text-white">
+   717→                      <IndianRupee className="h-4 w-4" />
+   718→                      <span>{formatCurrency(doc.doctor?.fees ?? 0)}</span>
+   719→                      <span className="ml-1 text-sm font-normal text-gray-400">/ visit</span>
+   720→                    </div>
+   721→
+   722→                    <div className="mt-5 flex w-full gap-2">
+   723→                      <Button
+   724→                        className="flex-1 bg-gradient-to-r from-teal-600 to-emerald-500 text-white hover:from-teal-700 hover:to-emerald-600"
+   725→                        asChild
+   726→                      >
+   727→                        <span>Book Appointment</span>
+   728→                      </Button>
+   729→                      <Button
+   730→                        variant="outline"
+   731→                        className="gap-1"
+   732→                      >
+   733→                        View Profile
+   734→                        <ArrowRight className="h-4 w-4" />
+   735→                      </Button>
+   736→                    </div>
+   737→                  </CardContent>
+   738→                </Card>
+   739→                </Link>
+   740→              </FadeUpItem>
+   741→            ))}
+   742→          </div>
+   743→
+   744→          <FadeUpSection className="mt-10 text-center">
+   745→            <Link
+   746→              href="/doctors"
+   747→              className="inline-flex items-center gap-2 text-lg font-semibold text-teal-600 transition-colors hover:text-teal-700 dark:text-teal-400 dark:hover:text-teal-300"
+   748→            >
+   749→              View All Doctors
+   750→              <ArrowRight className="h-5 w-5" />
+   751→            </Link>
+   752→          </FadeUpSection>
+   753→        </div>
+   754→      </section>
+   755→
+   756→      {/* ── 5. SPECIALIZATIONS SECTION ────────────────────────────────────── */}
+   757→      <section className="bg-gray-50 py-16 dark:bg-gray-900/50 sm:py-20 lg:py-24">
+   758→        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   759→          <FadeUpSection className="text-center">
+   760→            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
+   761→              Browse by Specialization
+   762→            </h2>
+   763→            <p className="mx-auto mt-3 max-w-2xl text-lg text-gray-500 dark:text-gray-400">
+   764→              Find doctors across a wide range of medical specialties
+   765→            </p>
+   766→          </FadeUpSection>
+   767→
+   768→          <div className="mt-12 grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:gap-6">
+   769→            {specDisplay.map((spec, i) => (
+   770→              <FadeUpItem key={spec.name} index={i}>
+   771→                <Link href={`/doctors?specialization=${encodeURIComponent(spec.name)}`}>
+   772→                <Card className="group cursor-pointer border-transparent transition-all duration-300 hover:border-teal-300 hover:shadow-md dark:hover:border-teal-700">
+   773→                  <CardContent className="flex flex-col items-center gap-3 p-5 text-center">
+   774→                    <div className={`flex h-14 w-14 items-center justify-center rounded-xl ${spec.bg}`}>
+   775→                      <spec.icon className={`h-7 w-7 ${spec.iconColor}`} />
+   776→                    </div>
+   777→                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white sm:text-base">{spec.name}</h3>
+   778→                    <Badge variant="secondary" className="text-xs">
+   779→                      {specDisplay.findIndex((s) => s.name === spec.name) + 3} doctors
+   780→                    </Badge>
+   781→                  </CardContent>
+   782→                </Card>
+   783→                </Link>
+   784→              </FadeUpItem>
+   785→            ))}
+   786→          </div>
+   787→        </div>
+   788→      </section>
+   789→
+   790→      {/* ── 6. WHY CHOOSE US SECTION ─────────────────────────────────────── */}
+   791→      <section className="bg-white py-16 dark:bg-gray-950 sm:py-20 lg:py-24">
+   792→        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   793→          <FadeUpSection className="text-center">
+   794→            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
+   795→              Why Choose {APP_NAME}?
+   796→            </h2>
+   797→            <p className="mx-auto mt-3 max-w-2xl text-lg text-gray-500 dark:text-gray-400">
+   798→              We are committed to providing you with the best healthcare experience
+   799→            </p>
+   800→          </FadeUpSection>
+   801→
+   802→          <div className="mt-12 grid gap-6 sm:grid-cols-2">
+   803→            {[
+   804→              {
+   805→                icon: ShieldCheck,
+   806→                title: 'Verified Doctors',
+   807→                desc: 'Every doctor on our platform is verified with valid medical licenses and credentials for your safety.',
+   808→              },
+   809→              {
+   810→                icon: CalendarCheck,
+   811→                title: 'Easy Booking',
+   812→                desc: 'Book appointments in seconds with our intuitive interface. No more long waits on phone calls.',
+   813→              },
+   814→              {
+   815→                icon: Video,
+   816→                title: 'Video Consultation',
+   817→                desc: 'Consult with doctors from the comfort of your home through our secure HD video calling feature.',
+   818→              },
+   819→              {
+   820→                icon: Lock,
+   821→                title: 'Secure Data',
+   822→                desc: 'Your health data is encrypted and stored securely. We follow the highest standards of data privacy.',
+   823→              },
+   824→            ].map((item, i) => (
+   825→              <FadeUpItem key={item.title} index={i}>
+   826→                <Card className="h-full transition-all duration-300 hover:shadow-md">
+   827→                  <CardContent className="flex flex-row items-start gap-4 p-6">
+   828→                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-emerald-500 text-white shadow-md">
+   829→                      <item.icon className="h-7 w-7" />
+   830→                    </div>
+   831→                    <div>
+   832→                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{item.title}</h3>
+   833→                      <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{item.desc}</p>
+   834→                    </div>
+   835→                  </CardContent>
+   836→                </Card>
+   837→              </FadeUpItem>
+   838→            ))}
+   839→          </div>
+   840→        </div>
+   841→      </section>
+   842→
+   843→      {/* ── 7. TESTIMONIALS SECTION ───────────────────────────────────────── */}
+   844→      <section className="bg-gray-50 py-16 dark:bg-gray-900/50 sm:py-20 lg:py-24">
+   845→        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+   846→          <FadeUpSection className="text-center">
+   847→            <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">
+   848→              What Our Users Say
+   849→            </h2>
+   850→            <p className="mx-auto mt-3 max-w-2xl text-lg text-gray-500 dark:text-gray-400">
+   851→              Real stories from patients and doctors who trust {APP_NAME}
+   852→            </p>
+   853→          </FadeUpSection>
+   854→
+   855→          <div className="mt-12 grid gap-6 md:grid-cols-3">
+   856→            {testimonials.map((t, i) => (
+   857→              <FadeUpItem key={t.name} index={i}>
+   858→                <Card className="h-full border-l-4 border-l-teal-500 transition-all duration-300 hover:shadow-md">
+   859→                  <CardContent className="p-6">
+   860→                    <Quote className="mb-3 h-8 w-8 text-teal-300 dark:text-teal-700" />
+   861→                    <p className="mb-4 text-sm leading-relaxed text-gray-600 dark:text-gray-300">&ldquo;{t.text}&rdquo;</p>
+   862→                    <StarRating rating={5} />
+   863→                    <div className="mt-4 flex items-center gap-3">
+   864→                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-teal-100 to-emerald-100 text-sm font-bold text-teal-700 dark:from-teal-900/40 dark:to-emerald-900/40 dark:text-teal-300">
+   865→                        {getInitials(t.name)}
+   866→                      </div>
+   867→                      <div>
+   868→                        <p className="text-sm font-semibold text-gray-900 dark:text-white">{t.name}</p>
+   869→                        <p className="text-xs text-gray-500 dark:text-gray-400">
+   870→                          {t.role} • {t.location}
+   871→                        </p>
+   872→                      </div>
+   873→                    </div>
+   874→                  </CardContent>
+   875→                </Card>
+   876→              </FadeUpItem>
+   877→            ))}
+   878→          </div>
+   879→        </div>
+   880→      </section>
+   881→
+   882→      {/* ── 8. CTA SECTION ────────────────────────────────────────────────── */}
+   883→      <section className="bg-gradient-to-r from-teal-600 to-emerald-500 py-16 sm:py-20">
+   884→        <FadeUpSection className="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+   885→          <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+   886→            Ready to book your appointment?
+   887→          </h2>
+   888→          <p className="mx-auto mt-4 max-w-xl text-lg text-teal-100">
+   889→            Join thousands of patients who trust {APP_NAME} for their healthcare needs. Find the right doctor today.
+   890→          </p>
+   891→          <div className="mt-8 flex flex-wrap justify-center gap-4">
+   892→            <Button
+   893→              size="lg"
+   894→              className="bg-white px-8 text-teal-700 shadow-lg hover:bg-teal-50"
+   895→              asChild
+   896→            >
+   897→              <Link href="/doctors">
+   898→                Find a Doctor
+   899→                <ArrowRight className="ml-1 h-4 w-4" />
+   900→              </Link>
+   901→            </Button>
+   902→            <Button
+   903→              size="lg"
+   904→              variant="outline"
+   905→              className="border-2 border-white/40 bg-transparent px-8 text-white hover:bg-white/10"
+   906→              asChild
+   907→            >
+   908→              <Link href="/contact">Contact Us</Link>
+   909→            </Button>
+   910→          </div>
+   911→        </FadeUpSection>
+   912→      </section>
+   913→    </PublicLayout>
+   914→  )
+   915→}
+   916→
+   917→// ── Stats Grid (separate to use hooks) ────────────────────────────────────────
+   918→
+   919→function StatsGrid({ stats }: { stats: Stats }) {
+   920→  const ref = useRef<HTMLDivElement>(null)
+   921→  const inView = useInView(ref, { once: true, margin: '100px' })
+   922→  const [delayPassed, setDelayPassed] = useState(false)
+   923→
+   924→  useEffect(() => {
+   925→    const id = setTimeout(() => setDelayPassed(true), 800)
+   926→    return () => clearTimeout(id)
+   927→  }, [])
+   928→
+   929→  const shouldAnimate = inView || delayPassed
+   930→
+   931→  const doctorCount = useCountUp(stats.doctorCount, shouldAnimate)
+   932→  const hospitalCount = useCountUp(stats.hospitalCount, shouldAnimate)
+   933→  const patientCount = useCountUp(stats.patientCount, shouldAnimate)
+   934→  const bookingCount = useCountUp(stats.bookingCount, shouldAnimate)
+   935→
+   936→  const items = [
+   937→    { icon: Stethoscope, value: doctorCount, label: 'Verified Doctors', suffix: '+' },
+   938→    { icon: Building2, value: hospitalCount, label: 'Partner Hospitals', suffix: '+' },
+   939→    { icon: Users, value: patientCount, label: 'Happy Patients', suffix: '+' },
+   940→    { icon: CalendarCheck, value: bookingCount, label: 'Appointments Booked', suffix: '+' },
+   941→  ]
+   942→
+   943→  return (
+   944→    <div ref={ref} className="grid grid-cols-2 gap-6 lg:grid-cols-4">
+   945→      {items.map((item, i) => (
+   946→        <FadeUpItem key={item.label} index={i} className="flex flex-col items-center text-center">
+   947→          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-teal-100 text-teal-600 dark:bg-teal-900/40 dark:text-teal-400">
+   948→            <item.icon className="h-7 w-7" />
+   949→          </div>
+   950→          <p className="text-3xl font-bold text-gray-900 dark:text-white sm:text-4xl">
+   951→            {item.value.toLocaleString('en-IN')}
+   952→            {item.suffix}
+   953→          </p>
+   954→          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{item.label}</p>
+   955→          <div className="mt-2 h-1 w-8 rounded-full bg-teal-500" />
+   956→        </FadeUpItem>
+   957→      ))}
+   958→    </div>
+   959→  )
+   960→}
+   961→

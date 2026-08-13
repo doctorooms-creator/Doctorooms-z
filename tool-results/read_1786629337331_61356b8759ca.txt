@@ -1,0 +1,793 @@
+     1→'use client'
+     2→
+     3→import { useQuery } from '@tanstack/react-query'
+     4→import { motion, AnimatePresence } from 'framer-motion'
+     5→import { Card, CardContent } from '@/components/ui/card'
+     6→import { Badge } from '@/components/ui/badge'
+     7→import { Skeleton } from '@/components/ui/skeleton'
+     8→import {
+     9→  BedDouble,
+    10→  User,
+    11→  AlertTriangle,
+    12→  Activity,
+    13→  Thermometer,
+    14→  Heart,
+    15→  Wind,
+    16→  Droplets,
+    17→  Clock,
+    18→  Building2,
+    19→  CheckCircle2,
+    20→  Wrench,
+    21→  Lock,
+    22→} from 'lucide-react'
+    23→import { useRouter } from 'next/navigation'
+    24→import { cn } from '@/lib/utils'
+    25→import { useCallback } from 'react'
+    26→
+    27→// ─── Types ────────────────────────────────────────────────────────
+    28→
+    29→interface VitalAlert {
+    30→  parameter: string
+    31→  level: 'critical' | 'high' | 'medium' | 'normal'
+    32→  message: string
+    33→  value: number
+    34→}
+    35→
+    36→interface LatestVital {
+    37→  temperature: number
+    38→  pulse: number
+    39→  spo2: number
+    40→  bpSystolic: number
+    41→  bpDiastolic: number
+    42→  respiratoryRate: number
+    43→  patientStatus: string
+    44→  recordedAt: string
+    45→}
+    46→
+    47→interface PatientInfo {
+    48→  admissionId: string
+    49→  admissionNo: string
+    50→  patientName: string
+    51→  age: number
+    52→  gender: string
+    53→  diagnosis: string
+    54→  doctorName: string
+    55→  departmentName: string
+    56→  status: string
+    57→  admissionDate: string
+    58→}
+    59→
+    60→interface BedData {
+    61→  id: string
+    62→  bedNumber: string
+    63→  bedType: string
+    64→  status: string
+    65→  dailyRate: number
+    66→  patient: PatientInfo | null
+    67→  latestVital: LatestVital | null
+    68→  vitalAlerts: VitalAlert[]
+    69→  hasCriticalAlert: boolean
+    70→}
+    71→
+    72→interface WardData {
+    73→  id: string
+    74→  name: string
+    75→  wardType: string
+    76→  floorNo: string
+    77→  hospitalName: string
+    78→}
+    79→
+    80→interface WardSummary {
+    81→  id: string
+    82→  name: string
+    83→  wardType: string
+    84→  floorNo: string
+    85→  totalBeds: number
+    86→  occupied: number
+    87→  available: number
+    88→}
+    89→
+    90→interface WardResponse {
+    91→  hasWard: boolean
+    92→  hospitalName: string
+    93→  ward?: WardData
+    94→  beds?: BedData[]
+    95→  stats?: { totalBeds: number; occupied: number; available: number }
+    96→  wards?: WardSummary[]
+    97→}
+    98→
+    99→// ─── Helpers ──────────────────────────────────────────────────────
+   100→
+   101→function getWardTypeColor(type: string) {
+   102→  switch (type) {
+   103→    case 'ICU':
+   104→      return 'bg-red-100 text-red-700 dark:bg-red-950/50 dark:text-red-400'
+   105→    case 'General':
+   106→      return 'bg-teal-100 text-teal-700 dark:bg-teal-950/50 dark:text-teal-400'
+   107→    case 'Private':
+   108→      return 'bg-violet-100 text-violet-700 dark:bg-violet-950/50 dark:text-violet-400'
+   109→    case 'SemiPrivate':
+   110→      return 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-400'
+   111→    case 'PostOp':
+   112→      return 'bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400'
+   113→    case 'Emergency':
+   114→      return 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400'
+   115→    case 'Maternity':
+   116→      return 'bg-pink-100 text-pink-700 dark:bg-pink-950/50 dark:text-pink-400'
+   117→    default:
+   118→      return 'bg-slate-100 text-slate-700 dark:bg-slate-950/50 dark:text-slate-400'
+   119→  }
+   120→}
+   121→
+   122→function getBedTypeLabel(type: string) {
+   123→  switch (type) {
+   124→    case 'ICU_Ventilator': return 'ICU Vent'
+   125→    case 'ICU_NonVentilator': return 'ICU Non-Vent'
+   126→    default: return type
+   127→  }
+   128→}
+   129→
+   130→function formatTimeAgo(dateStr: string) {
+   131→  const now = new Date()
+   132→  const recorded = new Date(dateStr)
+   133→  const diffMs = now.getTime() - recorded.getTime()
+   134→  const diffMin = Math.floor(diffMs / 60000)
+   135→  if (diffMin < 1) return 'Just now'
+   136→  if (diffMin < 60) return `${diffMin}m ago`
+   137→  const diffHr = Math.floor(diffMin / 60)
+   138→  if (diffHr < 24) return `${diffHr}h ago`
+   139→  return `${Math.floor(diffHr / 24)}d ago`
+   140→}
+   141→
+   142→function getVitalTimeColor(dateStr: string) {
+   143→  const now = new Date()
+   144→  const recorded = new Date(dateStr)
+   145→  const diffHr = (now.getTime() - recorded.getTime()) / 3600000
+   146→  if (diffHr < 1) return 'text-emerald-500'
+   147→  if (diffHr < 2) return 'text-amber-500'
+   148→  return 'text-red-500'
+   149→}
+   150→
+   151→function isAbnormal(param: string, value: number) {
+   152→  const thresholds = {
+   153→    spo2: { critical: 90, warning: 94 },
+   154→    bpSystolic: { criticalLow: 90, criticalHigh: 180, warningHigh: 160 },
+   155→    bpDiastolic: { criticalHigh: 120, warningHigh: 100 },
+   156→    pulse: { criticalLow: 50, criticalHigh: 130, warningHigh: 110 },
+   157→    temperature: { warningHigh: 102.2 },
+   158→    respiratoryRate: { criticalLow: 10, criticalHigh: 30 },
+   159→  } as const
+   160→
+   161→  const t = thresholds[param as keyof typeof thresholds]
+   162→  if (!t) return false
+   163→
+   164→  if (param === 'spo2') return value < t.warning
+   165→  if (param === 'bpSystolic') return value < (t as { criticalLow: number }).criticalLow || value > (t as { warningHigh: number }).warningHigh
+   166→  if (param === 'bpDiastolic') return value > (t as { warningHigh: number }).warningHigh
+   167→  if (param === 'pulse') return value < (t as { criticalLow: number }).criticalLow || value > (t as { warningHigh: number }).warningHigh
+   168→  if (param === 'temperature') return value > (t as { warningHigh: number }).warningHigh
+   169→  if (param === 'respiratoryRate') return value < (t as { criticalLow: number }).criticalLow || value > (t as { criticalHigh: number }).criticalHigh
+   170→  return false
+   171→}
+   172→
+   173→// ─── Vital Mini Display ──────────────────────────────────────────
+   174→
+   175→function VitalMini({ vital, alerts }: { vital: LatestVital; alerts: VitalAlert[] }) {
+   176→  const alertParams = new Set(alerts.map((a) => a.parameter))
+   177→
+   178→  return (
+   179→    <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
+   180→      <VitalPill
+   181→        icon={<Thermometer className="h-3 w-3" />}
+   182→        label="Temp"
+   183→        value={vital.temperature > 0 ? `${vital.temperature.toFixed(1)}°F` : '—'}
+   184→        abnormal={isAbnormal('temperature', vital.temperature) || alertParams.has('Temperature')}
+   185→      />
+   186→      <VitalPill
+   187→        icon={<Heart className="h-3 w-3" />}
+   188→        label="Pulse"
+   189→        value={vital.pulse > 0 ? `${vital.pulse}` : '—'}
+   190→        unit="bpm"
+   191→        abnormal={isAbnormal('pulse', vital.pulse) || alertParams.has('Pulse')}
+   192→      />
+   193→      <VitalPill
+   194→        icon={<Droplets className="h-3 w-3" />}
+   195→        label="BP"
+   196→        value={vital.bpSystolic > 0 ? `${vital.bpSystolic}/${vital.bpDiastolic}` : '—'}
+   197→        unit="mmHg"
+   198→        abnormal={isAbnormal('bpSystolic', vital.bpSystolic) || alertParams.has('BP')}
+   199→      />
+   200→      <VitalPill
+   201→        icon={<Wind className="h-3 w-3" />}
+   202→        label="SpO2"
+   203→        value={vital.spo2 > 0 ? `${Math.round(vital.spo2)}` : '—'}
+   204→        unit="%"
+   205→        abnormal={isAbnormal('spo2', vital.spo2) || alertParams.has('SpO2')}
+   206→      />
+   207→    </div>
+   208→  )
+   209→}
+   210→
+   211→function VitalPill({
+   212→  icon,
+   213→  label,
+   214→  value,
+   215→  unit,
+   216→  abnormal,
+   217→}: {
+   218→  icon: React.ReactNode
+   219→  label: string
+   220→  value: string
+   221→  unit?: string
+   222→  abnormal: boolean
+   223→}) {
+   224→  return (
+   225→    <div className="flex items-center gap-1.5 text-xs">
+   226→      <span className={cn('text-muted-foreground', abnormal && 'text-red-500 dark:text-red-400')}>
+   227→        {icon}
+   228→      </span>
+   229→      <span className="font-medium text-muted-foreground">{label}</span>
+   230→      <span
+   231→        className={cn(
+   232→          'font-semibold tabular-nums',
+   233→          abnormal ? 'text-red-600 dark:text-red-400' : 'text-foreground'
+   234→        )}
+   235→      >
+   236→        {value}
+   237→      </span>
+   238→      {unit && <span className="text-muted-foreground opacity-70">{unit}</span>}
+   239→    </div>
+   240→  )
+   241→}
+   242→
+   243→// ─── Bed Card ─────────────────────────────────────────────────────
+   244→
+   245→function BedCard({ bed }: { bed: BedData }) {
+   246→  const router = useRouter()
+   247→
+   248→  const handleClick = useCallback(() => {
+   249→    if (bed.status === 'Occupied' && bed.patient) {
+   250→      router.push(`/dashboard/nurse/patients/${bed.patient.admissionId}`)
+   251→    }
+   252→  }, [bed.status, bed.patient, router])
+   253→
+   254→  // Status styling
+   255→  const isAvailable = bed.status === 'Available'
+   256→  const isOccupied = bed.status === 'Occupied'
+   257→  const isMaintenance = bed.status === 'Maintenance'
+   258→  const isReserved = bed.status === 'Reserved'
+   259→  const isCritical = bed.hasCriticalAlert
+   260→
+   261→  const borderColor = cn(
+   262→    'rounded-xl border-2 transition-all duration-300',
+   263→    isAvailable && 'border-emerald-400/60 dark:border-emerald-600/40',
+   264→    isOccupied && !isCritical && 'border-teal-400/50 dark:border-teal-600/30',
+   265→    isOccupied && isCritical && 'border-red-500 dark:border-red-400',
+   266→    isMaintenance && 'border-amber-400/50 dark:border-amber-600/30 border-dashed',
+   267→    isReserved && 'border-slate-400/50 dark:border-slate-600/30'
+   268→  )
+   269→
+   270→  return (
+   271→    <motion.div
+   272→      initial={{ opacity: 0, scale: 0.95 }}
+   273→      animate={{ opacity: 1, scale: 1 }}
+   274→      transition={{ duration: 0.3, ease: 'easeOut' }}
+   275→      whileHover={isOccupied ? { y: -3, shadow: 'lg' } : undefined}
+   276→      onClick={isOccupied ? handleClick : undefined}
+   277→      className={cn(
+   278→        'relative overflow-hidden bg-card',
+   279→        borderColor,
+   280→        isOccupied && 'cursor-pointer hover:shadow-lg'
+   281→      )}
+   282→    >
+   283→      {/* Critical pulsing overlay */}
+   284→      {isCritical && (
+   285→        <div className="absolute inset-0 animate-pulse rounded-xl bg-red-500/5" />
+   286→      )}
+   287→
+   288→      <CardContent className="relative p-4">
+   289→        {/* Top row: Bed number + status */}
+   290→        <div className="flex items-start justify-between">
+   291→          <div className="flex items-center gap-2">
+   292→            <div
+   293→              className={cn(
+   294→                'flex h-9 w-9 items-center justify-center rounded-lg',
+   295→                isAvailable && 'bg-emerald-100 dark:bg-emerald-900/40',
+   296→                isOccupied && !isCritical && 'bg-teal-100 dark:bg-teal-900/40',
+   297→                isOccupied && isCritical && 'bg-red-100 dark:bg-red-900/40',
+   298→                isMaintenance && 'bg-amber-100 dark:bg-amber-900/40',
+   299→                isReserved && 'bg-slate-100 dark:bg-slate-800/40'
+   300→              )}
+   301→            >
+   302→              <BedDouble
+   303→                className={cn(
+   304→                  'h-4.5 w-4.5',
+   305→                  isAvailable && 'text-emerald-600 dark:text-emerald-400',
+   306→                  isOccupied && !isCritical && 'text-teal-600 dark:text-teal-400',
+   307→                  isOccupied && isCritical && 'text-red-600 dark:text-red-400',
+   308→                  isMaintenance && 'text-amber-600 dark:text-amber-400',
+   309→                  isReserved && 'text-slate-500 dark:text-slate-400'
+   310→                )}
+   311→              />
+   312→            </div>
+   313→            <div>
+   314→              <h3 className="text-base font-bold leading-tight">{bed.bedNumber}</h3>
+   315→              <p className="text-[11px] text-muted-foreground">{getBedTypeLabel(bed.bedType)}</p>
+   316→            </div>
+   317→          </div>
+   318→
+   319→          {/* Status badge + critical dot */}
+   320→          <div className="flex items-center gap-1.5">
+   321→            {isCritical && (
+   322→              <span className="relative flex h-3 w-3">
+   323→                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-400 opacity-75" />
+   324→                <span className="relative inline-flex h-3 w-3 rounded-full bg-red-500" />
+   325→              </span>
+   326→            )}
+   327→            {isAvailable && (
+   328→              <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100 text-[10px] px-1.5 py-0 dark:bg-emerald-950/50 dark:text-emerald-400">
+   329→                <CheckCircle2 className="mr-0.5 h-2.5 w-2.5" />
+   330→                Available
+   331→              </Badge>
+   332→            )}
+   333→            {isOccupied && (
+   334→              <Badge className={cn(
+   335→                'text-[10px] px-1.5 py-0',
+   336→                isCritical
+   337→                  ? 'bg-red-100 text-red-700 hover:bg-red-100 dark:bg-red-950/50 dark:text-red-400'
+   338→                  : 'bg-teal-100 text-teal-700 hover:bg-teal-100 dark:bg-teal-950/50 dark:text-teal-400'
+   339→              )}>
+   340→                <User className="mr-0.5 h-2.5 w-2.5" />
+   341→                Occupied
+   342→              </Badge>
+   343→            )}
+   344→            {isMaintenance && (
+   345→              <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 text-[10px] px-1.5 py-0 dark:bg-amber-950/50 dark:text-amber-400">
+   346→                <Wrench className="mr-0.5 h-2.5 w-2.5" />
+   347→                Maintenance
+   348→              </Badge>
+   349→            )}
+   350→            {isReserved && (
+   351→              <Badge className="bg-slate-100 text-slate-600 hover:bg-slate-100 text-[10px] px-1.5 py-0 dark:bg-slate-800/50 dark:text-slate-400">
+   352→                <Lock className="mr-0.5 h-2.5 w-2.5" />
+   353→                Reserved
+   354→              </Badge>
+   355→            )}
+   356→          </div>
+   357→        </div>
+   358→
+   359→        {/* Occupied: Patient info */}
+   360→        {isOccupied && bed.patient && (
+   361→          <div className="mt-3 space-y-2">
+   362→            <div className="space-y-0.5">
+   363→              <p className="text-sm font-semibold leading-tight truncate">{bed.patient.patientName}</p>
+   364→              <p className="text-xs text-muted-foreground">
+   365→                {bed.patient.age}y, {bed.patient.gender}
+   366→              </p>
+   367→            </div>
+   368→
+   369→            <div className="flex flex-wrap items-center gap-1">
+   370→              <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-normal">
+   371→                {bed.patient.departmentName}
+   372→              </Badge>
+   373→              <span className="text-[10px] text-muted-foreground truncate max-w-[120px]">{bed.patient.doctorName}</span>
+   374→            </div>
+   375→
+   376→            {bed.patient.diagnosis && (
+   377→              <p className="text-[11px] text-muted-foreground line-clamp-1 leading-tight">
+   378→                {bed.patient.diagnosis}
+   379→              </p>
+   380→            )}
+   381→
+   382→            {/* Vitals mini display */}
+   383→            {bed.latestVital && (
+   384→              <>
+   385→                <VitalMini vital={bed.latestVital} alerts={bed.vitalAlerts} />
+   386→                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+   387→                  <Clock className="h-2.5 w-2.5" />
+   388→                  <span className={getVitalTimeColor(bed.latestVital.recordedAt)}>
+   389→                    {formatTimeAgo(bed.latestVital.recordedAt)}
+   390→                  </span>
+   391→                </div>
+   392→              </>
+   393→            )}
+   394→
+   395→            {/* Critical alert banner */}
+   396→            {isCritical && (
+   397→              <div className="mt-1 flex items-start gap-1.5 rounded-md bg-red-50 p-1.5 dark:bg-red-950/30">
+   398→                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0 text-red-500" />
+   399→                <p className="text-[10px] leading-tight text-red-700 dark:text-red-400">
+   400→                  {bed.vitalAlerts.find((a) => a.level === 'critical')?.message || 'Critical alert'}
+   401→                </p>
+   402→              </div>
+   403→            )}
+   404→          </div>
+   405→        )}
+   406→
+   407→        {/* Available: Empty state */}
+   408→        {isAvailable && (
+   409→          <div className="mt-4 flex flex-col items-center justify-center py-4 text-center">
+   410→            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+   411→              <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+   412→            </div>
+   413→            <p className="mt-2 text-xs font-medium text-emerald-600 dark:text-emerald-400">Ready</p>
+   414→            <p className="text-[10px] text-muted-foreground">Available for admission</p>
+   415→          </div>
+   416→        )}
+   417→
+   418→        {/* Maintenance */}
+   419→        {isMaintenance && (
+   420→          <div className="mt-4 flex flex-col items-center justify-center py-4 text-center">
+   421→            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+   422→              <Wrench className="h-5 w-5 text-amber-500" />
+   423→            </div>
+   424→            <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400">Under Maintenance</p>
+   425→            <p className="text-[10px] text-muted-foreground">Not available</p>
+   426→          </div>
+   427→        )}
+   428→
+   429→        {/* Reserved */}
+   430→        {isReserved && (
+   431→          <div className="mt-4 flex flex-col items-center justify-center py-4 text-center">
+   432→            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800/40">
+   433→              <Lock className="h-5 w-5 text-slate-400" />
+   434→            </div>
+   435→            <p className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">Reserved</p>
+   436→            <p className="text-[10px] text-muted-foreground">Bed reserved</p>
+   437→          </div>
+   438→        )}
+   439→      </CardContent>
+   440→    </motion.div>
+   441→  )
+   442→}
+   443→
+   444→// ─── Bed Card Skeleton ────────────────────────────────────────────
+   445→
+   446→function BedCardSkeleton() {
+   447→  return (
+   448→    <div className="rounded-xl border-2 border-border bg-card p-4">
+   449→      <div className="flex items-start justify-between">
+   450→        <div className="flex items-center gap-2">
+   451→          <Skeleton className="h-9 w-9 rounded-lg" />
+   452→          <div className="space-y-1.5">
+   453→            <Skeleton className="h-4 w-16" />
+   454→            <Skeleton className="h-3 w-12" />
+   455→          </div>
+   456→        </div>
+   457→        <Skeleton className="h-5 w-16 rounded-full" />
+   458→      </div>
+   459→      <div className="mt-3 space-y-2">
+   460→        <Skeleton className="h-4 w-28" />
+   461→        <Skeleton className="h-3 w-20" />
+   462→        <div className="grid grid-cols-2 gap-2">
+   463→          <Skeleton className="h-4 w-full" />
+   464→          <Skeleton className="h-4 w-full" />
+   465→          <Skeleton className="h-4 w-full" />
+   466→          <Skeleton className="h-4 w-full" />
+   467→        </div>
+   468→      </div>
+   469→    </div>
+   470→  )
+   471→}
+   472→
+   473→// ─── No Ward Assigned View ───────────────────────────────────────
+   474→
+   475→function NoWardView({ hospitalName, wards }: { hospitalName: string; wards: WardSummary[] }) {
+   476→  return (
+   477→    <div className="space-y-6">
+   478→      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 px-6 py-12 text-center">
+   479→        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-teal-100 dark:bg-teal-900/30">
+   480→          <Building2 className="h-7 w-7 text-teal-600 dark:text-teal-400" />
+   481→        </div>
+   482→        <h3 className="mt-4 text-lg font-semibold">No Ward Assigned</h3>
+   483→        <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+   484→          You are not currently assigned to any ward. Contact your nursing supervisor to get assigned.
+   485→        </p>
+   486→        {hospitalName && (
+   487→          <p className="mt-2 text-xs text-muted-foreground">{hospitalName}</p>
+   488→        )}
+   489→      </div>
+   490→
+   491→      {wards && wards.length > 0 && (
+   492→        <div className="space-y-3">
+   493→          <h3 className="text-sm font-medium text-muted-foreground">
+   494→            <Building2 className="mr-1.5 inline-block h-4 w-4" />
+   495→            Hospital Wards Overview
+   496→          </h3>
+   497→          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+   498→            {wards.map((ward, i) => (
+   499→              <motion.div
+   500→                key={ward.id}
+   501→                initial={{ opacity: 0, y: 10 }}
+   502→                animate={{ opacity: 1, y: 0 }}
+   503→                transition={{ delay: i * 0.05 }}
+   504→              >
+   505→                <Card className="overflow-hidden">
+   506→                  <div className="h-1 bg-gradient-to-r from-teal-500 to-teal-400" />
+   507→                  <CardContent className="p-4">
+   508→                    <div className="flex items-start justify-between">
+   509→                      <div>
+   510→                        <h4 className="font-semibold">{ward.name}</h4>
+   511→                        <div className="mt-1 flex items-center gap-2">
+   512→                          <Badge className={cn('text-[10px] px-1.5 py-0', getWardTypeColor(ward.wardType))}>
+   513→                            {ward.wardType}
+   514→                          </Badge>
+   515→                          {ward.floorNo && (
+   516→                            <span className="text-[11px] text-muted-foreground">{ward.floorNo}</span>
+   517→                          )}
+   518→                        </div>
+   519→                      </div>
+   520→                      <BedDouble className="h-5 w-5 text-muted-foreground/50" />
+   521→                    </div>
+   522→                    <div className="mt-3 flex items-center gap-3 text-xs">
+   523→                      <span className="font-medium">{ward.totalBeds} beds</span>
+   524→                      <span className="text-emerald-600 dark:text-emerald-400">{ward.available} free</span>
+   525→                      <span className="text-teal-600 dark:text-teal-400">{ward.occupied} occupied</span>
+   526→                    </div>
+   527→                    {/* Mini bar */}
+   528→                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+   529→                      <div
+   530→                        className="h-full rounded-full bg-gradient-to-r from-teal-500 to-teal-400 transition-all duration-500"
+   531→                        style={{ width: ward.totalBeds > 0 ? `${(ward.occupied / ward.totalBeds) * 100}%` : '0%' }}
+   532→                      />
+   533→                    </div>
+   534→                  </CardContent>
+   535→                </Card>
+   536→              </motion.div>
+   537→            ))}
+   538→          </div>
+   539→        </div>
+   540→      )}
+   541→    </div>
+   542→  )
+   543→}
+   544→
+   545→// ─── Main Client ──────────────────────────────────────────────────
+   546→
+   547→export default function NurseWardPatientsClient() {
+   548→  const router = useRouter()
+   549→
+   550→  const { data, isLoading, error } = useQuery<WardResponse>({
+   551→    queryKey: ['nurse-ward-patients'],
+   552→    queryFn: () => fetch('/api/dashboard/nurse/ward-patients').then((r) => r.json()),
+   553→    refetchInterval: 30000,
+   554→  })
+   555→
+   556→  if (isLoading) {
+   557→    return (
+   558→      <div className="space-y-6 p-4 md:p-6">
+   559→        <div className="flex items-center gap-3">
+   560→          <Skeleton className="h-10 w-10 rounded-xl" />
+   561→          <div className="space-y-1.5">
+   562→            <Skeleton className="h-6 w-48" />
+   563→            <Skeleton className="h-4 w-32" />
+   564→          </div>
+   565→        </div>
+   566→        <div className="grid grid-cols-3 gap-4">
+   567→          <Skeleton className="h-16 rounded-xl" />
+   568→          <Skeleton className="h-16 rounded-xl" />
+   569→          <Skeleton className="h-16 rounded-xl" />
+   570→        </div>
+   571→        <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+   572→          {Array.from({ length: 8 }).map((_, i) => (
+   573→            <BedCardSkeleton key={i} />
+   574→          ))}
+   575→        </div>
+   576→      </div>
+   577→    )
+   578→  }
+   579→
+   580→  if (error || !data) {
+   581→    return (
+   582→      <div className="flex flex-col items-center justify-center px-6 py-20 text-center">
+   583→        <AlertTriangle className="h-10 w-10 text-red-400" />
+   584→        <h3 className="mt-4 text-lg font-semibold">Failed to load ward data</h3>
+   585→        <p className="mt-1 text-sm text-muted-foreground">
+   586→          {error?.message || 'An unexpected error occurred.'}
+   587→        </p>
+   588→      </div>
+   589→    )
+   590→  }
+   591→
+   592→  // No ward assigned
+   593→  if (!data.hasWard) {
+   594→    return (
+   595→      <div className="mx-auto max-w-4xl p-4 md:p-6">
+   596→        <NoWardView hospitalName={data.hospitalName} wards={data.wards} />
+   597→      </div>
+   598→    )
+   599→  }
+   600→
+   601→  // Ward assigned — show bed map
+   602→  const { ward, beds, stats } = data
+   603→  const criticalCount = beds?.filter((b) => b.hasCriticalAlert).length || 0
+   604→
+   605→  return (
+   606→    <div className="p-4 md:p-6">
+   607→      {/* Header */}
+   608→      <div className="space-y-4">
+   609→        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   610→          <div className="flex items-center gap-3">
+   611→            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-600 shadow-md shadow-teal-500/20">
+   612→              <BedDouble className="h-5.5 w-5.5 text-white" />
+   613→            </div>
+   614→            <div>
+   615→              <div className="flex items-center gap-2">
+   616→                <h1 className="text-xl font-bold tracking-tight md:text-2xl">{ward?.name}</h1>
+   617→                <Badge className={cn('text-[10px] px-2 py-0', getWardTypeColor(ward?.wardType || ''))}>
+   618→                  {ward?.wardType}
+   619→                </Badge>
+   620→              </div>
+   621→              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+   622→                <Building2 className="h-3.5 w-3.5" />
+   623→                <span>{ward?.hospitalName}</span>
+   624→                {ward?.floorNo && (
+   625→                  <>
+   626→                    <span className="text-muted-foreground/40">•</span>
+   627→                    <span>{ward.floorNo}</span>
+   628→                  </>
+   629→                )}
+   630→              </div>
+   631→            </div>
+   632→          </div>
+   633→
+   634→          {/* Auto-refresh indicator */}
+   635→          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+   636→            <Activity className="h-3.5 w-3.5 animate-pulse text-teal-500" />
+   637→            <span>Live · 30s refresh</span>
+   638→          </div>
+   639→        </div>
+   640→
+   641→        {/* Stats row */}
+   642→        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+   643→          <motion.div
+   644→            initial={{ opacity: 0, y: 10 }}
+   645→            animate={{ opacity: 1, y: 0 }}
+   646→            transition={{ delay: 0 }}
+   647→            className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5"
+   648→          >
+   649→            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-teal-100 dark:bg-teal-900/40">
+   650→              <BedDouble className="h-4 w-4 text-teal-600 dark:text-teal-400" />
+   651→            </div>
+   652→            <div>
+   653→              <p className="text-lg font-bold tabular-nums">{stats?.totalBeds || 0}</p>
+   654→              <p className="text-[11px] text-muted-foreground">Total Beds</p>
+   655→            </div>
+   656→          </motion.div>
+   657→
+   658→          <motion.div
+   659→            initial={{ opacity: 0, y: 10 }}
+   660→            animate={{ opacity: 1, y: 0 }}
+   661→            transition={{ delay: 0.05 }}
+   662→            className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5"
+   663→          >
+   664→            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100 dark:bg-violet-900/40">
+   665→              <User className="h-4 w-4 text-violet-600 dark:text-violet-400" />
+   666→            </div>
+   667→            <div>
+   668→              <p className="text-lg font-bold tabular-nums">{stats?.occupied || 0}</p>
+   669→              <p className="text-[11px] text-muted-foreground">Occupied</p>
+   670→            </div>
+   671→          </motion.div>
+   672→
+   673→          <motion.div
+   674→            initial={{ opacity: 0, y: 10 }}
+   675→            animate={{ opacity: 1, y: 0 }}
+   676→            transition={{ delay: 0.1 }}
+   677→            className="flex items-center gap-3 rounded-xl border border-border bg-card p-3.5"
+   678→          >
+   679→            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 dark:bg-emerald-900/40">
+   680→              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+   681→            </div>
+   682→            <div>
+   683→              <p className="text-lg font-bold tabular-nums">{stats?.available || 0}</p>
+   684→              <p className="text-[11px] text-muted-foreground">Available</p>
+   685→            </div>
+   686→          </motion.div>
+   687→
+   688→          <motion.div
+   689→            initial={{ opacity: 0, y: 10 }}
+   690→            animate={{ opacity: 1, y: 0 }}
+   691→            transition={{ delay: 0.15 }}
+   692→            className={cn(
+   693→              'flex items-center gap-3 rounded-xl border bg-card p-3.5',
+   694→              criticalCount > 0
+   695→                ? 'border-red-300 dark:border-red-800/50'
+   696→                : 'border-border'
+   697→            )}
+   698→          >
+   699→            <div
+   700→              className={cn(
+   701→                'flex h-9 w-9 items-center justify-center rounded-lg',
+   702→                criticalCount > 0
+   703→                  ? 'bg-red-100 dark:bg-red-900/40'
+   704→                  : 'bg-emerald-100 dark:bg-emerald-900/40'
+   705→              )}
+   706→            >
+   707→              <AlertTriangle
+   708→                className={cn(
+   709→                  'h-4 w-4',
+   710→                  criticalCount > 0
+   711→                    ? 'text-red-600 dark:text-red-400'
+   712→                    : 'text-emerald-600 dark:text-emerald-400'
+   713→                )}
+   714→              />
+   715→            </div>
+   716→            <div>
+   717→              <p className={cn('text-lg font-bold tabular-nums', criticalCount > 0 && 'text-red-600 dark:text-red-400')}>
+   718→                {criticalCount}
+   719→              </p>
+   720→              <p className="text-[11px] text-muted-foreground">Critical Alerts</p>
+   721→            </div>
+   722→          </motion.div>
+   723→        </div>
+   724→
+   725→        {/* Occupancy bar */}
+   726→        <div className="flex items-center gap-3">
+   727→          <div className="flex-1 h-2 overflow-hidden rounded-full bg-muted">
+   728→            <div
+   729→              className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-teal-500 to-red-500 transition-all duration-700"
+   730→              style={{
+   731→                width: stats && stats.totalBeds > 0
+   732→                  ? `${(stats.occupied / stats.totalBeds) * 100}%`
+   733→                  : '0%',
+   734→              }}
+   735→            />
+   736→          </div>
+   737→          <span className="text-xs font-medium text-muted-foreground tabular-nums">
+   738→            {stats && stats.totalBeds > 0
+   739→              ? `${Math.round((stats.occupied / stats.totalBeds) * 100)}%`
+   740→              : '0%'}
+   741→          </span>
+   742→        </div>
+   743→      </div>
+   744→
+   745→      {/* Bed grid */}
+   746→      <div className="mt-6">
+   747→        <div className="mb-4 flex items-center justify-between">
+   748→          <h2 className="text-sm font-semibold text-muted-foreground">
+   749→            Bed Map
+   750→          </h2>
+   751→          <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+   752→            <span className="flex items-center gap-1">
+   753→              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-emerald-400" />
+   754→              Available
+   755→            </span>
+   756→            <span className="flex items-center gap-1">
+   757→              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-teal-400" />
+   758→              Occupied
+   759→            </span>
+   760→            <span className="flex items-center gap-1">
+   761→              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-red-500" />
+   762→              Critical
+   763→            </span>
+   764→            <span className="flex items-center gap-1">
+   765→              <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-amber-400" />
+   766→              Maintenance
+   767→            </span>
+   768→          </div>
+   769→        </div>
+   770→
+   771→        <AnimatePresence>
+   772→          <motion.div
+   773→            layout
+   774→            className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4"
+   775→          >
+   776→            {beds?.map((bed, i) => (
+   777→              <BedCard key={bed.id} bed={bed} />
+   778→            ))}
+   779→          </motion.div>
+   780→        </AnimatePresence>
+   781→
+   782→        {beds?.length === 0 && (
+   783→          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16 text-center">
+   784→            <BedDouble className="h-10 w-10 text-muted-foreground/40" />
+   785→            <h3 className="mt-3 text-sm font-medium">No beds in this ward</h3>
+   786→            <p className="mt-1 text-xs text-muted-foreground">Beds will appear here once configured by admin.</p>
+   787→          </div>
+   788→        )}
+   789→      </div>
+   790→    </div>
+   791→  )
+   792→}
+   793→
