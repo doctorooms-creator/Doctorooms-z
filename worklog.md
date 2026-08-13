@@ -296,3 +296,67 @@ Stage Summary:
 - Total: 15 files modified, 2 new files created
 - Lint passes clean, dev server running without errors
 - Hospital management system is now production-ready
+
+---
+Task ID: C2-C3-Extras
+Agent: Main
+Task: Complete remaining Phase C items (Token Notifications, Seed Data) + Enhancements
+
+Work Log:
+## C2: Token Call Notifications
+- Created `src/lib/queue-notifications.ts` with 5 notification event types:
+  - `consultation_started` — Patient notified when doctor starts seeing them
+  - `consultation_completed` — Patient notified when consultation ends
+  - `wait_extended` — Patient notified when doctor extends wait time
+  - `appointment_canceled` — Patient notified when doctor cancels
+  - `turn_approaching` — Patient 2 positions ahead notified their turn is coming
+- Updated `src/app/api/dashboard/doctor/appointments/[id]/status/route.ts`:
+  - Now fetches booking details (tokenNumber, department, user) before status change
+  - Sends appropriate notification for Visited, Finish, Extend, Canceled transitions
+  - `notifyApproachingPatient()` called on Visited — finds patient 2 tokens ahead
+  - `notifyNextPatient()` called on Finish — finds next waiting patient
+  - Added invalid transition guards (can't revert Finish→Visited, can't change Canceled)
+- Updated `src/app/api/prescription/[id]/finalize/route.ts`:
+  - Sends consultation_started notification when doctor finalizes prescription
+  - Only sends if booking was in Approve status (not already Visited)
+  - Calls notifyApproachingPatient for queue awareness
+
+## C3: Seed Data Verification
+- Confirmed all 3 hospitals already have correct staff:
+  - Zydus: 2 receptionists, 1 pharmacist, 2 assistants
+  - Shalby: 2 receptionists, 1 pharmacist
+  - AIIMS: 2 receptionists, 1 pharmacist, 1 assistant
+- No changes needed — seed data was already complete
+
+## UI Enhancements
+- Enhanced `src/app/dashboard/patient/notifications/page.tsx`:
+  - Color-coded notification icons by type (Stethoscope=teal for started, CheckCircle=green for complete, AlertTriangle=amber for approaching, Clock=orange for extended, XCircle=red for canceled)
+  - Queue notifications show colored left border on cards
+  - "Queue" badge on queue-type notifications
+  - Each type has unique icon (not just generic Bell)
+- Enhanced `src/components/dashboard/dashboard-header.tsx`:
+  - Bell popover shows type-specific icons for queue notifications
+  - "Your Turn is Approaching" notifications show pulsing amber dot
+  - Unread queue notifications show colored icon (read ones are muted)
+- Added Queue Display management page for hospital admins:
+  - Server component at `src/app/dashboard/hospital/queue-display/page.tsx`
+  - Client component at `src/app/dashboard/hospital/queue-display/client.tsx`
+  - Shows hospital name + display URL with Copy Link button
+  - 3 info cards: TV/Monitor Display, Department Rotation, Patient Privacy
+  - Embedded live preview iframe of the queue display board
+  - Open Display button to view full-screen
+- Added `Monitor` icon import and "Queue Display" link to hospital sidebar (`sidebar-config.ts`)
+- Added `hospital: { id, hospitalName }` to hospital stats API response
+
+## Verification
+- Ran seed script: 3 hospitals, 26 departments, 53 doctors, 165 schedules, 6 receptionists, 3 pharmacists
+- Browser verified: Receptionist dashboard (hospital mode), Queue page (10 department tabs), Queue Display Board (dark theme, auto-cycle), Hospital Queue Display management page
+- Lint passes clean, no runtime errors
+
+Stage Summary:
+- C2 Token Notifications: Complete — 5 event types, wired into doctor status API + prescription finalize
+- C3 Seed Data: Already complete — no changes needed
+- 3 new files created, 5 files modified
+- Notification UI enhanced with color-coded icons and badges
+- Hospital admin can now manage Queue Display Board from sidebar
+- Full PLAN-V2 (Phases A, B, C) is now COMPLETE

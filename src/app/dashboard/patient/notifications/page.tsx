@@ -7,7 +7,16 @@ import { formatDistanceToNow } from 'date-fns'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Bell, BellOff, CheckCheck } from 'lucide-react'
+import {
+  Bell,
+  BellOff,
+  CheckCheck,
+  Stethoscope,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  XCircle,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -17,6 +26,70 @@ interface Notification {
   message: string
   status: 'READ' | 'UNREAD'
   createdAt: string
+}
+
+// Queue notification title → visual style mapping
+function getNotificationStyle(title: string) {
+  const t = title.toLowerCase()
+  if (t.includes('consultation started')) {
+    return {
+      icon: Stethoscope,
+      bgClass: 'bg-teal-100 dark:bg-teal-900/60',
+      iconClass: 'text-teal-600 dark:text-teal-400',
+      badgeClass: 'bg-teal-500 hover:bg-teal-600 text-white border-0',
+      badgeLabel: 'Queue',
+      cardClass: 'border-l-4 border-l-teal-400',
+    }
+  }
+  if (t.includes('consultation complete')) {
+    return {
+      icon: CheckCircle2,
+      bgClass: 'bg-emerald-100 dark:bg-emerald-900/60',
+      iconClass: 'text-emerald-600 dark:text-emerald-400',
+      badgeClass: 'bg-emerald-500 hover:bg-emerald-600 text-white border-0',
+      badgeLabel: 'Queue',
+      cardClass: 'border-l-4 border-l-emerald-400',
+    }
+  }
+  if (t.includes('turn is approaching')) {
+    return {
+      icon: AlertTriangle,
+      bgClass: 'bg-amber-100 dark:bg-amber-900/60',
+      iconClass: 'text-amber-600 dark:text-amber-400',
+      badgeClass: 'bg-amber-500 hover:bg-amber-600 text-white border-0',
+      badgeLabel: 'Queue',
+      cardClass: 'border-l-4 border-l-amber-400',
+    }
+  }
+  if (t.includes('wait') && t.includes('extended')) {
+    return {
+      icon: Clock,
+      bgClass: 'bg-orange-100 dark:bg-orange-900/60',
+      iconClass: 'text-orange-600 dark:text-orange-400',
+      badgeClass: 'bg-orange-500 hover:bg-orange-600 text-white border-0',
+      badgeLabel: 'Queue',
+      cardClass: 'border-l-4 border-l-orange-400',
+    }
+  }
+  if (t.includes('canceled')) {
+    return {
+      icon: XCircle,
+      bgClass: 'bg-red-100 dark:bg-red-900/60',
+      iconClass: 'text-red-600 dark:text-red-400',
+      badgeClass: 'bg-red-500 hover:bg-red-600 text-white border-0',
+      badgeLabel: null,
+      cardClass: '',
+    }
+  }
+  // Default
+  return {
+    icon: Bell,
+    bgClass: 'bg-muted',
+    iconClass: 'text-muted-foreground',
+    badgeClass: '',
+    badgeLabel: null,
+    cardClass: '',
+  }
 }
 
 export default function PatientNotificationsPage() {
@@ -144,6 +217,8 @@ export default function PatientNotificationsPage() {
           <AnimatePresence>
             {notifications.map((notif, i) => {
               const isUnread = notif.status === 'UNREAD'
+              const style = getNotificationStyle(notif.title)
+              const IconComp = style.icon
               return (
                 <motion.div
                   key={notif.id}
@@ -154,7 +229,8 @@ export default function PatientNotificationsPage() {
                   <Card
                     className={cn(
                       'cursor-pointer transition-colors hover:bg-muted/30',
-                      isUnread && 'bg-teal-50/50 dark:bg-teal-950/20 border-teal-200/60 dark:border-teal-800/40'
+                      isUnread && 'bg-teal-50/50 dark:bg-teal-950/20 border-teal-200/60 dark:border-teal-800/40',
+                      style.cardClass,
                     )}
                     onClick={() => isUnread && handleMarkAsRead(notif.id)}
                   >
@@ -163,22 +239,18 @@ export default function PatientNotificationsPage() {
                         <div
                           className={cn(
                             'flex h-9 w-9 shrink-0 items-center justify-center rounded-full',
-                            isUnread
-                              ? 'bg-teal-100 dark:bg-teal-900/60'
-                              : 'bg-muted'
+                            isUnread ? style.bgClass : 'bg-muted'
                           )}
                         >
-                          <Bell
+                          <IconComp
                             className={cn(
                               'h-4 w-4',
-                              isUnread
-                                ? 'text-teal-600 dark:text-teal-400'
-                                : 'text-muted-foreground'
+                              isUnread ? style.iconClass : 'text-muted-foreground'
                             )}
                           />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p
                               className={cn(
                                 'text-sm truncate',
@@ -187,7 +259,12 @@ export default function PatientNotificationsPage() {
                             >
                               {notif.title}
                             </p>
-                            {isUnread && (
+                            {isUnread && style.badgeLabel && (
+                              <Badge variant="outline" className={cn('text-[10px] px-1.5 py-0 h-4 font-medium', style.badgeClass)}>
+                                {style.badgeLabel}
+                              </Badge>
+                            )}
+                            {isUnread && !style.badgeLabel && (
                               <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500" />
                             )}
                           </div>

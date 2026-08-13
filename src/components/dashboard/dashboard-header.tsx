@@ -22,6 +22,11 @@ import {
   Settings,
   LogOut,
   CheckCheck,
+  Stethoscope,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  XCircle,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import {
@@ -89,6 +94,17 @@ const routeTitles: Record<string, string> = {
 
 function getPageTitle(pathname: string): string {
   return routeTitles[pathname] || 'Dashboard'
+}
+
+// Get icon and color for notification type in header popover
+function getNotificationIndicator(title: string) {
+  const t = title.toLowerCase()
+  if (t.includes('consultation started')) return { dotColor: 'bg-teal-500', Icon: Stethoscope }
+  if (t.includes('consultation complete')) return { dotColor: 'bg-emerald-500', Icon: CheckCircle2 }
+  if (t.includes('turn is approaching')) return { dotColor: 'bg-amber-500', Icon: AlertTriangle }
+  if (t.includes('wait') && t.includes('extended')) return { dotColor: 'bg-orange-500', Icon: Clock }
+  if (t.includes('canceled')) return { dotColor: 'bg-red-500', Icon: XCircle }
+  return { dotColor: 'bg-teal-500', Icon: null }
 }
 
 function getInitials(name: string) {
@@ -222,17 +238,31 @@ export function DashboardHeader({ onMenuClick, onLogout }: DashboardHeaderProps)
                   <p className="text-sm">No notifications</p>
                 </div>
               ) : (
-                notifications.map((n) => (
-                  <div key={n.id} className={`flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b last:border-b-0 ${n.status === 'UNREAD' ? 'bg-teal-50/50 dark:bg-teal-950/20' : ''}`}>
-                    <div className={`mt-0.5 h-2 w-2 rounded-full shrink-0 ${n.status === 'UNREAD' ? 'bg-teal-500' : 'bg-transparent'}`} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium leading-tight line-clamp-2">{n.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
-                        {n.createdAt ? formatDistanceToNow(new Date(n.createdAt), { addSuffix: true }) : ''}
-                      </p>
+                notifications.map((n) => {
+                  const indicator = getNotificationIndicator(n.title)
+                  const IndIcon = indicator.Icon
+                  const isApproaching = n.title.toLowerCase().includes('turn is approaching')
+                  return (
+                    <div key={n.id} className={`flex items-start gap-3 px-4 py-3 hover:bg-muted/50 transition-colors border-b last:border-b-0 ${n.status === 'UNREAD' ? 'bg-teal-50/50 dark:bg-teal-950/20' : ''}`}>
+                      <div className="mt-1 shrink-0">
+                        {IndIcon ? (
+                          <IndIcon className={`h-4 w-4 ${n.status === 'UNREAD' ? indicator.dotColor.replace('bg-', 'text-') : 'text-muted-foreground/50'}`} />
+                        ) : (
+                          <div className={`h-2 w-2 rounded-full ${n.status === 'UNREAD' ? indicator.dotColor : 'bg-transparent'}`} />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className={`text-sm leading-tight line-clamp-2 ${n.status === 'UNREAD' ? 'font-semibold' : 'font-medium text-muted-foreground'}`}>{n.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          {n.createdAt ? formatDistanceToNow(new Date(n.createdAt), { addSuffix: true }) : ''}
+                        </p>
+                      </div>
+                      {isApproaching && n.status === 'UNREAD' && (
+                        <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse shrink-0 mt-1.5" />
+                      )}
                     </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
             {/* Footer */}

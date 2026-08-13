@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
+import { sendQueueNotification, notifyApproachingPatient } from '@/lib/queue-notifications'
 
 export async function POST(
   req: NextRequest,
@@ -27,7 +28,10 @@ export async function POST(
 
     const doctor = await db.doctor.findUnique({
       where: { id: prescription.doctorId, userId: user.id },
-      select: { id: true },
+      select: {
+        id: true,
+        user: { select: { name: true } },
+      },
     })
     if (!doctor) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -60,11 +64,44 @@ export async function POST(
       },
     })
 
+    // Fetch booking details for notification before status change
+    const bookingBeforeUpdate = await db.booking.findUnique({
+      where: { id: prescription.bookingId },
+      select: {
+        id: true,
+        status: true,
+        userId: true,
+        tokenNumber: true,
+        tokenOrder: true,
+        bookingDate: true,
+        doctorId: true,
+        department: { select: { name: true } },
+      },
+    })
+
     // Update booking status to Visited
     await db.booking.update({
       where: { id: prescription.bookingId },
       data: { status: 'Visited' },
     })
+
+    // Send notification only if booking wasn't already Visited/Finish
+    if (bookingBeforeUpdate && bookingBeforeUpdate.status === 'Approve') {
+      const doctorName = doctor.user.name.replace('Dr. ', '')
+      await sendQueueNotification('consultation_started', {
+        bookingId: bookingBeforeUpdate.id,
+        doctorId: doctor.id,
+        patientUserId: bookingBeforeUpdate.userId,
+        doctorName,
+        tokenNumber: bookingBeforeUpdate.tokenNumber,
+        departmentName: bookingBeforeUpdate.department?.name || null,
+      })
+      await notifyApproachingPatient(
+        doctor.id,
+        bookingBeforeUpdate.tokenOrder,
+        bookingBeforeUpdate.bookingDate
+      )
+    }
 
     return NextResponse.json({ prescription: updated })
   } catch (error) {

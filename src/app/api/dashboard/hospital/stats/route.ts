@@ -118,6 +118,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.json({
+      hospital: { id: hospital.id, hospitalName: hospital.hospitalName },
       totalDoctors,
       totalAppointments,
       patientVisits,

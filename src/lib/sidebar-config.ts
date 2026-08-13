@@ -1,6 +1,6 @@
 import {
   type LucideIcon,
-  LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus, KeyRound, IndianRupee, FlaskConical, PenLine, BarChart3, Printer, Shield, FolderOpen, Thermometer, CircleHelp, Lightbulb, Tag, Search, Table, ClipboardList, ListOrdered,
+  LayoutDashboard, Users, Stethoscope, Building2, CalendarDays, FileText, MessageSquare, Settings, Pill, Clock, UserCircle, Images, PenSquare, Heart, Bell, UserPlus, KeyRound, IndianRupee, FlaskConical, PenLine, BarChart3, Printer, Shield, FolderOpen, Thermometer, CircleHelp, Lightbulb, Tag, Search, Table, ClipboardList, ListOrdered, Monitor,
 } from 'lucide-react'
 
 export interface SidebarItem {
@@ -71,6 +71,7 @@ export const sidebarConfig: RoleSidebarMap = {
     { label: 'Manage Doctors', href: '/dashboard/hospital/department-doctors', icon: UserPlus },
     { label: 'Doctors', href: '/dashboard/hospital/doctors', icon: Stethoscope },
     { label: 'Appointments', href: '/dashboard/hospital/appointments', icon: CalendarDays },
+    { label: 'Queue Display', href: '/dashboard/hospital/queue-display', icon: Monitor },
     { label: 'Change Password', href: '/dashboard/change-password', icon: KeyRound },
   ],
   receptionist: [
