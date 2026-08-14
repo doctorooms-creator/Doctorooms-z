@@ -142,7 +142,7 @@ export default function FamilyAccessClient() {
   // Revoke mutation
   const revokeMutation = useMutation({
     mutationFn: async (id: string) => {
-      const res = await fetch(`/api/family-access/${id}/revoke`, { method: 'PUT' })
+      const res = await fetch(`/api/family-access/revoke?id=${id}`, { method: 'PUT' })
       if (!res.ok) throw new Error('Failed to revoke')
       return res.json()
     },

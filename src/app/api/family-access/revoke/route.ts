@@ -3,8 +3,7 @@ import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 
 export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  request: NextRequest
 ) {
   try {
     const user = await requireRole(request, 'receptionist')
@@ -16,7 +15,11 @@ export async function PUT(
       }
     }
 
-    const { id } = await params
+    const { searchParams } = new URL(request.url)
+    const id = searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: 'id is required' }, { status: 400 })
+    }
 
     const familyAccess = await db.familyAccess.findUnique({
       where: { id },
