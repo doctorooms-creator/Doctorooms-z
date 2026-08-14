@@ -1,0 +1,683 @@
+     1→# PLAN — 7 CRITICAL GAPS FIX ARCHITECTURE
+     2→
+     3→> **Status**: Awaiting Development  
+     4→> **Priority**: CRITICAL — Security, Data Integrity, and System Functionality  
+     5→> **Estimated Effort**: Gap 1 (Large) | Gap 2 (Tiny) | Gap 3 (Large) | Gap 4 (Medium) | Gap 5 (Medium) | Gap 6 (Medium) | Gap 7 (Small)  
+     6→> **Dependency Order**: Gap 6 → Gap 4 → Gap 1 → Gap 2 → Gap 3 → Gap 5 → Gap 7
+     7→
+     8→---
+     9→
+    10→## ARCHITECTURE DECISIONS
+    11→
+    12→### A1. Validation Library: Zod
+    13→- `zod` v4.0.2 already installed in `package.json`
+    14→- `react-hook-form` + `@hookform/resolvers/zod` also installed
+    15→- **Decision**: Create centralized zod schemas in `src/lib/validations/`, use in both API routes (server-side) and forms (client-side)
+    16→
+    17→### A2. Emit Helper: Fire-and-Forget
+    18→- Create `src/lib/emit-notification.ts` as a single-point helper
+    19→- Use `fetch()` with no `await` — fire-and-forget pattern inside `.catch(() => {})`
+    20→- Never let notification failures block business logic
+    21→
+    22→### A3. Pagination Pattern: Unified Cursor
+    23→- Use existing `ipd-bills` pagination pattern as the standard: `{ page, limit, total, totalPages, data }`
+    24→- Query params: `?page=1&limit=20&search=&status=`
+    25→- Apply to all unbounded list endpoints
+    26→
+    27→### A4. Session Security: Phased Approach
+    28→- Phase 1 (this plan): Add production guards + httpOnly role cookie + deduplicate DEV_USERS
+    29→- Phase 2 (future): Replace session=userId with random session tokens in DB
+    30→- Phase 3 (future): Add Next.js middleware for route-level auth
+    31→
+    32→### A5. Schema Safety: Restrict > Cascade
+    33→- For critical parent records (Hospital, Ward, Bed, IpdAdmission) → use `onDelete: Restrict`
+    34→- For child records (BillLineItem, Notification) → use `onDelete: Cascade`
+    35→- Never silently delete parent records that have active children
+    36→
+    37→---
+    38→
+    39→## GAP 1: WEBSOCKET NOTIFICATION INTEGRATION
+    40→### Problem
+    41→Notification service (port 3005) runs, client hooks/components listen, but **zero API routes emit events**. The entire real-time stack is wired but inert.
+    42→
+    43→### Architecture
+    44→
+    45→```
+    46→┌─────────────────┐     ┌──────────────────────────┐     ┌──────────────────┐
+    47→│  API Route      │────>│ src/lib/emit-notification│────>│ notification-svc │
+    48→│  (POST/PUT)     │     │ (fire-and-forget fetch)  │     │ :3005 POST /emit │
+    49→└─────────────────┘     └──────────────────────────┘     └──────────────────┘
+    50→                                                              │
+    51→                                                         ┌────┴────┐
+    52→                                                         │Socket.io│
+    53→                                                         └────┬────┘
+    54→                                                              │
+    55→                                                    ┌─────────┴─────────┐
+    56→                                                    │ RealtimeNotif.   │
+    57→                                                    │ (layout.tsx)     │
+    58→                                                    └───────────────────┘
+    59→```
+    60→
+    61→### Step 1.1: Create Emit Helper
+    62→**File**: `src/lib/emit-notification.ts` (NEW)
+    63→
+    64→```typescript
+    65→// Signature:
+    66→export function emitNotification(event: EventType, rooms: string[], payload: Record<string, unknown>): void
+    67→
+    68→// Implementation:
+    69→// - Validates event against VALID_EVENTS array
+    70→// - Does fetch('http://localhost:3005/emit', { method: 'POST', body: JSON.stringify(...) })
+    71→// - Wrapped in try/catch — never throws
+    72→// - No await — fire and forget
+    73→
+    74→// Event type:
+    75→type EventType = 'new-admission' | 'vital-recorded' | 'sample-ordered' | 
+    76→  'lab-result-ready' | 'bill-generated' | 'payment-received' | 
+    77→  'discharge-advised' | 'ot-scheduled' | 'low-stock-alert'
+    78→```
+    79→
+    80→### Step 1.2: Add Emit Calls to 18 API Routes
+    81→
+    82→For each route, add **ONE line** after the successful DB write:
+    83→```typescript
+    84→emitNotification('event-name', ['role:xxx', 'hospital:{hospitalId}'], { ...data })
+    85→```
+    86→
+    87→| # | File | Line (approx) | Event | Rooms |
+    88→|---|------|---------------|-------|-------|
+    89→| 1 | `api/dashboard/receptionist/ipd/admit/route.ts` | After `db.ipdAdmission.create` | `new-admission` | `role:receptionist`, `role:nurse`, `hospital:{hId}` |
+    90→| 2 | `api/dashboard/nurse/patients/[admissionId]/vitals/route.ts` | After `db.vitalRecord.create` | `vital-recorded` | `role:doctor`, `hospital:{hId}` |
+    91→| 3 | `api/lab-reports/route.ts` | After `db.labReport.create` | `sample-ordered` | `role:lab_technician`, `hospital:{hId}` |
+    92→| 4 | `api/lab-reports/[id]/collect-sample/route.ts` | After status update | `sample-ordered` | `role:lab_technician` |
+    93→| 5 | `api/lab-reports/[id]/enter-result/route.ts` | After result save | `lab-result-ready` | `role:doctor`, `hospital:{hId}` |
+    94→| 6 | `api/lab-reports/[id]/verify/route.ts` | After status → Verified | `lab-result-ready` | `role:doctor`, `hospital:{hId}` |
+    95→| 7 | `api/ipd-bills/route.ts` | After `db.ipdBill.create` | `bill-generated` | `role:receptionist`, `role:hospital` |
+    96→| 8 | `api/ipd-bills/generate/route.ts` | After bill generation | `bill-generated` | `role:receptionist`, `role:hospital` |
+    97→| 9 | `api/opd-bills/route.ts` | After `db.opdBill.create` | `bill-generated` | `role:receptionist`, `role:hospital` |
+    98→| 10 | `api/bill-payments/route.ts` | After `db.billPayment.create` | `payment-received` | `role:receptionist`, `role:hospital` |
+    99→| 11 | `api/patient-advances/route.ts` | After `db.patientAdvance.create` | `payment-received` | `role:receptionist`, `role:hospital` |
+   100→| 12 | `api/ipd-admissions/[id]/discharge/route.ts` | After dischargeAdvised=true | `discharge-advised` | `role:receptionist`, `role:nurse`, `role:hospital` |
+   101→| 13 | `api/ipd-admissions/[id]/complete-discharge/route.ts` | After status→Discharged | `discharge-advised` | `role:receptionist`, `role:hospital` |
+   102→| 14 | `api/ot-schedules/route.ts` | After `db.otSchedule.create` | `ot-scheduled` | `role:doctor`, `role:nurse`, `role:hospital` |
+   103→| 15 | `api/stock-movements/route.ts` | After movement, if stock < minStock | `low-stock-alert` | `role:hospital`, `role:pharmacist` |
+   104→| 16 | `api/inventory-items/[id]/route.ts` PUT | After stock update, if < minStock | `low-stock-alert` | `role:hospital`, `role:pharmacist` |
+   105→| 17 | `api/bed-transfers/route.ts` | After `db.bedTransfer.create` | `new-admission` | `role:nurse`, `hospital:{hId}` |
+   106→| 18 | `api/ipd-bills/[id]/finalize/route.ts` | After finalization | `bill-generated` | `role:receptionist`, `role:hospital` |
+   107→
+   108→### Step 1.3: Emit Payload Standard
+   109→Each emit payload should include:
+   110→```typescript
+   111→{
+   112→  id: '<record-id>',           // Primary key of the created/updated record
+   113→  title: '<human-readable>',    // e.g. "New IPD Admission: John Doe"
+   114→  message: '<detail>',           // e.g. "Patient admitted to Ward A, Bed 104"
+   115→  timestamp: new Date().toISOString(),
+   116→  // Entity-specific fields:
+   117→  admissionId?: string,
+   118→  patientName?: string,
+   119→  doctorId?: string,
+   120→  hospitalId?: string,
+   121→}
+   122→```
+   123→
+   124→### Testing Strategy
+   125→- Emit events should NOT block or slow down API responses
+   126→- If notification service is down, API routes should still work normally
+   127→- Verify via browser: open two tabs with different roles, trigger an action in one, see toast in other
+   128→
+   129→---
+   130→
+   131→## GAP 2: DEV-LOGIN PRODUCTION GUARD
+   132→### Problem
+   133→`/api/dev-login` is a full backdoor — anyone can become admin. No `NODE_ENV` check exists.
+   134→
+   135→### Fix (5 lines)
+   136→**File**: `src/app/api/dev-login/route.ts`
+   137→
+   138→**Change**: Add guard at the TOP of the POST handler (before line 48):
+   139→```typescript
+   140→if (process.env.NODE_ENV === 'production') {
+   141→  return NextResponse.json({ error: 'Not available' }, { status: 404 })
+   142→}
+   143→```
+   144→
+   145→**Also update**:
+   146→- `.env.example` — Add `NODE_ENV=development` 
+   147→- `src/lib/api-auth.ts` — Wrap `DEV_USERS` fallback in `if (process.env.NODE_ENV !== 'production')`
+   148→- `src/app/api/auth/me/route.ts` — Same DEV_USERS guard
+   149→
+   150→### Files Modified (3)
+   151→| File | Change |
+   152→|------|--------|
+   153→| `src/app/api/dev-login/route.ts` | Add NODE_ENV guard at line 48 |
+   154→| `src/lib/api-auth.ts` | Wrap DEV_USERS in production guard |
+   155→| `src/app/api/auth/me/route.ts` | Wrap DEV_USERS in production guard |
+   156→
+   157→---
+   158→
+   159→## GAP 3: AUTH SYSTEM SECURITY
+   160→### Problem
+   161→1. Session cookie = raw user ID (guessable cuid)
+   162→2. `doctorooms_role` cookie NOT httpOnly (client-side manipulable)
+   163→3. `getAuthUser()` falls back to ANY user with matching role
+   164→4. Admin bypasses ALL role checks
+   165→5. No session revocation mechanism
+   166→6. DEV_USERS duplicated in 3 files
+   167→
+   168→### Step 3.1: Make Role Cookie httpOnly
+   169→**File**: `src/app/api/dev-login/route.ts` (line 90-96)
+   170→**File**: `src/app/api/auth/login/route.ts` (line 65-77)
+   171→
+   172→**Change**: In both files, add `httpOnly: true` to the `doctorooms_role` cookie:
+   173→```typescript
+   174→// Before:
+   175→{ name: 'doctorooms_role', value: role, httpOnly: false, ... }
+   176→// After:
+   177→{ name: 'doctorooms_role', value: role, httpOnly: true, ... }
+   178→```
+   179→
+   180→**Impact**: Client-side JS can no longer read or modify the role cookie. The role is now server-only.
+   181→
+   182→### Step 3.2: Remove Admin Universal Bypass
+   183→**File**: `src/lib/api-auth.ts` (line 84)
+   184→
+   185→**Change**: Remove the admin bypass line:
+   186→```typescript
+   187→// REMOVE this line:
+   188→if (user.role === 'admin') return user
+   189→```
+   190→
+   191→**Rationale**: Admin should only access admin routes. If admin needs to access other role views, create explicit admin proxy routes.
+   192→
+   193→### Step 3.3: Deduplicate DEV_USERS
+   194→**Current state**: DEV_USERS defined in 3 places:
+   195→1. `src/lib/api-auth.ts` (lines 99-181) — 9 users
+   196→2. `src/app/api/dev-login/route.ts` (lines 5-42) — 9 users  
+   197→3. `src/app/api/auth/me/route.ts` (lines 4-68) — 9 users
+   198→
+   199→**Fix**: 
+   200→- Keep single source of truth in `src/lib/api-auth.ts`
+   201→- Export `DEV_USERS` and `getDevUser(role)`
+   202→- Import in `dev-login/route.ts` and `auth/me/route.ts`
+   203→- Delete duplicates
+   204→
+   205→**Files Modified (3)**:
+   206→| File | Change |
+   207→|------|--------|
+   208→| `src/lib/api-auth.ts` | Export `DEV_USERS`, `getDevUser`. Wrap in `!production` guard |
+   209→| `src/app/api/dev-login/route.ts` | Import from `api-auth.ts`, delete local copy |
+   210→| `src/app/api/auth/me/route.ts` | Import from `api-auth.ts`, delete local copy |
+   211→
+   212→### Step 3.4: Add Session Expiry Check
+   213→**File**: `src/lib/api-auth.ts`
+   214→
+   215→**Change**: In `getAuthUser()`, after finding user by session ID, verify the user is still `Active`:
+   216→```typescript
+   217→if (user && user.status === 'Active') {
+   218→  return user
+   219→}
+   220→```
+   221→(Already partially done at line 37, but add explicit check in the fallback path too at line 56)
+   222→
+   223→### Future Phase (NOT in this plan):
+   224→- Replace session=userId with random session tokens in a `Session` model
+   225→- Add Next.js `middleware.ts` for route-level auth
+   226→- Add session revocation on password change
+   227→- Add idle timeout tracking
+   228→
+   229→---
+   230→
+   231→## GAP 4: INPUT VALIDATION
+   232→### Problem
+   233→Zero zod usage across 250 API routes. Ad-hoc `if (!field)` checks are inconsistent and unsafe.
+   234→
+   235→### Architecture
+   236→
+   237→```
+   238→src/lib/validations/
+   239→  ├── index.ts              ← Re-exports all schemas
+   240→  ├── common.ts             ← Shared schemas (pagination, id, dates)
+   241→  ├── ipd-admission.ts      ← IPD admission create/update schemas
+   242→  ├── billing.ts            ← IPD bill, OPD bill, payment, advance schemas
+   243→  ├── lab.ts                ← Lab report, result entry, verify schemas
+   244→  ├── inventory.ts          ← Inventory item, stock movement, PO schemas
+   245→  ├── ot.ts                 ← OT schedule schema
+   246→  ├── bed.ts                ← Bed transfer schema
+   247→  └── user.ts               ← User create/update schemas
+   248→```
+   249→
+   250→### Step 4.1: Create Common Schemas
+   251→**File**: `src/lib/validations/common.ts`
+   252→
+   253→```typescript
+   254→// Pagination
+   255→export const paginationSchema = z.object({
+   256→  page: z.coerce.number().int().positive().default(1),
+   257→  limit: z.coerce.number().int().positive().max(100).default(20),
+   258→  search: z.string().max(200).optional(),
+   259→})
+   260→
+   261→// CUID validation
+   262→export const cuidSchema = z.string().cuid2()
+   263→
+   264→// Date validation
+   265→export const dateSchema = z.string().datetime({ offset: true }).or(z.string().date())
+   266→
+   267→// Pagination return type helper
+   268→export function parsePagination(searchParams: URLSearchParams) {
+   269→  return paginationSchema.parse(Object.fromEntries(searchParams))
+   270→}
+   271→```
+   272→
+   273→### Step 4.2: Create Entity Schemas (12 files)
+   274→
+   275→Each entity schema file exports:
+   276→- `createXxxSchema` — for POST routes
+   277→- `updateXxxSchema` — for PUT routes (all fields optional via `.partial()`) 
+   278→- Type exports: `CreateXxxInput`, `UpdateXxxInput`
+   279→
+   280→#### Priority Schemas (by API traffic):
+   281→
+   282→| # | File | Schemas | Used By |
+   283→|---|------|---------|--------|
+   284→| 1 | `billing.ts` | `createIpdBillSchema`, `createOpdBillSchema`, `createPaymentSchema`, `createAdvanceSchema` | ipd-bills, opd-bills, bill-payments, patient-advances |
+   285→| 2 | `ipd-admission.ts` | `createAdmissionSchema`, `dischargeSchema`, `completeDischargeSchema` | ipd-admissions, discharge |
+   286→| 3 | `lab.ts` | `createLabReportSchema`, `enterResultSchema`, `verifySchema` | lab-reports |
+   287→| 4 | `bed.ts` | `createBedTransferSchema` | bed-transfers |
+   288→| 5 | `ot.ts` | `createOtScheduleSchema` | ot-schedules |
+   289→| 6 | `inventory.ts` | `createItemSchema`, `createMovementSchema`, `createPurchaseOrderSchema` | inventory-items, stock-movements, purchase-orders |
+   290→
+   291→#### Example: `billing.ts`
+   292→```typescript
+   293→export const createIpdBillSchema = z.object({
+   294→  admissionId: z.string().cuid2('Invalid admission ID'),
+   295→  notes: z.string().max(2000).optional(),
+   296→})
+   297→
+   298→export const createPaymentSchema = z.object({
+   299→  billId: z.string().cuid2('Invalid bill ID'),
+   300→  amount: z.number().positive('Amount must be positive').max(99999999),
+   301→  paymentMethod: z.enum(['Cash', 'Card', 'UPI', 'Bank Transfer', 'Cheque', 'Online']),
+   302→  paymentRef: z.string().max(100).optional(),
+   303→  notes: z.string().max(500).optional(),
+   304→})
+   305→
+   306→export const createAdvanceSchema = z.object({
+   307→  admissionId: z.string().cuid2('Invalid admission ID'),
+   308→  amount: z.number().positive('Amount must be positive').max(99999999),
+   309→  paymentMethod: z.enum(['Cash', 'Card', 'UPI', 'Bank Transfer', 'Cheque', 'Online']).default('Cash'),
+   310→  paymentRef: z.string().max(100).optional(),
+   311→  notes: z.string().max(500).optional(),
+   312→})
+   313→```
+   314→
+   315→### Step 4.3: Create Validation Helper
+   316→**File**: `src/lib/validations/index.ts`
+   317→
+   318→```typescript
+   319→// Helper to parse and return errors in NextResponse format
+   320→export function validateBody<T>(schema: z.ZodSchema<T>, body: unknown): 
+   321→  | { success: true; data: T }
+   322→  | { success: false; error: NextResponse }
+   323→```
+   324→
+   325→Usage in API routes:
+   326→```typescript
+   327→const parsed = validateBody(createPaymentSchema, await req.json())
+   328→if (!parsed.success) return parsed.error
+   329→const { billId, amount, paymentMethod } = parsed.data
+   330→```
+   331→
+   332→### Step 4.4: Apply to POST/PUT Routes (25 routes)
+   333→
+   334→Apply zod validation to the highest-traffic POST/PUT routes:
+   335→
+   336→| Route File | Schema to Use |
+   337→|------------|---------------|
+   338→| `api/ipd-bills/route.ts` POST | `createIpdBillSchema` |
+   339→| `api/ipd-bills/generate/route.ts` POST | `createIpdBillSchema` |
+   340→| `api/ipd-bills/[id]/finalize/route.ts` PUT | `finalizeBillSchema` |
+   341→| `api/opd-bills/route.ts` POST | `createOpdBillSchema` |
+   342→| `api/bill-payments/route.ts` POST | `createPaymentSchema` |
+   343→| `api/patient-advances/route.ts` POST | `createAdvanceSchema` |
+   344→| `api/ipd-admissions/[id]/discharge/route.ts` POST | `dischargeSchema` |
+   345→| `api/ipd-admissions/[id]/complete-discharge/route.ts` POST | `completeDischargeSchema` |
+   346→| `api/lab-reports/route.ts` POST | `createLabReportSchema` |
+   347→| `api/lab-reports/[id]/enter-result/route.ts` PUT | `enterResultSchema` |
+   348→| `api/lab-reports/[id]/verify/route.ts` PUT | `verifySchema` |
+   349→| `api/lab-reports/[id]/collect-sample/route.ts` PUT | `collectSampleSchema` |
+   350→| `api/bed-transfers/route.ts` POST | `createBedTransferSchema` |
+   351→| `api/ot-schedules/route.ts` POST | `createOtScheduleSchema` |
+   352→| `api/stock-movements/route.ts` POST | `createMovementSchema` |
+   353→| `api/inventory-items/route.ts` POST | `createItemSchema` |
+   354→| `api/inventory-items/[id]/route.ts` PUT | `updateItemSchema` |
+   355→| `api/purchase-orders/route.ts` POST | `createPurchaseOrderSchema` |
+   356→| `api/purchase-orders/[id]/route.ts` PUT | `updatePurchaseOrderSchema` |
+   357→| `api/charge-categories/route.ts` POST | `createCategorySchema` |
+   358→| `api/charge-items/route.ts` POST | `createChargeItemSchema` |
+   359→| `api/diet-orders/route.ts` POST | `createDietOrderSchema` |
+   360→| `api/notifications/read-all/route.ts` PUT | (none — no body) |
+   361→| `api/ipd-sample-collections/route.ts` POST | `createSampleCollectionSchema` |
+   362→
+   363→### Error Response Format
+   364→```json
+   365→{
+   366→  "error": "Validation failed",
+   367→  "details": [
+   368→    { "field": "amount", "message": "Amount must be positive" },
+   369→    { "field": "paymentMethod", "message": "Invalid enum value. Expected 'Cash' | 'Card' | 'UPI' | 'Bank Transfer' | 'Cheque' | 'Online'" }
+   370→  ]
+   371→}
+   372→```
+   373→HTTP Status: 422 (Unprocessable Entity)
+   374→
+   375→---
+   376→
+   377→## GAP 5: PAGINATION STANDARDIZATION
+   378→### Problem
+   379→6 list endpoints return ALL records unbounded. Some have pagination, some have hard `take: 100`, some have nothing.
+   380→
+   381→### Standard Pattern (from existing `ipd-bills/route.ts`)
+   382→```typescript
+   383→// Query params
+   384→const page = parseInt(searchParams.get('page') || '1')
+   385→const limit = parseInt(searchParams.get('limit') || '20')
+   386→
+   387→// Query
+   388→const [data, total] = await Promise.all([
+   389→  db.model.findMany({ where, skip: (page - 1) * limit, take: limit, ...includes }),
+   390→  db.model.count({ where }),
+   391→])
+   392→
+   393→// Response
+   394→return NextResponse.json({
+   395→  data,
+   396→  page, limit, total,
+   397→  totalPages: Math.ceil(total / limit),
+   398→})
+   399→```
+   400→
+   401→### Routes to Fix (6)
+   402→
+   403→| # | File | Current State | Fix |
+   404→|---|------|---------------|-----|
+   405→| 1 | `api/doctors/route.ts` | No pagination, returns all | Add page/limit/count. Keep filter dropdown queries separate |
+   406→| 2 | `api/hospitals/route.ts` | No pagination, no count | Add page/limit/count |
+   407→| 3 | `api/lab-reports/route.ts` | Hard `take: 100`, no skip/count | Add full pagination |
+   408→| 4 | `api/stock-movements/route.ts` | Returns all | Add page/limit/count |
+   409→| 5 | `api/inventory-items/route.ts` | Returns all | Add page/limit/count |
+   410→| 6 | `api/ot-schedules/route.ts` | Hard `take: 100`, no skip | Add full pagination |
+   411→
+   412→### Response Shape Standard
+   413→All paginated GET endpoints MUST return:
+   414→```typescript
+   415→{
+   416→  data: T[],              // Array of records
+   417→  page: number,           // Current page (1-based)
+   418→  limit: number,          // Items per page
+   419→  total: number,          // Total matching records
+   420→  totalPages: number,     // Math.ceil(total / limit)
+   421→}
+   422→```
+   423→
+   424→### Client-Side Impact
+   425→- Dashboard pages using TanStack Query will need to pass `page` param
+   426→- Most pages already have pagination state — just need to wire it to the new API params
+   427→- No UI changes needed if response shape matches existing pattern
+   428→
+   429→---
+   430→
+   431→## GAP 6: SCHEMA FK & DATA INTEGRITY
+   432→### Problem
+   433→24 FK relations missing `onDelete`, 4 `@unique` fields with `@default("")` causing SQLite constraint violations.
+   434→
+   435→### Step 6.1: Add onDelete to All FK Relations
+   436→
+   437→#### Strategy:
+   438→- **`Restrict`** — When parent has active children that should NOT be auto-deleted
+   439→- **`Cascade`** — When children are meaningless without parent (line items, notifications)
+   440→- **`SetNull`** — When the reference is optional and should survive parent deletion
+   441→
+   442→#### Critical Relations (Must Fix):
+   443→
+   444→| Model | Field | References | onDelete | Reason |
+   445→|-------|-------|------------|----------|--------|
+   446→| IpdAdmission | hospitalId | Hospital | **Restrict** | Never delete hospital with active admissions |
+   447→| IpdAdmission | wardId | Ward | **Restrict** | Never delete ward with active patients |
+   448→| IpdAdmission | bedId | Bed | **Restrict** | Never delete bed with active admission |
+   449→| IpdAdmission | departmentId | Department | **Restrict** | Preserve referential integrity |
+   450→| IpdAdmission | attendingDoctorId | Doctor | **Restrict** | Doctor deletion shouldn't cascade to admissions |
+   451→| NursePatientAssignment | bedId | Bed | **Restrict** | Active assignment locks the bed |
+   452→| NursePatientAssignment | admissionId | IpdAdmission | **Cascade** | Assignment belongs to admission |
+   453→| IpdBill | admissionId | IpdAdmission | **Restrict** | Bill survives admission for records |
+   454→| IpdBill | hospitalId | Hospital | **Restrict** | Bill is financial record |
+   455→| BillLineItem | billId | IpdBill | **Cascade** | Line items belong to bill |
+   456→| BillPayment | billId | IpdBill | **Restrict** | Payment is financial record |
+   457→| PatientAdvance | admissionId | IpdAdmission | **Restrict** | Advance is financial record |
+   458→| PatientAdvance | billId | IpdBill | **SetNull** | Bill deletion nulls the reference |
+   459→| OpdBill | bookingId | Booking | **Restrict** | OPD bill references booking |
+   460→| OpdBill | hospitalId | Hospital | **Restrict** | Bill is financial record |
+   461→| LabReport | hospitalId | Hospital | **Restrict** | Lab report is medical record |
+   462→| LabReport | testMasterId | LabTestMaster | **Restrict** | Report references the test definition |
+   463→| LabReport | orderedById | User | **SetNull** | User deletion shouldn't break reports |
+   464→| LabReportParameter | reportId | LabReport | **Cascade** | Parameters belong to report |
+   465→| OtSchedule | admissionId | IpdAdmission | **Restrict** | OT record is medical record |
+   466→| OtSchedule | otId | OperationTheater | **Restrict** | OT schedule references the theater |
+   467→| OtSchedule | surgeonId | Doctor | **SetNull** | Doctor deletion nulls reference |
+   468→| StockMovement | itemId | InventoryItem | **Restrict** | Movement is audit trail |
+   469→| FamilyAccess | admissionId | IpdAdmission | **Cascade** | Access code belongs to admission |
+   470→| Notification | userId | User | **Cascade** | User deletion cleans up notifications |
+   471→| Booking | doctorId | Doctor | **SetNull** | Doctor deletion shouldn't break bookings |
+   472→| Booking | userId | User | **SetNull** | Patient deletion shouldn't break bookings |
+   473→| DietOrder | admissionId | IpdAdmission | **Cascade** | Diet order belongs to admission |
+   474→
+   475→### Step 6.2: Fix Empty String Unique Defaults
+   476→
+   477→#### Problem:
+   478→`@default("")` + `@unique` = only ONE record can have empty string. Second insert fails.
+   479→
+   480→#### Affected Fields:
+   481→| Model | Field | Current | Fix |
+   482→|-------|-------|---------|-----|
+   483→| Booking | appointmentNo | `@unique @default("")` | `@unique @default(cuid())` — generate unique ID first |
+   484→| IpdBill | billNo | `@unique @default("")` | `@unique @default(cuid())` |
+   485→| OpdBill | receiptNo | `@unique @default("")` | `@unique @default(cuid())` |
+   486→| BillPayment | receiptNo | `@default("")` (not unique) | `@default(cuid())` |
+   487→| PatientAdvance | receiptNo | `@default("")` (not unique) | `@default(cuid())` |
+   488→
+   489→#### Migration Impact:
+   490→- `bun run db:push` will detect the changes
+   491→- Existing records with `""` values need to be backfilled BEFORE changing the default
+   492→- **Script needed**: Update all records where `appointmentNo = ""` to `cuid()` before schema push
+   493→
+   494→### Step 6.3: Add Missing Indexes
+   495→
+   496→#### High-Traffic Query Fields:
+   497→```prisma
+   498→// Booking queries
+   499→@@index([hospitalId, status])
+   500→@@index([doctorId, status])
+   501→@@index([userId, status])
+   502→
+   503→// IpdAdmission queries
+   504→@@index([hospitalId, status])
+   505→@@index([wardId, status])
+   506→@@index([bedId])
+   507→@@index([attendingDoctorId])
+   508→
+   509→// LabReport queries
+   510→@@index([hospitalId, status])
+   511→@@index([orderedById])
+   512→@@index([testMasterId])
+   513→
+   514→// Notification queries
+   515→@@index([userId, status])
+   516→@@index([hospitalId])
+   517→
+   518→// Billing queries
+   519→@@index([hospitalId, paymentStatus])
+   520→@@index([admissionId])
+   521→
+   522→// Inventory queries
+   523→@@index([hospitalId, category])
+   524→@@index([itemId])  // on StockMovement
+   525→
+   526→// OT queries  
+   527→@@index([hospitalId, scheduledDate])
+   528→@@index([surgeonId])
+   529→```
+   530→
+   531→### Step 6.4: Add Missing updatedAt
+   532→
+   533→| Model | Fix |
+   534→|-------|-----|
+   535→| DoctorHoliday | Add `updatedAt DateTime @updatedAt` |
+   536→| DoctorAssistant | Add `updatedAt DateTime @updatedAt` |
+   537→| DoctorGallery | Add `updatedAt DateTime @updatedAt` |
+   538→| StockMovement | Add `updatedAt DateTime @updatedAt` |
+   539→| BedTransfer | Add `updatedAt DateTime @updatedAt` |
+   540→
+   541→### Step 6.5: Run Migration
+   542→```bash
+   543→# 1. Backfill empty unique fields
+   544→bun run src/scripts/backfill-unique-ids.ts
+   545→
+   546→# 2. Push schema changes
+   547→bun run db:push
+   548→
+   549→# 3. Verify
+   550→bun run db:push  # Should say "Everything is in sync"
+   551→```
+   552→
+   553→---
+   554→
+   555→## GAP 7: RECEPTIONIST SIDEBAR WRONG DISCHARGE LINK
+   556→### Problem
+   557→`src/lib/sidebar-config.ts` line 171 — Receptionist's "Discharge" menu points to `/dashboard/hospital/billing/discharge` (hospital's page).
+   558→
+   559→### Two-Part Fix:
+   560→
+   561→#### Part A: Create Receptionist Discharge Page
+   562→**Files**:
+   563→- `src/app/dashboard/receptionist/billing/discharge/page.tsx` (NEW — server wrapper)
+   564→- `src/app/dashboard/receptionist/billing/discharge/client.tsx` (NEW — clone from hospital discharge with receptionist auth)
+   565→
+   566→#### Part B: Fix Sidebar Link
+   567→**File**: `src/lib/sidebar-config.ts` line 171
+   568→
+   569→**Change**:
+   570→```typescript
+   571→// Before:
+   572→{ label: 'Discharge', href: '/dashboard/hospital/billing/discharge', icon: LogOut },
+   573→// After:
+   574→{ label: 'Discharge', href: '/dashboard/receptionist/billing/discharge', icon: LogOut },
+   575→```
+   576→
+   577→### Implementation Notes:
+   578→- The receptionist discharge page should be a simplified version of the hospital one
+   579→- Same API: `GET /api/ipd-admissions/discharge-pending` (already supports receptionist auth)
+   580→- Same actions: Initiate Discharge → Complete Discharge
+   581→- Can reuse most of the hospital discharge client component with minor auth adjustments
+   582→
+   583→---
+   584→
+   585→## IMPLEMENTATION ORDER & DEPENDENCIES
+   586→
+   587→```
+   588→Phase 1 (Foundation — No Breaking Changes)
+   589→├── GAP 2: Dev-Login Guard (5 min) ← No dependencies
+   590→├── GAP 7: Sidebar Fix (15 min) ← No dependencies  
+   591→└── GAP 6.4: Add updatedAt (5 min) ← Schema only
+   592→
+   593→Phase 2 (Schema Changes)
+   594→├── GAP 6.1: Add onDelete to all FKs ← Requires GAP 6.2 first
+   595→├── GAP 6.2: Fix empty string defaults ← Requires backfill script
+   596→├── GAP 6.3: Add indexes ← Schema only
+   597→├── GAP 6.5: Run db:push ← After all schema changes
+   598→└── GAP 7 Part A: Create receptionist discharge page
+   599→
+   600→Phase 3 (Validation Layer)
+   601→├── GAP 4.1: Create validation schemas ← No dependencies
+   602→├── GAP 4.2: Create validation helper ← No dependencies
+   603→├── GAP 4.3: Apply to 25 POST/PUT routes ← After schemas ready
+   604→└── GAP 3.3: Deduplicate DEV_USERS ← Code cleanup
+   605→
+   606→Phase 4 (Feature Integration)
+   607→├── GAP 1.1: Create emit helper ← No dependencies
+   608→├── GAP 1.2: Add emit to 18 routes ← After helper ready
+   609→├── GAP 5: Add pagination to 6 routes ← Independent
+   610→├── GAP 3.1: Make role cookie httpOnly ← Test auth still works
+   611→└── GAP 3.2: Remove admin bypass ← Test all role pages
+   612→
+   613→Phase 5 (Verification)
+   614→├── Run `bun run lint`
+   615→├── Run `bun run db:push`
+   616→├── Browser QA: Login as each role, verify access
+   617→├── Browser QA: Trigger real-time events, verify toasts
+   618→└── Browser QA: Test pagination on all 6 fixed endpoints
+   619→```
+   620→
+   621→---
+   622→
+   623→## RISK ASSESSMENT
+   624→
+   625→| Risk | Impact | Mitigation |
+   626→|------|--------|------------|
+   627→| Schema changes break existing data | High | Backfill script before db:push; test on copy of DB |
+   628→| httpOnly role cookie breaks client-side role reads | Medium | Audit all client code that reads `doctorooms_role` cookie — move to `/api/auth/me` API |
+   629→| Zod validation rejects previously-accepted data | Medium | Make schemas permissive initially; add strict mode later |
+   630→| Emit calls slow down API responses | Low | Fire-and-forget pattern; no await |
+   631→| Removing admin bypass breaks admin workflow | Medium | Verify admin has all needed routes in sidebar; add proxy routes if needed |
+   632→
+   633→---
+   634→
+   635→## FILES TO CREATE (NEW)
+   636→
+   637→| File | Purpose |
+   638→|------|---------|
+   639→| `src/lib/emit-notification.ts` | WebSocket emit helper |
+   640→| `src/lib/validations/index.ts` | Validation barrel export + helper |
+   641→| `src/lib/validations/common.ts` | Shared pagination, CUID, date schemas |
+   642→| `src/lib/validations/billing.ts` | Bill, payment, advance schemas |
+   643→| `src/lib/validations/ipd-admission.ts` | Admission, discharge schemas |
+   644→| `src/lib/validations/lab.ts` | Lab report, result, verify schemas |
+   645→| `src/lib/validations/bed.ts` | Bed transfer schema |
+   646→| `src/lib/validations/ot.ts` | OT schedule schema |
+   647→| `src/lib/validations/inventory.ts` | Item, movement, PO schemas |
+   648→| `src/app/dashboard/receptionist/billing/discharge/page.tsx` | Receptionist discharge page |
+   649→| `src/app/dashboard/receptionist/billing/discharge/client.tsx` | Receptionist discharge client |
+   650→| `src/scripts/backfill-unique-ids.ts` | Backfill empty unique fields |
+   651→
+   652→## FILES TO MODIFY (EXISTING)
+   653→
+   654→| File | Changes |
+   655→|------|---------|
+   656→| `prisma/schema.prisma` | onDelete, indexes, updatedAt, default values |
+   657→| `src/lib/api-auth.ts` | httpOnly role, dedupe DEV_USERS, production guard, remove admin bypass |
+   658→| `src/app/api/dev-login/route.ts` | NODE_ENV guard, import DEV_USERS |
+   659→| `src/app/api/auth/login/route.ts` | httpOnly role cookie |
+   660→| `src/app/api/auth/me/route.ts` | Import DEV_USERS, production guard |
+   661→| `src/lib/sidebar-config.ts` | Fix discharge href |
+   662→| 18 API route files | Add `emitNotification()` calls |
+   663→| 25 API route files | Add zod `validateBody()` calls |
+   664→| 6 API route files | Add pagination |
+   665→
+   666→---
+   667→
+   668→## SUCCESS CRITERIA
+   669→
+   670→- [ ] `POST /api/dev-login` returns 404 in production mode
+   671→- [ ] `doctorooms_role` cookie is httpOnly
+   672→- [ ] No hardcoded DEV_USERS outside `api-auth.ts`
+   673→- [ ] Admin cannot access doctor/nurse/patient routes
+   674→- [ ] All 25 POST/PUT routes reject invalid input with 422 + details
+   675→- [ ] All 6 unbounded list endpoints support page/limit/count
+   676→- [ ] All FK relations have explicit onDelete behavior
+   677→- [ ] No `@default("")` on `@unique` fields
+   678→- [ ] 20+ database indexes on high-traffic query fields
+   679→- [ ] Triggering admission/bill/lab/OT actions shows real-time toasts on other tabs
+   680→- [ ] Receptionist discharge page accessible and functional
+   681→- [ ] `bun run lint` passes
+   682→- [ ] `bun run db:push` succeeds
+   683→
