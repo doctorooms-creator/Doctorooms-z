@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/v4'
 
 export const paginationSchema = z.object({
   page: z.coerce.number().int().positive().default(1),
@@ -6,7 +6,9 @@ export const paginationSchema = z.object({
   search: z.string().max(200).optional(),
 })
 
-export const cuidSchema = z.string().min(1, 'Required')
+export const cuidSchema = z.string().cuid()
+
+export const dateSchema = z.string().datetime({ offset: true }).or(z.string().date())
 
 export function parsePagination(searchParams: URLSearchParams) {
   return paginationSchema.parse(Object.fromEntries(searchParams))

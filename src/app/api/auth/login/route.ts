@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     });
 
     response.cookies.set('doctorooms_role', user.role, {
-      httpOnly: false,
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 7,

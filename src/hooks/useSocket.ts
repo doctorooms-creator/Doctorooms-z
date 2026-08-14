@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
+import { useAuthStore } from '@/lib/auth-store'
 
 interface UseSocketOptions {
   userId?: string
@@ -53,34 +54,14 @@ export function useSocket(options: UseSocketOptions = {}): Socket | null {
   return socketRef.current
 }
 
-/** Helper to read auth from cookies (client-side) */
-function getCookie(name: string): string {
-  if (typeof document === 'undefined') return ''
-  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
-  return match ? match[2] : ''
-}
-
-/** Hook that auto-resolves auth from cookies */
+/** Hook that auto-resolves auth from Zustand store (works with httpOnly cookies) */
 export function useAuthSocket() {
-  const [auth, setAuth] = useState({ userId: '', role: '', name: '' })
-
-  useEffect(() => {
-    const sessionId = getCookie('doctorooms_session')
-    const roleCookie = getCookie('doctorooms_role')
-    if (sessionId && roleCookie) {
-      // In dev mode, sessionId is the userId; in production it's a session token
-      setAuth({
-        userId: sessionId,
-        role: roleCookie,
-        name: roleCookie.charAt(0).toUpperCase() + roleCookie.slice(1),
-      })
-    }
-  }, [])
+  const user = useAuthStore((s) => s.user)
 
   return useSocket({
-    userId: auth.userId,
-    role: auth.role,
-    name: auth.name,
-    enabled: !!auth.userId,
+    userId: user?.id ?? '',
+    role: user?.role ?? '',
+    name: user?.name ?? '',
+    enabled: !!user?.id,
   })
 }

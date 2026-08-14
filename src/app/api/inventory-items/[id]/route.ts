@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { emitNotification, roleRoom } from '@/lib/emit-notification'
+import { validateBody, updateItemSchema } from '@/lib/validations'
 
 /** Check if user has hospital/admin role (for write operations) */
 async function getWriteAuth(request: NextRequest) {
@@ -84,6 +85,8 @@ export async function PUT(
     }
 
     const body = await request.json()
+    const v = validateBody(updateItemSchema, body)
+    if (!v.success) return v.error
     const {
       name,
       category,
@@ -101,7 +104,7 @@ export async function PUT(
       gstPercent,
       storeLocation,
       status,
-    } = body
+    } = v.data
 
     const item = await db.inventoryItem.update({
       where: { id },

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { emitNotification, roleRoom } from '@/lib/emit-notification'
+import { validateBody, finalizeBillSchema } from '@/lib/validations'
 
 /** Resolve hospitalId from hospital/admin/receptionist role */
 async function resolveHospitalId(req: NextRequest): Promise<{ hospitalId: string; userId: string } | null> {
@@ -33,6 +34,10 @@ export async function POST(
     }
     const { hospitalId } = auth
     const { id } = await params
+
+    const body = await req.json()
+    const v = validateBody(finalizeBillSchema, body)
+    if (!v.success) return v.error
 
     // Fetch bill with line items
     const bill = await db.ipdBill.findUnique({

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { validateBody, createChargeItemSchema } from '@/lib/validations'
 
 /** Resolve hospital auth (hospital or admin role) */
 async function getHospitalAuth(request: NextRequest) {
@@ -25,21 +26,9 @@ export async function POST(request: NextRequest) {
     const { hospitalId } = auth
 
     const body = await request.json()
-    const { categoryId, name, shortCode, unitType, rate, isTaxable, taxPercent } = body
-
-    if (!categoryId || typeof categoryId !== 'string' || categoryId.trim() === '') {
-      return NextResponse.json(
-        { error: 'Category ID is required' },
-        { status: 400 }
-      )
-    }
-
-    if (!name || typeof name !== 'string' || name.trim() === '') {
-      return NextResponse.json(
-        { error: 'Item name is required' },
-        { status: 400 }
-      )
-    }
+    const v = validateBody(createChargeItemSchema, body)
+    if (!v.success) return v.error
+    const { categoryId, name, shortCode, unitType, rate, isTaxable, taxPercent } = v.data
 
     // Verify the category belongs to the same hospital
     const category = await db.chargeCategory.findFirst({

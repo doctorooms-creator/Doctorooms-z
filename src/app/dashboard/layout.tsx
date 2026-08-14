@@ -23,11 +23,8 @@ export default function DashboardLayout({
   // On mount, check if we have auth from Zustand (just came from login) OR from sessionStorage/API (page refresh)
   useEffect(() => {
     async function checkAuth() {
-      // 1. If Zustand has user, ensure cookies are set for API calls
+      // 1. If Zustand has user, cookies are httpOnly (set by server, auto-sent by browser)
       if (user && isAuthenticated) {
-        // Re-set cookies so API routes can authenticate (Caddy may strip server cookies)
-        document.cookie = `doctorooms_session=${user.id};path=/;max-age=${60*60*24*7}`
-        document.cookie = `doctorooms_role=${user.role};path=/;max-age=${60*60*24*7}`
         setChecking(false)
         return
       }
@@ -38,10 +35,7 @@ export default function DashboardLayout({
         if (stored) {
           const parsed = JSON.parse(stored) as AuthUser
           setUser(parsed)
-          // CRITICAL: Re-set cookies from client side so API routes can authenticate
-          // (Caddy gateway may strip Set-Cookie headers from server responses)
-          document.cookie = `doctorooms_session=${parsed.id};path=/;max-age=${60*60*24*7}`
-          document.cookie = `doctorooms_role=${parsed.role};path=/;max-age=${60*60*24*7}`
+          // Cookies are httpOnly — already set by server during login
           setChecking(false)
           return
         }
@@ -82,8 +76,6 @@ export default function DashboardLayout({
   const handleLogout = async () => {
     // Clear all auth state
     sessionStorage.removeItem('doctorooms_dev_user')
-    document.cookie = 'doctorooms_session=;path=/;max-age=0'
-    document.cookie = 'doctorooms_role=;path=/;max-age=0'
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
     } catch {

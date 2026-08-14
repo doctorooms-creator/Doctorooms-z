@@ -1,4 +1,4 @@
-import { z } from 'zod'
+import { z } from 'zod/v4'
 import { cuidSchema } from './common'
 
 export const createOtScheduleSchema = z.object({

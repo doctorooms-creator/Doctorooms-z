@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useAuthSocket } from '@/hooks/useSocket'
+import { useAuthStore } from '@/lib/auth-store'
 import { toast } from 'sonner'
 import {
   BedDouble,
@@ -86,16 +87,16 @@ const DEDUP_WINDOW = 5000
 
 export function RealtimeNotification() {
   const socket = useAuthSocket()
+  const role = useAuthStore((s) => s.user?.role)
 
   useEffect(() => {
     if (!socket) return
 
     const handler = (eventName: string, payload: Record<string, unknown>) => {
-      // Check role filter
-      const roleCookie = getCookie('doctorooms_role')
+      // Check role filter using Zustand store (works with httpOnly cookies)
       const config = EVENT_CONFIG[eventName]
       if (!config) return
-      if (roleCookie && !config.roles.includes(roleCookie)) return
+      if (role && !config.roles.includes(role)) return
 
       // Dedup check
       const dedupKey = `${eventName}:${JSON.stringify(payload)}`
@@ -131,14 +132,8 @@ export function RealtimeNotification() {
         socket.off(event)
       }
     }
-  }, [socket])
+  }, [socket, role])
 
   // This component renders nothing visible
   return null
-}
-
-function getCookie(name: string): string {
-  if (typeof document === 'undefined') return ''
-  const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'))
-  return match ? match[2] : ''
 }

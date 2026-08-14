@@ -34,10 +34,19 @@ interface AdmittedPatient {
   roomRentDays?: number
 }
 
+interface BillSummary {
+  id?: string
+  billNo?: string
+  totalAmount?: number
+  advanceAdjusted?: number
+  netPayable?: number
+  status?: string
+}
+
 // ============ Helpers ============
 
 function formatCurrency(amount: number): string {
-  return `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+  return `\u20b9${amount.toLocaleString('en-IN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 }
 
 function getDischargeTypeInfo(type: string) {
@@ -75,7 +84,11 @@ function getDischargeTypeInfo(type: string) {
 
 // ============ Component ============
 
-export default function DischargeClient() {
+interface ReceptionistDischargeClientProps {
+  user: any
+}
+
+export default function ReceptionistDischargeClient({ user }: ReceptionistDischargeClientProps) {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [showDischargeDialog, setShowDischargeDialog] = useState(false)
@@ -83,7 +96,7 @@ export default function DischargeClient() {
   const [dischargeType, setDischargeType] = useState('Normal')
   const [dischargeTime, setDischargeTime] = useState('')
 
-  // Fetch admitted patients (same API as hospital version)
+  // Fetch admitted patients
   const { data, isLoading } = useQuery<{ admissions: AdmittedPatient[] }>({
     queryKey: ['ipd-admissions-admitted-discharge'],
     queryFn: async () => {
@@ -105,7 +118,7 @@ export default function DischargeClient() {
       )
     : admissions
 
-  // Discharge mutation (same API as hospital version)
+  // Discharge mutation
   const dischargeMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPatient) throw new Error('No patient selected')
@@ -231,11 +244,11 @@ export default function DischargeClient() {
                         </TableCell>
                         <TableCell className="text-sm">{adm.doctorName}</TableCell>
                         <TableCell className="text-sm max-w-[200px] truncate">
-                          {adm.initialDiagnosis || '—'}
+                          {adm.initialDiagnosis || '\u2014'}
                         </TableCell>
                         <TableCell className="text-center">
                           <Badge variant="outline" className="font-mono">
-                            {adm.roomRentDays || '—'}
+                            {adm.roomRentDays || '\u2014'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">

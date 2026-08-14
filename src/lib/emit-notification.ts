@@ -1,5 +1,10 @@
-// Events that the notification service accepts
-export type NotificationEvent =
+/**
+ * Fire-and-forget WebSocket notification emitter.
+ * Sends events to the notification mini-service (port 3005).
+ * Never throws — failures are silently swallowed.
+ */
+
+type EventType =
   | 'new-admission'
   | 'vital-recorded'
   | 'sample-ordered'
@@ -10,42 +15,70 @@ export type NotificationEvent =
   | 'ot-scheduled'
   | 'low-stock-alert'
 
-const VALID_EVENTS: NotificationEvent[] = [
-  'new-admission', 'vital-recorded', 'sample-ordered',
-  'lab-result-ready', 'bill-generated', 'payment-received',
-  'discharge-advised', 'ot-scheduled', 'low-stock-alert',
+const VALID_EVENTS: EventType[] = [
+  'new-admission',
+  'vital-recorded',
+  'sample-ordered',
+  'lab-result-ready',
+  'bill-generated',
+  'payment-received',
+  'discharge-advised',
+  'ot-scheduled',
+  'low-stock-alert',
 ]
 
+const EMIT_URL = 'http://localhost:3005/emit'
+
+interface EmitPayload {
+  id?: string
+  title?: string
+  message: string
+  timestamp?: string
+  admissionId?: string
+  patientName?: string
+  doctorId?: string
+  hospitalId?: string
+  [key: string]: unknown
+}
+
+/**
+ * Emit a real-time notification event.
+ * Fire-and-forget: does NOT await, does NOT throw.
+ */
 export function emitNotification(
-  event: NotificationEvent,
+  event: EventType,
   rooms: string[],
-  payload: Record<string, unknown>
+  payload: EmitPayload
 ): void {
-  // Validate event
   if (!VALID_EVENTS.includes(event)) return
-  if (!rooms || rooms.length === 0) return
 
-  // Fire and forget — never block, never throw
-  fetch('http://localhost:3005/emit', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ event, rooms, payload }),
-  }).catch(() => {
-    // Notification service down — silently ignore
-  })
+  try {
+    fetch(EMIT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event,
+        rooms,
+        payload: {
+          ...payload,
+          timestamp: payload.timestamp || new Date().toISOString(),
+        },
+      }),
+    }).catch(() => {
+      // Fire-and-forget: silently ignore failures
+    })
+  } catch {
+    // Never let notification failures affect business logic
+  }
 }
 
-// Convenience: build hospital room string
-export function hospitalRoom(hospitalId: string): string {
-  return `hospital:${hospitalId}`
-}
+export type { EventType, EmitPayload }
 
-// Convenience: build role room string
+/** Room name helpers */
 export function roleRoom(role: string): string {
   return `role:${role}`
 }
 
-// Convenience: build user room string  
-export function userRoom(userId: string): string {
-  return `user:${userId}`
+export function hospitalRoom(hospitalId: string): string {
+  return `hospital:${hospitalId}`
 }

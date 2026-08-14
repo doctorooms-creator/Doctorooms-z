@@ -3,6 +3,7 @@ import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { generateIpdAdmissionNo } from '@/lib/ipd-utils'
 import { emitNotification, hospitalRoom, roleRoom } from '@/lib/emit-notification'
+import { validateBody, createAdmissionSchema } from '@/lib/validations'
 
 // ============ POST: Create new IPD admission (Form 1 — Admission Sheet) ============
 export async function POST(req: NextRequest) {
@@ -23,6 +24,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
+    const v = validateBody(createAdmissionSchema, body)
+    if (!v.success) return v.error
     const {
       wardId,
       bedId,
@@ -51,15 +54,7 @@ export async function POST(req: NextRequest) {
       previousHospitalization,
       mediClaimDetails,
       initialDiagnosis,
-    } = body
-
-    // Validate required fields
-    if (!wardId || !bedId || !departmentId || !attendingDoctorId || !patientName || !patientAge || !patientGender) {
-      return NextResponse.json(
-        { error: 'Missing required fields: wardId, bedId, departmentId, attendingDoctorId, patientName, patientAge, patientGender' },
-        { status: 400 }
-      )
-    }
+    } = v.data
 
     // Verify the bed is available and belongs to the ward
     const bed = await db.bed.findFirst({

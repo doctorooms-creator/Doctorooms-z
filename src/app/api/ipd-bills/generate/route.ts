@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { emitNotification, roleRoom } from '@/lib/emit-notification'
+import { validateBody, createIpdBillSchema } from '@/lib/validations'
 
 /** Resolve hospitalId from hospital/admin/receptionist role */
 async function resolveHospitalId(req: NextRequest): Promise<{ hospitalId: string; userId: string } | null> {
@@ -46,11 +47,9 @@ export async function POST(req: NextRequest) {
     const { hospitalId, userId } = auth
 
     const body = await req.json()
-    const { admissionId } = body
-
-    if (!admissionId) {
-      return NextResponse.json({ error: 'admissionId is required' }, { status: 400 })
-    }
+    const v = validateBody(createIpdBillSchema, body)
+    if (!v.success) return v.error
+    const { admissionId } = v.data
 
     // Check if bill already exists
     const existingBill = await db.ipdBill.findUnique({ where: { admissionId } })

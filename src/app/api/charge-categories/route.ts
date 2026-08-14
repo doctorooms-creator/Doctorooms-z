@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { validateBody, createCategorySchema } from '@/lib/validations'
 
 /**
  * Helper: allow hospital OR admin role.
@@ -29,14 +30,9 @@ export async function POST(request: NextRequest) {
     const { hospitalId } = auth
 
     const body = await request.json()
-    const { name, description, isTaxable, taxPercent, sortOrder } = body
-
-    if (!name || typeof name !== 'string' || name.trim() === '') {
-      return NextResponse.json(
-        { error: 'Category name is required' },
-        { status: 400 }
-      )
-    }
+    const v = validateBody(createCategorySchema, body)
+    if (!v.success) return v.error
+    const { name, description, isTaxable, taxPercent, sortOrder } = v.data
 
     const category = await db.chargeCategory.create({
       data: {
