@@ -31,6 +31,15 @@ export const sidebarConfig: RoleSidebarMap = {
         { label: 'All OPD Bills', href: '/dashboard/admin/billing/opd', icon: Receipt },
       ],
     },
+    { label: 'Charge Categories', href: '/dashboard/admin/charge-categories', icon: Tags },
+    {
+      label: 'Reports',
+      href: '/dashboard/admin/reports',
+      icon: BarChart3,
+      children: [
+        { label: 'Revenue', href: '/dashboard/admin/reports/revenue', icon: IndianRupee },
+      ],
+    },
     { label: 'Blog', href: '/dashboard/admin/blog', icon: FileText },
     { label: 'Inquiries', href: '/dashboard/admin/inquiries', icon: MessageSquare },
     { label: 'Settings', href: '/dashboard/admin/settings', icon: Settings },
@@ -163,6 +172,7 @@ export const sidebarConfig: RoleSidebarMap = {
       ],
     },
     { label: 'Bed Transfer', href: '/dashboard/receptionist/bed-transfer', icon: ArrowRightLeft },
+    { label: 'Lab Tests', href: '/dashboard/receptionist/lab-test-master', icon: FlaskConical },
     { label: 'Family Access', href: '/dashboard/receptionist/family-access', icon: Users },
     { label: 'Reports', href: '/dashboard/receptionist/reports', icon: BarChart3 },
     { label: 'My Blog', href: '/dashboard/receptionist/blog', icon: PenLine },

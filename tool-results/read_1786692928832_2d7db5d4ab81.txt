@@ -1,0 +1,770 @@
+     1→⨯ Failed to start server
+     2→Error: listen EADDRINUSE: address already in use :::3000
+     3→    at <unknown> (Error: listen EADDRINUSE: address already in use :::3000)
+     4→    at new Promise (<anonymous>) {
+     5→  code: 'EADDRINUSE',
+     6→  errno: -98,
+     7→  syscall: 'listen',
+     8→  address: '::',
+     9→  port: 3000
+    10→}
+    11→[?25h
+    12→ze features.
+    13→You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+    14→https://nextjs.org/telemetry
+    15→
+    16→✓ Ready in 1840ms
+    17→○ Compiling / ...
+    18→ GET / 200 in 5.5s (compile: 5.3s, render: 208ms)
+    19→ GET / 200 in 9.4s (compile: 9.1s, render: 281ms)
+    20→ GET / 200 in 152ms (compile: 7ms, render: 145ms)
+    21→ GET / 200 in 104ms (compile: 5ms, render: 99ms)
+    22→ GET / 200 in 2.7s (compile: 2.2s, render: 510ms)
+    23→ GET / 200 in 2.8s (compile: 2.3s, render: 470ms)
+    24→ GET / 200 in 73ms (compile: 5ms, render: 68ms)
+    25→ GET / 200 in 88ms (compile: 5ms, render: 83ms)
+    26→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+    27→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+    28→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+    29→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+    30→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+    31→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+    32→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+    33→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+    34→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+    35→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+    36→ GET /api/public/stats 200 in 1119ms (compile: 817ms, render: 302ms)
+    37→ GET /api/doctors?limit=3 200 in 1141ms (compile: 887ms, render: 254ms)
+    38→ GET /api/hospitals?limit=3 200 in 1144ms (compile: 1030ms, render: 114ms)
+    39→[next-auth][warn][NEXTAUTH_URL] 
+    40→https://next-auth.js.org/warnings#nextauth_url
+    41→[next-auth][warn][NO_SECRET] 
+    42→https://next-auth.js.org/warnings#no_secret
+    43→ GET /api/auth/session 200 in 2.1s (compile: 2.1s, render: 33ms)
+    44→ GET / 200 in 93ms (compile: 7ms, render: 86ms)
+    45→ GET / 200 in 193ms (compile: 5ms, render: 188ms)
+    46→ GET / 200 in 90ms (compile: 4ms, render: 86ms)
+    47→prisma:query SELECT 1
+    48→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+    49→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+    50→ GET /api/hospitals?limit=3 200 in 17ms (compile: 2ms, render: 14ms)
+    51→ GET /api/public/stats 200 in 31ms (compile: 10ms, render: 21ms)
+    52→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+    53→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+    54→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+    55→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+    56→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+    57→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+    58→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+    59→ GET /api/doctors?limit=3 200 in 20ms (compile: 8ms, render: 12ms)
+    60→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+    61→ GET /api/auth/session 200 in 40ms (compile: 32ms, render: 8ms)
+    62→ GET /api/auth/session 200 in 10ms (compile: 2ms, render: 8ms)
+    63→ GET / 200 in 325ms (compile: 10ms, render: 315ms)
+    64→prisma:query SELECT 1
+    65→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+    66→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+    67→prisma:query SELECT 1
+    68→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+    69→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+    70→ GET /api/public/stats 200 in 15ms (compile: 3ms, render: 12ms)
+    71→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+    72→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+    73→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+    74→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+    75→ GET /api/doctors?limit=3 200 in 26ms (compile: 7ms, render: 19ms)
+    76→ GET /api/hospitals?limit=3 200 in 28ms (compile: 15ms, render: 13ms)
+    77→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+    78→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+    79→ GET /api/auth/session 200 in 87ms (compile: 73ms, render: 14ms)
+    80→ GET /login 200 in 1781ms (compile: 1679ms, render: 102ms)
+    81→prisma:query SELECT 1
+    82→ POST /api/dev-login 404 in 188ms (compile: 161ms, render: 27ms)
+    83→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?
+    84→prisma:query SELECT 1
+    85→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?
+    86→ POST /api/dev-login 404 in 8ms (compile: 2ms, render: 6ms)
+    87→ GET /login 200 in 74ms (compile: 8ms, render: 66ms)
+    88→ GET /api/auth/session 200 in 79ms (compile: 42ms, render: 36ms)
+    89→ GET /login 200 in 115ms (compile: 13ms, render: 102ms)
+    90→ GET /api/auth/session 200 in 70ms (compile: 54ms, render: 16ms)
+    91→ POST /api/dev-login 200 in 55ms (compile: 40ms, render: 16ms)
+    92→prisma:query SELECT 1
+    93→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?
+    94→○ Compiling /dashboard/hospital ...
+    95→ GET /dashboard/hospital 200 in 4.7s (compile: 4.2s, render: 418ms)
+    96→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+    97→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?
+    98→prisma:query SELECT `main`.`Hospital`.`id`, `main`.`Hospital`.`userId`, `main`.`Hospital`.`hospitalName`, `main`.`Hospital`.`address`, `main`.`Hospital`.`state`, `main`.`Hospital`.`city`, `main`.`Hospital`.`pincode`, `main`.`Hospital`.`email`, `main`.`Hospital`.`contactNo`, `main`.`Hospital`.`website`, `main`.`Hospital`.`image`, `main`.`Hospital`.`about`, `main`.`Hospital`.`hospitalType`, `main`.`Hospital`.`establishedYear`, `main`.`Hospital`.`bedCount`, `main`.`Hospital`.`accreditation`, `main`.`Hospital`.`facilities`, `main`.`Hospital`.`gallery`, `main`.`Hospital`.`lat`, `main`.`Hospital`.`longi`, `main`.`Hospital`.`status`, `main`.`Hospital`.`createdAt`, `main`.`Hospital`.`updatedAt` FROM `main`.`Hospital` WHERE (`main`.`Hospital`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+    99→ GET /api/dashboard/hospital/stats 404 in 303ms (compile: 279ms, render: 25ms)
+   100→ GET /dashboard/hospital/charge-master 200 in 1796ms (compile: 1690ms, render: 105ms)
+   101→prisma:query SELECT 1
+   102→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+   103→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+   104→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?
+   105→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?
+   106→prisma:query SELECT `main`.`Hospital`.`id`, `main`.`Hospital`.`userId`, `main`.`Hospital`.`hospitalName`, `main`.`Hospital`.`address`, `main`.`Hospital`.`state`, `main`.`Hospital`.`city`, `main`.`Hospital`.`pincode`, `main`.`Hospital`.`email`, `main`.`Hospital`.`contactNo`, `main`.`Hospital`.`website`, `main`.`Hospital`.`image`, `main`.`Hospital`.`about`, `main`.`Hospital`.`hospitalType`, `main`.`Hospital`.`establishedYear`, `main`.`Hospital`.`bedCount`, `main`.`Hospital`.`accreditation`, `main`.`Hospital`.`facilities`, `main`.`Hospital`.`gallery`, `main`.`Hospital`.`lat`, `main`.`Hospital`.`longi`, `main`.`Hospital`.`status`, `main`.`Hospital`.`createdAt`, `main`.`Hospital`.`updatedAt` FROM `main`.`Hospital` WHERE (`main`.`Hospital`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+   107→ GET /api/charge-categories 401 in 412ms (compile: 205ms, render: 207ms)
+   108→prisma:query SELECT `main`.`Hospital`.`id`, `main`.`Hospital`.`userId`, `main`.`Hospital`.`hospitalName`, `main`.`Hospital`.`address`, `main`.`Hospital`.`state`, `main`.`Hospital`.`city`, `main`.`Hospital`.`pincode`, `main`.`Hospital`.`email`, `main`.`Hospital`.`contactNo`, `main`.`Hospital`.`website`, `main`.`Hospital`.`image`, `main`.`Hospital`.`about`, `main`.`Hospital`.`hospitalType`, `main`.`Hospital`.`establishedYear`, `main`.`Hospital`.`bedCount`, `main`.`Hospital`.`accreditation`, `main`.`Hospital`.`facilities`, `main`.`Hospital`.`gallery`, `main`.`Hospital`.`lat`, `main`.`Hospital`.`longi`, `main`.`Hospital`.`status`, `main`.`Hospital`.`createdAt`, `main`.`Hospital`.`updatedAt` FROM `main`.`Hospital` WHERE (`main`.`Hospital`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+   109→ GET /api/charge-items 401 in 451ms (compile: 374ms, render: 77ms)
+   110→ GET /dashboard/hospital/billing 200 in 1478ms (compile: 935ms, render: 544ms)
+   111→ GET /api/auth/session 200 in 140ms (compile: 102ms, render: 38ms)
+   112→prisma:query SELECT 1
+   113→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+   114→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?
+   115→prisma:query SELECT `main`.`Hospital`.`id`, `main`.`Hospital`.`userId`, `main`.`Hospital`.`hospitalName`, `main`.`Hospital`.`address`, `main`.`Hospital`.`state`, `main`.`Hospital`.`city`, `main`.`Hospital`.`pincode`, `main`.`Hospital`.`email`, `main`.`Hospital`.`contactNo`, `main`.`Hospital`.`website`, `main`.`Hospital`.`image`, `main`.`Hospital`.`about`, `main`.`Hospital`.`hospitalType`, `main`.`Hospital`.`establishedYear`, `main`.`Hospital`.`bedCount`, `main`.`Hospital`.`accreditation`, `main`.`Hospital`.`facilities`, `main`.`Hospital`.`gallery`, `main`.`Hospital`.`lat`, `main`.`Hospital`.`longi`, `main`.`Hospital`.`status`, `main`.`Hospital`.`createdAt`, `main`.`Hospital`.`updatedAt` FROM `main`.`Hospital` WHERE (`main`.`Hospital`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+   116→ GET /api/billing/dashboard 401 in 372ms (compile: 325ms, render: 47ms)
+   117→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`id` = ? AND 1=1) LIMIT ? OFFSET ?
+   118→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`gender`, `main`.`User`.`role`, `main`.`User`.`status`, `main`.`User`.`email`, `main`.`User`.`password`, `main`.`User`.`profileImg`, `main`.`User`.`mobileNo`, `main`.`User`.`mobileVerifiedAt`, `main`.`User`.`emailVerifiedAt`, `main`.`User`.`settingsJson`, `main`.`User`.`createdAt`, `main`.`User`.`updatedAt` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?
+   119→prisma:query SELECT `main`.`Hospital`.`id`, `main`.`Hospital`.`userId`, `main`.`Hospital`.`hospitalName`, `main`.`Hospital`.`address`, `main`.`Hospital`.`state`, `main`.`Hospital`.`city`, `main`.`Hospital`.`pincode`, `main`.`Hospital`.`email`, `main`.`Hospital`.`contactNo`, `main`.`Hospital`.`website`, `main`.`Hospital`.`image`, `main`.`Hospital`.`about`, `main`.`Hospital`.`hospitalType`, `main`.`Hospital`.`establishedYear`, `main`.`Hospital`.`bedCount`, `main`.`Hospital`.`accreditation`, `main`.`Hospital`.`facilities`, `main`.`Hospital`.`gallery`, `main`.`Hospital`.`lat`, `main`.`Hospital`.`longi`, `main`.`Hospital`.`status`, `main`.`Hospital`.`createdAt`, `main`.`Hospital`.`updatedAt` FROM `main`.`Hospital` WHERE (`main`.`Hospital`.`userId` = ? AND 1=1) LIMIT ? OFFSET ?
+   120→ GET /api/billing/dashboard 401 in 10ms (compile: 3ms, render: 7ms)
+   121→ GET / 200 in 102ms (compile: 8ms, render: 94ms)
+   122→prisma:query SELECT 1
+   123→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   124→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   125→prisma:query SELECT 1
+   126→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   127→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   128→ GET /api/doctors?limit=3 200 in 11ms (compile: 2ms, render: 8ms)
+   129→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   130→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   131→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   132→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   133→ GET /api/public/stats 200 in 7ms (compile: 1663µs, render: 5ms)
+   134→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   135→ GET /api/hospitals?limit=3 200 in 8ms (compile: 2ms, render: 6ms)
+   136→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   137→ GET / 200 in 130ms (compile: 6ms, render: 124ms)
+   138→prisma:query SELECT 1
+   139→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   140→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   141→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   142→prisma:query SELECT 1
+   143→ GET /api/public/stats 200 in 8ms (compile: 3ms, render: 6ms)
+   144→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   145→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   146→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   147→ GET /api/hospitals?limit=3 200 in 10ms (compile: 3ms, render: 7ms)
+   148→ GET /api/auth/session 200 in 56ms (compile: 46ms, render: 10ms)
+   149→ GET /api/doctors?limit=3 200 in 55ms (compile: 48ms, render: 7ms)
+   150→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   151→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   152→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   153→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   154→ GET / 200 in 108ms (compile: 19ms, render: 89ms)
+   155→prisma:query SELECT 1
+   156→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   157→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   158→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   159→ GET /api/doctors?limit=3 200 in 13ms (compile: 3ms, render: 10ms)
+   160→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   161→ GET /api/public/stats 200 in 10ms (compile: 2ms, render: 7ms)
+   162→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   163→prisma:query SELECT 1
+   164→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   165→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   166→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   167→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   168→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   169→ GET /api/hospitals?limit=3 200 in 7ms (compile: 2ms, render: 5ms)
+   170→ GET /api/auth/session 200 in 55ms (compile: 45ms, render: 10ms)
+   171→ GET / 200 in 79ms (compile: 7ms, render: 72ms)
+   172→ GET / 200 in 102ms (compile: 4ms, render: 98ms)
+   173→prisma:query SELECT 1
+   174→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   175→ GET /api/hospitals?limit=3 200 in 9ms (compile: 2ms, render: 6ms)
+   176→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   177→prisma:query SELECT 1
+   178→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   179→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   180→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   181→ GET /api/public/stats 200 in 12ms (compile: 4ms, render: 9ms)
+   182→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   183→ GET /api/doctors?limit=3 200 in 12ms (compile: 5ms, render: 7ms)
+   184→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   185→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   186→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   187→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   188→ GET /api/auth/session 200 in 48ms (compile: 40ms, render: 8ms)
+   189→ GET / 200 in 76ms (compile: 5ms, render: 71ms)
+   190→ GET / 200 in 75ms (compile: 8ms, render: 67ms)
+   191→prisma:query SELECT 1
+   192→prisma:query SELECT 1
+   193→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   194→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   195→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   196→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   197→ GET /api/public/stats 200 in 10ms (compile: 2ms, render: 7ms)
+   198→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   199→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   200→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   201→ GET /api/doctors?limit=3 200 in 8ms (compile: 1663µs, render: 6ms)
+   202→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   203→ GET /api/auth/session 200 in 55ms (compile: 43ms, render: 11ms)
+   204→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   205→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   206→ GET /api/hospitals?limit=3 200 in 8ms (compile: 2ms, render: 6ms)
+   207→ GET /api/hospitals?limit=3 200 in 16ms (compile: 3ms, render: 13ms)
+   208→prisma:query SELECT 1
+   209→prisma:query SELECT 1
+   210→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   211→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   212→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   213→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   214→ GET /api/public/stats 200 in 17ms (compile: 6ms, render: 11ms)
+   215→ GET /api/doctors?limit=3 200 in 18ms (compile: 9ms, render: 9ms)
+   216→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   217→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   218→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   219→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   220→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   221→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   222→ GET / 200 in 95ms (compile: 5ms, render: 90ms)
+   223→ GET / 200 in 74ms (compile: 5ms, render: 69ms)
+   224→prisma:query SELECT 1
+   225→prisma:query SELECT 1
+   226→ GET /api/public/stats 200 in 15ms (compile: 7ms, render: 8ms)
+   227→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   228→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   229→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   230→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   231→ GET /api/doctors?limit=3 200 in 13ms (compile: 6ms, render: 7ms)
+   232→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   233→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   234→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   235→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   236→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   237→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   238→ GET /api/hospitals?limit=3 200 in 18ms (compile: 6ms, render: 12ms)
+   239→ GET /api/auth/session 200 in 89ms (compile: 81ms, render: 8ms)
+   240→ GET / 200 in 99ms (compile: 8ms, render: 91ms)
+   241→ GET / 200 in 79ms (compile: 6ms, render: 73ms)
+   242→ GET / 200 in 81ms (compile: 5ms, render: 76ms)
+   243→ GET / 200 in 73ms (compile: 5ms, render: 68ms)
+   244→ GET / 200 in 97ms (compile: 6ms, render: 91ms)
+   245→prisma:query SELECT 1
+   246→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   247→prisma:query SELECT 1
+   248→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   249→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   250→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   251→ GET /api/public/stats 200 in 15ms (compile: 5ms, render: 10ms)
+   252→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   253→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   254→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   255→ GET /api/doctors?limit=3 200 in 9ms (compile: 1978µs, render: 7ms)
+   256→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   257→ GET /api/hospitals?limit=3 200 in 9ms (compile: 4ms, render: 5ms)
+   258→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   259→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   260→ GET /api/auth/session 200 in 60ms (compile: 52ms, render: 8ms)
+   261→ GET / 200 in 88ms (compile: 59ms, render: 29ms)
+   262→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   263→ GET / 200 in 23ms (compile: 5ms, render: 18ms)
+   264→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   265→ GET / 200 in 26ms (compile: 4ms, render: 21ms)
+   266→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   267→ GET / 200 in 24ms (compile: 5ms, render: 19ms)
+   268→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   269→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   270→ GET / 200 in 25ms (compile: 5ms, render: 20ms)
+   271→ GET / 200 in 26ms (compile: 5ms, render: 21ms)
+   272→ GET / 200 in 25ms (compile: 6ms, render: 19ms)
+   273→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   274→ GET / 200 in 17ms (compile: 5ms, render: 12ms)
+   275→ GET / 200 in 23ms (compile: 4ms, render: 19ms)
+   276→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   277→ GET / 200 in 26ms (compile: 6ms, render: 20ms)
+   278→ GET / 200 in 30ms (compile: 6ms, render: 24ms)
+   279→ GET / 200 in 32ms (compile: 6ms, render: 27ms)
+   280→ GET / 200 in 27ms (compile: 5ms, render: 21ms)
+   281→ GET / 200 in 18ms (compile: 5ms, render: 12ms)
+   282→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   283→ GET / 200 in 67ms (compile: 15ms, render: 52ms)
+   284→ GET / 200 in 20ms (compile: 5ms, render: 16ms)
+   285→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   286→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   287→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   288→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   289→ GET / 200 in 20ms (compile: 5ms, render: 14ms)
+   290→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   291→ GET / 200 in 24ms (compile: 5ms, render: 19ms)
+   292→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   293→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   294→ GET / 200 in 17ms (compile: 5ms, render: 12ms)
+   295→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   296→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   297→ GET / 200 in 18ms (compile: 5ms, render: 14ms)
+   298→ GET / 200 in 30ms (compile: 5ms, render: 25ms)
+   299→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   300→ GET / 200 in 16ms (compile: 4ms, render: 13ms)
+   301→ GET / 200 in 17ms (compile: 4ms, render: 14ms)
+   302→ GET / 200 in 17ms (compile: 4ms, render: 12ms)
+   303→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   304→ GET / 200 in 15ms (compile: 4ms, render: 11ms)
+   305→ GET / 200 in 23ms (compile: 4ms, render: 20ms)
+   306→ GET / 200 in 15ms (compile: 4ms, render: 11ms)
+   307→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   308→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   309→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   310→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   311→ GET / 200 in 17ms (compile: 5ms, render: 13ms)
+   312→ GET / 200 in 493ms (compile: 469ms, render: 24ms)
+   313→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   314→ GET / 200 in 19ms (compile: 4ms, render: 15ms)
+   315→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   316→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   317→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   318→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   319→ GET / 200 in 33ms (compile: 4ms, render: 29ms)
+   320→ GET / 200 in 16ms (compile: 4ms, render: 13ms)
+   321→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   322→ GET / 200 in 27ms (compile: 9ms, render: 18ms)
+   323→ GET / 200 in 254ms (compile: 232ms, render: 22ms)
+   324→ GET / 200 in 257ms (compile: 5ms, render: 252ms)
+   325→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   326→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   327→ GET / 200 in 17ms (compile: 4ms, render: 12ms)
+   328→prisma:query SELECT 1
+   329→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   330→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   331→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   332→ GET /api/public/stats 200 in 46ms (compile: 35ms, render: 10ms)
+   333→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   334→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   335→prisma:query SELECT 1
+   336→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   337→ GET /api/doctors?limit=3 200 in 34ms (compile: 26ms, render: 8ms)
+   338→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   339→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   340→ GET /api/hospitals?limit=3 200 in 44ms (compile: 25ms, render: 18ms)
+   341→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   342→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   343→[next-auth][warn][NEXTAUTH_URL] 
+   344→https://next-auth.js.org/warnings#nextauth_url
+   345→[next-auth][warn][NO_SECRET] 
+   346→https://next-auth.js.org/warnings#no_secret
+   347→ GET /api/auth/session 200 in 98ms (compile: 86ms, render: 13ms)
+   348→ GET / 200 in 210ms (compile: 181ms, render: 29ms)
+   349→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   350→ GET / 200 in 50ms (compile: 4ms, render: 46ms)
+   351→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   352→ GET / 200 in 14ms (compile: 3ms, render: 11ms)
+   353→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   354→ GET / 200 in 21ms (compile: 5ms, render: 16ms)
+   355→ GET / 200 in 17ms (compile: 4ms, render: 14ms)
+   356→ GET / 200 in 16ms (compile: 4ms, render: 13ms)
+   357→ GET / 200 in 18ms (compile: 5ms, render: 14ms)
+   358→ GET / 200 in 25ms (compile: 5ms, render: 20ms)
+   359→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   360→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   361→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   362→ GET / 200 in 22ms (compile: 5ms, render: 17ms)
+   363→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   364→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   365→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   366→ GET / 200 in 22ms (compile: 4ms, render: 18ms)
+   367→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   368→ GET / 200 in 17ms (compile: 4ms, render: 12ms)
+   369→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   370→ GET / 200 in 23ms (compile: 4ms, render: 19ms)
+   371→ GET / 200 in 21ms (compile: 4ms, render: 17ms)
+   372→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   373→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   374→ GET / 200 in 22ms (compile: 4ms, render: 18ms)
+   375→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   376→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   377→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   378→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   379→ GET / 200 in 17ms (compile: 4ms, render: 12ms)
+   380→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   381→ GET / 200 in 22ms (compile: 4ms, render: 18ms)
+   382→ GET / 200 in 27ms (compile: 5ms, render: 21ms)
+   383→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   384→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   385→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   386→ GET / 200 in 26ms (compile: 6ms, render: 20ms)
+   387→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   388→ GET / 200 in 18ms (compile: 5ms, render: 14ms)
+   389→ GET / 200 in 25ms (compile: 5ms, render: 20ms)
+   390→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   391→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   392→ GET / 200 in 21ms (compile: 4ms, render: 17ms)
+   393→ GET / 200 in 17ms (compile: 5ms, render: 12ms)
+   394→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   395→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   396→ GET / 200 in 25ms (compile: 4ms, render: 21ms)
+   397→ GET / 200 in 19ms (compile: 4ms, render: 14ms)
+   398→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   399→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   400→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   401→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   402→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   403→ GET / 200 in 26ms (compile: 4ms, render: 22ms)
+   404→ GET / 200 in 16ms (compile: 4ms, render: 13ms)
+   405→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   406→ GET / 200 in 26ms (compile: 6ms, render: 20ms)
+   407→ GET / 200 in 25ms (compile: 6ms, render: 20ms)
+   408→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   409→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   410→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   411→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   412→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   413→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   414→ GET / 200 in 26ms (compile: 6ms, render: 21ms)
+   415→ GET / 200 in 18ms (compile: 6ms, render: 12ms)
+   416→ GET / 200 in 22ms (compile: 10ms, render: 12ms)
+   417→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   418→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   419→ GET / 200 in 17ms (compile: 4ms, render: 14ms)
+   420→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   421→ GET / 200 in 22ms (compile: 4ms, render: 18ms)
+   422→ GET / 200 in 20ms (compile: 4ms, render: 16ms)
+   423→ GET / 200 in 15ms (compile: 4ms, render: 11ms)
+   424→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   425→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   426→ GET / 200 in 24ms (compile: 7ms, render: 17ms)
+   427→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   428→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   429→ GET / 200 in 20ms (compile: 5ms, render: 15ms)
+   430→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   431→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   432→ GET / 200 in 29ms (compile: 4ms, render: 24ms)
+   433→ GET / 200 in 19ms (compile: 4ms, render: 15ms)
+   434→ GET / 200 in 23ms (compile: 4ms, render: 19ms)
+   435→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   436→ GET / 200 in 24ms (compile: 5ms, render: 19ms)
+   437→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   438→ GET / 200 in 39ms (compile: 6ms, render: 33ms)
+   439→ GET / 200 in 17ms (compile: 5ms, render: 13ms)
+   440→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   441→ GET / 200 in 20ms (compile: 6ms, render: 14ms)
+   442→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   443→ GET / 200 in 19ms (compile: 5ms, render: 13ms)
+   444→ GET / 200 in 20ms (compile: 5ms, render: 16ms)
+   445→ GET / 200 in 17ms (compile: 4ms, render: 12ms)
+   446→ GET / 200 in 28ms (compile: 4ms, render: 24ms)
+   447→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   448→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   449→ GET / 200 in 26ms (compile: 6ms, render: 21ms)
+   450→ GET / 200 in 30ms (compile: 6ms, render: 24ms)
+   451→ GET / 200 in 26ms (compile: 6ms, render: 21ms)
+   452→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   453→ GET / 200 in 19ms (compile: 4ms, render: 15ms)
+   454→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   455→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   456→ GET / 200 in 15ms (compile: 4ms, render: 11ms)
+   457→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   458→ GET / 200 in 20ms (compile: 7ms, render: 12ms)
+   459→ GET / 200 in 16ms (compile: 4ms, render: 13ms)
+   460→ GET / 200 in 20ms (compile: 4ms, render: 16ms)
+   461→ GET / 200 in 17ms (compile: 4ms, render: 12ms)
+   462→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   463→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   464→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   465→ GET / 200 in 17ms (compile: 4ms, render: 12ms)
+   466→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   467→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   468→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   469→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   470→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   471→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   472→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   473→ GET / 200 in 354ms (compile: 331ms, render: 23ms)
+   474→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   475→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   476→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   477→ GET / 200 in 246ms (compile: 4ms, render: 243ms)
+   478→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   479→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   480→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   481→ GET / 200 in 38ms (compile: 4ms, render: 33ms)
+   482→ GET / 200 in 38ms (compile: 21ms, render: 17ms)
+   483→prisma:query SELECT 1
+   484→prisma:query SELECT 1
+   485→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   486→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   487→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   488→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   489→ GET /api/public/stats 200 in 42ms (compile: 31ms, render: 11ms)
+   490→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   491→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   492→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   493→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   494→ GET /api/doctors?limit=3 200 in 30ms (compile: 20ms, render: 10ms)
+   495→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   496→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   497→ GET /api/hospitals?limit=3 200 in 32ms (compile: 24ms, render: 8ms)
+   498→[next-auth][warn][NEXTAUTH_URL] 
+   499→https://next-auth.js.org/warnings#nextauth_url
+   500→[next-auth][warn][NO_SECRET] 
+   501→https://next-auth.js.org/warnings#no_secret
+   502→ GET /api/auth/session 200 in 108ms (compile: 93ms, render: 15ms)
+   503→ GET / 200 in 264ms (compile: 238ms, render: 27ms)
+   504→ GET / 200 in 21ms (compile: 5ms, render: 16ms)
+   505→ GET / 200 in 19ms (compile: 4ms, render: 15ms)
+   506→ GET / 200 in 30ms (compile: 4ms, render: 26ms)
+   507→ GET / 200 in 21ms (compile: 5ms, render: 16ms)
+   508→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   509→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   510→ GET / 200 in 20ms (compile: 4ms, render: 15ms)
+   511→ GET / 200 in 19ms (compile: 4ms, render: 15ms)
+   512→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   513→ GET / 200 in 20ms (compile: 5ms, render: 15ms)
+   514→ GET / 200 in 27ms (compile: 5ms, render: 22ms)
+   515→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   516→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   517→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   518→ GET / 200 in 20ms (compile: 4ms, render: 16ms)
+   519→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   520→ GET / 200 in 16ms (compile: 4ms, render: 13ms)
+   521→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   522→ GET / 200 in 22ms (compile: 6ms, render: 17ms)
+   523→ GET / 200 in 19ms (compile: 6ms, render: 13ms)
+   524→ GET / 200 in 17ms (compile: 5ms, render: 12ms)
+   525→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   526→ GET / 200 in 22ms (compile: 4ms, render: 18ms)
+   527→ GET / 200 in 16ms (compile: 4ms, render: 13ms)
+   528→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   529→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   530→ GET / 200 in 33ms (compile: 14ms, render: 18ms)
+   531→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   532→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   533→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   534→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   535→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   536→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   537→ GET / 200 in 18ms (compile: 5ms, render: 14ms)
+   538→ GET / 200 in 27ms (compile: 5ms, render: 22ms)
+   539→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   540→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   541→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   542→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   543→ GET / 200 in 17ms (compile: 5ms, render: 13ms)
+   544→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   545→ GET / 200 in 25ms (compile: 5ms, render: 21ms)
+   546→ GET / 200 in 21ms (compile: 4ms, render: 16ms)
+   547→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   548→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   549→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   550→ GET / 200 in 17ms (compile: 4ms, render: 12ms)
+   551→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   552→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   553→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   554→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   555→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   556→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   557→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   558→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   559→ GET / 200 in 19ms (compile: 4ms, render: 15ms)
+   560→ GET / 200 in 26ms (compile: 13ms, render: 13ms)
+   561→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   562→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   563→ GET / 200 in 22ms (compile: 4ms, render: 18ms)
+   564→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   565→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   566→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   567→ GET / 200 in 27ms (compile: 4ms, render: 23ms)
+   568→ GET / 200 in 18ms (compile: 5ms, render: 14ms)
+   569→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   570→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   571→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   572→ GET / 200 in 738ms (compile: 711ms, render: 27ms)
+   573→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   574→ GET / 200 in 18ms (compile: 5ms, render: 14ms)
+   575→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   576→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   577→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   578→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   579→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   580→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   581→ GET / 200 in 22ms (compile: 5ms, render: 17ms)
+   582→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   583→ GET / 200 in 20ms (compile: 5ms, render: 14ms)
+   584→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   585→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   586→ GET / 200 in 311ms (compile: 7ms, render: 304ms)
+   587→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   588→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   589→prisma:query SELECT 1
+   590→prisma:query SELECT 1
+   591→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   592→prisma:query SELECT 1
+   593→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   594→ GET /api/public/stats 200 in 43ms (compile: 32ms, render: 11ms)
+   595→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   596→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   597→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   598→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   599→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   600→ GET /api/doctors?limit=3 200 in 59ms (compile: 24ms, render: 35ms)
+   601→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   602→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   603→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   604→ GET /api/hospitals?limit=3 200 in 30ms (compile: 21ms, render: 9ms)
+   605→[next-auth][warn][NEXTAUTH_URL] 
+   606→https://next-auth.js.org/warnings#nextauth_url
+   607→[next-auth][warn][NO_SECRET] 
+   608→https://next-auth.js.org/warnings#no_secret
+   609→ GET /api/auth/session 200 in 114ms (compile: 100ms, render: 14ms)
+   610→ GET / 200 in 319ms (compile: 294ms, render: 26ms)
+   611→ GET / 200 in 32ms (compile: 4ms, render: 28ms)
+   612→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   613→ GET / 200 in 17ms (compile: 4ms, render: 12ms)
+   614→ GET / 200 in 29ms (compile: 6ms, render: 23ms)
+   615→ GET / 200 in 22ms (compile: 5ms, render: 17ms)
+   616→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   617→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   618→ GET / 200 in 20ms (compile: 5ms, render: 15ms)
+   619→ GET / 200 in 24ms (compile: 5ms, render: 19ms)
+   620→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   621→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   622→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   623→ GET / 200 in 36ms (compile: 7ms, render: 30ms)
+   624→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   625→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   626→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   627→ GET / 200 in 24ms (compile: 4ms, render: 20ms)
+   628→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   629→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   630→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   631→ GET / 200 in 51ms (compile: 5ms, render: 46ms)
+   632→ GET / 200 in 56ms (compile: 12ms, render: 44ms)
+   633→ GET / 200 in 23ms (compile: 5ms, render: 17ms)
+   634→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   635→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   636→ GET / 200 in 36ms (compile: 11ms, render: 25ms)
+   637→ GET / 200 in 19ms (compile: 7ms, render: 12ms)
+   638→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   639→ GET / 200 in 29ms (compile: 7ms, render: 23ms)
+   640→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   641→ GET / 200 in 20ms (compile: 6ms, render: 14ms)
+   642→ GET / 200 in 19ms (compile: 8ms, render: 12ms)
+   643→ GET / 200 in 29ms (compile: 4ms, render: 26ms)
+   644→ GET / 200 in 25ms (compile: 6ms, render: 19ms)
+   645→ GET / 200 in 26ms (compile: 7ms, render: 19ms)
+   646→ GET / 200 in 35ms (compile: 10ms, render: 25ms)
+   647→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   648→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   649→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   650→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   651→ GET / 200 in 21ms (compile: 6ms, render: 15ms)
+   652→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   653→ GET / 200 in 14ms (compile: 3ms, render: 11ms)
+   654→ GET / 200 in 17ms (compile: 5ms, render: 13ms)
+   655→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   656→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   657→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   658→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   659→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   660→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   661→ GET / 200 in 28ms (compile: 12ms, render: 16ms)
+   662→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   663→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   664→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   665→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   666→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   667→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   668→ GET / 200 in 27ms (compile: 4ms, render: 23ms)
+   669→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   670→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   671→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   672→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   673→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   674→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   675→ GET / 200 in 53ms (compile: 4ms, render: 49ms)
+   676→ GET / 200 in 22ms (compile: 4ms, render: 18ms)
+   677→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   678→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   679→ GET / 200 in 15ms (compile: 4ms, render: 12ms)
+   680→ GET / 200 in 17ms (compile: 5ms, render: 12ms)
+   681→ GET / 200 in 16ms (compile: 4ms, render: 13ms)
+   682→ GET / 200 in 43ms (compile: 10ms, render: 33ms)
+   683→ GET / 200 in 22ms (compile: 4ms, render: 18ms)
+   684→ GET / 200 in 17ms (compile: 5ms, render: 13ms)
+   685→ GET / 200 in 24ms (compile: 12ms, render: 13ms)
+   686→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   687→ GET / 200 in 17ms (compile: 5ms, render: 13ms)
+   688→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   689→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   690→ GET / 200 in 54ms (compile: 12ms, render: 42ms)
+   691→ GET / 200 in 44ms (compile: 5ms, render: 40ms)
+   692→ GET / 200 in 27ms (compile: 6ms, render: 22ms)
+   693→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   694→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   695→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   696→ GET / 200 in 20ms (compile: 6ms, render: 14ms)
+   697→ GET / 200 in 19ms (compile: 5ms, render: 13ms)
+   698→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   699→ GET / 200 in 23ms (compile: 9ms, render: 14ms)
+   700→ GET / 200 in 18ms (compile: 4ms, render: 13ms)
+   701→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   702→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   703→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   704→ GET / 200 in 19ms (compile: 5ms, render: 14ms)
+   705→ GET / 200 in 50ms (compile: 5ms, render: 45ms)
+   706→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   707→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   708→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   709→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   710→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   711→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   712→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   713→ GET / 200 in 20ms (compile: 4ms, render: 16ms)
+   714→ GET / 200 in 15ms (compile: 4ms, render: 11ms)
+   715→ GET / 200 in 15ms (compile: 4ms, render: 11ms)
+   716→ GET / 200 in 15ms (compile: 4ms, render: 11ms)
+   717→ GET / 200 in 14ms (compile: 3ms, render: 11ms)
+   718→ GET / 200 in 15ms (compile: 4ms, render: 11ms)
+   719→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   720→ GET / 200 in 37ms (compile: 4ms, render: 34ms)
+   721→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   722→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   723→ GET / 200 in 15ms (compile: 4ms, render: 11ms)
+   724→ GET / 200 in 26ms (compile: 5ms, render: 20ms)
+   725→ GET / 200 in 22ms (compile: 5ms, render: 17ms)
+   726→ GET / 200 in 17ms (compile: 4ms, render: 14ms)
+   727→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   728→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   729→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   730→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   731→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   732→ GET / 200 in 17ms (compile: 5ms, render: 12ms)
+   733→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   734→ GET / 200 in 33ms (compile: 4ms, render: 29ms)
+   735→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   736→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   737→ GET / 200 in 18ms (compile: 4ms, render: 14ms)
+   738→ GET / 200 in 16ms (compile: 4ms, render: 12ms)
+   739→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   740→ GET / 200 in 25ms (compile: 6ms, render: 20ms)
+   741→ GET / 200 in 15ms (compile: 4ms, render: 11ms)
+   742→ GET / 200 in 459ms (compile: 436ms, render: 23ms)
+   743→ GET / 200 in 20ms (compile: 7ms, render: 13ms)
+   744→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   745→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   746→ GET / 200 in 214ms (compile: 4ms, render: 210ms)
+   747→ GET / 200 in 36ms (compile: 4ms, render: 32ms)
+   748→ GET / 200 in 17ms (compile: 4ms, render: 13ms)
+   749→ GET / 200 in 18ms (compile: 5ms, render: 13ms)
+   750→prisma:query SELECT 1
+   751→prisma:query SELECT 1
+   752→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   753→ GET /api/public/stats 200 in 37ms (compile: 26ms, render: 11ms)
+   754→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`Booking`.`id` FROM `main`.`Booking` WHERE 1=1 LIMIT ? OFFSET ?) AS `sub`
+   755→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE `main`.`User`.`role` = ? LIMIT ? OFFSET ?) AS `sub`
+   756→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ?) LIMIT ? OFFSET ?) AS `sub`
+   757→ GET /api/doctors?limit=3 200 in 34ms (compile: 20ms, render: 14ms)
+   758→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   759→prisma:query SELECT COUNT(*) AS `_count$_all` FROM (SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) LIMIT ? OFFSET ?) AS `sub`
+   760→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`state` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   761→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Doctor` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   762→ GET /api/hospitals?limit=3 200 in 120ms (compile: 20ms, render: 100ms)
+   763→prisma:query SELECT `main`.`User`.`id`, `main`.`User`.`name`, `main`.`User`.`profileImg` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (NOT (`j0`.`userId` IS NULL))) ORDER BY `main`.`User`.`createdAt` DESC LIMIT ? OFFSET ?
+   764→prisma:query SELECT `main`.`User`.`id` FROM `main`.`User` LEFT JOIN `main`.`Hospital` AS `j0` ON (`j0`.`userId`) = (`main`.`User`.`id`) WHERE (`main`.`User`.`role` = ? AND `main`.`User`.`status` = ? AND (`j0`.`city` <> ? AND (`j0`.`id` IS NOT NULL))) LIMIT ? OFFSET ?
+   765→[next-auth][warn][NEXTAUTH_URL] 
+   766→https://next-auth.js.org/warnings#nextauth_url
+   767→[next-auth][warn][NO_SECRET] 
+   768→https://next-auth.js.org/warnings#no_secret
+   769→ GET /api/auth/session 200 in 128ms (compile: 112ms, render: 15ms)
+   770→
