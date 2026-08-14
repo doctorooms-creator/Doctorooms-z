@@ -1,0 +1,1721 @@
+     1→generator client {
+     2→  provider = "prisma-client-js"
+     3→}
+     4→
+     5→datasource db {
+     6→  provider  = "sqlite"
+     7→  url       = env("DATABASE_URL")
+     8→}
+     9→
+    10→// ============ USER & ROLES ============
+    11→
+    12→model User {
+    13→  id              String   @id @default(cuid())
+    14→  name            String
+    15→  gender          String   @default("Male")
+    16→  role            String   @default("patient") // admin, doctor, patient, hospital, receptionist, assistant, pharmacist, nurse
+    17→  status          String   @default("Pending") // Pending, Active, Block
+    18→  email           String   @unique
+    19→  password        String   @default("")
+    20→  profileImg      String   @default("default.png")
+    21→  mobileNo        String   @default("")
+    22→  mobileVerifiedAt DateTime?
+    23→  emailVerifiedAt DateTime?
+    24→  settingsJson     String   @default("{}") // JSON: {"emailNotifications":true,"bookingReminders":true,"marketingEmails":false}
+    25→  createdAt       DateTime @default(now())
+    26→  updatedAt       DateTime @updatedAt
+    27→
+    28→  // Relations
+    29→  doctor          Doctor?
+    30→  hospital        Hospital?
+    31→  bookings        Booking[]
+    32→  posts           Post[]
+    33→  sentRatings     DoctorRating[] @relation("PatientRatings")
+    34→  receivedRatings DoctorRating[] @relation("DoctorRatings")
+    35→  notifications   Notification[]
+    36→  chatMessages    BookingChat[]  @relation("ChatSender")
+    37→  receivedChats   BookingChat[]  @relation("ChatReceiver")
+    38→  inquiries           HospitalInquiry[]
+    39→  medicalDocuments     MedicalDocument[]
+    40→  receptionistProfile  Receptionist?       @relation("ReceptionistUser")
+    41→  assistantProfile    DoctorAssistant?    @relation("AssistantUser")
+    42→  pharmacistProfile   DoctorPharmacist?   @relation("PharmacistUser")
+    43→  nurseProfile         StaffNurse?         @relation("NurseUser")
+    44→  labTechnicianProfile LabTechnician?        @relation("LabTechUser")
+    45→  ipdAdmissions       IpdAdmission[]
+    46→  prescriptionAccessRequests PrescriptionAccessRequest[] @relation("PrescriptionAccessPatient")
+    47→  assistedPrescriptions Prescription[] @relation("PrescriptionAssistant")
+    48→  labReportsOrdered   LabReport[]      @relation("LabReportOrderedBy")
+    49→  opdBills            OpdBill[]
+    50→}
+    51→
+    52→// ============ DOCTOR ============
+    53→
+    54→model Doctor {
+    55→  id                  String   @id @default(cuid())
+    56→  userId              String   @unique
+    57→  bookingDays         Int      @default(180)
+    58→  dailyLimit          Int      @default(50)
+    59→  doctorType          String   @default("")
+    60→  description         String   @default("")
+    61→  photos              String   @default("[]") // JSON array
+    62→  address             String   @default("")
+    63→  state               String   @default("")
+    64→  city                String   @default("")
+    65→  hospitalAddress     String   @default("")
+    66→  fees                Float    @default(0)
+    67→  emergencyCharge     Float    @default(0)
+    68→  specialization     String   @default("")
+    69→  awardAndRecognition String   @default("")
+    70→  education           String   @default("")
+    71→  lat                 Float    @default(0)
+    72→  longi               Float    @default(0)
+    73→  hospitalId          String?
+    74→  experience          String   @default("")
+    75→  registrationDetail  String   @default("")
+    76→  contactNo           String   @default("")
+    77→  phoneNo             String   @default("")
+    78→  isEmergency         Boolean  @default(false)
+    79→  createdAt           DateTime @default(now())
+    80→  updatedAt           DateTime @updatedAt
+    81→
+    82→  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+    83→  bookings            Booking[]
+    84→  schedules           DoctorSchedule[]
+    85→  holidays            DoctorHoliday[]
+    86→  medicines           DoctorMedicine[]
+    87→  prescriptions       Prescription[]
+    88→  assistants          DoctorAssistant[]
+    89→  pharmacistLinks     DoctorPharmacist[]
+    90→  receptionistLinks   Receptionist[]
+    91→  gallery             DoctorGallery[]
+    92→  coMaster            CoMaster[]
+    93→  labelMaster         LabelMaster[]
+    94→  questionMaster      QuestionsMaster[]
+    95→  otherSettings       POtherSetting?
+    96→  accessRequestsMade  PrescriptionAccessRequest[] @relation("RequestingDoctor")
+    97→  accessRequestsReceived PrescriptionAccessRequest[] @relation("OriginalDoctor")
+    98→  categories          CategoryMaster[]
+    99→  findings            FindingsMaster[]
+   100→  tableTemplates      TableTemplateMaster[]
+   101→  hospitalLinks       DoctorHospital[]
+   102→  ipdAdmissionsAsAttending IpdAdmission[] @relation("AdmittingDoctor")
+   103→  ipdAdmissionsAsReferring IpdAdmission[] @relation("ReferringDoctor")
+   104→  doctorOrders        DoctorOrder[]
+   105→  doctorVisits        DoctorVisit[]
+   106→  sampleCollections   SampleCollection[]
+   107→  otSurgeries         OtSchedule[]
+   108→}
+   109→
+   110→// ============ HOSPITAL ============
+   111→
+   112→model Hospital {
+   113→  id           String   @id @default(cuid())
+   114→  userId       String   @unique
+   115→  hospitalName String   @default("")
+   116→  address      String   @default("")
+   117→  state        String   @default("")
+   118→  city         String   @default("")
+   119→  pincode      String   @default("")
+   120→  email        String   @default("")
+   121→  contactNo    String   @default("")
+   122→  website      String   @default("")
+   123→  image        String   @default("")     // Hospital logo/banner
+   124→  about        String   @default("")     // About hospital
+   125→  hospitalType String   @default("Multi-Specialty") // Multi-Specialty, Single-Specialty, Clinic, Diagnostic Center
+   126→  establishedYear Int  @default(0)
+   127→  bedCount     Int      @default(0)
+   128→  accreditation String  @default("")    // NABH, JCI, etc.
+   129→  facilities   String   @default("[]")   // JSON array: ["ICU","MRI","CT Scan"]
+   130→  gallery      String   @default("[]")   // JSON array
+   131→  lat          Float    @default(0)
+   132→  longi        Float    @default(0)
+   133→  status       String   @default("Active") // Active, Inactive
+   134→  createdAt    DateTime @default(now())
+   135→  updatedAt    DateTime @updatedAt
+   136→
+   137→  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+   138→  departments  Department[]
+   139→  doctorLinks  DoctorHospital[]
+   140→  receptionists Receptionist[]
+   141→  pharmacists  DoctorPharmacist[]
+   142→  wards        Ward[]
+   143→  nurses       StaffNurse[]
+   144→  ipdAdmissions IpdAdmission[]
+   145→  shiftHandovers ShiftHandover[]
+   146→  chargeCategories    ChargeCategory[]
+   147→  chargeItems         ChargeItem[]
+   148→  ipdBills            IpdBill[]
+   149→  labTechnicians      LabTechnician[]
+   150→  labTestMasters      LabTestMaster[]
+   151→  labReports          LabReport[]
+   152→  inventoryItems      InventoryItem[]
+   153→  purchaseOrders      PurchaseOrder[]
+   154→  operationTheaters   OperationTheater[]
+   155→  opdBills            OpdBill[]
+   156→  otSchedules         OtSchedule[]
+   157→  dietOrders          DietOrder[]
+   158→  familyAccesses      FamilyAccess[]
+   159→  stockMovements      StockMovement[]
+   160→}
+   161→
+   162→// ============ DEPARTMENT ============
+   163→
+   164→model Department {
+   165→  id          String   @id @default(cuid())
+   166→  hospitalId  String
+   167→  name        String   @default("")       // e.g. "Cardiology", "Orthopedics"
+   168→  nameHi      String   @default("")       // Hindi name
+   169→  shortCode   String   @default("")       // Token prefix e.g. "CARD", "ORTH", "DERM"
+   170→  description String   @default("")
+   171→  icon        String   @default("")       // Lucide icon name: HeartPulse, Bone, Brain, etc.
+   172→  floorNo     String   @default("")       // e.g. "Floor 2", "Ground Floor"
+   173→  opdRoom     String   @default("")       // e.g. "OPD Room 201"
+   174→  status      String   @default("Active")  // Active, Inactive
+   175→  sortOrder   Int      @default(0)
+   176→  createdAt   DateTime @default(now())
+   177→  updatedAt   DateTime @updatedAt
+   178→
+   179→  hospital    Hospital       @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   180→  doctorLinks DoctorHospital[]
+   181→  receptionists Receptionist[]
+   182→  ipdAdmissions IpdAdmission[]
+   183→}
+   184→
+   185→// ============ DOCTOR-HOSPITAL JUNCTION (Many-to-Many with Department) ============
+   186→
+   187→model DoctorHospital {
+   188→  id            String   @id @default(cuid())
+   189→  doctorId      String   // Doctor.id
+   190→  hospitalId    String   // Hospital.id
+   191→  departmentId  String   // Department.id
+   192→  designation   String   @default("")    // Senior Consultant, HOD, Junior Resident, etc.
+   193→  fees          Float    @default(0)      // Consultation fee at THIS hospital
+   194→  opdTimings    String   @default("")    // e.g. "Mon/Wed/Fri 10:00-1:00"
+   195→  isAvailable   Boolean  @default(true)   // Currently accepting patients
+   196→  status        String   @default("Active") // Active, Inactive
+   197→  createdAt     DateTime @default(now())
+   198→  updatedAt     DateTime @updatedAt
+   199→
+   200→  doctor      Doctor     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   201→  hospital    Hospital   @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   202→  department  Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+   203→
+   204→  @@unique([doctorId, hospitalId, departmentId])
+   205→}
+   206→
+   207→// ============ APPOINTMENTS ============
+   208→
+   209→model Booking {
+   210→  id               String   @id @default(cuid())
+   211→  appointmentNo    String   @unique @default(cuid())
+   212→  doctorId         String?  // nullable — SetNull onDelete
+   213→  userId           String?  // patient, null for walk-ins
+   214→  state            String   @default("")
+   215→  city             String   @default("")
+   216→  bookingDate      DateTime @default(now())
+   217→  patientName      String   @default("")
+   218→  disease          String   @default("")
+   219→  description      String   @default("")
+   220→  gender           String   @default("")
+   221→  dateOfBirth      DateTime?
+   222→  age              Int?
+   223→  relationWithMe   String   @default("")
+   224→  bloodGroup       String   @default("")
+   225→  weight           Float    @default(0)
+   226→  height           Float    @default(0)
+   227→  physicallyChallenged String @default("No")
+   228→  status           String   @default("Pending") // Pending, Approve, Visited, Canceled, Extend, Finish
+   229→  timeSlot         String   @default("") // e.g. "10:00 AM"
+   230→  bookingMode      String   @default("InPerson") // InPerson, VideoCall
+   231→  videoRoomId      String   @default("") // Jitsi room ID for video calls
+   232→  bookingType      String   @default("By Self") // By Self, By Receptionist, By Hospital
+   233→  appointmentCharge Float   @default(0)
+   234→  hospitalId       String?         // Hospital where booked (for multi-specialty)
+   235→  departmentId     String?         // Department selected (for multi-specialty)
+   236→  tokenNumber      String   @default("")  // OPD token number e.g. "CARD-015"
+   237→  tokenOrder       Int      @default(0)   // Queue position (auto-increment per doctor per day)
+   238→  receptionistId   String?         // Which receptionist processed this booking (User.id)
+   239→  createdAt        DateTime @default(now())
+   240→  updatedAt        DateTime @updatedAt
+   241→
+   242→  doctor           Doctor?   @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+   243→  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+   244→  chatMessages     BookingChat[]
+   245→  prescriptions    Prescription[]
+   246→  ipdAdmission    IpdAdmission?  @relation("IpdFromOpd")
+   247→  opdBills        OpdBill[]
+   248→
+   249→  @@index([hospitalId, status])
+   250→  @@index([doctorId, status])
+   251→  @@index([userId, status])
+   252→}
+   253→
+   254→// ============ BOOKING CHAT ============
+   255→
+   256→model BookingChat {
+   257→  id        String   @id @default(cuid())
+   258→  bookingId String
+   259→  fromId    String
+   260→  toId      String
+   261→  message   String
+   262→  status    String   @default("UNREAD") // READ, UNREAD
+   263→  createdAt DateTime @default(now())
+   264→
+   265→  booking   Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+   266→  sender    User     @relation("ChatSender", fields: [fromId], references: [id], onDelete: Restrict)
+   267→  receiver  User     @relation("ChatReceiver", fields: [toId], references: [id], onDelete: Restrict)
+   268→}
+   269→
+   270→// ============ PRESCRIPTION ============
+   271→
+   272→model Prescription {
+   273→  id               String    @id @default(cuid())
+   274→  bookingId        String
+   275→  patientName      String    @default("")
+   276→  patientAge       String    @default("")
+   277→  disease          String    @default("")
+   278→  weight           String    @default("")
+   279→  bp               String    @default("")
+   280→  temperature      String    @default("")
+   281→  description      String    @default("")
+   282→  status           String    @default("Draft") // Draft, Active, Archived
+   283→  fulfillmentStatus String    @default("Pending") // Pending, Packed, Dispensed
+   284→  nextVisit        DateTime?
+   285→  assistantId      String?
+   286→  packedBy         String?   // pharmacist user id who packed this
+   287→  packedAt         DateTime? // when pharmacist marked as packed
+   288→  createdAt        DateTime  @default(now())
+   289→  updatedAt        DateTime  @updatedAt
+   290→
+   291→  booking      Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+   292→  doctor       Doctor   @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+   293→  doctorId     String
+   294→  assistant    User?    @relation("PrescriptionAssistant", fields: [assistantId], references: [id], onDelete: SetNull)
+   295→  medicines    PMedicine[]
+   296→  labels       PLabel[]
+   297→  suggestions  PSuggestion[]
+   298→  diagnosisTables PDignoTable[]
+   299→  chiefComplaints PCo[]
+   300→  accessRequests    PrescriptionAccessRequest[]
+   301→}
+   302→
+   303→model PMedicine {
+   304→  id          String   @id @default(cuid())
+   305→  prescriptionId String
+   306→  medicine    String   @default("")
+   307→  morning     Int      @default(0)      // tablet count (0 = skip)
+   308→  afternoon   Int      @default(0)      // tablet count (0 = skip)
+   309→  evening     Int      @default(0)      // tablet count (0 = skip)
+   310→  tab         Int      @default(1)       // total days
+   311→  dose        String   @default("")     // selected dose value
+   312→  description String   @default("")
+   313→  createdById String?
+   314→  createdAt   DateTime @default(now())
+   315→  updatedAt   DateTime @updatedAt
+   316→
+   317→  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+   318→}
+   319→
+   320→model PLabel {
+   321→  id             String   @id @default(cuid())
+   322→  prescriptionId String
+   323→  label          String   @default("")
+   324→  labelEn        String   @default("")
+   325→  value          String   @default("")
+   326→  labelUnit      String   @default("")
+   327→  showUnit       Boolean  @default(true)
+   328→  createdById    String?
+   329→  createdAt      DateTime @default(now())
+   330→  updatedAt      DateTime @updatedAt
+   331→
+   332→  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+   333→}
+   334→
+   335→model PSuggestion {
+   336→  id             String   @id @default(cuid())
+   337→  prescriptionId String
+   338→  question       String   @default("")
+   339→  questionEn     String   @default("")
+   340→  suggestions    String   @default("")
+   341→  suggestionsEn  String   @default("")
+   342→  createdById    String?
+   343→  createdAt      DateTime @default(now())
+   344→  updatedAt      DateTime @updatedAt
+   345→
+   346→  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+   347→}
+   348→
+   349→model PDignoTable {
+   350→  id             String   @id @default(cuid())
+   351→  prescriptionId String
+   352→  templateId     String?
+   353→  rows           Int      @default(3)
+   354→  cols           Int      @default(2)
+   355→  headerLabel    String   @default("[]") // JSON
+   356→  colsLabel      String   @default("[]") // JSON
+   357→  footerLabel    String   @default("[]") // JSON
+   358→  extraLabel     String   @default("")
+   359→  createdById    String?
+   360→  createdAt      DateTime @default(now())
+   361→  updatedAt      DateTime @updatedAt
+   362→
+   363→  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+   364→}
+   365→
+   366→model PCo {
+   367→  id             String   @id @default(cuid())
+   368→  prescriptionId String
+   369→  coId           String
+   370→  createdById    String?
+   371→  createdAt      DateTime @default(now())
+   372→  updatedAt      DateTime @updatedAt
+   373→
+   374→  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+   375→}
+   376→
+   377→model POtherSetting {
+   378→  id            String   @id @default(cuid())
+   379→  doctorId      String   @unique
+   380→  logo          String   @default("")
+   381→  time          String   @default("{}") // JSON: timing config
+   382→  header        String   @default("")
+   383→  fullHeader    String   @default("")
+   384→  isFullHeader  Boolean  @default(false)
+   385→  footer        String   @default("")
+   386→  showCoInPrint Boolean  @default(true)
+   387→  showNextVisit Boolean  @default(true)
+   388→  printLayout   String   @default("standard") // standard, compact, detailed
+   389→  createdById   String?
+   390→  createdAt     DateTime @default(now())
+   391→  updatedAt     DateTime @updatedAt
+   392→
+   393→  doctor        Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   394→}
+   395→
+   396→// ============ DOCTOR RATING ============
+   397→
+   398→model DoctorRating {
+   399→  id        String   @id @default(cuid())
+   400→  patientId String
+   401→  doctorId  String
+   402→  bookingId String?
+   403→  star      Int      @default(5)
+   404→  consultationRating Int @default(0)
+   405→  waitTimeRating    Int @default(0)
+   406→  staffRating       Int @default(0)
+   407→  review    String   @default("")
+   408→  wouldRecommend Boolean @default(true)
+   409→  isAnonymous Boolean @default(false)
+   410→  createdAt DateTime @default(now())
+   411→  updatedAt DateTime @updatedAt
+   412→
+   413→  patient   User     @relation("PatientRatings", fields: [patientId], references: [id], onDelete: Restrict)
+   414→  doctor   User     @relation("DoctorRatings", fields: [doctorId], references: [id], onDelete: Restrict)
+   415→}
+   416→
+   417→// ============ DOCTOR SCHEDULE ============
+   418→
+   419→model DoctorSchedule {
+   420→  id        String   @id @default(cuid())
+   421→  doctorId  String
+   422→  day       String // Monday-Sunday
+   423→  startTime String   @default("09:00")
+   424→  endTime   String   @default("17:00")
+   425→  slotDuration Int   @default(30) // minutes
+   426→  timeSlots String   @default("[]") // JSON array of manual slots e.g. ["09:00","09:30","10:00"]
+   427→  createdAt DateTime @default(now())
+   428→  updatedAt DateTime @updatedAt
+   429→
+   430→  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   431→}
+   432→
+   433→model DoctorHoliday {
+   434→  id        String   @id @default(cuid())
+   435→  userId    String // doctor user id
+   436→  date      DateTime
+   437→  remark    String   @default("")
+   438→  createdAt DateTime @default(now())
+   439→  updatedAt DateTime @updatedAt
+   440→
+   441→  doctor    Doctor   @relation(fields: [userId], references: [id], onDelete: Cascade)
+   442→}
+   443→
+   444→// ============ DOCTOR MEDICINE LIST ============
+   445→
+   446→model DoctorMedicine {
+   447→  id          String   @id @default(cuid())
+   448→  name        String   @default("")
+   449→  morning     Int      @default(0)       // tablet count (0 = skip)
+   450→  afternoon   Int      @default(0)       // tablet count
+   451→  evening     Int      @default(0)       // tablet count
+   452→  dose        String   @default("[]")    // JSON array e.g. ["500mg","650mg","1000mg"]
+   453→  tab         Int      @default(1)        // total days
+   454→  description String   @default("")
+   455→  status      String   @default("Active")
+   456→  createdById String?
+   457→  userId      String // doctor user id
+   458→  createdAt   DateTime @default(now())
+   459→  updatedAt   DateTime @updatedAt
+   460→
+   461→  doctor      Doctor   @relation(fields: [userId], references: [id], onDelete: Cascade)
+   462→  findings    FindingsMedicine[]
+   463→}
+   464→
+   465→// ============ CATEGORY MASTER ============
+   466→
+   467→model CategoryMaster {
+   468→  id          String   @id @default(cuid())
+   469→  name        String   @default("")       // primary language
+   470→  nameEn      String   @default("")       // English
+   471→  status      String   @default("Active")
+   472→  createdById String?
+   473→  doctorId    String
+   474→  createdAt   DateTime @default(now())
+   475→  updatedAt   DateTime @updatedAt
+   476→
+   477→  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   478→  complaints  CoMaster[]
+   479→}
+   480→
+   481→// ============ FINDINGS MASTER ============
+   482→
+   483→model FindingsMaster {
+   484→  id          String   @id @default(cuid())
+   485→  name        String   @default("")       // primary language
+   486→  nameEn      String   @default("")       // English
+   487→  status      String   @default("Active")
+   488→  createdById String?
+   489→  doctorId    String
+   490→  createdAt   DateTime @default(now())
+   491→  updatedAt   DateTime @updatedAt
+   492→
+   493→  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   494→  medicines   FindingsMedicine[]
+   495→}
+   496→
+   497→model FindingsMedicine {
+   498→  id              String   @id @default(cuid())
+   499→  findingId       String
+   500→  medicineId      String
+   501→  dose            String   @default("")     // override dose (blank = use master default)
+   502→  morning         Int      @default(0)      // override morning count
+   503→  afternoon       Int      @default(0)      // override afternoon count
+   504→  evening         Int      @default(0)      // override evening count
+   505→  tab             Int      @default(0)      // override days (0 = use master default)
+   506→  description     String   @default("")     // override description
+   507→  createdAt       DateTime @default(now())
+   508→
+   509→  finding         FindingsMaster  @relation(fields: [findingId], references: [id], onDelete: Cascade)
+   510→  medicine        DoctorMedicine  @relation(fields: [medicineId], references: [id], onDelete: Cascade)
+   511→
+   512→  @@unique([findingId, medicineId])
+   513→}
+   514→
+   515→// ============ TABLE TEMPLATE MASTER ============
+   516→
+   517→model TableTemplateMaster {
+   518→  id          String   @id @default(cuid())
+   519→  name        String   @default("")
+   520→  rows        Int      @default(3)
+   521→  cols        Int      @default(2)
+   522→  headerLabel String   @default("[]")       // JSON: column headers
+   523→  colsLabel   String   @default("[]")       // JSON: row labels
+   524→  footerLabel String   @default("[]")       // JSON: footer rows
+   525→  extraLabel  String   @default("")
+   526→  status      String   @default("Active")
+   527→  createdById String?
+   528→  doctorId    String
+   529→  createdAt   DateTime @default(now())
+   530→  updatedAt   DateTime @updatedAt
+   531→
+   532→  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   533→}
+   534→
+   535→// ============ DOCTOR ASSISTANT ============
+   536→
+   537→model DoctorAssistant {
+   538→  id          String   @id @default(cuid())
+   539→  userId      String   @unique // assistant user id
+   540→  doctorId    String // doctor id (Doctor model)
+   541→  description String   @default("")
+   542→  address     String   @default("")
+   543→  createdAt   DateTime @default(now())
+   544→  updatedAt   DateTime @updatedAt
+   545→
+   546→  user        User     @relation("AssistantUser", fields: [userId], references: [id], onDelete: Cascade)
+   547→  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   548→}
+   549→
+   550→// ============ DOCTOR PHARMACIST ============
+   551→
+   552→model DoctorPharmacist {
+   553→  id          String    @id @default(cuid())
+   554→  userId      String    @unique // pharmacist user id
+   555→  doctorId    String?   // doctor id (Doctor model) — for clinic-mode pharmacists
+   556→  hospitalId  String?   // hospital id — for hospital-level pharmacists (sees all hospital doctors)
+   557→  description String    @default("")
+   558→  address     String    @default("")
+   559→  dlNo        String    @default("") // Drug license number
+   560→  createdById String?
+   561→  createdAt   DateTime  @default(now())
+   562→  updatedAt   DateTime  @updatedAt
+   563→
+   564→  user        User      @relation("PharmacistUser", fields: [userId], references: [id], onDelete: Cascade)
+   565→  doctor      Doctor?   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   566→  hospital    Hospital? @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   567→}
+   568→
+   569→// ============ RECEPTIONIST ============
+   570→
+   571→model Receptionist {
+   572→  id          String   @id @default(cuid())
+   573→  userId      String   @unique // receptionist user id
+   574→  doctorId    String?          // doctor id — for clinic-mode receptionists (null for hospital mode)
+   575→  hospitalId  String           // hospital id — required (every receptionist belongs to a hospital or clinic)
+   576→  departmentId String?        // department id — if assigned to specific department OPD
+   577→  address     String   @default("")
+   578→  createdAt   DateTime @default(now())
+   579→
+   580→  user        User        @relation("ReceptionistUser", fields: [userId], references: [id], onDelete: Cascade)
+   581→  doctor      Doctor?     @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   582→  hospital    Hospital    @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   583→  department  Department? @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+   584→}
+   585→
+   586→// ============ DOCTOR TYPE MASTER ============
+   587→
+   588→model DoctorTypeMaster {
+   589→  id        String   @id @default(cuid())
+   590→  type      String   @default("")
+   591→  status    String   @default("Active")
+   592→  createdAt DateTime @default(now())
+   593→  updatedAt DateTime @updatedAt
+   594→}
+   595→
+   596→// ============ BLOG / POSTS ============
+   597→
+   598→model Post {
+   599→  id        String   @id @default(cuid())
+   600→  title     String   @default("")
+   601→  permalink String   @unique @default(cuid())
+   602→  content   String   @default("")
+   603→  blogImg   String   @default("")
+   604→  videoLink String   @default("")
+   605→  type      String   @default("Blog") // Blog, News
+   606→  status    String   @default("Draft") // Published, Draft
+   607→  authorId  String
+   608→  createdAt DateTime @default(now())
+   609→  updatedAt DateTime @updatedAt
+   610→
+   611→  author    User     @relation(fields: [authorId], references: [id], onDelete: Restrict)
+   612→}
+   613→
+   614→// ============ NOTIFICATIONS ============
+   615→
+   616→model Notification {
+   617→  id        String   @id @default(cuid())
+   618→  userId    String
+   619→  title     String   @default("")
+   620→  message   String   @default("")
+   621→  status    String   @default("UNREAD") // READ, UNREAD
+   622→  createdAt DateTime @default(now())
+   623→  updatedAt DateTime @updatedAt
+   624→
+   625→  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+   626→
+   627→  @@index([userId, status])
+   628→}
+   629→
+   630→// ============ SLIDER ============
+   631→
+   632→model Slider {
+   633→  id           String   @id @default(cuid())
+   634→  sliderImage  String   @default("")
+   635→  position     Int      @default(0)
+   636→  status       String   @default("Active")
+   637→  link         String   @default("")
+   638→  title        String   @default("")
+   639→  subtitle     String   @default("")
+   640→  createdAt    DateTime @default(now())
+   641→  updatedAt    DateTime @updatedAt
+   642→}
+   643→
+   644→// ============ HOSPITAL INQUIRY ============
+   645→
+   646→model HospitalInquiry {
+   647→  id        String   @id @default(cuid())
+   648→  name      String   @default("")
+   649→  email     String   @default("")
+   650→  phone     String   @default("")
+   651→  subject   String   @default("")
+   652→  message   String   @default("")
+   653→  status    String   @default("Pending")
+   654→  createdAt DateTime @default(now())
+   655→  updatedAt DateTime @updatedAt
+   656→
+   657→  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+   658→  userId    String?
+   659→}
+   660→
+   661→// ============ DISEASE MASTER ============
+   662→
+   663→model DiseaseMaster {
+   664→  id        String   @id @default(cuid())
+   665→  name      String   @default("")
+   666→  status    String   @default("Active")
+   667→  createdAt DateTime @default(now())
+   668→  updatedAt DateTime @updatedAt
+   669→}
+   670→
+   671→// ============ LABEL MASTER ============
+   672→
+   673→model LabelMaster {
+   674→  id          String   @id @default(cuid())
+   675→  label       String   @default("")        // primary language
+   676→  labelEn     String   @default("")        // English
+   677→  unit        String   @default("")        // e.g., "mg/dL", "%", "mmHg"
+   678→  showUnit    Boolean  @default(true)       // whether to show unit after value in print
+   679→  status      String   @default("Active")
+   680→  createdById String?
+   681→  doctorId    String
+   682→  createdAt   DateTime @default(now())
+   683→  updatedAt   DateTime @updatedAt
+   684→
+   685→  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   686→}
+   687→
+   688→// ============ CO MASTER (Chief Complaints) ============
+   689→
+   690→model CoMaster {
+   691→  id          String   @id @default(cuid())
+   692→  coCode      String   @default("")
+   693→  coDetail    String   @default("")        // primary language (shown in stepper)
+   694→  coDetailEn  String   @default("")        // English (used in print)
+   695→  categoryId  String?
+   696→  status      String   @default("Active")
+   697→  createdById String?
+   698→  doctorId    String
+   699→  createdAt   DateTime @default(now())
+   700→  updatedAt   DateTime @updatedAt
+   701→
+   702→  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   703→  category    CategoryMaster? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+   704→  questions   QuestionsMaster[] @relation("QuestionCo")
+   705→}
+   706→
+   707→// ============ QUESTIONS MASTER ============
+   708→
+   709→model QuestionsMaster {
+   710→  id          String   @id @default(cuid())
+   711→  question    String   @default("")        // primary language
+   712→  questionEn  String   @default("")        // English
+   713→  explanation String   @default("")
+   714→  coId        String?
+   715→  status      String   @default("Active")
+   716→  createdById String?
+   717→  doctorId    String
+   718→  createdAt   DateTime @default(now())
+   719→  updatedAt   DateTime @updatedAt
+   720→
+   721→  doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   722→  co          CoMaster? @relation("QuestionCo", fields: [coId], references: [id], onDelete: SetNull)
+   723→  suggestions SuggestionsMaster[]
+   724→}
+   725→
+   726→// ============ SUGGESTIONS MASTER ============
+   727→
+   728→model SuggestionsMaster {
+   729→  id           String   @id @default(cuid())
+   730→  questionId   String
+   731→  suggestions  String   @default("")        // primary language
+   732→  suggestionsEn String   @default("")       // English
+   733→  status       String   @default("Active")
+   734→  createdById  String?
+   735→  doctorId     String
+   736→  createdAt    DateTime @default(now())
+   737→  updatedAt    DateTime @updatedAt
+   738→
+   739→  question     QuestionsMaster @relation(fields: [questionId], references: [id], onDelete: Cascade)
+   740→}
+   741→
+   742→// ============ DOCTOR GALLERY ============
+   743→
+   744→model DoctorGallery {
+   745→  id        String   @id @default(cuid())
+   746→  doctorId  String
+   747→  image     String   @default("")
+   748→  createdAt DateTime @default(now())
+   749→  updatedAt DateTime @updatedAt
+   750→
+   751→  doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+   752→}
+   753→
+   754→// ============ PRESCRIPTION ACCESS REQUEST (Patient Consent) ============
+   755→
+   756→model PrescriptionAccessRequest {
+   757→  id                 String   @id @default(cuid())
+   758→  prescriptionId     String // prescription being requested
+   759→  requestingDoctorId String // Doctor.id of the doctor requesting access (Doctor Z)
+   760→  patientId          String // User.id of the patient who owns this prescription
+   761→  originalDoctorId   String // Doctor.id of the doctor who created the prescription (Doctor Y)
+   762→  status             String   @default("Pending") // Pending, Approved, Rejected
+   763→  createdAt          DateTime @default(now())
+   764→  updatedAt          DateTime @updatedAt
+   765→
+   766→  prescription       Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+   767→  requestingDoctor   Doctor      @relation("RequestingDoctor", fields: [requestingDoctorId], references: [id], onDelete: Restrict)
+   768→  originalDoctor     Doctor      @relation("OriginalDoctor", fields: [originalDoctorId], references: [id], onDelete: Restrict)
+   769→  patient            User        @relation("PrescriptionAccessPatient", fields: [patientId], references: [id], onDelete: Restrict)
+   770→}
+   771→
+   772→// ============ MEDICAL DOCUMENTS ============
+   773→
+   774→model MedicalDocument {
+   775→  id          String   @id @default(cuid())
+   776→  patientId   String
+   777→  title       String   @default("")
+   778→  category    String   @default("Other")
+   779→  fileUrl     String   @default("")
+   780→  fileName    String   @default("")
+   781→  fileSize    Int      @default(0)
+   782→  mimeType    String   @default("")
+   783→  description String   @default("")
+   784→  createdAt   DateTime @default(now())
+   785→  updatedAt   DateTime @updatedAt
+   786→
+   787→  patient     User     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+   788→}
+   789→
+   790→// ============ IPD: WARD ============
+   791→
+   792→model Ward {
+   793→  id            String   @id @default(cuid())
+   794→  hospitalId    String
+   795→  name          String   @default("")          // "ICU", "General Ward", "Private Room"
+   796→  nameHi        String   @default("")
+   797→  wardType      String   @default("General")   // ICU, General, Private, SemiPrivate, PostOp, Emergency, Maternity
+   798→  floorNo       String   @default("")         // "Ground Floor", "Floor 1"
+   799→  totalBeds     Int      @default(0)
+   800→  nurseRatio    Int      @default(6)           // Patients per nurse in this ward
+   801→  status        String   @default("Active")    // Active, Inactive, Maintenance
+   802→  createdAt     DateTime @default(now())
+   803→  updatedAt     DateTime @updatedAt
+   804→
+   805→  hospital      Hospital  @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   806→  beds          Bed[]
+   807→  nurses        StaffNurse[]
+   808→  admissions    IpdAdmission[]
+   809→  shiftHandovers ShiftHandover[]
+   810→}
+   811→
+   812→// ============ IPD: BED ============
+   813→
+   814→model Bed {
+   815→  id            String   @id @default(cuid())
+   816→  wardId        String
+   817→  bedNumber     String   @default("")         // "Bed 1", "ICU-1", "PR-201"
+   818→  bedType       String   @default("General")   // General, SemiPrivate, Private, ICU_Ventilator, ICU_NonVentilator
+   819→  dailyRate     Float    @default(0)           // Room rent per day
+   820→  status        String   @default("Available") // Available, Occupied, Reserved, Maintenance
+   821→  createdAt     DateTime @default(now())
+   822→  updatedAt     DateTime @updatedAt
+   823→
+   824→  ward          Ward         @relation(fields: [wardId], references: [id], onDelete: Cascade)
+   825→  admission     IpdAdmission?
+   826→  nurseAssignments NursePatientAssignment[]
+   827→  bedTransfersFrom    BedTransfer[] @relation("BedTransfersFrom")
+   828→  bedTransfersTo      BedTransfer[] @relation("BedTransfersTo")
+   829→}
+   830→
+   831→// ============ IPD: STAFF NURSE ============
+   832→
+   833→model StaffNurse {
+   834→  id            String   @id @default(cuid())
+   835→  userId        String   @unique
+   836→  hospitalId    String
+   837→  wardId        String?
+   838→  employeeId    String   @default("")         // "NUR-001"
+   839→  qualification String   @default("")         // GNM, BSc Nursing, ANM
+   840→  designation   String   @default("Staff Nurse") // Staff Nurse, Sister, Nursing Incharge
+   841→  shift         String   @default("Morning")   // Morning, Evening, Night, Rotating
+   842→  phoneNo       String   @default("")
+   843→  address       String   @default("")
+   844→  createdAt     DateTime @default(now())
+   845→  updatedAt     DateTime @updatedAt
+   846→
+   847→  user          User     @relation("NurseUser", fields: [userId], references: [id], onDelete: Cascade)
+   848→  hospital      Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+   849→  ward          Ward?    @relation(fields: [wardId], references: [id], onDelete: SetNull)
+   850→  vitalRecords  VitalRecord[]
+   851→  medicineAdministrations MedicineAdministration[]
+   852→  sampleCollections  SampleCollection[]
+   853→  shiftHandoversFrom  ShiftHandover[] @relation("HandoverFrom")
+   854→  shiftHandoversTo    ShiftHandover[] @relation("HandoverTo")
+   855→  patientAssignments   NursePatientAssignment[]
+   856→}
+   857→
+   858→// ============ IPD: NURSE-PATIENT ASSIGNMENT ============
+   859→
+   860→model NursePatientAssignment {
+   861→  id            String   @id @default(cuid())
+   862→  nurseId       String
+   863→  admissionId   String
+   864→  bedId         String
+   865→  shiftDate     DateTime
+   866→  shiftType     String   @default("Morning") // Morning, Evening, Night
+   867→  assignedAt    DateTime @default(now())
+   868→  assignedBy    String?
+   869→  unassignedAt  DateTime?
+   870→  status        String   @default("Active")  // Active, Completed, Transferred
+   871→  createdAt     DateTime @default(now())
+   872→  updatedAt     DateTime @updatedAt
+   873→
+   874→  nurse         StaffNurse   @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+   875→  admission     IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+   876→  bed           Bed          @relation(fields: [bedId], references: [id], onDelete: Restrict)
+   877→}
+   878→
+   879→// ============ IPD: ADMISSION (Core Record — all 6 forms) ============
+   880→
+   881→model IpdAdmission {
+   882→  id                  String    @id @default(cuid())
+   883→  admissionNo         String    @unique @default(cuid())  // "IPD-2026-000001"
+   884→  hospitalId          String
+   885→  wardId              String
+   886→  bedId               String   // one-to-one: each bed has at most one admission
+   887→  departmentId        String
+   888→  attendingDoctorId   String
+   889→  referringDoctorId   String?
+   890→  userId              String?                         // Patient User.id (null for walk-in)
+   891→
+   892→  // --- Patient Demographics (Form 1: Admission Sheet) ---
+   893→  patientName         String    @default("")
+   894→  patientAge          Int       @default(0)
+   895→  patientGender       String    @default("")
+   896→  patientDob          DateTime?
+   897→  bloodGroup          String    @default("")
+   898→  maritalStatus       String    @default("")
+   899→  occupation          String    @default("")
+   900→  education           String    @default("")
+   901→  religion            String    @default("")
+   902→  aadharNo            String    @default("")
+   903→  mobileNo            String    @default("")
+   904→  idMarks             String    @default("")
+   905→  fatherName          String    @default("")
+   906→  motherName          String    @default("")
+   907→  husbandWifeName     String    @default("")
+   908→  contactPersonName   String    @default("")
+   909→  contactPersonMobile String    @default("")
+   910→  contactPersonRelation String   @default("")
+   911→  address             String    @default("")
+   912→  village             String    @default("")
+   913→  taluka              String    @default("")
+   914→  district            String    @default("")
+   915→  state               String    @default("")
+   916→  pinCode             String    @default("")
+   917→
+   918→  // --- Medical Info (Form 1 continued) ---
+   919→  mlcCase             Boolean   @default(false)
+   920→  previousHospitalization String  @default("")
+   921→  mediClaimDetails    String    @default("")
+   922→  initialDiagnosis    String    @default("")
+   923→  opdBookingId        String?
+   924→
+   925→  // --- History (Form 2: History Sheet — Doctor fills) ---
+   926→  chiefComplaints     String    @default("")
+   927→  informant           String    @default("")
+   928→  pastHistory         String    @default("")
+   929→  personalHistory     String    @default("{}")
+   930→  habits              String    @default("{}")
+   931→  femaleHistory       String    @default("{}")
+   932→  drugHistory         String    @default("")
+   933→
+   934→  // --- Physical Examination (Form 6 — Doctor fills) ---
+   935→  consciousnessLevel   String   @default("Conscious")
+   936→  obeyingCommands      Boolean  @default(true)
+   937→  respondingToDPS     Boolean  @default(true)
+   938→  oriented            Boolean  @default(true)
+   939→  speech              String   @default("Normal")
+   940→  examinationNotes    String   @default("")
+   941→  generalSigns        String   @default("{}")
+   942→
+   943→  // --- Admission Status ---
+   944→  admissionDate       DateTime  @default(now())
+   945→  admissionTime       String    @default("")
+   946→  status              String    @default("Admitted")  // Admitted, Discharged, DAMA, Expired, Transferred
+   947→  dischargeDate       DateTime?
+   948→  dischargeTime       String    @default("")
+   949→  dischargeType       String    @default("")        // Normal, DAMA, LAMA, Expired
+   950→  finalDiagnosis      String    @default("")
+   951→  dischargeSummary    String    @default("")
+   952→
+   953→  // --- Billing ---
+   954→  roomRentDays        Int       @default(0)
+   955→  totalBillAmount     Float     @default(0)
+   956→  advanceAmount       Float     @default(0)
+   957→  estimatedBill       Float     @default(0)
+   958→  paymentStatus       String    @default("Pending")
+   959→  dischargeAdvised     Boolean   @default(false)
+   960→  followUpDate         DateTime?
+   961→  followUpNotes        String    @default("")
+   962→
+   963→  // --- Audit ---
+   964→  admittedBy          String?
+   965→  createdAt           DateTime  @default(now())
+   966→  updatedAt           DateTime  @updatedAt
+   967→
+   968→  // --- Relations ---
+   969→  hospital            Hospital   @relation(fields: [hospitalId], references: [id], onDelete: Restrict)
+   970→  ward                Ward       @relation(fields: [wardId], references: [id], onDelete: Restrict)
+   971→  bed                 Bed        @relation(fields: [bedId], references: [id], onDelete: Restrict)
+   972→  @@unique([bedId])
+   973→  department          Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+   974→  attendingDoctor     Doctor     @relation("AdmittingDoctor", fields: [attendingDoctorId], references: [id], onDelete: Restrict)
+   975→  referringDoctor     Doctor?    @relation("ReferringDoctor", fields: [referringDoctorId], references: [id], onDelete: SetNull)
+   976→  patient             User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+   977→  opdBooking          Booking?   @relation("IpdFromOpd", fields: [opdBookingId], references: [id], onDelete: Restrict)
+   978→
+   979→  @@unique([opdBookingId])
+   980→  @@index([hospitalId, status])
+   981→  @@index([wardId, status])
+   982→  @@index([bedId])
+   983→  @@index([attendingDoctorId])
+   984→
+   985→  vitalRecords        VitalRecord[]
+   986→  doctorOrders        DoctorOrder[]
+   987→  medicineAdministrations MedicineAdministration[]
+   988→  sampleCollections   SampleCollection[]
+   989→  investigationReports InvestigationReport[]
+   990→  nurseAssignments    NursePatientAssignment[]
+   991→  doctorVisits        DoctorVisit[]
+   992→  bill               IpdBill?
+   993→  advances           PatientAdvance[]
+   994→  otSchedules        OtSchedule[]
+   995→  dietOrders         DietOrder[]
+   996→  bedTransfers       BedTransfer[]
+   997→  familyAccess       FamilyAccess?
+   998→}
+   999→
+  1000→// ============ IPD: VITAL RECORD (Monitoring Chart — Form 6 — Nurse fills hourly) ============
+  1001→
+  1002→model VitalRecord {
+  1003→  id                  String   @id @default(cuid())
+  1004→  admissionId         String
+  1005→  nurseId             String
+  1006→  recordedAt          DateTime
+  1007→
+  1008→  // --- Patient Header Status ---
+  1009→  patientStatus       String   @default("Conscious")
+  1010→  ventilatorOn        Boolean  @default(false)
+  1011→  oxygenLiters        Float    @default(0)
+  1012→  infusionPump        String   @default("")
+  1013→  rbs                 Float?
+  1014→
+  1015→  // --- Vital Signs ---
+  1016→  temperature         Float    @default(0)
+  1017→  pulse               Int      @default(0)
+  1018→  spo2                Float    @default(0)
+  1019→  bpSystolic          Int      @default(0)
+  1020→  bpDiastolic         Int      @default(0)
+  1021→  respiratoryRate     Int      @default(0)
+  1022→
+  1023→  // --- Input/Output ---
+  1024→  inputMl             Float    @default(0)
+  1025→  urineMl             Float    @default(0)
+  1026→  outputMl            Float    @default(0)
+  1027→
+  1028→  // --- Notes ---
+  1029→  remarks             String   @default("")
+  1030→
+  1031→  createdAt           DateTime @default(now())
+  1032→  updatedAt           DateTime @updatedAt
+  1033→
+  1034→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  1035→  nurse               StaffNurse   @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+  1036→}
+  1037→
+  1038→// ============ IPD: DOCTOR ORDER (Order Sheet — Form 5 — Doctor writes, Nurse executes) ============
+  1039→
+  1040→model DoctorOrder {
+  1041→  id                  String   @id @default(cuid())
+  1042→  admissionId         String
+  1043→  doctorId            String
+  1044→
+  1045→  drugName            String   @default("")
+  1046→  route               String   @default("")        // Oral, IV, IM, SC, Topical, PR, Nebulization
+  1047→  dose                String   @default("")
+  1048→  frequency           String   @default("")        // OD, BD, TDS, QID, STAT, SOS, HS, Q4H, Q6H, Q8H
+  1049→  scheduledTime       String   @default("")        // "08:00", "14:00"
+  1050→  startDate           DateTime @default(now())
+  1051→  endDate             DateTime?
+  1052→
+  1053→  instructions        String   @default("")
+  1054→  isPrn               Boolean  @default(false)
+  1055→  isStat              Boolean  @default(false)
+  1056→
+  1057→  status              String   @default("Active")    // Active, Stopped, Completed, Modified
+  1058→  stoppedBy           String?
+  1059→  stoppedAt           DateTime?
+  1060→  stoppedReason       String   @default("")
+  1061→
+  1062→  createdAt           DateTime @default(now())
+  1063→  updatedAt           DateTime @updatedAt
+  1064→
+  1065→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  1066→  doctor              Doctor       @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  1067→  administrations      MedicineAdministration[]
+  1068→}
+  1069→
+  1070→// ============ IPD: MEDICINE ADMINISTRATION (Nurse marks given/missed/refused) ============
+  1071→
+  1072→model MedicineAdministration {
+  1073→  id                  String   @id @default(cuid())
+  1074→  orderId             String
+  1075→  admissionId         String
+  1076→  nurseId             String
+  1077→
+  1078→  scheduledTime       DateTime
+  1079→  administeredTime    DateTime?
+  1080→
+  1081→  status              String   @default("Pending")  // Pending, Given, Missed, Refused, Skipped, NotAvailable
+  1082→  remarks             String   @default("")
+  1083→
+  1084→  createdAt           DateTime @default(now())
+  1085→  updatedAt           DateTime @updatedAt
+  1086→
+  1087→  order               DoctorOrder  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  1088→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  1089→  nurse               StaffNurse  @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+  1090→}
+  1091→
+  1092→// ============ IPD: SAMPLE COLLECTION (Nurse collects, sends to lab) ============
+  1093→
+  1094→model SampleCollection {
+  1095→  id                  String   @id @default(cuid())
+  1096→  admissionId         String
+  1097→  nurseId             String
+  1098→  doctorId            String
+  1099→
+  1100→  testName            String   @default("")
+  1101→  sampleType          String   @default("")        // Blood, Urine, Sputum, CSF, Swab
+  1102→
+  1103→  collectedAt         DateTime?
+  1104→  sentToLabAt         DateTime?
+  1105→
+  1106→  status              String   @default("Ordered")   // Ordered, Collected, SentToLab, Reported, Filed
+  1107→  remarks             String   @default("")
+  1108→
+  1109→  createdAt           DateTime @default(now())
+  1110→  updatedAt           DateTime @updatedAt
+  1111→
+  1112→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  1113→  nurse               StaffNurse   @relation(fields: [nurseId], references: [id], onDelete: Cascade)
+  1114→  doctor              Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  1115→}
+  1116→
+  1117→// ============ IPD: INVESTIGATION REPORT (Lab results) ============
+  1118→
+  1119→model InvestigationReport {
+  1120→  id                  String   @id @default(cuid())
+  1121→  admissionId         String
+  1122→  sampleCollectionId  String?
+  1123→
+  1124→  testName            String   @default("")
+  1125→  reportDate          DateTime @default(now())
+  1126→  resultData          String   @default("{}")        // JSON
+  1127→  normalRange         String   @default("{}")        // JSON
+  1128→  isAbnormal          Boolean  @default(false)
+  1129→
+  1130→  reportedBy          String?
+  1131→  reviewedBy          String?
+  1132→  reviewedAt          DateTime?
+  1133→  remarks             String   @default("")
+  1134→
+  1135→  createdAt           DateTime @default(now())
+  1136→  updatedAt           DateTime @updatedAt
+  1137→
+  1138→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  1139→}
+  1140→
+  1141→// ============ IPD: SHIFT HANDOVER (End-of-shift communication) ============
+  1142→
+  1143→model ShiftHandover {
+  1144→  id                  String   @id @default(cuid())
+  1145→  hospitalId          String
+  1146→  wardId              String
+  1147→  shiftDate           DateTime
+  1148→  shiftType           String                        // Morning, Evening, Night
+  1149→
+  1150→  fromNurseId         String
+  1151→  toNurseId           String
+  1152→
+  1153→  patientSummaries    String   @default("[]")        // JSON array
+  1154→  wardNotes           String   @default("")
+  1155→  pendingTasks        String   @default("[]")        // JSON array
+  1156→
+  1157→  acknowledgedAt      DateTime?
+  1158→  acknowledgedBy      String?
+  1159→
+  1160→  createdAt           DateTime @default(now())
+  1161→  updatedAt           DateTime @updatedAt
+  1162→
+  1163→  hospital            Hospital    @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1164→  ward                Ward        @relation(fields: [wardId], references: [id], onDelete: Cascade)
+  1165→  fromNurse           StaffNurse  @relation("HandoverFrom", fields: [fromNurseId], references: [id], onDelete: Restrict)
+  1166→  toNurse             StaffNurse  @relation("HandoverTo", fields: [toNurseId], references: [id], onDelete: Restrict)
+  1167→}
+  1168→
+  1169→// ============ IPD: DOCTOR VISIT (Daily round documentation) ============
+  1170→
+  1171→model DoctorVisit {
+  1172→  id                  String   @id @default(cuid())
+  1173→  admissionId         String
+  1174→  doctorId            String
+  1175→  visitDate           DateTime @default(now())
+  1176→  visitTime           String   @default("")
+  1177→
+  1178→  examinationFindings  String   @default("")
+  1179→  currentDiagnosis    String   @default("")
+  1180→
+  1181→  newOrders           String   @default("[]")        // JSON
+  1182→  stoppedOrders       String   @default("[]")        // JSON
+  1183→  advise              String   @default("")
+  1184→
+  1185→  isMobileVisit       Boolean  @default(false)
+  1186→
+  1187→  createdAt           DateTime @default(now())
+  1188→  updatedAt           DateTime @updatedAt
+  1189→
+  1190→  admission           IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  1191→  doctor              Doctor      @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  1192→}
+  1193→
+  1194→// ============ BILLING: CHARGE CATEGORY ============
+  1195→
+  1196→model ChargeCategory {
+  1197→  id          String   @id @default(cuid())
+  1198→  hospitalId  String
+  1199→  name        String
+  1200→  description String   @default("")
+  1201→  isTaxable   Boolean  @default(true)
+  1202→  taxPercent  Float    @default(0)
+  1203→  status      String   @default("Active")
+  1204→  sortOrder   Int      @default(0)
+  1205→  createdAt   DateTime @default(now())
+  1206→  updatedAt   DateTime @updatedAt
+  1207→
+  1208→  hospital    Hospital    @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1209→  chargeItems ChargeItem[]
+  1210→}
+  1211→
+  1212→// ============ BILLING: CHARGE ITEM ============
+  1213→
+  1214→model ChargeItem {
+  1215→  id              String   @id @default(cuid())
+  1216→  categoryId      String
+  1217→  hospitalId      String
+  1218→  name            String
+  1219→  shortCode       String   @default("")
+  1220→  unitType        String   @default("Per Day")
+  1221→  rate            Float    @default(0)
+  1222→  isTaxable       Boolean  @default(true)
+  1223→  taxPercent      Float    @default(0)
+  1224→  status          String   @default("Active")
+  1225→  createdAt       DateTime @default(now())
+  1226→  updatedAt       DateTime @updatedAt
+  1227→
+  1228→  category        ChargeCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  1229→  hospital        Hospital       @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1230→  billLineItems   BillLineItem[]
+  1231→}
+  1232→
+  1233→// ============ BILLING: IPD BILL ============
+  1234→
+  1235→model IpdBill {
+  1236→  id                String    @id @default(cuid())
+  1237→  billNo            String    @unique @default(cuid())
+  1238→  admissionId       String    @unique
+  1239→  hospitalId        String
+  1240→
+  1241→  roomRentAmount    Float     @default(0)
+  1242→  serviceAmount     Float     @default(0)
+  1243→  labAmount         Float     @default(0)
+  1244→  medicineAmount    Float     @default(0)
+  1245→  otAmount          Float     @default(0)
+  1246→  otherAmount       Float     @default(0)
+  1247→  subtotal          Float     @default(0)
+  1248→  taxAmount         Float     @default(0)
+  1249→  discountAmount    Float     @default(0)
+  1250→  totalAmount       Float     @default(0)
+  1251→  advanceAdjusted   Float     @default(0)
+  1252→  netPayable        Float     @default(0)
+  1253→
+  1254→  status            String    @default("Draft")
+  1255→  generatedAt       DateTime?
+  1256→  finalizedAt       DateTime?
+  1257→  generatedBy       String?
+  1258→
+  1259→  createdAt         DateTime  @default(now())
+  1260→  updatedAt         DateTime  @updatedAt
+  1261→
+  1262→  admission         IpdAdmission  @relation(fields: [admissionId], references: [id], onDelete: Restrict)
+  1263→  hospital          Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Restrict)
+  1264→  lineItems         BillLineItem[]
+  1265→  payments          BillPayment[]
+  1266→  advances          PatientAdvance[]
+  1267→
+  1268→  @@index([hospitalId, status])
+  1269→  @@index([admissionId])
+  1270→}
+  1271→
+  1272→// ============ BILLING: BILL LINE ITEM ============
+  1273→
+  1274→model BillLineItem {
+  1275→  id            String   @id @default(cuid())
+  1276→  billId        String
+  1277→  chargeItemId  String?
+  1278→  categoryId    String
+  1279→
+  1280→  itemName      String   @default("")
+  1281→  description   String   @default("")
+  1282→  quantity      Float    @default(1)
+  1283→  unitType      String   @default("Per Service")
+  1284→  rate          Float    @default(0)
+  1285→  amount        Float    @default(0)
+  1286→  taxPercent    Float    @default(0)
+  1287→  taxAmount     Float    @default(0)
+  1288→  totalAmount   Float    @default(0)
+  1289→  date          DateTime @default(now())
+  1290→
+  1291→  bill          IpdBill     @relation(fields: [billId], references: [id], onDelete: Cascade)
+  1292→  chargeItem    ChargeItem? @relation(fields: [chargeItemId], references: [id], onDelete: SetNull)
+  1293→}
+  1294→
+  1295→// ============ BILLING: BILL PAYMENT ============
+  1296→
+  1297→model BillPayment {
+  1298→  id              String    @id @default(cuid())
+  1299→  receiptNo       String    @default(cuid())
+  1300→  billId          String
+  1301→  admissionId     String
+  1302→  hospitalId      String
+  1303→
+  1304→  amount          Float     @default(0)
+  1305→  paymentMethod   String    @default("Cash")
+  1306→  paymentRef      String    @default("")
+  1307→  paymentDate     DateTime  @default(now())
+  1308→  receivedBy      String
+  1309→  notes           String    @default("")
+  1310→
+  1311→  createdAt       DateTime  @default(now())
+  1312→  updatedAt       DateTime  @updatedAt
+  1313→
+  1314→  bill            IpdBill    @relation(fields: [billId], references: [id], onDelete: Restrict)
+  1315→}
+  1316→
+  1317→// ============ BILLING: PATIENT ADVANCE ============
+  1318→
+  1319→model PatientAdvance {
+  1320→  id              String    @id @default(cuid())
+  1321→  receiptNo       String    @default(cuid())
+  1322→  admissionId     String
+  1323→  hospitalId      String
+  1324→  patientId       String?
+  1325→
+  1326→  amount          Float     @default(0)
+  1327→  paymentMethod   String    @default("Cash")
+  1328→  paymentRef      String    @default("")
+  1329→  receivedBy      String
+  1330→  notes           String    @default("")
+  1331→
+  1332→  billId          String?
+  1333→
+  1334→  createdAt       DateTime  @default(now())
+  1335→  updatedAt       DateTime  @updatedAt
+  1336→
+  1337→  bill            IpdBill?  @relation(fields: [billId], references: [id], onDelete: SetNull)
+  1338→  admission       IpdAdmission? @relation(fields: [admissionId], references: [id], onDelete: Restrict)
+  1339→}
+  1340→
+  1341→// ============ BILLING: OPD BILL ============
+  1342→
+  1343→model OpdBill {
+  1344→  id              String    @id @default(cuid())
+  1345→  receiptNo       String    @default(cuid())
+  1346→  bookingId       String    @unique
+  1347→  hospitalId      String
+  1348→  patientId       String?
+  1349→
+  1350→  consultationFee Float     @default(0)
+  1351→  labAmount       Float     @default(0)
+  1352→  medicineAmount  Float     @default(0)
+  1353→  otherAmount     Float     @default(0)
+  1354→  subtotal        Float     @default(0)
+  1355→  taxAmount       Float     @default(0)
+  1356→  discountAmount  Float     @default(0)
+  1357→  totalAmount     Float     @default(0)
+  1358→
+  1359→  paymentMethod   String    @default("Cash")
+  1360→  paymentRef      String    @default("")
+  1361→  paymentDate     DateTime  @default(now())
+  1362→  receivedBy      String?
+  1363→  status          String    @default("Paid")
+  1364→
+  1365→  createdAt       DateTime  @default(now())
+  1366→  updatedAt       DateTime  @updatedAt
+  1367→
+  1368→  booking         Booking  @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  1369→  hospital        Hospital  @relation(fields: [hospitalId], references: [id], onDelete: Restrict)
+  1370→  patient         User?    @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  1371→}
+  1372→
+  1373→// ============ LAB: LAB TEST MASTER ============
+  1374→
+  1375→model LabTestMaster {
+  1376→  id            String   @id @default(cuid())
+  1377→  hospitalId    String
+  1378→  name          String
+  1379→  shortCode     String   @default("")
+  1380→  category      String   @default("")
+  1381→  description   String   @default("")
+  1382→  specimenType  String   @default("")
+  1383→  reportDays    Int      @default(0)
+  1384→  rate          Float    @default(0)
+  1385→  status        String   @default("Active")
+  1386→  sortOrder     Int      @default(0)
+  1387→  createdAt     DateTime @default(now())
+  1388→  updatedAt     DateTime @updatedAt
+  1389→
+  1390→  hospital      Hospital           @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1391→  parameters    LabTestParameter[]
+  1392→  labReports    LabReport[]
+  1393→}
+  1394→
+  1395→// ============ LAB: LAB TEST PARAMETER ============
+  1396→
+  1397→model LabTestParameter {
+  1398→  id              String   @id @default(cuid())
+  1399→  testMasterId    String
+  1400→  paramName       String
+  1401→  shortCode       String   @default("")
+  1402→  unit            String   @default("")
+  1403→  normalMaleMin   Float    @default(0)
+  1404→  normalMaleMax   Float    @default(0)
+  1405→  normalFemaleMin Float    @default(0)
+  1406→  normalFemaleMax Float    @default(0)
+  1407→  normalChildMin  Float    @default(0)
+  1408→  normalChildMax  Float    @default(0)
+  1409→  sortOrder       Int      @default(0)
+  1410→
+  1411→  testMaster      LabTestMaster @relation(fields: [testMasterId], references: [id], onDelete: Cascade)
+  1412→  parameterValues LabParameterValue[]
+  1413→}
+  1414→
+  1415→// ============ LAB: LAB TECHNICIAN ============
+  1416→
+  1417→model LabTechnician {
+  1418→  id            String   @id @default(cuid())
+  1419→  userId        String   @unique
+  1420→  hospitalId    String
+  1421→  employeeId    String   @default("")
+  1422→  qualification String   @default("")
+  1423→  specialization String  @default("")
+  1424→  phoneNo       String   @default("")
+  1425→  status        String   @default("Active")
+  1426→  createdAt     DateTime @default(now())
+  1427→  updatedAt     DateTime @updatedAt
+  1428→
+  1429→  user          User     @relation("LabTechUser", fields: [userId], references: [id], onDelete: Cascade)
+  1430→  hospital      Hospital @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1431→  verifiedReports LabReport[] @relation("VerifiedByTech")
+  1432→}
+  1433→
+  1434→// ============ LAB: LAB REPORT ============
+  1435→
+  1436→model LabReport {
+  1437→  id                String    @id @default(cuid())
+  1438→  reportNo          String    @default("")
+  1439→  hospitalId        String
+  1440→  testMasterId      String
+  1441→  admissionId       String?
+  1442→  bookingId         String?
+  1443→  patientId         String?
+  1444→  patientName       String    @default("")
+  1445→  patientAge        Int       @default(0)
+  1446→  patientGender     String    @default("")
+  1447→  doctorId          String?
+  1448→  orderedById       String?
+  1449→
+  1450→  orderedBy         User?           @relation("LabReportOrderedBy", fields: [orderedById], references: [id], onDelete: SetNull)
+  1451→
+  1452→  sampleCollectedAt DateTime?
+  1453→  sampleCollectedBy String?
+  1454→  resultEnteredAt   DateTime?
+  1455→  resultEnteredBy   String?
+  1456→  verifiedAt        DateTime?
+  1457→  verifiedById      String?
+  1458→
+  1459→  status            String    @default("Ordered")
+  1460→  urgency           String    @default("Normal")
+  1461→  notes             String    @default("")
+  1462→
+  1463→  createdAt         DateTime  @default(now())
+  1464→  updatedAt         DateTime  @updatedAt
+  1465→
+  1466→  hospital          Hospital       @relation(fields: [hospitalId], references: [id], onDelete: Restrict)
+  1467→  testMaster        LabTestMaster @relation(fields: [testMasterId], references: [id], onDelete: Restrict)
+  1468→  parameterValues   LabParameterValue[]
+  1469→  verifiedBy        LabTechnician? @relation("VerifiedByTech", fields: [verifiedById], references: [id], onDelete: SetNull)
+  1470→
+  1471→  @@index([hospitalId, status])
+  1472→  @@index([orderedById])
+  1473→  @@index([testMasterId])
+  1474→}
+  1475→
+  1476→// ============ LAB: LAB PARAMETER VALUE ============
+  1477→
+  1478→model LabParameterValue {
+  1479→  id              String   @id @default(cuid())
+  1480→  labReportId     String
+  1481→  testParameterId String
+  1482→  value           String   @default("")
+  1483→  isAbnormal      Boolean  @default(false)
+  1484→  remarks         String   @default("")
+  1485→
+  1486→  labReport       LabReport       @relation(fields: [labReportId], references: [id], onDelete: Cascade)
+  1487→  testParameter   LabTestParameter @relation(fields: [testParameterId], references: [id], onDelete: Restrict)
+  1488→}
+  1489→
+  1490→// ============ INVENTORY: INVENTORY ITEM ============
+  1491→
+  1492→model InventoryItem {
+  1493→  id              String   @id @default(cuid())
+  1494→  hospitalId      String
+  1495→  name            String
+  1496→  category        String   @default("")
+  1497→  genericName     String   @default("")
+  1498→  manufacturer    String   @default("")
+  1499→  batchNo         String   @default("")
+  1500→  expiryDate      DateTime?
+  1501→  unit            String   @default("")
+  1502→  unitPrice       Float    @default(0)
+  1503→  sellingPrice    Float    @default(0)
+  1504→  currentStock    Float    @default(0)
+  1505→  minStockLevel   Float    @default(10)
+  1506→  maxStockLevel   Float    @default(1000)
+  1507→  reorderQty      Float    @default(100)
+  1508→  hsnCode         String   @default("")
+  1509→  gstPercent      Float    @default(0)
+  1510→  storeLocation   String   @default("")
+  1511→  status          String   @default("Active")
+  1512→  createdAt       DateTime @default(now())
+  1513→  updatedAt       DateTime @updatedAt
+  1514→
+  1515→  hospital        Hospital        @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1516→  stockMovements  StockMovement[]
+  1517→  purchaseItems   PurchaseOrderItem[]
+  1518→
+  1519→  @@index([hospitalId, category])
+  1520→}
+  1521→
+  1522→// ============ INVENTORY: STOCK MOVEMENT ============
+  1523→
+  1524→model StockMovement {
+  1525→  id              String   @id @default(cuid())
+  1526→  hospitalId      String
+  1527→  itemId          String
+  1528→  movementType    String
+  1529→  quantity        Float    @default(0)
+  1530→  referenceNo     String   @default("")
+  1531→  fromLocation    String   @default("")
+  1532→  toLocation      String   @default("")
+  1533→  notes           String   @default("")
+  1534→  movedBy         String
+  1535→  createdAt       DateTime @default(now())
+  1536→  updatedAt       DateTime @updatedAt
+  1537→
+  1538→  hospital        Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1539→  item            InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  1540→
+  1541→  @@index([itemId])
+  1542→}
+  1543→
+  1544→// ============ INVENTORY: PURCHASE ORDER ============
+  1545→
+  1546→model PurchaseOrder {
+  1547→  id              String   @id @default(cuid())
+  1548→  poNumber        String   @default("")
+  1549→  hospitalId      String
+  1550→  supplierName    String   @default("")
+  1551→  supplierContact String   @default("")
+  1552→  supplierAddress String   @default("")
+  1553→  expectedDate    DateTime?
+  1554→  totalAmount     Float    @default(0)
+  1555→  status          String   @default("Draft")
+  1556→  notes           String   @default("")
+  1557→  createdById     String
+  1558→  createdAt       DateTime @default(now())
+  1559→  updatedAt       DateTime @updatedAt
+  1560→
+  1561→  hospital        Hospital            @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1562→  items           PurchaseOrderItem[]
+  1563→}
+  1564→
+  1565→// ============ INVENTORY: PURCHASE ORDER ITEM ============
+  1566→
+  1567→model PurchaseOrderItem {
+  1568→  id              String   @id @default(cuid())
+  1569→  poId            String
+  1570→  inventoryItemId String
+  1571→  quantity        Float    @default(0)
+  1572→  unitPrice       Float    @default(0)
+  1573→  total           Float    @default(0)
+  1574→  receivedQty     Float    @default(0)
+  1575→
+  1576→  po              PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  1577→  item            InventoryItem  @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  1578→}
+  1579→
+  1580→// ============ OT: OPERATION THEATER ============
+  1581→
+  1582→model OperationTheater {
+  1583→  id            String   @id @default(cuid())
+  1584→  hospitalId    String
+  1585→  name          String
+  1586→  otType        String   @default("Major")
+  1587→  floorNo       String   @default("")
+  1588→  status        String   @default("Available")
+  1589→  createdAt     DateTime @default(now())
+  1590→  updatedAt     DateTime @updatedAt
+  1591→
+  1592→  hospital      Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1593→  schedules     OtSchedule[]
+  1594→}
+  1595→
+  1596→// ============ OT: OT SCHEDULE ============
+  1597→
+  1598→model OtSchedule {
+  1599→  id                String    @id @default(cuid())
+  1600→  scheduleNo        String    @default("")
+  1601→  otId              String
+  1602→  hospitalId        String
+  1603→  admissionId       String
+  1604→  patientName       String    @default("")
+  1605→  patientAge        Int       @default(0)
+  1606→  patientGender     String    @default("")
+  1607→  surgeonId         String?  // nullable — SetNull onDelete
+  1608→  assistantSurgeons String    @default("[]")
+  1609→  anesthetistId     String?
+  1610→  nurseId           String?
+  1611→  otTechnician      String    @default("")
+  1612→
+  1613→  surgeryName       String    @default("")
+  1614→  surgeryCategory   String    @default("")
+  1615→  surgeryType       String    @default("Elective")
+  1616→
+  1617→  scheduledDate     DateTime
+  1618→  scheduledStartTime String    @default("")
+  1619→  estimatedDuration Int       @default(60)
+  1620→  actualStartTime   String    @default("")
+  1621→  actualEndTime     String    @default("")
+  1622→
+  1623→  status            String    @default("Scheduled")
+  1624→  notes             String    @default("")
+  1625→  cancellationReason String   @default("")
+  1626→
+  1627→  createdAt         DateTime  @default(now())
+  1628→  updatedAt         DateTime  @updatedAt
+  1629→
+  1630→  ot                OperationTheater @relation(fields: [otId], references: [id], onDelete: Restrict)
+  1631→  hospital          Hospital        @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1632→  admission         IpdAdmission    @relation(fields: [admissionId], references: [id], onDelete: Restrict)
+  1633→  surgeon           Doctor?          @relation(fields: [surgeonId], references: [id], onDelete: SetNull)
+  1634→
+  1635→  @@index([hospitalId, scheduledDate])
+  1636→  @@index([surgeonId])
+  1637→}
+  1638→
+  1639→// ============ IPD: BED TRANSFER ============
+  1640→
+  1641→model BedTransfer {
+  1642→  id              String   @id @default(cuid())
+  1643→  admissionId     String
+  1644→  fromBedId       String
+  1645→  toBedId         String
+  1646→  fromWardId      String
+  1647→  toWardId        String
+  1648→  transferDate    DateTime  @default(now())
+  1649→  transferReason  String   @default("")
+  1650→  transferredBy   String
+  1651→  createdAt       DateTime  @default(now())
+  1652→  updatedAt       DateTime  @updatedAt
+  1653→
+  1654→  admission       IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  1655→  fromBed         Bed          @relation("BedTransfersFrom", fields: [fromBedId], references: [id], onDelete: Restrict)
+  1656→  toBed           Bed          @relation("BedTransfersTo", fields: [toBedId], references: [id], onDelete: Restrict)
+  1657→}
+  1658→
+  1659→// ============ IPD: DIET ORDER ============
+  1660→
+  1661→model DietOrder {
+  1662→  id              String   @id @default(cuid())
+  1663→  admissionId     String
+  1664→  hospitalId      String
+  1665→  orderedById     String
+  1666→  dietType        String   @default("")
+  1667→  mealType        String   @default("")
+  1668→  instructions    String   @default("")
+  1669→  startDate       DateTime  @default(now())
+  1670→  endDate         DateTime?
+  1671→  status          String   @default("Active")
+  1672→  stoppedBy       String?
+  1673→  stoppedAt       DateTime?
+  1674→  stoppedReason   String   @default("")
+  1675→  createdAt       DateTime  @default(now())
+  1676→  updatedAt       DateTime  @updatedAt
+  1677→
+  1678→  admission       IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  1679→  hospital        Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1680→}
+  1681→
+  1682→// ============ FAMILY PORTAL: FAMILY ACCESS ============
+  1683→
+  1684→model FamilyAccess {
+  1685→  id              String   @id @default(cuid())
+  1686→  admissionId     String   @unique
+  1687→  hospitalId      String
+  1688→  accessCode      String   @unique
+  1689→  patientName     String   @default("")
+  1690→  relationName    String   @default("")
+  1691→  relationMobile  String   @default("")
+  1692→  isActive        Boolean  @default(true)
+  1693→  canViewVitals   Boolean  @default(true)
+  1694→  canViewDiet     Boolean  @default(true)
+  1695→  canViewBill     Boolean  @default(true)
+  1696→  allowedPages    String   @default("[\"status\",\"vitals\",\"diet\"]")
+  1697→  createdAt       DateTime @default(now())
+  1698→  updatedAt       DateTime  @updatedAt
+  1699→
+  1700→  admission       IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
+  1701→  hospital        Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  1702→
+  1703→  @@index([hospitalId])
+  1704→}
+  1705→
+  1706→// ============ SYSTEM SETTINGS ============
+  1707→
+  1708→model SystemSettings {
+  1709→  id                String @id @default("singleton")
+  1710→  hospitalName      String @default("")
+  1711→  hospitalAddress   String @default("")
+  1712→  hospitalPhone     String @default("")
+  1713→  hospitalEmail     String @default("")
+  1714→  hospitalLogo      String @default("")
+  1715→  hospitalGstNo     String @default("")
+  1716→  hospitalRegNo     String @default("")
+  1717→  currency          String @default("INR")
+  1718→  dateFormat        String @default("DD/MM/YYYY")
+  1719→  timezone          String @default("Asia/Kolkata")
+  1720→  updatedAt         DateTime @updatedAt
+  1721→}

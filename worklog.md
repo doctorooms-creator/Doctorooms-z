@@ -992,3 +992,358 @@ Stage Summary:
 - Real-time: 18 routes emit WebSocket events
 - Functionality: Receptionist discharge page created
 - All checks pass: lint, db:push, prisma validate, dev server startup
+
+---
+Task ID: audit-current-features
+Agent: Audit Sub-Agent
+Task: Comprehensive feature inventory — what EXISTS vs what's MISSING
+
+# Hospital Management System — Feature Audit Report
+
+## DATABASE: 72 Prisma Models (SQLite)
+
+All models: User, Doctor, Hospital, Department, DoctorHospital, Booking, BookingChat, Prescription, PMedicine, PLabel, PSuggestion, PDignoTable, PCo, POtherSetting, DoctorRating, DoctorSchedule, DoctorHoliday, DoctorMedicine, CategoryMaster, FindingsMaster, FindingsMedicine, TableTemplateMaster, DoctorAssistant, DoctorPharmacist, Receptionist, DoctorTypeMaster, Post, Notification, Slider, HospitalInquiry, DiseaseMaster, LabelMaster, CoMaster, QuestionsMaster, SuggestionsMaster, DoctorGallery, PrescriptionAccessRequest, MedicalDocument, Ward, Bed, StaffNurse, NursePatientAssignment, IpdAdmission, VitalRecord, DoctorOrder, MedicineAdministration, SampleCollection, InvestigationReport, ShiftHandover, DoctorVisit, ChargeCategory, ChargeItem, IpdBill, BillLineItem, BillPayment, PatientAdvance, OpdBill, LabTestMaster, LabTestParameter, LabTechnician, LabReport, LabParameterValue, InventoryItem, StockMovement, PurchaseOrder, PurchaseOrderItem, OperationTheater, OtSchedule, BedTransfer, DietOrder, FamilyAccess, SystemSettings.
+
+## ROLES (8 total)
+admin, doctor, patient, hospital, receptionist, assistant, pharmacist, nurse, lab_technician
+
+---
+
+## MODULE-BY-MODULE: WHAT EXISTS
+
+### 1. DOCTORS — ✅ STRONG COVERAGE
+**Sidebar:** Admin (manage), Hospital (manage/depart-doctors/view), Doctor (profile/schedule/earnings/gallery/posts)
+**API Endpoints:**
+- `GET/POST /api/doctors` — list/create
+- `GET/PUT /api/doctors/[id]` — read/update
+- `GET /api/doctors/[id]/schedule` — doctor schedule
+- `GET /api/dashboard/doctor/profile` — own profile
+- `GET /api/dashboard/doctor/schedule`, `/slots`
+- `GET /api/dashboard/doctor/earnings`
+- `GET/POST /api/dashboard/doctor/patients`
+- `GET /api/dashboard/doctor/gallery`
+- `GET/POST /api/dashboard/doctor/posts`
+- `GET /api/dashboard/doctor/queue`
+- `GET /api/dashboard/doctor/video-call`
+**Pages:** Dashboard, Appointments, Prescriptions (list/new/[id]), Earnings, Schedule, Patients, Medicines, Lab Results, OT Surgeries, IPD Patients, Profile, Gallery, Posts, Rx Settings (8 sub-pages)
+**DB Models:** Doctor, DoctorSchedule, DoctorHoliday, DoctorMedicine, DoctorGallery, DoctorTypeMaster, DoctorHospital, DoctorRating, DoctorAssistant, DoctorPharmacist
+**Coverage:** ~90% — Full lifecycle from registration to scheduling, prescriptions, IPD rounds, and earnings.
+
+### 2. PATIENTS — ✅ STRONG COVERAGE
+**Sidebar:** Patient portal (10 items), Receptionist (patients/register), Doctor (patient list)
+**API Endpoints:**
+- `GET/POST /api/dashboard/receptionist/patients`, `/register`
+- `GET /api/patient/profile`, `/avatar`, `/settings`, `/notifications`, `/medical-documents`
+- `GET/POST /api/patient/bookings`, `/queue`, `/slots-availability`, `/check-slot`, `/[id]/cancel`
+- `GET/POST /api/patient/feedback`, `/check`
+- `GET/POST /api/patient/posts`
+- `GET /api/prescription-access/request`, `/granted`, `/requests`
+- `GET/POST /api/family-access`, `/generate`, `/revoke`, `/[accessCode]`
+**Pages:** Patient: Dashboard, Appointments, Health Records, Rx Access, Blog, Feedback, Notifications, Profile, Settings, Book Doctor
+**DB Models:** User (patient role), Booking, BookingChat, MedicalDocument, DoctorRating, PrescriptionAccessRequest, FamilyAccess, Notification, Post
+**Coverage:** ~85% — Registration, booking, health records, feedback, family access, notifications all present.
+
+### 3. BILLING — ✅ GOOD COVERAGE (Revenue side only)
+**Sidebar:** Admin (IPD/OPD bills), Hospital (IPD/OPD/Payments/Advances/Discharge), Receptionist (same 5)
+**API Endpoints:**
+- `GET/POST /api/ipd-bills`, `/generate`, `/[id]`, `/[id]/finalize`
+- `GET/POST /api/opd-bills`, `/[id]`
+- `GET/POST /api/bill-payments`, `/[id]`, `/daily-summary`
+- `GET/POST /api/patient-advances`, `/summary`
+- `GET /api/billing/dashboard`, `/receipt/[type]/[id]`
+- `GET/POST /api/charge-categories`, `/[id]`
+- `GET/POST /api/charge-items`, `/[id]`
+- Admin-specific: `GET /api/admin/billing/ipd-bills`, `/opd-bills`
+**Pages:** Hospital & Receptionist: IPD Bills (list + [id] detail), OPD Bills, Payments, Advances, Discharge. Admin: IPD Bills, OPD Bills.
+**DB Models:** IpdBill, BillLineItem, BillPayment, OpdBill, PatientAdvance, ChargeCategory, ChargeItem
+**Coverage:** ~80% — Full IPD/OPD billing, payment recording, advance deposits, discharge billing, receipt printing. **BUT no expense tracking model.**
+
+### 4. LAB / DIAGNOSTICS — ✅ STRONG COVERAGE
+**Sidebar:** Hospital (Test Master, Lab Reports), Doctor (Lab Results), Receptionist (Lab Tests), Lab Technician (Worklist, Result Entry, Reports)
+**API Endpoints:**
+- `GET/POST /api/lab-test-masters`, `/[id]`
+- `GET/POST /api/lab-reports`, `/worklist`, `/[id]`, `/[id]/collect-sample`, `/[id]/enter-result`, `/[id]/verify`
+- `GET/POST /api/ipd-sample-collections`, `/[id]/collect`, `/[id]/send-to-lab`
+- `GET /api/lab-technician/dashboard`, `/profile`
+- `GET /api/investigation-reports`
+- Reports: `GET /api/reports/lab/summary`, `/tatl`
+**Pages:** Hospital: Lab Test Master, Lab Reports. Lab Tech: Dashboard, Worklist, Result Entry (list + [id]), Reports. Doctor: Lab Results.
+**DB Models:** LabTestMaster, LabTestParameter, LabReport, LabParameterValue, LabTechnician, SampleCollection, InvestigationReport
+**Coverage:** ~90% — Full test master, order-to-result workflow, sample collection, verification, IPD integration.
+
+### 5. PHARMACY — ✅ MODERATE COVERAGE
+**Sidebar:** Pharmacist (Prescriptions, Medicine List), Doctor (Medicine Master), Receptionist (Medicines)
+**API Endpoints:**
+- `GET /api/dashboard/pharmacist/prescriptions`, `/prescriptions/[id]/fulfill`
+- `GET /api/dashboard/pharmacist/medicines`, `/stats`
+- `GET/POST /api/dashboard/doctor/medicines`, `/[id]`
+- `GET/POST /api/receptionist/medicines`, `/[id]`, `/[id]/toggle`
+- Prescription medicines: `GET/POST /api/prescription/[id]/medicines`
+**Pages:** Pharmacist: Dashboard, Prescriptions, Medicine List. Doctor: Medicines. Receptionist: Medicines.
+**DB Models:** DoctorMedicine, PMedicine (prescription medicines), MedicineAdministration (nurse), InventoryItem (used for stock)
+**Coverage:** ~60% — Can view/fulfill prescriptions and manage medicine lists, but **NO pharmacy-specific dispensing, billing, stock with batch/expiry tracking, or pharmacy sales.** Uses shared inventory model.
+
+### 6. OPERATION THEATER (OT) — ✅ MODERATE COVERAGE
+**Sidebar:** Hospital (OT), Doctor (OT Surgeries)
+**API Endpoints:**
+- `GET/POST /api/operation-theaters`, `/[id]`
+- `GET/POST /api/ot-schedules`, `/today`, `/[id]`
+**Pages:** Hospital: OT page. Doctor: OT Surgeries page.
+**DB Models:** OperationTheater, OtSchedule
+**Coverage:** ~50% — Can manage OTs and schedule surgeries. **MISSING:** Pre-op checklists, post-op notes, anesthesia records, OT utilization analytics, surgical package billing, equipment tracking.
+
+### 7. BEDS / WARDS / IPD — ✅ GOOD COVERAGE
+**Sidebar:** Admin (IPD Wards), Hospital (IPD Admissions, Bed Transfer), Receptionist (IPD Admissions, Bed Transfer), Doctor (IPD Patients), Nurse (My Patients, Ward View)
+**API Endpoints:**
+- `GET/POST /api/dashboard/admin/wards`, `/[id]`, `/[id]/beds`, `/beds/[bedId]`
+- `GET/POST /api/dashboard/receptionist/ipd` (admit, doctors, available-beds)
+- `GET/POST /api/bed-transfers`, `/history`
+- `GET/POST /api/ipd-admissions/[id]/discharge`, `/complete-discharge`, `/discharge-pending`
+- `GET /api/dashboard/doctor/ipd`, `/ipd/patients/[admissionId]/*` (visits, orders, investigations, examination, discharge, history)
+- `GET /api/dashboard/nurse/patients`, `/patients/[admissionId]/*` (vitals, medicines, investigations)
+- `GET /api/dashboard/nurse/ward-patients`
+**Pages:** Admin: Wards. Hospital: Bed Transfer, Discharge Summaries. Receptionist: IPD, Bed Transfer. Doctor: IPD (list + [admissionId] detail). Nurse: My Patients (list + [admissionId] detail), Ward View.
+**DB Models:** Ward, Bed, IpdAdmission, VitalRecord, DoctorOrder, MedicineAdministration, SampleCollection, InvestigationReport, ShiftHandover, DoctorVisit, BedTransfer, DietOrder, NursePatientAssignment, DischargeSummary (via API)
+**Coverage:** ~85% — Full IPD lifecycle: admission, bed management, vitals, doctor orders, medicine administration, investigations, bed transfer, diet orders, discharge, shift handover.
+
+### 8. NURSING — ✅ GOOD COVERAGE
+**Sidebar:** Nurse (Dashboard, My Patients, Ward View, Shift Handover, Profile)
+**API Endpoints:**
+- `GET /api/dashboard/nurse/route`, `/patients`, `/patients/[admissionId]/*`
+- `GET/POST /api/dashboard/nurse/handover`
+- `GET/POST /api/shift-handovers`, `/[id]/acknowledge`
+- `GET /api/dashboard/nurse/profile`, `/ward-patients`
+**Pages:** Dashboard, My Patients, Ward Patients, Shift Handover, Profile
+**DB Models:** StaffNurse, NursePatientAssignment, VitalRecord, MedicineAdministration, SampleCollection, ShiftHandover
+**Coverage:** ~80% — Vitals recording, medicine administration, sample collection, shift handover, ward view. **MISSING:** Care plans, nursing notes (free-text), fall risk assessment, pain assessment.
+
+### 9. APPOINTMENTS / BOOKINGS — ✅ EXCELLENT COVERAGE
+**Sidebar:** All roles have appointment-related items
+**API Endpoints:**
+- `GET/POST /api/patient/bookings`, `/queue`, `/slots-availability`, `/check-slot`, `/[id]/cancel`
+- `GET/POST /api/dashboard/doctor/appointments`, `/[id]/status`
+- `GET/POST /api/dashboard/receptionist/appointments`, `/pending-bookings`, `/bookings/[id]/approve|reject|status`
+- `GET /api/dashboard/hospital/appointments`
+- `GET /api/dashboard/assistant/appointments`
+- `GET /api/dashboard/admin/appointments`
+- `GET/POST /api/bookings/[bookingId]/chat`
+- `GET /api/queue/doctor/[doctorId]`, `/hospital/[hospitalId]`
+- `GET /api/public/hospital/[hospitalId]/queue`
+- `GET /api/receptionist/booking-days`
+- `GET /api/dashboard/receptionist/schedule`, `/walk-in`
+**Pages:** Every role has appointment pages. Walk-in booking. Queue display. Print queue. Schedule.
+**DB Models:** Booking, BookingChat, DoctorSchedule, DoctorHoliday
+**Coverage:** ~95% — Full booking lifecycle: online booking, walk-in, queue management, approval/rejection, chat, slot checking, public queue display.
+
+### 10. PRESCRIPTIONS — ✅ EXCELLENT COVERAGE
+**Sidebar:** Doctor (Prescriptions, Rx Settings with 8 sub-pages), Pharmacist (Prescriptions), Assistant (Rx Queue), Patient (Rx Access)
+**API Endpoints:**
+- `GET/POST /api/prescription/init`, `/[id]` (medicines, complaints, suggestions, tables, vitals, print, finalize)
+- `GET /api/dashboard/doctor/prescriptions`
+- `GET/POST /api/dashboard/assistant/prescription-queue`
+- `GET /api/dashboard/pharmacist/prescriptions`
+- Rx Settings: categories, complaints, questions, suggestions, labels, findings, table-templates, print-settings (all CRUD)
+- `GET/POST /api/prescription-access/request`, `/granted`, `/requests`, `/[id]/respond`
+**Pages:** Doctor: Prescriptions (list, new, [id]), 8 Rx Settings sub-pages. Pharmacist: Prescriptions. Assistant: Rx Queue. Patient: Rx Access.
+**DB Models:** Prescription, PMedicine, PLabel, PSuggestion, PDignoTable, PCo, POtherSetting, CategoryMaster, FindingsMaster, FindingsMedicine, TableTemplateMaster, QuestionsMaster, SuggestionsMaster, LabelMaster, CoMaster, DiseaseMaster, PrescriptionAccessRequest
+**Coverage:** ~95% — Very comprehensive prescription system with customizable templates, findings, suggestions, labels, table templates, and print settings.
+
+### 11. INVENTORY — ✅ MODERATE COVERAGE
+**Sidebar:** Hospital (Item Master, Stock Movements, Purchase Orders, Low Stock Alerts)
+**API Endpoints:**
+- `GET/POST /api/inventory-items`, `/[id]`
+- `GET/POST /api/stock-movements`, `/item/[itemId]`, `/summary`
+- `GET/POST /api/purchase-orders`, `/[id]`, `/[id]/receive`
+- `GET /api/inventory/low-stock`, `/expiring-soon`
+- Report: `GET /api/reports/inventory/summary`, `/consumption`
+**Pages:** Hospital: Items, Stock Movements, Purchase Orders, Low Stock Alerts.
+**DB Models:** InventoryItem, StockMovement, PurchaseOrder, PurchaseOrderItem
+**Coverage:** ~60% — Basic inventory CRUD, stock movements, purchase orders, low stock alerts, expiry tracking. **MISSING:** Vendor management, GRN (Goods Received Note), batch-wise stock, multi-location inventory, inventory valuation reports.
+
+### 12. REPORTS & ANALYTICS — ✅ GOOD COVERAGE (Hospital role only)
+**Sidebar:** Admin (Revenue), Hospital (Revenue, IPD Analytics, OPD Analytics, Financial, Inventory, Lab), Receptionist (Reports)
+**API Endpoints:**
+- Revenue: `GET /api/reports/revenue/summary`, `/doctor-wise`, `/department-wise`, `/outstanding`, `/payment-methods`, `/daily-collection`
+- IPD: `GET /api/reports/ipd/summary`, `/length-of-stay`, `/disease-wise`, `/bed-occupancy`
+- OPD: `GET /api/reports/opd/summary`, `/hourly`
+- Financial: `GET /api/reports/financial/profit-loss`, `/aging-receivable`
+- Inventory: `GET /api/reports/inventory/summary`, `/consumption`
+- Lab: `GET /api/reports/lab/summary`, `/tatl`
+- Receptionist: `GET /api/dashboard/receptionist/reports`
+**Pages:** Hospital: Revenue, IPD Analytics, OPD Analytics, Financial, Inventory, Lab. Admin: Revenue. Receptionist: Reports.
+**Coverage:** ~70% — 15 report endpoints with good clinical and revenue analytics. **MISSING:** Doctor performance reports, patient demographics, appointment no-show analysis, custom date-range exports, printable/exportable reports (PDF/Excel).
+
+### 13. AUTH & USER MANAGEMENT — ✅ GOOD COVERAGE
+**API Endpoints:** login, register, logout, forgot-password, reset-password, verify-otp, me, change-password, dev-login
+**Pages:** Login, Register, Forgot Password, Change Password
+**DB Models:** User, SystemSettings
+**Roles:** admin, doctor, patient, hospital, receptionist, assistant, pharmacist, nurse, lab_technician
+**Coverage:** ~80% — Standard auth flow. **MISSING:** Role-based permissions (RBAC) matrix, 2FA/MFA, audit logs, session management.
+
+### 14. COMMUNICATION & ENGAGEMENT — ✅ MODERATE
+**Features:** Notifications (in-app), Booking Chat, Blog/Posts (all roles), Feedback, Video Call, Family Access, Contact/Inquiries, Public Queue Display
+**DB Models:** Notification, BookingChat, Post, DoctorRating, FamilyAccess, HospitalInquiry, Slider
+**Coverage:** ~65% — In-app notifications + chat exist. **MISSING:** SMS gateway, email transactional sending, WhatsApp integration, push notifications (mobile).
+
+### 15. DIET / FOOD SERVICES — ✅ MINIMAL
+**API:** `GET/POST /api/diet-orders`, `/[id]/stop`
+**DB Model:** DietOrder
+**Coverage:** ~30% — Can create/stop diet orders. **MISSING:** Diet menu master, nutritional info, meal delivery tracking, tray tickets.
+
+---
+
+## WHAT'S MISSING — HOSPITAL OWNER PERSPECTIVE
+
+### 🔴 CRITICAL (Expected in any HMS)
+
+1. **Insurance / TPA (Third Party Administrator) Module**
+   - No insurance company master, no TPA master
+   - No claim submission, approval workflow, or settlement tracking
+   - No pre-authorization / pre-auth management
+   - No cashless vs. reimbursement flow
+   - No TPA-wise outstanding reports
+   - *Impact: Cannot handle insured patients — a massive gap for Indian hospitals where 30-60% of revenue is insurance-driven*
+
+2. **Expense Management / Cost Accounting**
+   - No Expense model in schema (zero matches for "expense" in schema)
+   - Profit-loss report exists but appears revenue-only (no expense data to offset)
+   - No vendor/supplier payments tracking
+   - No operational expense categories (salaries, utilities, rent, maintenance, etc.)
+   - No cost-center or department-wise expense allocation
+   - *Impact: Hospital owner cannot track profitability — only revenue is visible*
+
+3. **Staff HR / Payroll**
+   - No Employee model (only role-based User profiles)
+   - No salary structure, payroll processing, or payslip generation
+   - No attendance/leave management
+   - No shift scheduling (nurse shift exists for handover, but no rota planning)
+   - No performance appraisal, training records, or compliance certificates
+   - *Impact: Cannot manage the workforce — the single largest cost center*
+
+4. **Blood Bank Management**
+   - No blood group, donor, or stock models
+   - No cross-match, issue, or transfusion records
+   - *Impact: Required for hospitals with 100+ beds; critical for emergency care*
+
+### 🟠 HIGH PRIORITY
+
+5. **Comprehensive Pharmacy (Dispensing & Sales)**
+   - Current pharmacy is read-only (view/fulfill prescriptions)
+   - No pharmacy sales counter for walk-in patients
+   - No drug interaction checking
+     - No batch-wise inventory with expiry management
+     - No pharmacy billing (separate from hospital billing)
+   - No controlled substance tracking
+
+6. **Referral Management**
+   - No inter-doctor or inter-hospital referral tracking
+   - No referral commission tracking
+   - No referring doctor analytics
+
+7. **Patient Portal Enhancements**
+   - No online payment gateway (Razorpay/Stripe integration)
+   - No appointment teleconsultation link (video call exists but limited)
+   - No downloadable medical records (discharge summary PDF, lab report PDF)
+   - No patient self-check-in kiosk
+   - No health timeline / unified medical history view
+
+8. **Asset & Equipment Management**
+   - No equipment registry (ventilators, monitors, etc.)
+   - No maintenance scheduling (AMC/warranty tracking)
+   - No equipment-to-OT/ward mapping
+   - No depreciation tracking
+
+9. **Ambulance / Emergency Services**
+   - No ambulance fleet management
+   - No emergency triage scoring
+   - No ER dashboard with bed/resident tracking
+
+10. **Death & Mortality Management**
+    - No death record, cause of death, or death certificate generation
+    - No mortality review / audit committee workflow
+
+### 🟡 MEDIUM PRIORITY
+
+11. **External Integrations**
+    - No ABDM (Ayushman Bharat Digital Mission) / Health ID integration
+    - No HL7 FHIR interoperability
+    - No PACS/DICOM integration for radiology images
+    - No LIS (Laboratory Information System) integration
+    - No accounting software integration (Tally, Busy, SAP)
+    - No WhatsApp/SMS gateway (Twilio, MSG91, Gupshup)
+    - No email service integration (SendGrid, AWS SES)
+
+12. **Audit Trails & Compliance**
+    - No audit log model (who changed what, when)
+    - No data access logging
+    - No HIPAA/IT Act compliance features
+    - No consent management (informed consent forms)
+    - No medical record retention policies
+
+13. **Advanced Reporting**
+    - No report export to PDF/Excel/CSV
+    - No scheduled/automated report generation
+    - No dashboard customization (drag-and-drop widgets)
+    - No KPI scorecards (bed turnover, ALOS, readmission rate, etc.)
+    - No predictive analytics (demand forecasting, no-show prediction)
+
+14. **Messaging & Communication**
+    - In-app notifications exist but no actual delivery (SMS/email/push)
+    - No appointment reminders via SMS/WhatsApp
+    - No broadcast messaging (campaign for preventive health)
+    - No WhatsApp Business API for patient communication
+
+15. **Front Office / Reception Enhancements**
+    - No visitor management
+    - No token/kiosk system (public queue display exists but no self-service kiosk)
+    - No lost & found
+    - No complaint/grievance redressal system (separate from feedback)
+
+### 🟢 NICE-TO-HAVE
+
+16. **Telemedicine Full Suite** — Video call exists but no scheduling, recording, prescription from consult, follow-up tracking
+17. **QR Code Patient ID** — No printable patient QR for quick lookup
+18. **Multi-Branch / Chain Management** — Single hospital model; no multi-facility aggregation
+19. **Mobile App APIs** — Current APIs serve web; no optimized mobile API layer with pagination
+20. **Dark Mode** — No theme toggle (minor UX)
+21. **Localization / Multi-language** — All English; Indian hospitals often need Hindi + regional languages
+22. **Certificate Templates** — No medical certificate, fitness certificate, disability certificate generators
+23. **Package / Tariff Management** — No surgery packages, maternity packages, or insurance tariff plans
+
+---
+
+## SUMMARY SCORECARD
+
+| Module | Sidebar | API | Pages | DB Models | Coverage |
+|--------|---------|-----|-------|-----------|----------|
+| Doctors | ✅ | ✅ (12+) | ✅ (16) | ✅ (11) | ~90% |
+| Patients | ✅ | ✅ (15+) | ✅ (10) | ✅ (8) | ~85% |
+| Appointments | ✅ | ✅ (18+) | ✅ (10+) | ✅ (4) | ~95% |
+| Prescriptions | ✅ | ✅ (20+) | ✅ (12) | ✅ (15) | ~95% |
+| Billing (Revenue) | ✅ | ✅ (14+) | ✅ (12) | ✅ (7) | ~80% |
+| Lab | ✅ | ✅ (10+) | ✅ (7) | ✅ (6) | ~90% |
+| Beds/IPD | ✅ | ✅ (15+) | ✅ (8) | ✅ (10) | ~85% |
+| Nursing | ✅ | ✅ (8+) | ✅ (5) | ✅ (6) | ~80% |
+| Inventory | ✅ | ✅ (8+) | ✅ (4) | ✅ (4) | ~60% |
+| Pharmacy | ✅ | ✅ (6) | ✅ (3) | ✅ (2) | ~60% |
+| OT | ✅ | ✅ (3) | ✅ (2) | ✅ (2) | ~50% |
+| Reports | ✅ | ✅ (15) | ✅ (7) | — | ~70% |
+| Diet | ✅ | ✅ (2) | ❌ | ✅ (1) | ~30% |
+| Communication | ✅ | ✅ (6) | ✅ (5) | ✅ (6) | ~65% |
+| Auth | ✅ | ✅ (8) | ✅ (4) | ✅ (2) | ~80% |
+| **Insurance/TPA** | ❌ | ❌ | ❌ | ❌ | **0%** |
+| **Expense Mgmt** | ❌ | ❌ | ❌ | ❌ | **0%** |
+| **HR/Payroll** | ❌ | ❌ | ❌ | ❌ | **0%** |
+| **Blood Bank** | ❌ | ❌ | ❌ | ❌ | **0%** |
+| **Asset Mgmt** | ❌ | ❌ | ❌ | ❌ | **0%** |
+| **Audit Trails** | ❌ | ❌ | ❌ | ❌ | **0%** |
+| **Integrations** | ❌ | ❌ | ❌ | ❌ | **0%** |
+
+**Overall System Assessment:** The system has a strong **clinical operations core** (appointments, prescriptions, IPD, lab, nursing). The **financial side is revenue-only** with zero expense/cost tracking. The **administrative side** (HR, insurance, assets, compliance) is entirely absent. This is a good clinical HMS but needs significant work to be a complete hospital enterprise system.
+
+**Top 5 Recommendations for Hospital Owner:**
+1. Insurance/TPA module (highest revenue impact)
+2. Expense management (profitability visibility)
+3. HR/Payroll (largest cost center)
+4. Pharmacy dispensing & sales
+5. Report export (PDF/Excel) + external integrations (WhatsApp, email, payment gateway)
