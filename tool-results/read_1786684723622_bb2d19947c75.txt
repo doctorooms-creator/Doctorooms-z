@@ -1,0 +1,1020 @@
+     1→'use client'
+     2→
+     3→import { useState, useMemo } from 'react'
+     4→import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+     5→import { motion, AnimatePresence } from 'framer-motion'
+     6→import { Plus, Pencil, Trash2, Search, Tags, Receipt, Loader2 } from 'lucide-react'
+     7→import { toast } from 'sonner'
+     8→
+     9→import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+    10→import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
+    11→import {
+    12→  Dialog,
+    13→  DialogContent,
+    14→  DialogHeader,
+    15→  DialogTitle,
+    16→  DialogFooter,
+    17→  DialogDescription,
+    18→} from '@/components/ui/dialog'
+    19→import {
+    20→  AlertDialog,
+    21→  AlertDialogAction,
+    22→  AlertDialogCancel,
+    23→  AlertDialogContent,
+    24→  AlertDialogDescription,
+    25→  AlertDialogFooter,
+    26→  AlertDialogHeader,
+    27→  AlertDialogTitle,
+    28→} from '@/components/ui/alert-dialog'
+    29→import {
+    30→  Table,
+    31→  TableBody,
+    32→  TableCell,
+    33→  TableHead,
+    34→  TableHeader,
+    35→  TableRow,
+    36→} from '@/components/ui/table'
+    37→import { Button } from '@/components/ui/button'
+    38→import { Input } from '@/components/ui/input'
+    39→import { Label } from '@/components/ui/label'
+    40→import { Badge } from '@/components/ui/badge'
+    41→import { Switch } from '@/components/ui/switch'
+    42→import { Skeleton } from '@/components/ui/skeleton'
+    43→import {
+    44→  Select,
+    45→  SelectContent,
+    46→  SelectItem,
+    47→  SelectTrigger,
+    48→  SelectValue,
+    49→} from '@/components/ui/select'
+    50→
+    51→// ============ Types ============
+    52→
+    53→interface ChargeCategory {
+    54→  id: string
+    55→  name: string
+    56→  description: string
+    57→  isTaxable: boolean
+    58→  taxPercent: number
+    59→  status: string
+    60→  sortOrder: number
+    61→  chargeItemCount: number
+    62→  createdAt: string
+    63→  updatedAt: string
+    64→}
+    65→
+    66→interface ChargeItem {
+    67→  id: string
+    68→  categoryId: string
+    69→  name: string
+    70→  shortCode: string
+    71→  unitType: string
+    72→  rate: number
+    73→  isTaxable: boolean
+    74→  taxPercent: number
+    75→  status: string
+    76→  categoryName: string
+    77→  createdAt: string
+    78→  updatedAt: string
+    79→}
+    80→
+    81→interface CategoryFormData {
+    82→  name: string
+    83→  description: string
+    84→  isTaxable: boolean
+    85→  taxPercent: number
+    86→}
+    87→
+    88→interface ChargeItemFormData {
+    89→  categoryId: string
+    90→  name: string
+    91→  shortCode: string
+    92→  unitType: string
+    93→  rate: number
+    94→  isTaxable: boolean
+    95→  taxPercent: number
+    96→}
+    97→
+    98→const EMPTY_CATEGORY_FORM: CategoryFormData = {
+    99→  name: '',
+   100→  description: '',
+   101→  isTaxable: false,
+   102→  taxPercent: 0,
+   103→}
+   104→
+   105→const EMPTY_ITEM_FORM: ChargeItemFormData = {
+   106→  categoryId: '',
+   107→  name: '',
+   108→  shortCode: '',
+   109→  unitType: 'Per Day',
+   110→  rate: 0,
+   111→  isTaxable: false,
+   112→  taxPercent: 0,
+   113→}
+   114→
+   115→const UNIT_TYPES = ['Per Day', 'Per Hour', 'Per Session', 'Per Unit', 'Per Visit', 'Flat', 'Per Kg', 'Per Liter']
+   116→
+   117→// ============ Animation Variants ============
+   118→
+   119→const containerVariants = {
+   120→  hidden: { opacity: 0 },
+   121→  show: {
+   122→    opacity: 1,
+   123→    transition: { staggerChildren: 0.06 },
+   124→  },
+   125→}
+   126→
+   127→const itemVariants = {
+   128→  hidden: { opacity: 0, y: 16 },
+   129→  show: { opacity: 1, y: 0 },
+   130→}
+   131→
+   132→const CARD_COLORS = [
+   133→  'bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400',
+   134→  'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400',
+   135→  'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400',
+   136→  'bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400',
+   137→  'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400',
+   138→  'bg-pink-100 dark:bg-pink-900/40 text-pink-600 dark:text-pink-400',
+   139→  'bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400',
+   140→  'bg-cyan-100 dark:bg-cyan-900/40 text-cyan-600 dark:text-cyan-400',
+   141→]
+   142→
+   143→// ============ Main Component ============
+   144→
+   145→export default function ChargeMasterClient() {
+   146→  const queryClient = useQueryClient()
+   147→  const [activeTab, setActiveTab] = useState('categories')
+   148→
+   149→  // --- Category Dialog State ---
+   150→  const [catDialogOpen, setCatDialogOpen] = useState(false)
+   151→  const [editingCategory, setEditingCategory] = useState<ChargeCategory | null>(null)
+   152→  const [catForm, setCatForm] = useState<CategoryFormData>(EMPTY_CATEGORY_FORM)
+   153→
+   154→  // --- Item Dialog State ---
+   155→  const [itemDialogOpen, setItemDialogOpen] = useState(false)
+   156→  const [editingItem, setEditingItem] = useState<ChargeItem | null>(null)
+   157→  const [itemForm, setItemForm] = useState<ChargeItemFormData>(EMPTY_ITEM_FORM)
+   158→
+   159→  // --- Delete Dialog State ---
+   160→  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+   161→  const [deletingTarget, setDeletingTarget] = useState<{ id: string; name: string; type: 'category' | 'item' } | null>(null)
+   162→
+   163→  // --- Filter State for Items ---
+   164→  const [filterCategory, setFilterCategory] = useState<string>('all')
+   165→  const [searchQuery, setSearchQuery] = useState('')
+   166→
+   167→  // ============ Queries ============
+   168→
+   169→  const {
+   170→    data: categoriesData,
+   171→    isLoading: categoriesLoading,
+   172→  } = useQuery<{ categories: ChargeCategory[] }>({
+   173→    queryKey: ['charge-categories'],
+   174→    queryFn: () => fetch('/api/charge-categories').then((r) => r.json()),
+   175→  })
+   176→
+   177→  const {
+   178→    data: itemsData,
+   179→    isLoading: itemsLoading,
+   180→  } = useQuery<{ chargeItems: ChargeItem[] }>({
+   181→    queryKey: ['charge-items', filterCategory, searchQuery],
+   182→    queryFn: () => {
+   183→      const params = new URLSearchParams()
+   184→      if (filterCategory && filterCategory !== 'all') params.set('categoryId', filterCategory)
+   185→      if (searchQuery) params.set('search', searchQuery)
+   186→      const qs = params.toString()
+   187→      return fetch(`/api/charge-items${qs ? `?${qs}` : ''}`).then((r) => r.json())
+   188→    },
+   189→  })
+   190→
+   191→  const categories = categoriesData?.categories || []
+   192→  const chargeItems = itemsData?.chargeItems || []
+   193→
+   194→  // ============ Mutations ============
+   195→
+   196→  // --- Category Mutations ---
+   197→  const createCategoryMutation = useMutation({
+   198→    mutationFn: (payload: CategoryFormData) =>
+   199→      fetch('/api/charge-categories', {
+   200→        method: 'POST',
+   201→        headers: { 'Content-Type': 'application/json' },
+   202→        body: JSON.stringify(payload),
+   203→      }).then((r) => r.json()),
+   204→    onSuccess: () => {
+   205→      queryClient.invalidateQueries({ queryKey: ['charge-categories'] })
+   206→      toast.success('Category created successfully')
+   207→      closeCatDialog()
+   208→    },
+   209→    onError: (err: { error?: string }) => {
+   210→      toast.error(err.error || 'Failed to create category')
+   211→    },
+   212→  })
+   213→
+   214→  const updateCategoryMutation = useMutation({
+   215→    mutationFn: ({ id, payload }: { id: string; payload: Partial<CategoryFormData> }) =>
+   216→      fetch(`/api/charge-categories/${id}`, {
+   217→        method: 'PUT',
+   218→        headers: { 'Content-Type': 'application/json' },
+   219→        body: JSON.stringify(payload),
+   220→      }).then((r) => r.json()),
+   221→    onSuccess: () => {
+   222→      queryClient.invalidateQueries({ queryKey: ['charge-categories'] })
+   223→      toast.success('Category updated successfully')
+   224→      closeCatDialog()
+   225→    },
+   226→    onError: (err: { error?: string }) => {
+   227→      toast.error(err.error || 'Failed to update category')
+   228→    },
+   229→  })
+   230→
+   231→  const deleteCategoryMutation = useMutation({
+   232→    mutationFn: (id: string) =>
+   233→      fetch(`/api/charge-categories/${id}`, { method: 'DELETE' }).then((r) => r.json()),
+   234→    onSuccess: () => {
+   235→      queryClient.invalidateQueries({ queryKey: ['charge-categories'] })
+   236→      queryClient.invalidateQueries({ queryKey: ['charge-items'] })
+   237→      toast.success('Category deactivated successfully')
+   238→      closeDeleteDialog()
+   239→    },
+   240→    onError: (err: { error?: string }) => {
+   241→      toast.error(err.error || 'Failed to deactivate category')
+   242→    },
+   243→  })
+   244→
+   245→  // --- Item Mutations ---
+   246→  const createItemMutation = useMutation({
+   247→    mutationFn: (payload: ChargeItemFormData) =>
+   248→      fetch('/api/charge-items', {
+   249→        method: 'POST',
+   250→        headers: { 'Content-Type': 'application/json' },
+   251→        body: JSON.stringify(payload),
+   252→      }).then((r) => r.json()),
+   253→    onSuccess: () => {
+   254→      queryClient.invalidateQueries({ queryKey: ['charge-items'] })
+   255→      queryClient.invalidateQueries({ queryKey: ['charge-categories'] })
+   256→      toast.success('Charge item created successfully')
+   257→      closeItemDialog()
+   258→    },
+   259→    onError: (err: { error?: string }) => {
+   260→      toast.error(err.error || 'Failed to create charge item')
+   261→    },
+   262→  })
+   263→
+   264→  const updateItemMutation = useMutation({
+   265→    mutationFn: ({ id, payload }: { id: string; payload: Partial<ChargeItemFormData> }) =>
+   266→      fetch(`/api/charge-items/${id}`, {
+   267→        method: 'PUT',
+   268→        headers: { 'Content-Type': 'application/json' },
+   269→        body: JSON.stringify(payload),
+   270→      }).then((r) => r.json()),
+   271→    onSuccess: () => {
+   272→      queryClient.invalidateQueries({ queryKey: ['charge-items'] })
+   273→      toast.success('Charge item updated successfully')
+   274→      closeItemDialog()
+   275→    },
+   276→    onError: (err: { error?: string }) => {
+   277→      toast.error(err.error || 'Failed to update charge item')
+   278→    },
+   279→  })
+   280→
+   281→  const deleteItemMutation = useMutation({
+   282→    mutationFn: (id: string) =>
+   283→      fetch(`/api/charge-items/${id}`, { method: 'DELETE' }).then((r) => r.json()),
+   284→    onSuccess: () => {
+   285→      queryClient.invalidateQueries({ queryKey: ['charge-items'] })
+   286→      queryClient.invalidateQueries({ queryKey: ['charge-categories'] })
+   287→      toast.success('Charge item deactivated successfully')
+   288→      closeDeleteDialog()
+   289→    },
+   290→    onError: (err: { error?: string }) => {
+   291→      toast.error(err.error || 'Failed to deactivate charge item')
+   292→    },
+   293→  })
+   294→
+   295→  // ============ Handlers ============
+   296→
+   297→  // --- Category Dialog Handlers ---
+   298→  function openCreateCatDialog() {
+   299→    setEditingCategory(null)
+   300→    setCatForm(EMPTY_CATEGORY_FORM)
+   301→    setCatDialogOpen(true)
+   302→  }
+   303→
+   304→  function openEditCatDialog(cat: ChargeCategory) {
+   305→    setEditingCategory(cat)
+   306→    setCatForm({
+   307→      name: cat.name,
+   308→      description: cat.description,
+   309→      isTaxable: cat.isTaxable,
+   310→      taxPercent: cat.taxPercent,
+   311→    })
+   312→    setCatDialogOpen(true)
+   313→  }
+   314→
+   315→  function closeCatDialog() {
+   316→    setCatDialogOpen(false)
+   317→    setEditingCategory(null)
+   318→    setCatForm(EMPTY_CATEGORY_FORM)
+   319→  }
+   320→
+   321→  function handleCatSubmit(e: React.FormEvent) {
+   322→    e.preventDefault()
+   323→    if (!catForm.name.trim()) {
+   324→      toast.error('Category name is required')
+   325→      return
+   326→    }
+   327→    if (editingCategory) {
+   328→      updateCategoryMutation.mutate({ id: editingCategory.id, payload: catForm })
+   329→    } else {
+   330→      createCategoryMutation.mutate(catForm)
+   331→    }
+   332→  }
+   333→
+   334→  // --- Item Dialog Handlers ---
+   335→  function openCreateItemDialog() {
+   336→    setEditingItem(null)
+   337→    setItemForm(EMPTY_ITEM_FORM)
+   338→    if (filterCategory && filterCategory !== 'all') {
+   339→      setItemForm((f) => ({ ...f, categoryId: filterCategory }))
+   340→    }
+   341→    setItemDialogOpen(true)
+   342→  }
+   343→
+   344→  function openEditItemDialog(item: ChargeItem) {
+   345→    setEditingItem(item)
+   346→    setItemForm({
+   347→      categoryId: item.categoryId,
+   348→      name: item.name,
+   349→      shortCode: item.shortCode,
+   350→      unitType: item.unitType,
+   351→      rate: item.rate,
+   352→      isTaxable: item.isTaxable,
+   353→      taxPercent: item.taxPercent,
+   354→    })
+   355→    setItemDialogOpen(true)
+   356→  }
+   357→
+   358→  function closeItemDialog() {
+   359→    setItemDialogOpen(false)
+   360→    setEditingItem(null)
+   361→    setItemForm(EMPTY_ITEM_FORM)
+   362→  }
+   363→
+   364→  function handleItemSubmit(e: React.FormEvent) {
+   365→    e.preventDefault()
+   366→    if (!itemForm.categoryId) {
+   367→      toast.error('Please select a category')
+   368→      return
+   369→    }
+   370→    if (!itemForm.name.trim()) {
+   371→      toast.error('Item name is required')
+   372→      return
+   373→    }
+   374→    if (editingItem) {
+   375→      updateItemMutation.mutate({ id: editingItem.id, payload: itemForm })
+   376→    } else {
+   377→      createItemMutation.mutate(itemForm)
+   378→    }
+   379→  }
+   380→
+   381→  // --- Delete Dialog Handlers ---
+   382→  function openDeleteDialog(target: { id: string; name: string; type: 'category' | 'item' }) {
+   383→    setDeletingTarget(target)
+   384→    setDeleteDialogOpen(true)
+   385→  }
+   386→
+   387→  function closeDeleteDialog() {
+   388→    setDeleteDialogOpen(false)
+   389→    setDeletingTarget(null)
+   390→  }
+   391→
+   392→  function confirmDelete() {
+   393→    if (!deletingTarget) return
+   394→    if (deletingTarget.type === 'category') {
+   395→      deleteCategoryMutation.mutate(deletingTarget.id)
+   396→    } else {
+   397→      deleteItemMutation.mutate(deletingTarget.id)
+   398→    }
+   399→  }
+   400→
+   401→  const isCatSaving = createCategoryMutation.isPending || updateCategoryMutation.isPending
+   402→  const isItemSaving = createItemMutation.isPending || updateItemMutation.isPending
+   403→
+   404→  // ============ Render ============
+   405→
+   406→  return (
+   407→    <div className="space-y-6">
+   408→      {/* Header */}
+   409→      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+   410→        <div>
+   411→          <h1 className="text-2xl font-bold tracking-tight">Charge Master</h1>
+   412→          <p className="text-sm text-muted-foreground">
+   413→            Manage charge categories and items for billing
+   414→          </p>
+   415→        </div>
+   416→      </div>
+   417→
+   418→      {/* Tabs */}
+   419→      <Tabs value={activeTab} onValueChange={setActiveTab}>
+   420→        <TabsList className="grid w-full max-w-md grid-cols-2">
+   421→          <TabsTrigger value="categories" className="gap-2">
+   422→            <Tags className="h-4 w-4" />
+   423→            Categories
+   424→          </TabsTrigger>
+   425→          <TabsTrigger value="items" className="gap-2">
+   426→            <Receipt className="h-4 w-4" />
+   427→            Charge Items
+   428→          </TabsTrigger>
+   429→        </TabsList>
+   430→
+   431→        {/* ============ Categories Tab ============ */}
+   432→        <TabsContent value="categories" className="mt-6 space-y-6">
+   433→          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+   434→            <p className="text-sm text-muted-foreground">
+   435→              {categories.length} {categories.length === 1 ? 'category' : 'categories'} found
+   436→            </p>
+   437→            <Button onClick={openCreateCatDialog} className="shrink-0 bg-teal-600 hover:bg-teal-700">
+   438→              <Plus className="mr-2 h-4 w-4" />
+   439→              Add Category
+   440→            </Button>
+   441→          </div>
+   442→
+   443→          {/* Loading Skeleton */}
+   444→          {categoriesLoading && <CategoriesSkeleton />}
+   445→
+   446→          {/* Empty State */}
+   447→          {!categoriesLoading && categories.length === 0 && (
+   448→            <motion.div
+   449→              initial={{ opacity: 0, y: 20 }}
+   450→              animate={{ opacity: 1, y: 0 }}
+   451→              className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16"
+   452→            >
+   453→              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-50 dark:bg-teal-900/30">
+   454→                <Tags className="h-8 w-8 text-teal-500" />
+   455→              </div>
+   456→              <h3 className="mb-1 text-lg font-semibold">No categories yet</h3>
+   457→              <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
+   458→                Create your first charge category to organize billing items.
+   459→              </p>
+   460→              <Button onClick={openCreateCatDialog} className="bg-teal-600 hover:bg-teal-700">
+   461→                <Plus className="mr-2 h-4 w-4" />
+   462→                Add Category
+   463→              </Button>
+   464→            </motion.div>
+   465→          )}
+   466→
+   467→          {/* Category Cards Grid */}
+   468→          {!categoriesLoading && categories.length > 0 && (
+   469→            <motion.div
+   470→              className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+   471→              variants={containerVariants}
+   472→              initial="hidden"
+   473→              animate="show"
+   474→            >
+   475→              {categories.map((cat, index) => (
+   476→                <motion.div key={cat.id} variants={itemVariants}>
+   477→                  <Card className="group relative overflow-hidden transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5">
+   478→                    <CardHeader className="pb-3">
+   479→                      <div className="flex items-start justify-between">
+   480→                        <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${CARD_COLORS[index % CARD_COLORS.length]}`}>
+   481→                          <Tags className="h-5 w-5" />
+   482→                        </div>
+   483→                        <div className="flex items-center gap-1.5">
+   484→                          <Badge
+   485→                            className={`text-[10px] font-medium ${
+   486→                              cat.status === 'Active'
+   487→                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'
+   488→                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+   489→                            }`}
+   490→                          >
+   491→                            {cat.status}
+   492→                          </Badge>
+   493→                        </div>
+   494→                      </div>
+   495→                      <CardTitle className="mt-2 text-base">{cat.name}</CardTitle>
+   496→                    </CardHeader>
+   497→                    <CardContent className="pt-0">
+   498→                      {cat.description && (
+   499→                        <p className="mb-3 line-clamp-2 text-sm text-muted-foreground">
+   500→                          {cat.description}
+   501→                        </p>
+   502→                      )}
+   503→                      <div className="flex items-center justify-between">
+   504→                        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+   505→                          <span className="flex items-center gap-1">
+   506→                            <Receipt className="h-3.5 w-3.5" />
+   507→                            {cat.chargeItemCount} {cat.chargeItemCount === 1 ? 'item' : 'items'}
+   508→                          </span>
+   509→                          {cat.isTaxable && (
+   510→                            <span className="flex items-center gap-1">
+   511→                              Tax: {cat.taxPercent}%
+   512→                            </span>
+   513→                          )}
+   514→                        </div>
+   515→                        <div className="flex items-center gap-1">
+   516→                          <Button
+   517→                            variant="ghost"
+   518→                            size="icon"
+   519→                            className="h-8 w-8"
+   520→                            onClick={() => openEditCatDialog(cat)}
+   521→                          >
+   522→                            <Pencil className="h-3.5 w-3.5" />
+   523→                          </Button>
+   524→                          <Button
+   525→                            variant="ghost"
+   526→                            size="icon"
+   527→                            className="h-8 w-8 text-red-500 hover:text-red-600"
+   528→                            onClick={() => openDeleteDialog({ id: cat.id, name: cat.name, type: 'category' })}
+   529→                          >
+   530→                            <Trash2 className="h-3.5 w-3.5" />
+   531→                          </Button>
+   532→                        </div>
+   533→                      </div>
+   534→                    </CardContent>
+   535→                  </Card>
+   536→                </motion.div>
+   537→              ))}
+   538→            </motion.div>
+   539→          )}
+   540→        </TabsContent>
+   541→
+   542→        {/* ============ Charge Items Tab ============ */}
+   543→        <TabsContent value="items" className="mt-6 space-y-6">
+   544→          {/* Filters */}
+   545→          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+   546→            <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+   547→              <div className="relative flex-1 sm:max-w-xs">
+   548→                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+   549→                <Input
+   550→                  placeholder="Search items..."
+   551→                  value={searchQuery}
+   552→                  onChange={(e) => setSearchQuery(e.target.value)}
+   553→                  className="pl-9"
+   554→                />
+   555→              </div>
+   556→              <Select value={filterCategory} onValueChange={setFilterCategory}>
+   557→                <SelectTrigger className="w-full sm:w-[180px]">
+   558→                  <SelectValue placeholder="All Categories" />
+   559→                </SelectTrigger>
+   560→                <SelectContent>
+   561→                  <SelectItem value="all">All Categories</SelectItem>
+   562→                  {categories.map((cat) => (
+   563→                    <SelectItem key={cat.id} value={cat.id}>
+   564→                      {cat.name}
+   565→                    </SelectItem>
+   566→                  ))}
+   567→                </SelectContent>
+   568→              </Select>
+   569→            </div>
+   570→            <div className="flex items-center gap-3">
+   571→              <p className="hidden text-sm text-muted-foreground sm:block">
+   572→                {chargeItems.length} {chargeItems.length === 1 ? 'item' : 'items'}
+   573→              </p>
+   574→              <Button onClick={openCreateItemDialog} className="shrink-0 bg-teal-600 hover:bg-teal-700">
+   575→                <Plus className="mr-2 h-4 w-4" />
+   576→                Add Item
+   577→              </Button>
+   578→            </div>
+   579→          </div>
+   580→
+   581→          {/* Loading Skeleton */}
+   582→          {itemsLoading && <ItemsSkeleton />}
+   583→
+   584→          {/* Empty State */}
+   585→          {!itemsLoading && chargeItems.length === 0 && (
+   586→            <motion.div
+   587→              initial={{ opacity: 0, y: 20 }}
+   588→              animate={{ opacity: 1, y: 0 }}
+   589→              className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border py-16"
+   590→            >
+   591→              <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-teal-50 dark:bg-teal-900/30">
+   592→                <Receipt className="h-8 w-8 text-teal-500" />
+   593→              </div>
+   594→              <h3 className="mb-1 text-lg font-semibold">No charge items yet</h3>
+   595→              <p className="mb-6 max-w-sm text-center text-sm text-muted-foreground">
+   596→                {searchQuery || (filterCategory && filterCategory !== 'all')
+   597→                  ? 'No items match your current filters. Try adjusting them.'
+   598→                  : 'Create your first charge item to start building your billing catalog.'}
+   599→              </p>
+   600→              {!searchQuery && (!filterCategory || filterCategory === 'all') && (
+   601→                <Button onClick={openCreateItemDialog} className="bg-teal-600 hover:bg-teal-700">
+   602→                  <Plus className="mr-2 h-4 w-4" />
+   603→                  Add Charge Item
+   604→                </Button>
+   605→              )}
+   606→            </motion.div>
+   607→          )}
+   608→
+   609→          {/* Items Table */}
+   610→          {!itemsLoading && chargeItems.length > 0 && (
+   611→            <motion.div
+   612→              initial={{ opacity: 0, y: 12 }}
+   613→              animate={{ opacity: 1, y: 0 }}
+   614→              className="overflow-hidden rounded-xl border"
+   615→            >
+   616→              <div className="max-h-[520px] overflow-y-auto">
+   617→                <Table>
+   618→                  <TableHeader>
+   619→                    <TableRow className="bg-muted/50">
+   620→                      <TableHead className="w-[25%] min-w-[160px]">Name</TableHead>
+   621→                      <TableHead className="w-[10%] min-w-[80px]">Code</TableHead>
+   622→                      <TableHead className="w-[18%] min-w-[120px]">Category</TableHead>
+   623→                      <TableHead className="w-[12%] min-w-[80px]">Unit</TableHead>
+   624→                      <TableHead className="w-[12%] min-w-[90px] text-right">Rate</TableHead>
+   625→                      <TableHead className="w-[8%] min-w-[70px]">Status</TableHead>
+   626→                      <TableHead className="w-[15%] min-w-[100px] text-right">Actions</TableHead>
+   627→                    </TableRow>
+   628→                  </TableHeader>
+   629→                  <TableBody>
+   630→                    {chargeItems.map((item) => (
+   631→                      <TableRow key={item.id} className="group transition-colors hover:bg-muted/30">
+   632→                        <TableCell className="font-medium">{item.name}</TableCell>
+   633→                        <TableCell>
+   634→                          <code className="rounded bg-muted px-1.5 py-0.5 text-xs font-mono">
+   635→                            {item.shortCode || '—'}
+   636→                          </code>
+   637→                        </TableCell>
+   638→                        <TableCell>
+   639→                          <Badge variant="secondary" className="font-normal">
+   640→                            {item.categoryName}
+   641→                          </Badge>
+   642→                        </TableCell>
+   643→                        <TableCell className="text-sm text-muted-foreground">{item.unitType}</TableCell>
+   644→                        <TableCell className="text-right font-medium tabular-nums">
+   645→                          ₹{item.rate.toLocaleString('en-IN')}
+   646→                        </TableCell>
+   647→                        <TableCell>
+   648→                          <Badge
+   649→                            className={`text-[10px] font-medium ${
+   650→                              item.status === 'Active'
+   651→                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400'
+   652→                                : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+   653→                            }`}
+   654→                          >
+   655→                            {item.status}
+   656→                          </Badge>
+   657→                        </TableCell>
+   658→                        <TableCell className="text-right">
+   659→                          <div className="flex items-center justify-end gap-1">
+   660→                            <Button
+   661→                              variant="ghost"
+   662→                              size="icon"
+   663→                              className="h-8 w-8"
+   664→                              onClick={() => openEditItemDialog(item)}
+   665→                            >
+   666→                              <Pencil className="h-3.5 w-3.5" />
+   667→                            </Button>
+   668→                            <Button
+   669→                              variant="ghost"
+   670→                              size="icon"
+   671→                              className="h-8 w-8 text-red-500 hover:text-red-600"
+   672→                              onClick={() => openDeleteDialog({ id: item.id, name: item.name, type: 'item' })}
+   673→                            >
+   674→                              <Trash2 className="h-3.5 w-3.5" />
+   675→                            </Button>
+   676→                          </div>
+   677→                        </TableCell>
+   678→                      </TableRow>
+   679→                    ))}
+   680→                  </TableBody>
+   681→                </Table>
+   682→              </div>
+   683→            </motion.div>
+   684→          )}
+   685→        </TabsContent>
+   686→      </Tabs>
+   687→
+   688→      {/* ============ Category Add/Edit Dialog ============ */}
+   689→      <Dialog open={catDialogOpen} onOpenChange={(open) => { if (!open) closeCatDialog() }}>
+   690→        <DialogContent className="sm:max-w-lg">
+   691→          <DialogHeader>
+   692→            <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
+   693→            <DialogDescription>
+   694→              {editingCategory
+   695→                ? 'Update the charge category details below.'
+   696→                : 'Create a new charge category to group billing items.'}
+   697→            </DialogDescription>
+   698→          </DialogHeader>
+   699→          <form onSubmit={handleCatSubmit} className="space-y-4">
+   700→            <div className="space-y-2">
+   701→              <Label htmlFor="cat-name">Name *</Label>
+   702→              <Input
+   703→                id="cat-name"
+   704→                placeholder="e.g. Room Charges"
+   705→                value={catForm.name}
+   706→                onChange={(e) => setCatForm((f) => ({ ...f, name: e.target.value }))}
+   707→                required
+   708→              />
+   709→            </div>
+   710→            <div className="space-y-2">
+   711→              <Label htmlFor="cat-desc">Description</Label>
+   712→              <Input
+   713→                id="cat-desc"
+   714→                placeholder="Brief description of the category"
+   715→                value={catForm.description}
+   716→                onChange={(e) => setCatForm((f) => ({ ...f, description: e.target.value }))}
+   717→              />
+   718→            </div>
+   719→            <div className="flex items-center justify-between rounded-lg border p-3">
+   720→              <div className="space-y-0.5">
+   721→                <Label htmlFor="cat-taxable">Taxable</Label>
+   722→                <p className="text-xs text-muted-foreground">
+   723→                  Apply tax to items in this category
+   724→                </p>
+   725→              </div>
+   726→              <Switch
+   727→                id="cat-taxable"
+   728→                checked={catForm.isTaxable}
+   729→                onCheckedChange={(checked) => setCatForm((f) => ({ ...f, isTaxable: checked }))}
+   730→              />
+   731→            </div>
+   732→            <AnimatePresence>
+   733→              {catForm.isTaxable && (
+   734→                <motion.div
+   735→                  initial={{ opacity: 0, height: 0 }}
+   736→                  animate={{ opacity: 1, height: 'auto' }}
+   737→                  exit={{ opacity: 0, height: 0 }}
+   738→                  className="overflow-hidden"
+   739→                >
+   740→                  <div className="space-y-2">
+   741→                    <Label htmlFor="cat-tax">Tax Percentage (%)</Label>
+   742→                    <Input
+   743→                      id="cat-tax"
+   744→                      type="number"
+   745→                      min="0"
+   746→                      max="100"
+   747→                      step="0.5"
+   748→                      placeholder="e.g. 18"
+   749→                      value={catForm.taxPercent || ''}
+   750→                      onChange={(e) =>
+   751→                        setCatForm((f) => ({ ...f, taxPercent: parseFloat(e.target.value) || 0 }))
+   752→                      }
+   753→                    />
+   754→                  </div>
+   755→                </motion.div>
+   756→              )}
+   757→            </AnimatePresence>
+   758→            <DialogFooter className="pt-2">
+   759→              <Button type="button" variant="outline" onClick={closeCatDialog} disabled={isCatSaving}>
+   760→                Cancel
+   761→              </Button>
+   762→              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={isCatSaving}>
+   763→                {isCatSaving ? (
+   764→                  <span className="flex items-center gap-2">
+   765→                    <Loader2 className="h-4 w-4 animate-spin" />
+   766→                    Saving...
+   767→                  </span>
+   768→                ) : editingCategory ? (
+   769→                  'Update Category'
+   770→                ) : (
+   771→                  'Create Category'
+   772→                )}
+   773→              </Button>
+   774→            </DialogFooter>
+   775→          </form>
+   776→        </DialogContent>
+   777→      </Dialog>
+   778→
+   779→      {/* ============ Item Add/Edit Dialog ============ */}
+   780→      <Dialog open={itemDialogOpen} onOpenChange={(open) => { if (!open) closeItemDialog() }}>
+   781→        <DialogContent className="sm:max-w-lg">
+   782→          <DialogHeader>
+   783→            <DialogTitle>{editingItem ? 'Edit Charge Item' : 'Add Charge Item'}</DialogTitle>
+   784→            <DialogDescription>
+   785→              {editingItem
+   786→                ? 'Update the charge item details below.'
+   787→                : 'Create a new charge item for billing purposes.'}
+   788→            </DialogDescription>
+   789→          </DialogHeader>
+   790→          <form onSubmit={handleItemSubmit} className="space-y-4">
+   791→            <div className="space-y-2">
+   792→              <Label htmlFor="item-cat">Category *</Label>
+   793→              <Select
+   794→                value={itemForm.categoryId}
+   795→                onValueChange={(val) => setItemForm((f) => ({ ...f, categoryId: val }))}
+   796→              >
+   797→                <SelectTrigger id="item-cat">
+   798→                  <SelectValue placeholder="Select a category" />
+   799→                </SelectTrigger>
+   800→                <SelectContent>
+   801→                  {categories
+   802→                    .filter((c) => c.status === 'Active')
+   803→                    .map((cat) => (
+   804→                      <SelectItem key={cat.id} value={cat.id}>
+   805→                        {cat.name}
+   806→                      </SelectItem>
+   807→                    ))}
+   808→                </SelectContent>
+   809→              </Select>
+   810→            </div>
+   811→            <div className="space-y-2">
+   812→              <Label htmlFor="item-name">Name *</Label>
+   813→              <Input
+   814→                id="item-name"
+   815→                placeholder="e.g. General Ward Room Rent"
+   816→                value={itemForm.name}
+   817→                onChange={(e) => setItemForm((f) => ({ ...f, name: e.target.value }))}
+   818→                required
+   819→              />
+   820→            </div>
+   821→            <div className="grid grid-cols-2 gap-4">
+   822→              <div className="space-y-2">
+   823→                <Label htmlFor="item-code">Short Code</Label>
+   824→                <Input
+   825→                  id="item-code"
+   826→                  placeholder="e.g. GW-RENT"
+   827→                  value={itemForm.shortCode}
+   828→                  onChange={(e) => setItemForm((f) => ({ ...f, shortCode: e.target.value }))}
+   829→                  className="uppercase"
+   830→                />
+   831→              </div>
+   832→              <div className="space-y-2">
+   833→                <Label htmlFor="item-unit">Unit Type</Label>
+   834→                <Select
+   835→                  value={itemForm.unitType}
+   836→                  onValueChange={(val) => setItemForm((f) => ({ ...f, unitType: val }))}
+   837→                >
+   838→                  <SelectTrigger id="item-unit">
+   839→                    <SelectValue placeholder="Select unit" />
+   840→                  </SelectTrigger>
+   841→                  <SelectContent>
+   842→                    {UNIT_TYPES.map((unit) => (
+   843→                      <SelectItem key={unit} value={unit}>
+   844→                        {unit}
+   845→                      </SelectItem>
+   846→                    ))}
+   847→                  </SelectContent>
+   848→                </Select>
+   849→              </div>
+   850→            </div>
+   851→            <div className="space-y-2">
+   852→              <Label htmlFor="item-rate">Rate (₹) *</Label>
+   853→              <Input
+   854→                id="item-rate"
+   855→                type="number"
+   856→                min="0"
+   857→                step="1"
+   858→                placeholder="e.g. 1500"
+   859→                value={itemForm.rate || ''}
+   860→                onChange={(e) =>
+   861→                  setItemForm((f) => ({ ...f, rate: parseFloat(e.target.value) || 0 }))
+   862→                }
+   863→                required
+   864→              />
+   865→            </div>
+   866→            <div className="flex items-center justify-between rounded-lg border p-3">
+   867→              <div className="space-y-0.5">
+   868→                <Label htmlFor="item-taxable">Taxable</Label>
+   869→                <p className="text-xs text-muted-foreground">
+   870→                  Apply tax to this item
+   871→                </p>
+   872→              </div>
+   873→              <Switch
+   874→                id="item-taxable"
+   875→                checked={itemForm.isTaxable}
+   876→                onCheckedChange={(checked) => setItemForm((f) => ({ ...f, isTaxable: checked }))}
+   877→              />
+   878→            </div>
+   879→            <AnimatePresence>
+   880→              {itemForm.isTaxable && (
+   881→                <motion.div
+   882→                  initial={{ opacity: 0, height: 0 }}
+   883→                  animate={{ opacity: 1, height: 'auto' }}
+   884→                  exit={{ opacity: 0, height: 0 }}
+   885→                  className="overflow-hidden"
+   886→                >
+   887→                  <div className="space-y-2">
+   888→                    <Label htmlFor="item-tax">Tax Percentage (%)</Label>
+   889→                    <Input
+   890→                      id="item-tax"
+   891→                      type="number"
+   892→                      min="0"
+   893→                      max="100"
+   894→                      step="0.5"
+   895→                      placeholder="e.g. 18"
+   896→                      value={itemForm.taxPercent || ''}
+   897→                      onChange={(e) =>
+   898→                        setItemForm((f) => ({ ...f, taxPercent: parseFloat(e.target.value) || 0 }))
+   899→                      }
+   900→                    />
+   901→                  </div>
+   902→                </motion.div>
+   903→              )}
+   904→            </AnimatePresence>
+   905→            <DialogFooter className="pt-2">
+   906→              <Button type="button" variant="outline" onClick={closeItemDialog} disabled={isItemSaving}>
+   907→                Cancel
+   908→              </Button>
+   909→              <Button type="submit" className="bg-teal-600 hover:bg-teal-700" disabled={isItemSaving}>
+   910→                {isItemSaving ? (
+   911→                  <span className="flex items-center gap-2">
+   912→                    <Loader2 className="h-4 w-4 animate-spin" />
+   913→                    Saving...
+   914→                  </span>
+   915→                ) : editingItem ? (
+   916→                  'Update Item'
+   917→                ) : (
+   918→                  'Create Item'
+   919→                )}
+   920→              </Button>
+   921→            </DialogFooter>
+   922→          </form>
+   923→        </DialogContent>
+   924→      </Dialog>
+   925→
+   926→      {/* ============ Delete Confirmation Dialog ============ */}
+   927→      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+   928→        <AlertDialogContent>
+   929→          <AlertDialogHeader>
+   930→            <AlertDialogTitle>
+   931→              Deactivate {deletingTarget?.type === 'category' ? 'Category' : 'Charge Item'}
+   932→            </AlertDialogTitle>
+   933→            <AlertDialogDescription>
+   934→              Are you sure you want to deactivate &quot;{deletingTarget?.name}&quot;? This will set its status to
+   935→              Inactive. It won&apos;t be available for new billing entries.
+   936→            </AlertDialogDescription>
+   937→          </AlertDialogHeader>
+   938→          <AlertDialogFooter>
+   939→            <AlertDialogCancel onClick={closeDeleteDialog}>Cancel</AlertDialogCancel>
+   940→            <AlertDialogAction
+   941→              onClick={confirmDelete}
+   942→              disabled={
+   943→                deletingTarget?.type === 'category'
+   944→                  ? deleteCategoryMutation.isPending
+   945→                  : deleteItemMutation.isPending
+   946→              }
+   947→              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+   948→            >
+   949→              {deletingTarget?.type === 'category'
+   950→                ? deleteCategoryMutation.isPending
+   951→                  ? 'Deactivating...'
+   952→                  : 'Deactivate'
+   953→                : deleteItemMutation.isPending
+   954→                  ? 'Deactivating...'
+   955→                  : 'Deactivate'}
+   956→            </AlertDialogAction>
+   957→          </AlertDialogFooter>
+   958→        </AlertDialogContent>
+   959→      </AlertDialog>
+   960→    </div>
+   961→  )
+   962→}
+   963→
+   964→// ============ Skeleton Components ============
+   965→
+   966→function CategoriesSkeleton() {
+   967→  return (
+   968→    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+   969→      {Array.from({ length: 6 }).map((_, i) => (
+   970→        <div key={i} className="rounded-xl border border-border bg-card p-5">
+   971→          <div className="mb-3 flex items-start justify-between">
+   972→            <Skeleton className="h-10 w-10 rounded-xl" />
+   973→            <Skeleton className="h-6 w-14 rounded-full" />
+   974→          </div>
+   975→          <Skeleton className="mb-2 h-5 w-28" />
+   976→          <Skeleton className="mb-3 h-4 w-full" />
+   977→          <Skeleton className="mb-1 h-3 w-20" />
+   978→          <div className="mt-3 flex justify-end gap-1">
+   979→            <Skeleton className="h-8 w-8 rounded-md" />
+   980→            <Skeleton className="h-8 w-8 rounded-md" />
+   981→          </div>
+   982→        </div>
+   983→      ))}
+   984→    </div>
+   985→  )
+   986→}
+   987→
+   988→function ItemsSkeleton() {
+   989→  return (
+   990→    <div className="overflow-hidden rounded-xl border">
+   991→      <Table>
+   992→        <TableHeader>
+   993→          <TableRow className="bg-muted/50">
+   994→            <TableHead className="w-[25%]"><Skeleton className="h-4 w-16" /></TableHead>
+   995→            <TableHead className="w-[10%]"><Skeleton className="h-4 w-12" /></TableHead>
+   996→            <TableHead className="w-[18%]"><Skeleton className="h-4 w-14" /></TableHead>
+   997→            <TableHead className="w-[12%]"><Skeleton className="h-4 w-10" /></TableHead>
+   998→            <TableHead className="w-[12%]"><Skeleton className="h-4 w-10 ml-auto" /></TableHead>
+   999→            <TableHead className="w-[8%]"><Skeleton className="h-4 w-12" /></TableHead>
+  1000→            <TableHead className="w-[15%]"><Skeleton className="h-4 w-14 ml-auto" /></TableHead>
+  1001→          </TableRow>
+  1002→        </TableHeader>
+  1003→        <TableBody>
+  1004→          {Array.from({ length: 8 }).map((_, i) => (
+  1005→            <TableRow key={i}>
+  1006→              <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+  1007→              <TableCell><Skeleton className="h-4 w-14" /></TableCell>
+  1008→              <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+  1009→              <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+  1010→              <TableCell><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
+  1011→              <TableCell><Skeleton className="h-5 w-14 rounded-full" /></TableCell>
+  1012→              <TableCell><div className="flex justify-end gap-1"><Skeleton className="h-8 w-8" /><Skeleton className="h-8 w-8" /></div></TableCell>
+  1013→            </TableRow>
+  1014→          ))}
+  1015→        </TableBody>
+  1016→      </Table>
+  1017→    </div>
+  1018→  )
+  1019→}
+  1020→
