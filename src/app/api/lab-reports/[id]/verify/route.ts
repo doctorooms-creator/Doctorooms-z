@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { emitNotification, hospitalRoom, roleRoom } from '@/lib/emit-notification'
+import { validateBody, verifySchema } from '@/lib/validations'
 
 // PUT /api/lab-reports/[id]/verify
 export async function PUT(
@@ -24,6 +26,11 @@ export async function PUT(
       return NextResponse.json({ error: 'Report must be in ResultEntered status' }, { status: 400 })
     }
 
+    const body = await request.json()
+    const v = validateBody(verifySchema, body)
+    if (!v.success) return v.error
+    const { notes } = v.data
+
     // Get lab technician profile
     const tech = await db.labTechnician.findUnique({ where: { userId: user.id } })
     if (!tech) {
@@ -37,6 +44,13 @@ export async function PUT(
         verifiedAt: new Date(),
         verifiedById: tech.id,
       },
+    })
+
+    emitNotification('lab-result-ready', [roleRoom('doctor'), hospitalRoom(report.hospitalId)], {
+      id: updated.id,
+      title: 'Lab Report Verified',
+      message: `Lab report verified for ${report.patientName}`,
+      timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({ labReport: updated })

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { generateIpdAdmissionNo } from '@/lib/ipd-utils'
+import { emitNotification, hospitalRoom, roleRoom } from '@/lib/emit-notification'
 
 // ============ POST: Create new IPD admission (Form 1 — Admission Sheet) ============
 export async function POST(req: NextRequest) {
@@ -145,6 +146,13 @@ export async function POST(req: NextRequest) {
       })
 
       return newAdmission
+    })
+
+    emitNotification('new-admission', [roleRoom('nurse'), roleRoom('receptionist'), hospitalRoom(admission.hospitalId)], {
+      id: admission.id,
+      title: 'New IPD Admission',
+      message: `Patient ${admission.patientName} admitted to ${admission.ward.name}`,
+      timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({

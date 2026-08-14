@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { validateBody, createInventoryItemSchema } from '@/lib/validations'
 
 /**
  * Helper: resolve hospital auth for inventory routes.
@@ -42,27 +43,29 @@ export async function POST(request: NextRequest) {
     const { hospitalId } = auth
 
     const body = await request.json()
+    const v = validateBody(createInventoryItemSchema, body)
+    if (!v.success) return v.error
     const {
       name,
       category,
-      genericName,
       manufacturer,
       batchNo,
       expiryDate,
       unit,
-      unitPrice,
-      sellingPrice,
-      minStockLevel,
-      maxStockLevel,
-      reorderQty,
       hsnCode,
       gstPercent,
+      minStockLevel,
+      description,
+      purchaseRate,
+      mrp,
+    } = v.data
+    const {
+      genericName,
+      sellingPrice,
+      maxStockLevel,
+      reorderQty,
       storeLocation,
     } = body
-
-    if (!name || typeof name !== 'string' || name.trim() === '') {
-      return NextResponse.json({ error: 'Item name is required' }, { status: 400 })
-    }
 
     const item = await db.inventoryItem.create({
       data: {
@@ -74,15 +77,16 @@ export async function POST(request: NextRequest) {
         batchNo: batchNo?.trim() || '',
         expiryDate: expiryDate ? new Date(expiryDate) : null,
         unit: unit?.trim() || '',
-        unitPrice: typeof unitPrice === 'number' ? unitPrice : 0,
-        sellingPrice: typeof sellingPrice === 'number' ? sellingPrice : 0,
+        unitPrice: purchaseRate ?? 0,
+        sellingPrice: mrp ?? 0,
         currentStock: 0,
-        minStockLevel: typeof minStockLevel === 'number' ? minStockLevel : 10,
+        minStockLevel,
         maxStockLevel: typeof maxStockLevel === 'number' ? maxStockLevel : 1000,
         reorderQty: typeof reorderQty === 'number' ? reorderQty : 100,
         hsnCode: hsnCode?.trim() || '',
-        gstPercent: typeof gstPercent === 'number' ? gstPercent : 0,
+        gstPercent,
         storeLocation: storeLocation?.trim() || '',
+        description: description?.trim() || '',
         status: 'Active',
       },
     })
@@ -108,6 +112,9 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || undefined
     const search = searchParams.get('search') || undefined
     const lowStock = searchParams.get('lowStock') === 'true'
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const skip = (page - 1) * limit
 
     const where: Record<string, unknown> = { hospitalId }
     if (category) where.category = category
@@ -121,10 +128,15 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    const items = await db.inventoryItem.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    })
+    const [items, total] = await Promise.all([
+      db.inventoryItem.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      db.inventoryItem.count({ where }),
+    ])
 
     let result = items.map((item) => ({
       ...item,
@@ -135,7 +147,13 @@ export async function GET(request: NextRequest) {
       result = result.filter((item) => item.lowStock)
     }
 
-    return NextResponse.json({ items: result })
+    return NextResponse.json({
+      data: result,
+      page,
+      limit,
+      total: lowStock ? result.length : total,
+      totalPages: Math.ceil((lowStock ? result.length : total) / limit),
+    })
   } catch (error) {
     console.error('Inventory items GET error:', error)
     return NextResponse.json({ error: 'Failed to load inventory items' }, { status: 500 })

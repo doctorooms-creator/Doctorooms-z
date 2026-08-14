@@ -8,6 +8,9 @@ export async function GET(request: NextRequest) {
   const specialization = searchParams.get('specialization') || ''
   const city = searchParams.get('city') || ''
   const state = searchParams.get('state') || ''
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '20')
+  const skip = (page - 1) * limit
 
   try {
     const where: Prisma.UserWhereInput = {
@@ -32,7 +35,7 @@ export async function GET(request: NextRequest) {
       where.doctor = { ...((where.doctor as Record<string, unknown>) || {}), state }
     }
 
-    const [doctors, total, citiesResult, statesResult] = await Promise.all([
+    const [doctors, total, citiesResult, statesResult, specsResult] = await Promise.all([
       db.user.findMany({
         where,
         select: {
@@ -51,6 +54,8 @@ export async function GET(request: NextRequest) {
           },
         },
         orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
       }),
       db.user.count({ where }),
       db.user.findMany({
@@ -61,6 +66,11 @@ export async function GET(request: NextRequest) {
       db.user.findMany({
         where: { role: 'doctor', status: 'Active', doctor: { state: { not: '' } } },
         select: { doctor: { select: { state: true } } },
+        distinct: ['id'],
+      }),
+      db.user.findMany({
+        where: { role: 'doctor', status: 'Active', doctor: { specialization: { not: '' } } },
+        select: { doctor: { select: { specialization: true } } },
         distinct: ['id'],
       }),
     ])
@@ -106,14 +116,28 @@ export async function GET(request: NextRequest) {
       ),
     ].sort() as string[]
 
+    const uniqueSpecs = [
+      ...new Set(
+        specsResult
+          .map((s) => s.doctor?.specialization)
+          .filter(Boolean)
+      ),
+    ].sort() as string[]
+
     return NextResponse.json({
-      doctors: doctorsWithRatings,
+      data: doctorsWithRatings,
+      page,
+      limit,
       total,
-      cities: uniqueCities,
-      states: uniqueStates,
+      totalPages: Math.ceil(total / limit),
+      filters: {
+        cities: uniqueCities,
+        states: uniqueStates,
+        specializations: uniqueSpecs,
+      },
     })
   } catch (error) {
     console.error('Doctors API error:', error)
-    return NextResponse.json({ doctors: [], total: 0, cities: [], states: [] })
+    return NextResponse.json({ data: [], page, limit, total: 0, totalPages: 0, filters: { cities: [], states: [], specializations: [] } })
   }
 }

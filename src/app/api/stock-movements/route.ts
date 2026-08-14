@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { emitNotification, roleRoom } from '@/lib/emit-notification'
+import { validateBody, createMovementSchema } from '@/lib/validations'
 
 /** Read auth: hospital/admin/pharmacist */
 async function getReadAuth(request: NextRequest) {
@@ -26,22 +28,10 @@ export async function POST(request: NextRequest) {
     const { user, hospitalId } = auth
 
     const body = await request.json()
-    const { itemId, movementType, quantity, referenceNo, fromLocation, toLocation, notes } = body
-
-    if (!itemId || !movementType || typeof quantity !== 'number' || quantity <= 0) {
-      return NextResponse.json(
-        { error: 'itemId, movementType, and positive quantity are required' },
-        { status: 400 }
-      )
-    }
-
-    const validTypes = ['Purchase', 'Sale', 'Issue', 'Return', 'Transfer', 'Adjustment', 'Expired', 'Damaged']
-    if (!validTypes.includes(movementType)) {
-      return NextResponse.json(
-        { error: `Invalid movementType. Must be one of: ${validTypes.join(', ')}` },
-        { status: 400 }
-      )
-    }
+    const v = validateBody(createMovementSchema, body)
+    if (!v.success) return v.error
+    const { itemId, movementType, quantity, reference, notes } = v.data
+    const { fromLocation, toLocation } = body
 
     // Verify item belongs to hospital
     const item = await db.inventoryItem.findFirst({
@@ -52,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate stock change
-    const stockIncreaseTypes = ['Purchase', 'Return']
+    const stockIncreaseTypes = ['In', 'Return']
     const stockChange = stockIncreaseTypes.includes(movementType) ? quantity : -quantity
 
     // Check if stock would go negative
@@ -71,7 +61,7 @@ export async function POST(request: NextRequest) {
         itemId,
         movementType,
         quantity,
-        referenceNo: referenceNo?.trim() || '',
+        referenceNo: reference?.trim() || '',
         fromLocation: fromLocation?.trim() || '',
         toLocation: toLocation?.trim() || '',
         notes: notes?.trim() || '',
@@ -87,6 +77,17 @@ export async function POST(request: NextRequest) {
 
     // Fetch updated item
     const updatedItem = await db.inventoryItem.findUnique({ where: { id: itemId } })
+
+    // Check for low stock alert
+    if (updatedItem && updatedItem.currentStock < updatedItem.minStockLevel) {
+      emitNotification('low-stock-alert', [roleRoom('hospital'), roleRoom('pharmacist')], {
+        id: movement.id,
+        itemId,
+        title: 'Low Stock Alert',
+        message: `${updatedItem.name} stock is ${updatedItem.currentStock} (min: ${updatedItem.minStockLevel})`,
+        timestamp: new Date().toISOString(),
+      })
+    }
 
     return NextResponse.json(
       {
@@ -115,6 +116,9 @@ export async function GET(request: NextRequest) {
     const movementType = searchParams.get('movementType') || undefined
     const fromDate = searchParams.get('fromDate') || undefined
     const toDate = searchParams.get('toDate') || undefined
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const skip = (page - 1) * limit
 
     const where: Record<string, unknown> = { hospitalId }
     if (itemId) where.itemId = itemId
@@ -126,15 +130,20 @@ export async function GET(request: NextRequest) {
       where.createdAt = dateFilter
     }
 
-    const movements = await db.stockMovement.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        item: {
-          select: { name: true, batchNo: true, unit: true },
+    const [movements, total] = await Promise.all([
+      db.stockMovement.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          item: {
+            select: { name: true, batchNo: true, unit: true },
+          },
         },
-      },
-    })
+      }),
+      db.stockMovement.count({ where }),
+    ])
 
     // Fetch user names for movedBy
     const userIds = [...new Set(movements.map((m) => m.movedBy))]
@@ -145,7 +154,7 @@ export async function GET(request: NextRequest) {
     const userMap = new Map(users.map((u) => [u.id, u.name]))
 
     return NextResponse.json({
-      movements: movements.map((m) => ({
+      data: movements.map((m) => ({
         id: m.id,
         hospitalId: m.hospitalId,
         itemId: m.itemId,
@@ -162,6 +171,10 @@ export async function GET(request: NextRequest) {
         movedByName: userMap.get(m.movedBy) || 'Unknown',
         createdAt: m.createdAt,
       })),
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
     })
   } catch (error) {
     console.error('Stock movements GET error:', error)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { validateBody, createPurchaseOrderSchema } from '@/lib/validations'
 
 /** Check if user has hospital/admin role */
 async function getHospitalAuth(request: NextRequest) {
@@ -25,18 +26,10 @@ export async function POST(request: NextRequest) {
     const { user, hospitalId } = auth
 
     const body = await request.json()
-    const { supplierName, supplierContact, supplierAddress, expectedDate, notes, items } = body
-
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return NextResponse.json({ error: 'At least one item is required' }, { status: 400 })
-    }
-
-    // Validate each item
-    for (const poItem of items) {
-      if (!poItem.inventoryItemId || typeof poItem.quantity !== 'number' || typeof poItem.unitPrice !== 'number') {
-        return NextResponse.json({ error: 'Each item must have inventoryItemId, quantity, and unitPrice' }, { status: 400 })
-      }
-    }
+    const v = validateBody(createPurchaseOrderSchema, body)
+    if (!v.success) return v.error
+    const { supplierName, items, notes } = v.data
+    const { supplierContact, supplierAddress, expectedDate } = body
 
     // Generate PO number
     const poCount = await db.purchaseOrder.count({ where: { hospitalId } })
@@ -44,7 +37,7 @@ export async function POST(request: NextRequest) {
 
     // Calculate total
     const totalAmount = items.reduce(
-      (sum, item) => sum + item.quantity * item.unitPrice,
+      (sum, item) => sum + item.quantity * item.unitRate,
       0
     )
 
@@ -52,7 +45,7 @@ export async function POST(request: NextRequest) {
       data: {
         poNumber,
         hospitalId,
-        supplierName: supplierName?.trim() || '',
+        supplierName,
         supplierContact: supplierContact?.trim() || '',
         supplierAddress: supplierAddress?.trim() || '',
         expectedDate: expectedDate ? new Date(expectedDate) : null,
@@ -62,10 +55,10 @@ export async function POST(request: NextRequest) {
         createdById: user.id,
         items: {
           create: items.map((poItem) => ({
-            inventoryItemId: poItem.inventoryItemId,
+            inventoryItemId: poItem.itemId,
             quantity: poItem.quantity,
-            unitPrice: poItem.unitPrice,
-            total: poItem.quantity * poItem.unitPrice,
+            unitPrice: poItem.unitRate,
+            total: poItem.quantity * poItem.unitRate,
           })),
         },
       },

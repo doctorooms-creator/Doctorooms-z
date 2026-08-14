@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requireAuth } from '@/lib/api-auth'
+import { emitNotification, hospitalRoom, roleRoom } from '@/lib/emit-notification'
+import { validateBody, createLabReportSchema } from '@/lib/validations'
 
 // POST /api/lab-reports — Order lab test
 export async function POST(request: NextRequest) {
@@ -15,14 +17,10 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { testMasterId, admissionId, bookingId, patientId, patientName, patientAge, patientGender, doctorId, urgency } = body
-
-    if (!testMasterId) {
-      return NextResponse.json({ error: 'testMasterId is required' }, { status: 400 })
-    }
-    if (!patientName) {
-      return NextResponse.json({ error: 'patientName is required' }, { status: 400 })
-    }
+    const v = validateBody(createLabReportSchema, body)
+    if (!v.success) return v.error
+    const { testMasterId, admissionId, bookingId, patientName, patientAge, patientGender, urgency } = v.data
+    const { patientId, doctorId } = body
 
     // Resolve hospitalId
     let hospitalId: string | null = null
@@ -91,6 +89,15 @@ export async function POST(request: NextRequest) {
       })
     })
 
+    if (report) {
+      emitNotification('sample-ordered', [roleRoom('lab_technician'), hospitalRoom(hospitalId)], {
+        id: report.id,
+        title: 'Lab Test Ordered',
+        message: `Lab test ordered for ${report.patientName}`,
+        timestamp: new Date().toISOString(),
+      })
+    }
+
     return NextResponse.json({ labReport: report }, { status: 201 })
   } catch (error) {
     console.error('Lab reports POST error:', error)
@@ -112,6 +119,9 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status') || undefined
     const patientName = searchParams.get('patientName') || undefined
     const testName = searchParams.get('testName') || undefined
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const skip = (page - 1) * limit
 
     // Resolve hospitalId based on role
     let hospitalId: string | undefined
@@ -150,20 +160,30 @@ export async function GET(request: NextRequest) {
       if (testMasters.length > 0) {
         where.testMasterId = { in: testMasters.map((t) => t.id) }
       } else {
-        return NextResponse.json({ labReports: [] })
+        return NextResponse.json({ data: [], page, limit, total: 0, totalPages: 0 })
       }
     }
 
-    const labReports = await db.labReport.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      include: {
-        testMaster: { select: { name: true, shortCode: true } },
-      },
-      take: 100,
-    })
+    const [labReports, total] = await Promise.all([
+      db.labReport.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        include: {
+          testMaster: { select: { name: true, shortCode: true } },
+        },
+      }),
+      db.labReport.count({ where }),
+    ])
 
-    return NextResponse.json({ labReports })
+    return NextResponse.json({
+      data: labReports,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    })
   } catch (error) {
     console.error('Lab reports GET error:', error)
     return NextResponse.json({ error: 'Failed to load lab reports' }, { status: 500 })

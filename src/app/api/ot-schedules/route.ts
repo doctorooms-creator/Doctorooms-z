@@ -1,6 +1,8 @@
 import { requireRole } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { emitNotification, roleRoom } from '@/lib/emit-notification'
+import { validateBody, createOtScheduleSchema } from '@/lib/validations'
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,28 +18,21 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
+    const v = validateBody(createOtScheduleSchema, body)
+    if (!v.success) return v.error
     const {
       otId,
       admissionId,
       surgeryName,
-      surgeryCategory,
       surgeryType,
       scheduledDate,
       scheduledStartTime,
       estimatedDuration,
-      assistantSurgeons,
       anesthetistId,
-      nurseId,
-      otTechnician,
+      assistantIds,
       notes,
-    } = body
-
-    if (!otId || !admissionId || !surgeryName || !scheduledDate || !scheduledStartTime) {
-      return NextResponse.json(
-        { error: 'otId, admissionId, surgeryName, scheduledDate, scheduledStartTime are required' },
-        { status: 400 }
-      )
-    }
+    } = v.data
+    const { surgeryCategory, nurseId, otTechnician } = body
 
     // Get admission with patient info
     const admission = await db.ipdAdmission.findUnique({
@@ -84,16 +79,16 @@ export async function POST(req: NextRequest) {
         patientAge: admission.patientAge,
         patientGender: admission.patientGender,
         surgeonId,
-        assistantSurgeons: typeof assistantSurgeons === 'string' ? assistantSurgeons : JSON.stringify(assistantSurgeons || []),
+        assistantSurgeons: JSON.stringify(assistantIds || []),
         anesthetistId: anesthetistId || null,
         nurseId: nurseId || null,
         otTechnician: otTechnician || '',
         surgeryName,
         surgeryCategory: surgeryCategory || '',
-        surgeryType: surgeryType || 'Elective',
+        surgeryType,
         scheduledDate: new Date(scheduledDate),
         scheduledStartTime,
-        estimatedDuration: estimatedDuration || 60,
+        estimatedDuration,
         notes: notes || '',
         status: 'Scheduled',
       },
@@ -103,6 +98,13 @@ export async function POST(req: NextRequest) {
     await db.operationTheater.update({
       where: { id: otId },
       data: { status: 'Occupied' },
+    })
+
+    emitNotification('ot-scheduled', [roleRoom('nurse'), roleRoom('hospital')], {
+      id: schedule.id,
+      title: 'OT Scheduled',
+      message: `Surgery "${surgeryName}" scheduled for ${schedule.patientName}`,
+      timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({ schedule: { id: schedule.id, scheduleNo } }, { status: 201 })
@@ -130,6 +132,9 @@ export async function GET(req: NextRequest) {
     const date = searchParams.get('date')
     const status = searchParams.get('status')
     const surgeonId = searchParams.get('surgeonId')
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '20')
+    const skip = (page - 1) * limit
 
     const where: Record<string, unknown> = {}
     if (otId) where.otId = otId
@@ -143,19 +148,23 @@ export async function GET(req: NextRequest) {
       where.scheduledDate = { gte: start, lt: end }
     }
 
-    const schedules = await db.otSchedule.findMany({
-      where: Object.keys(where).length > 0 ? where : undefined,
-      orderBy: [{ scheduledDate: 'asc' }, { scheduledStartTime: 'asc' }],
-      include: {
-        ot: { select: { name: true, otType: true, floorNo: true } },
-        surgeon: { include: { user: { select: { name: true } } } },
-        admission: { select: { admissionNo: true, bedId: true, wardId: true } },
-      },
-      take: 100,
-    })
+    const [schedules, total] = await Promise.all([
+      db.otSchedule.findMany({
+        where: Object.keys(where).length > 0 ? where : undefined,
+        orderBy: [{ scheduledDate: 'asc' }, { scheduledStartTime: 'asc' }],
+        skip,
+        take: limit,
+        include: {
+          ot: { select: { name: true, otType: true, floorNo: true } },
+          surgeon: { include: { user: { select: { name: true } } } },
+          admission: { select: { admissionNo: true, bedId: true, wardId: true } },
+        },
+      }),
+      db.otSchedule.count({ where: Object.keys(where).length > 0 ? where : undefined }),
+    ])
 
     return NextResponse.json({
-      schedules: schedules.map((s) => ({
+      data: schedules.map((s) => ({
         id: s.id,
         scheduleNo: s.scheduleNo,
         otId: s.otId,
@@ -187,6 +196,10 @@ export async function GET(req: NextRequest) {
         cancellationReason: s.cancellationReason,
         createdAt: s.createdAt.toISOString(),
       })),
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
     })
   } catch (error) {
     console.error('OT schedules GET error:', error)

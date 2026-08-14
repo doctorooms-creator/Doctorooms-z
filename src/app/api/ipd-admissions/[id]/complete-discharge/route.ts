@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { emitNotification, roleRoom } from '@/lib/emit-notification'
+import { validateBody, completeDischargeSchema } from '@/lib/validations'
 
 // POST /api/ipd-admissions/[id]/complete-discharge — Complete discharge with final diagnosis
 export async function POST(
@@ -16,11 +18,9 @@ export async function POST(
     const { id } = await params
 
     const body = await req.json()
-    const { finalDiagnosis, dischargeSummary } = body
-
-    if (!finalDiagnosis) {
-      return NextResponse.json({ error: 'finalDiagnosis is required' }, { status: 400 })
-    }
+    const v = validateBody(completeDischargeSchema, body)
+    if (!v.success) return v.error
+    const { finalDiagnosis, dischargeSummary } = v.data
 
     // Fetch admission
     const admission = await db.ipdAdmission.findUnique({
@@ -39,9 +39,9 @@ export async function POST(
     }
 
     // If bill exists and netPayable <= 0, set paymentStatus to Paid
-    const updateData: { finalDiagnosis: string; dischargeSummary: string; paymentStatus?: string } = {
+    const updateData: { finalDiagnosis?: string; dischargeSummary?: string; paymentStatus?: string } = {
       finalDiagnosis,
-      dischargeSummary: dischargeSummary || '',
+      dischargeSummary,
     }
 
     if (admission.bill && admission.bill.netPayable <= 0) {
@@ -51,6 +51,13 @@ export async function POST(
     const updatedAdmission = await db.ipdAdmission.update({
       where: { id },
       data: updateData,
+    })
+
+    emitNotification('discharge-advised', [roleRoom('receptionist'), roleRoom('hospital')], {
+      id: updatedAdmission.id,
+      title: 'Discharge Completed',
+      message: `Discharge completed for ${updatedAdmission.patientName}`,
+      timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({ admission: updatedAdmission })

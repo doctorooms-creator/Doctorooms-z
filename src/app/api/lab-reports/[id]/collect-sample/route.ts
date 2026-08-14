@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole, requireAuth } from '@/lib/api-auth'
+import { emitNotification, roleRoom } from '@/lib/emit-notification'
+import { validateBody, collectSampleSchema } from '@/lib/validations'
 
 // PUT /api/lab-reports/[id]/collect-sample
 export async function PUT(
@@ -28,6 +30,11 @@ export async function PUT(
       return NextResponse.json({ error: 'Report is not in Ordered status' }, { status: 400 })
     }
 
+    const body = await request.json()
+    const v = validateBody(collectSampleSchema, body)
+    if (!v.success) return v.error
+    const { collectedBy, notes } = v.data
+
     const updated = await db.labReport.update({
       where: { id },
       data: {
@@ -35,6 +42,13 @@ export async function PUT(
         sampleCollectedAt: new Date(),
         sampleCollectedBy: user.id,
       },
+    })
+
+    emitNotification('sample-ordered', [roleRoom('lab_technician')], {
+      id: updated.id,
+      title: 'Sample Collected',
+      message: 'Sample collected for lab report',
+      timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({ labReport: updated })

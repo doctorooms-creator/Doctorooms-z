@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
 import { checkVitalAlerts } from '@/lib/ipd-utils'
+import { emitNotification, hospitalRoom, roleRoom } from '@/lib/emit-notification'
 
 export async function GET(
   req: NextRequest,
@@ -113,6 +114,18 @@ export async function POST(
         rbs: rbs ? parseFloat(rbs) : null,
       },
     })
+
+    // Notify doctors about new vitals
+    const vitalAdmission = await db.ipdAdmission.findUnique({ where: { id: admissionId }, select: { hospitalId: true } })
+    if (vitalAdmission) {
+      emitNotification('vital-recorded', [roleRoom('doctor'), hospitalRoom(vitalAdmission.hospitalId)], {
+        id: vital.id,
+        admissionId,
+        title: 'Vitals Recorded',
+        message: 'New vital signs recorded',
+        timestamp: new Date().toISOString(),
+      })
+    }
 
     // Check for critical alerts and notify attending doctor
     const alerts = checkVitalAlerts({

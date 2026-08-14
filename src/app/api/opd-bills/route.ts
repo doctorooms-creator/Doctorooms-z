@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { emitNotification, roleRoom } from '@/lib/emit-notification'
+import { validateBody, createOpdBillSchema } from '@/lib/validations'
 
 /** Resolve hospitalId from hospital/admin/receptionist role */
 async function resolveHospitalId(req: NextRequest): Promise<{ hospitalId: string; userId: string } | null> {
@@ -122,11 +124,9 @@ export async function POST(req: NextRequest) {
     const { hospitalId, userId } = auth
 
     const body = await req.json()
-    const { bookingId, consultationFee, labAmount, medicineAmount, otherAmount, paymentMethod, paymentRef } = body
-
-    if (!bookingId) {
-      return NextResponse.json({ error: 'bookingId is required' }, { status: 400 })
-    }
+    const v = validateBody(createOpdBillSchema, body)
+    if (!v.success) return v.error
+    const { bookingId, consultationFee, labCharges, medicineCharges, otherCharges, discount, tax, paymentMethod, paymentRef, notes } = v.data
 
     // Validate booking
     const booking = await db.booking.findUnique({
@@ -162,9 +162,9 @@ export async function POST(req: NextRequest) {
     const receiptNo = await generateReceiptNo(bookingHospitalId || hospitalId)
 
     // Calculate totals
-    const subtotal = (consultationFee || 0) + (labAmount || 0) + (medicineAmount || 0) + (otherAmount || 0)
-    const taxAmount = 0 // OPD bills are typically tax-inclusive
-    const totalAmount = subtotal + taxAmount
+    const subtotal = consultationFee + labCharges + medicineCharges + otherCharges
+    const taxAmount = tax
+    const totalAmount = subtotal + taxAmount - discount
 
     // Create OPD bill
     const opdBill = await db.opdBill.create({
@@ -173,13 +173,13 @@ export async function POST(req: NextRequest) {
         bookingId,
         hospitalId: bookingHospitalId || hospitalId,
         patientId: booking.userId,
-        consultationFee: consultationFee || 0,
-        labAmount: labAmount || 0,
-        medicineAmount: medicineAmount || 0,
-        otherAmount: otherAmount || 0,
+        consultationFee,
+        labAmount: labCharges,
+        medicineAmount: medicineCharges,
+        otherAmount: otherCharges,
+        discountAmount: discount,
         subtotal,
         taxAmount,
-        discountAmount: 0,
         totalAmount,
         paymentMethod: paymentMethod || 'Cash',
         paymentRef: paymentRef || '',
@@ -194,6 +194,13 @@ export async function POST(req: NextRequest) {
           },
         },
       },
+    })
+
+    emitNotification('bill-generated', [roleRoom('receptionist'), roleRoom('hospital')], {
+      id: opdBill.id,
+      title: 'OPD Bill Created',
+      message: `OPD bill for ${opdBill.booking.patientName}`,
+      timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({ bill: opdBill }, { status: 201 })

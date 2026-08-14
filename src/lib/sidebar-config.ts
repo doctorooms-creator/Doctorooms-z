@@ -168,7 +168,7 @@ export const sidebarConfig: RoleSidebarMap = {
         { label: 'OPD Bills', href: '/dashboard/receptionist/billing/opd', icon: Receipt },
         { label: 'Payments', href: '/dashboard/receptionist/billing/payments', icon: CreditCard },
         { label: 'Advance Deposits', href: '/dashboard/receptionist/billing/advances', icon: Wallet },
-        { label: 'Discharge', href: '/dashboard/hospital/billing/discharge', icon: LogOut },
+        { label: 'Discharge', href: '/dashboard/receptionist/billing/discharge', icon: LogOut },
       ],
     },
     { label: 'Bed Transfer', href: '/dashboard/receptionist/bed-transfer', icon: ArrowRightLeft },

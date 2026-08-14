@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { emitNotification, roleRoom } from '@/lib/emit-notification'
+import { validateBody, dischargeAdvisedSchema } from '@/lib/validations'
 
 /** Resolve hospitalId from hospital/admin/receptionist role */
 async function resolveHospitalId(req: NextRequest): Promise<{ hospitalId: string; userId: string } | null> {
@@ -34,11 +36,10 @@ export async function POST(
     const { id } = await params
 
     const body = await req.json()
-    const { dischargeType, dischargeTime } = body
-
-    if (!dischargeType || !['Normal', 'DAMA', 'LAMA'].includes(dischargeType)) {
-      return NextResponse.json({ error: 'Valid discharge type is required (Normal/DAMA/LAMA)' }, { status: 400 })
-    }
+    const v = validateBody(dischargeAdvisedSchema, body)
+    if (!v.success) return v.error
+    const { dischargeType, dischargeDate, notes } = v.data
+    const { dischargeTime } = body
 
     // Fetch admission
     const admission = await db.ipdAdmission.findUnique({
@@ -141,6 +142,8 @@ export async function POST(
       Normal: 'Discharged',
       DAMA: 'DAMA',
       LAMA: 'LAMA',
+      Referred: 'Discharged',
+      Expired: 'Expired',
     }
     const newStatus = statusMap[dischargeType] || 'Discharged'
 
@@ -181,6 +184,13 @@ export async function POST(
           unassignedAt: now,
         },
       })
+    })
+
+    emitNotification('discharge-advised', [roleRoom('receptionist'), roleRoom('nurse'), roleRoom('hospital')], {
+      id,
+      title: 'Patient Discharge Initiated',
+      message: `Discharge initiated for ${admission.patientName}`,
+      timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({

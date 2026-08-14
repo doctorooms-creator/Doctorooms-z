@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { emitNotification, hospitalRoom, roleRoom } from '@/lib/emit-notification'
+import { validateBody, enterResultSchema } from '@/lib/validations'
 
 // PUT /api/lab-reports/[id]/enter-result
 export async function PUT(
@@ -29,17 +31,15 @@ export async function PUT(
     }
 
     const body = await request.json()
-    const { values } = body
-
-    if (!Array.isArray(values)) {
-      return NextResponse.json({ error: 'values array is required' }, { status: 400 })
-    }
+    const v = validateBody(enterResultSchema, body)
+    if (!v.success) return v.error
+    const { parameters } = v.data
 
     // Process each value and auto-calculate isAbnormal
     const updates = await Promise.all(
-      values.map(async (v: { parameterId: string; value: string; remarks?: string }) => {
+      parameters.map(async (param) => {
         // Find the parameter value record
-        const pv = report.parameterValues.find((p) => p.id === v.parameterId)
+        const pv = report.parameterValues.find((p) => p.id === param.parameterId)
         if (!pv) return null
 
         // Get test parameter for normal ranges
@@ -48,9 +48,9 @@ export async function PUT(
         })
 
         // Determine if abnormal based on gender and value
-        let isAbnormal = false
-        const numValue = parseFloat(v.value)
-        if (!isNaN(numValue) && testParam) {
+        let isAbnormal = param.isAbnormal ?? false
+        const numValue = parseFloat(param.resultValue)
+        if (!isNaN(numValue) && testParam && !param.isAbnormal) {
           let min = 0
           let max = 0
           if (report.patientGender?.toLowerCase() === 'female') {
@@ -70,10 +70,10 @@ export async function PUT(
         }
 
         return db.labParameterValue.update({
-          where: { id: v.parameterId },
+          where: { id: param.parameterId },
           data: {
-            value: v.value,
-            remarks: v.remarks || '',
+            value: param.resultValue,
+            remarks: param.notes || '',
             isAbnormal,
           },
         })
@@ -88,6 +88,13 @@ export async function PUT(
         resultEnteredAt: new Date(),
         resultEnteredBy: user.id,
       },
+    })
+
+    emitNotification('lab-result-ready', [roleRoom('doctor'), hospitalRoom(report.hospitalId)], {
+      id,
+      title: 'Lab Result Ready',
+      message: `Lab results entered for ${report.patientName}`,
+      timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({ success: true, updatedCount: updates.filter(Boolean).length })

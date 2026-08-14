@@ -1,6 +1,8 @@
 import { requireRole, requireAuth } from '@/lib/api-auth'
 import { db } from '@/lib/db'
 import { NextRequest, NextResponse } from 'next/server'
+import { emitNotification, hospitalRoom, roleRoom } from '@/lib/emit-notification'
+import { validateBody, createBedTransferSchema } from '@/lib/validations'
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,11 +18,9 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { admissionId, toBedId, transferReason } = body
-
-    if (!admissionId || !toBedId) {
-      return NextResponse.json({ error: 'admissionId and toBedId are required' }, { status: 400 })
-    }
+    const v = validateBody(createBedTransferSchema, body)
+    if (!v.success) return v.error
+    const { admissionId, toBedId, transferReason } = v.data
 
     // Get admission with current bed
     const admission = await db.ipdAdmission.findUnique({
@@ -81,6 +81,13 @@ export async function POST(req: NextRequest) {
           transferredBy: effectiveUser.id,
         },
       })
+    })
+
+    emitNotification('new-admission', [roleRoom('nurse'), hospitalRoom(admission.hospitalId)], {
+      id: admissionId,
+      title: 'Patient Bed Transferred',
+      message: `Patient ${admission.patientName} transferred`,
+      timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({ success: true }, { status: 201 })

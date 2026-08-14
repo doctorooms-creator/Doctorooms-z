@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { emitNotification, roleRoom } from '@/lib/emit-notification'
 
 /** Resolve hospitalId from hospital/admin/receptionist role */
 async function resolveHospitalId(req: NextRequest): Promise<{ hospitalId: string; userId: string } | null> {
@@ -93,6 +94,13 @@ export async function POST(
         totalBillAmount: totalAmount,
         paymentStatus,
       },
+    })
+
+    emitNotification('bill-generated', [roleRoom('receptionist'), roleRoom('hospital')], {
+      id: finalizedBill.id,
+      title: 'IPD Bill Finalized',
+      message: `Bill finalized for ${finalizedBill.admission.patientName}`,
+      timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({ bill: finalizedBill })

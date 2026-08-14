@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { emitNotification, roleRoom } from '@/lib/emit-notification'
 
 /** Resolve hospitalId from hospital/admin/receptionist role */
 async function resolveHospitalId(req: NextRequest): Promise<{ hospitalId: string; userId: string } | null> {
@@ -117,6 +118,13 @@ export async function POST(req: NextRequest) {
     await db.ipdAdmission.update({
       where: { id: admissionId },
       data: { roomRentDays: daysAdmitted },
+    })
+
+    emitNotification('bill-generated', [roleRoom('receptionist'), roleRoom('hospital')], {
+      id: bill.id,
+      title: 'IPD Bill Generated',
+      message: `Draft IPD bill created`,
+      timestamp: new Date().toISOString(),
     })
 
     return NextResponse.json({ bill }, { status: 201 })

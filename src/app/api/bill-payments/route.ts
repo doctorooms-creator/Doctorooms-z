@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { emitNotification, roleRoom } from '@/lib/emit-notification'
+import { validateBody, createPaymentSchema } from '@/lib/validations'
 
 /** Resolve hospitalId from hospital/admin/receptionist role */
 async function resolveHospitalId(req: NextRequest): Promise<{ hospitalId: string; userId: string } | null> {
@@ -122,14 +124,9 @@ export async function POST(req: NextRequest) {
     const { hospitalId, userId } = auth
 
     const body = await req.json()
-    const { billId, amount, paymentMethod, paymentRef, notes } = body
-
-    if (!billId) {
-      return NextResponse.json({ error: 'billId is required' }, { status: 400 })
-    }
-    if (!amount || amount <= 0) {
-      return NextResponse.json({ error: 'Valid amount is required' }, { status: 400 })
-    }
+    const v = validateBody(createPaymentSchema, body)
+    if (!v.success) return v.error
+    const { billId, amount, paymentMethod, paymentRef, notes } = v.data
 
     // Fetch bill
     const bill = await db.ipdBill.findUnique({ where: { id: billId } })
@@ -182,6 +179,13 @@ export async function POST(req: NextRequest) {
         data: { paymentStatus: 'Paid' },
       })
     }
+
+    emitNotification('payment-received', [roleRoom('receptionist'), roleRoom('hospital')], {
+      id: payment.id,
+      title: 'Payment Received',
+      message: `Payment of ${amount} received`,
+      timestamp: new Date().toISOString(),
+    })
 
     return NextResponse.json({ payment }, { status: 201 })
   } catch (error) {

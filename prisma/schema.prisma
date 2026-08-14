@@ -207,8 +207,8 @@ model DoctorHospital {
 
 model Booking {
   id               String   @id @default(cuid())
-  appointmentNo    String   @unique @default("")
-  doctorId         String
+  appointmentNo    String   @unique @default(cuid())
+  doctorId         String?  // nullable — SetNull onDelete
   userId           String?  // patient, null for walk-ins
   state            String   @default("")
   city             String   @default("")
@@ -238,12 +238,16 @@ model Booking {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  doctor           Doctor   @relation(fields: [doctorId], references: [id])
-  user             User?    @relation(fields: [userId], references: [id])
+  doctor           Doctor?   @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   chatMessages     BookingChat[]
   prescriptions    Prescription[]
   ipdAdmission    IpdAdmission?  @relation("IpdFromOpd")
   opdBills        OpdBill[]
+
+  @@index([hospitalId, status])
+  @@index([doctorId, status])
+  @@index([userId, status])
 }
 
 // ============ BOOKING CHAT ============
@@ -431,6 +435,7 @@ model DoctorHoliday {
   date      DateTime
   remark    String   @default("")
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   doctor    Doctor   @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
@@ -535,6 +540,7 @@ model DoctorAssistant {
   description String   @default("")
   address     String   @default("")
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   user        User     @relation("AssistantUser", fields: [userId], references: [id], onDelete: Cascade)
   doctor      Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
@@ -616,6 +622,8 @@ model Notification {
   updatedAt DateTime @updatedAt
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
 }
 
 // ============ SLIDER ============
@@ -737,6 +745,7 @@ model DoctorGallery {
   doctorId  String
   image     String   @default("")
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   doctor    Doctor   @relation(fields: [doctorId], references: [id], onDelete: Cascade)
 }
@@ -863,7 +872,7 @@ model NursePatientAssignment {
 
   nurse         StaffNurse   @relation(fields: [nurseId], references: [id], onDelete: Cascade)
   admission     IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
-  bed           Bed          @relation(fields: [bedId], references: [id])
+  bed           Bed          @relation(fields: [bedId], references: [id], onDelete: Restrict)
 }
 
 // ============ IPD: ADMISSION (Core Record — all 6 forms) ============
@@ -956,17 +965,21 @@ model IpdAdmission {
   updatedAt           DateTime  @updatedAt
 
   // --- Relations ---
-  hospital            Hospital   @relation(fields: [hospitalId], references: [id])
-  ward                Ward       @relation(fields: [wardId], references: [id])
-  bed                 Bed        @relation(fields: [bedId], references: [id])
+  hospital            Hospital   @relation(fields: [hospitalId], references: [id], onDelete: Restrict)
+  ward                Ward       @relation(fields: [wardId], references: [id], onDelete: Restrict)
+  bed                 Bed        @relation(fields: [bedId], references: [id], onDelete: Restrict)
   @@unique([bedId])
-  department          Department @relation(fields: [departmentId], references: [id])
-  attendingDoctor     Doctor     @relation("AdmittingDoctor", fields: [attendingDoctorId], references: [id])
+  department          Department @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  attendingDoctor     Doctor     @relation("AdmittingDoctor", fields: [attendingDoctorId], references: [id], onDelete: Restrict)
   referringDoctor     Doctor?    @relation("ReferringDoctor", fields: [referringDoctorId], references: [id])
   patient             User?      @relation(fields: [userId], references: [id])
   opdBooking          Booking?   @relation("IpdFromOpd", fields: [opdBookingId], references: [id])
 
   @@unique([opdBookingId])
+  @@index([hospitalId, status])
+  @@index([wardId, status])
+  @@index([bedId])
+  @@index([attendingDoctorId])
 
   vitalRecords        VitalRecord[]
   doctorOrders        DoctorOrder[]
@@ -1220,7 +1233,7 @@ model ChargeItem {
 
 model IpdBill {
   id                String    @id @default(cuid())
-  billNo            String    @unique @default("")
+  billNo            String    @unique @default(cuid())
   admissionId       String    @unique
   hospitalId        String
 
@@ -1245,8 +1258,8 @@ model IpdBill {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  admission         IpdAdmission  @relation(fields: [admissionId], references: [id])
-  hospital          Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  admission         IpdAdmission  @relation(fields: [admissionId], references: [id], onDelete: Restrict)
+  hospital          Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Restrict)
   lineItems         BillLineItem[]
   payments          BillPayment[]
   advances          PatientAdvance[]
@@ -1279,7 +1292,7 @@ model BillLineItem {
 
 model BillPayment {
   id              String    @id @default(cuid())
-  receiptNo       String    @default("")
+  receiptNo       String    @default(cuid())
   billId          String
   admissionId     String
   hospitalId      String
@@ -1294,14 +1307,14 @@ model BillPayment {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  bill            IpdBill    @relation(fields: [billId], references: [id], onDelete: Cascade)
+  bill            IpdBill    @relation(fields: [billId], references: [id], onDelete: Restrict)
 }
 
 // ============ BILLING: PATIENT ADVANCE ============
 
 model PatientAdvance {
   id              String    @id @default(cuid())
-  receiptNo       String    @default("")
+  receiptNo       String    @default(cuid())
   admissionId     String
   hospitalId      String
   patientId       String?
@@ -1317,15 +1330,15 @@ model PatientAdvance {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  bill            IpdBill?  @relation(fields: [billId], references: [id])
-  admission       IpdAdmission? @relation(fields: [admissionId], references: [id])
+  bill            IpdBill?  @relation(fields: [billId], references: [id], onDelete: SetNull)
+  admission       IpdAdmission? @relation(fields: [admissionId], references: [id], onDelete: Restrict)
 }
 
 // ============ BILLING: OPD BILL ============
 
 model OpdBill {
   id              String    @id @default(cuid())
-  receiptNo       String    @default("")
+  receiptNo       String    @default(cuid())
   bookingId       String    @unique
   hospitalId      String
   patientId       String?
@@ -1348,8 +1361,8 @@ model OpdBill {
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
-  booking         Booking  @relation(fields: [bookingId], references: [id])
-  hospital        Hospital  @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+  booking         Booking  @relation(fields: [bookingId], references: [id], onDelete: Restrict)
+  hospital        Hospital  @relation(fields: [hospitalId], references: [id], onDelete: Restrict)
   patient         User?    @relation(fields: [patientId], references: [id])
 }
 
@@ -1444,10 +1457,13 @@ model LabReport {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  hospital          Hospital       @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
-  testMaster        LabTestMaster @relation(fields: [testMasterId], references: [id])
+  hospital          Hospital       @relation(fields: [hospitalId], references: [id], onDelete: Restrict)
+  testMaster        LabTestMaster @relation(fields: [testMasterId], references: [id], onDelete: Restrict)
   parameterValues   LabParameterValue[]
   verifiedBy        LabTechnician? @relation("VerifiedByTech", fields: [verifiedById], references: [id])
+
+  @@index([hospitalId, status])
+  @@index([orderedById])
 }
 
 // ============ LAB: LAB PARAMETER VALUE ============
@@ -1508,9 +1524,12 @@ model StockMovement {
   notes           String   @default("")
   movedBy         String
   createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   hospital        Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
-  item            InventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  item            InventoryItem @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  @@index([itemId])
 }
 
 // ============ INVENTORY: PURCHASE ORDER ============
@@ -1576,7 +1595,7 @@ model OtSchedule {
   patientName       String    @default("")
   patientAge        Int       @default(0)
   patientGender     String    @default("")
-  surgeonId         String
+  surgeonId         String?  // nullable — SetNull onDelete
   assistantSurgeons String    @default("[]")
   anesthetistId     String?
   nurseId           String?
@@ -1599,10 +1618,13 @@ model OtSchedule {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  ot                OperationTheater @relation(fields: [otId], references: [id], onDelete: Cascade)
+  ot                OperationTheater @relation(fields: [otId], references: [id], onDelete: Restrict)
   hospital          Hospital        @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
-  admission         IpdAdmission    @relation(fields: [admissionId], references: [id])
-  surgeon           Doctor          @relation(fields: [surgeonId], references: [id])
+  admission         IpdAdmission    @relation(fields: [admissionId], references: [id], onDelete: Restrict)
+  surgeon           Doctor?          @relation(fields: [surgeonId], references: [id], onDelete: SetNull)
+
+  @@index([hospitalId, scheduledDate])
+  @@index([surgeonId])
 }
 
 // ============ IPD: BED TRANSFER ============
@@ -1618,6 +1640,7 @@ model BedTransfer {
   transferReason  String   @default("")
   transferredBy   String
   createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   admission       IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
   fromBed         Bed          @relation("BedTransfersFrom", fields: [fromBedId], references: [id])
@@ -1665,8 +1688,10 @@ model FamilyAccess {
   createdAt       DateTime @default(now())
   updatedAt       DateTime  @updatedAt
 
-  admission       IpdAdmission @relation(fields: [admissionId], references: [id])
+  admission       IpdAdmission @relation(fields: [admissionId], references: [id], onDelete: Cascade)
   hospital        Hospital      @relation(fields: [hospitalId], references: [id], onDelete: Cascade)
+
+  @@index([hospitalId])
 }
 
 // ============ SYSTEM SETTINGS ============

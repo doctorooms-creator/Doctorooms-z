@@ -47,26 +47,28 @@ export async function getAuthUser(req: NextRequest): Promise<AuthUser | null> {
 
   // DEV MODE FALLBACK: Find a real DB user matching the role cookie.
   // This handles stale sessions (e.g. after database re-seed).
-  if (roleCookie) {
-    try {
-      const realUser = await db.user.findFirst({
-        where: { role: roleCookie, status: 'Active' },
-      })
-      if (realUser) {
-        return {
-          id: realUser.id,
-          name: realUser.name,
-          email: realUser.email,
-          role: realUser.role,
-          gender: realUser.gender,
-          profileImg: realUser.profileImg,
-          mobileNo: realUser.mobileNo,
+  if (process.env.NODE_ENV !== 'production') {
+    if (roleCookie) {
+      try {
+        const realUser = await db.user.findFirst({
+          where: { role: roleCookie, status: 'Active' },
+        })
+        if (realUser) {
+          return {
+            id: realUser.id,
+            name: realUser.name,
+            email: realUser.email,
+            role: realUser.role,
+            gender: realUser.gender,
+            profileImg: realUser.profileImg,
+            mobileNo: realUser.mobileNo,
+          }
         }
+      } catch {
+        // DB fallback also failed, use hardcoded dev user
       }
-    } catch {
-      // DB fallback also failed, use hardcoded dev user
+      return getDevUser(roleCookie)
     }
-    return getDevUser(roleCookie)
   }
 
   return null
@@ -79,9 +81,6 @@ export async function requireRole(req: NextRequest, role: string): Promise<AuthU
 
   // In dev mode, accept any role match (case-insensitive)
   if (user.role.toLowerCase() === role.toLowerCase()) return user
-
-  // Also allow admin to access any role's routes in dev mode
-  if (user.role === 'admin') return user
 
   return null
 }
@@ -96,7 +95,7 @@ export const RECEPTION_ROLES = ['receptionist', 'hospital', 'admin']
 
 // ─── Dev Mode Helpers ──────────────────────────────────────────────
 
-const DEV_USERS: Record<string, AuthUser> = {
+export const DEV_USERS: Record<string, AuthUser> = {
   patient: {
     id: 'dev-patient',
     name: 'Rahul Verma',
@@ -180,6 +179,6 @@ const DEV_USERS: Record<string, AuthUser> = {
   },
 }
 
-function getDevUser(role: string): AuthUser {
+export function getDevUser(role: string): AuthUser {
   return DEV_USERS[role] || DEV_USERS['patient']!
 }

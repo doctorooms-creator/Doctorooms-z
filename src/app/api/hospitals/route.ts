@@ -7,6 +7,9 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search') || ''
   const city = searchParams.get('city') || ''
   const sort = searchParams.get('sort') || ''
+  const page = parseInt(searchParams.get('page') || '1')
+  const limit = parseInt(searchParams.get('limit') || '20')
+  const skip = (page - 1) * limit
 
   try {
     const where: Prisma.UserWhereInput = {
@@ -33,7 +36,7 @@ export async function GET(request: NextRequest) {
           ? { hospital: { hospitalName: 'desc' } }
           : { createdAt: 'desc' }
 
-    const [hospitals, citiesResult] = await Promise.all([
+    const [hospitals, total, citiesResult] = await Promise.all([
       db.user.findMany({
         where,
         orderBy,
@@ -63,7 +66,10 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+        skip,
+        take: limit,
       }),
+      db.user.count({ where }),
       db.user.findMany({
         where: { role: 'hospital', status: 'Active', hospital: { city: { not: '' } } },
         select: { hospital: { select: { city: true } } },
@@ -79,9 +85,15 @@ export async function GET(request: NextRequest) {
       ),
     ].sort() as string[]
 
-    return NextResponse.json({ hospitals, cities: uniqueCities })
+    return NextResponse.json({
+      data: hospitals,
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit),
+    })
   } catch (error) {
     console.error('Hospitals API error:', error)
-    return NextResponse.json({ hospitals: [], cities: [] })
+    return NextResponse.json({ data: [], page, limit, total: 0, totalPages: 0 })
   }
 }

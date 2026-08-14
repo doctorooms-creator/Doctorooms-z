@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireRole } from '@/lib/api-auth'
+import { emitNotification, roleRoom } from '@/lib/emit-notification'
 
 /** Check if user has hospital/admin role (for write operations) */
 async function getWriteAuth(request: NextRequest) {
@@ -125,6 +126,16 @@ export async function PUT(
         ...(status !== undefined && { status }),
       },
     })
+
+    // Check for low stock alert
+    if (item.currentStock < item.minStockLevel) {
+      emitNotification('low-stock-alert', [roleRoom('hospital'), roleRoom('pharmacist')], {
+        id: item.id,
+        title: 'Low Stock Alert',
+        message: `${item.name} stock is ${item.currentStock} (min: ${item.minStockLevel})`,
+        timestamp: new Date().toISOString(),
+      })
+    }
 
     return NextResponse.json({ item })
   } catch (error) {
